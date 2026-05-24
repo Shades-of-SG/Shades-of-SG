@@ -1,7 +1,9 @@
 # Shades-of-SG
 We are building a web application for the SCCCI AI Challenge to help a local archivist, Violet, engage the elderly and students with Singaporean music and stories. It features a secure, internal AI Studio where Violet can upload her music and lyrics to automatically generate cinematic, frame-by-frame music videos for her YouTube channel.
 
-# File structure
+# File Tree
+
+```text
 Shades-of-SG/
 ├── backend/
 │   ├── package.json
@@ -16,8 +18,8 @@ Shades-of-SG/
         ├── App.jsx
         ├── main.jsx
         └── pages/
-            ├── Dashboard.jsx   # /dashboard (Campaign Manager)
-            ├── Studio.jsx      # /studio (AI Video Studio)
-            ├── Editor.jsx      # /editor (Mini-Editor for timestamps)
-            ├── Crm.jsx         # /crm (Story Tracker)
-            └── MemoryWall.jsx  # /memory-wall (Public view)
+            ├── Dashboard.jsx   # /dashboard
+            ├── Studio.jsx      # /studio
+            ├── Editor.jsx      # /editor
+            └── MemoryWall.jsx  # /memory-wall
+```
