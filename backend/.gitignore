@@ -1,13 +1,4 @@
-# Dependencies
-node_modules/
-
-# Environment variables (CRITICAL)
-.env
-
-# SQLite Database (Prevents merge conflicts on data)
+# SQLite Local Database Files
 database.sqlite
 database.sqlite-journal
 *.db
-
-# Logs
-npm-debug.log*

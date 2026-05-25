@@ -1,11 +1,11 @@
 # Shades-of-SG
 We are building a web application for the SCCCI AI Challenge to help a local archivist, Violet, engage the elderly and students with Singaporean music and stories. It features a secure, internal AI Studio where Violet can upload her music and lyrics to automatically generate cinematic, frame-by-frame music videos for her YouTube channel.
 
-**Public URL (Production):** `[INSERT CLOUD URL HERE WHEN DEPLOYED]`
+**Public URL:** `[INSERT CLOUD URL HERE WHEN DEPLOYED]`
 
 ---
 
-## 🚀 Getting Started (To-Do for the Team)
+## 🚀 Getting Started
 
 Follow these exact steps to get the Monorepo running locally on your machine.
 
@@ -21,12 +21,11 @@ The backend runs on Node.js and Express.js, utilizing SQLite and Sequelize for t
 cd backend
 npm install
 ```
-**CRITICAL:** You must create your own local environment variables. Create a `.env` file inside the `backend/` folder and paste this exact configuration:
-```env
-PORT=5000
-NODE_ENV=development
-DB_STORAGE=./database.sqlite
-```
+**CRITICAL Environment Variables:** You must create your own local environment configuration.
+1. Duplicate the `.env.example` file into the `backend/` folder.
+2. Rename the duplicated file to `.env`.
+3. Paste in your actual API keys (if applicable) provided by the team lead.
+
 *Start the backend server:*
 ```bash
 node server.js
@@ -72,30 +71,5 @@ Shades-of-SG/
 
 ---
 
-## 👥 Team Modules & Workload Isolation
-Every team member is assigned a specific module to guarantee the CRUD mandate is met. **Only modify the designated controller, route, and frontend page for your specific feature**.
-
-* **Module A: Media & Campaign Manager** (CRUD for campaigns and media assets).
-* **Module B: The AI "KTV" Video Studio** (React video player and AI image integration).
-* **Module C: The "Life Story" Memory Wall & CRM** (Padlet-style reflections and moderation).
-* **Module D: AI Education & Gamification Hub** (Dynamic trivia and short articles).
-* **Module E: Security & System Architecture** (User Auth, DB Schema, Cloud Deployment).
-
----
-
-## ☁️ How to Deploy 
-*(Note for the team: We will update this section with specific commands once we finalize our cloud providers. Below is the standard protocol for our stack.)*
-
-**Backend Deployment (e.g., Render, Railway, Fly.io)**
-1. Connect the GitHub repository to the hosting provider.
-2. Set the Root Directory to `backend/`.
-3. Set the Build Command to `npm install`.
-4. Set the Start Command to `node server.js`.
-5. Add the necessary Environment Variables (matching our `.env` file, but assigning a production URL).
-
-**Frontend Deployment (e.g., Vercel, Netlify)**
-1. Connect the GitHub repository to the hosting provider.
-2. Set the Root Directory to `frontend/`.
-3. Set the Build Command to `npm run build`.
-4. Set the Publish directory to `dist/`.
-5. Update the backend proxy URL in production to point to the live backend URL instead of `localhost:5000`.
+## ☁️ How to Deploy
+*(We will update this section with specific commands once we finalize our cloud providers.)*
