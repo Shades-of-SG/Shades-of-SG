@@ -11,7 +11,7 @@ Follow these exact steps to get the Monorepo running locally on your machine.
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/Htet-Aung/Shades-of-SG
+git clone https://github.com/FSAD-Unpaid-Interns/Shades-of-SG
 cd Shades-of-SG
 ```
 
