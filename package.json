@@ -1,6 +1,10 @@
 {
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.3.0",
+    "globals": "^17.6.0",
+    "prettier": "^3.6.2"
   },
   "name": "shades-of-sg",
   "version": "1.0.0",
@@ -32,9 +36,12 @@
     "yargs-parser": "^21.1.1"
   },
   "scripts": {
-    "server": "cd backend && npx nodemon server.js",
+    "server": "cd backend && npm run dev",
     "client": "cd frontend && npm run dev",
-    "dev": "concurrently \"npm run server\" \"npm run client\""
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "lint": "eslint backend && npm run lint --prefix frontend",
+    "test": "npm run test --prefix backend && npm run test --prefix frontend",
+    "format": "prettier --write \"**/*.{js,jsx,json,md,css}\""
   },
   "repository": {
     "type": "git",

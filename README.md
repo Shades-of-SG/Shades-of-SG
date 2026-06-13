@@ -16,19 +16,19 @@ cd Shades-of-SG
 ```
 
 ### Step 2: Backend Setup
-The backend runs on Node.js and Express.js, utilizing SQLite and Sequelize for the database layer.
+The backend runs on Node.js, Express.js, and Sequelize. It connects to Supabase PostgreSQL when `DATABASE_URL` is provided, and falls back to local SQLite for quick development.
 ```bash
 cd backend
 npm install
 ```
 **CRITICAL Environment Variables:** You must create your own local environment configuration.
-1. Duplicate the `.env.example` file into the `backend/` folder.
-2. Rename the duplicated file to `.env`.
-3. Paste in your actual API keys (if applicable) provided by the team lead.
+1. Duplicate `backend/.env.example`.
+2. Rename the duplicated file to `backend/.env`.
+3. Paste in your Supabase, Cloudinary, and auth secrets provided by the team lead.
 
 *Start the backend server:*
 ```bash
-node server.js
+npm run dev
 ```
 
 ### Step 3: Frontend Setup
@@ -38,11 +38,20 @@ Open a **new terminal tab** (keep the backend running in the first one):
 cd frontend
 npm install
 ```
+Duplicate `frontend/.env.example` to `frontend/.env` if you need to override the default API path.
+
 *Start the frontend development server:*
 ```bash
 npm run dev
 ```
 *(Note: The frontend is configured to automatically proxy API requests to our backend on port 5000.)*
+
+### Step 4: Verify Tooling
+From the repository root:
+```bash
+npm run lint
+npm test
+```
 
 ---
 
