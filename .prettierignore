@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+backend/package-lock.json
+frontend/package-lock.json
+backend/database.sqlite
