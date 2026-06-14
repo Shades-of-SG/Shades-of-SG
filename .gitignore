@@ -1,6 +1,7 @@
 # OS & IDEs
 .idea/
 .vscode/
+.junie/
 .DS_Store
 *.swp
 *.swo
