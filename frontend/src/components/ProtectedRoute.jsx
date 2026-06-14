@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 export default function ProtectedRoute({ children, isAllowed = true, redirectTo = '/login' }) {
   const location = useLocation()
@@ -7,5 +7,5 @@ export default function ProtectedRoute({ children, isAllowed = true, redirectTo 
     return <Navigate replace state={{ from: location }} to={redirectTo} />
   }
 
-  return children
+  return children || <Outlet />
 }

@@ -1,15 +1,19 @@
 :root {
-  --bg: #07111f;
-  --panel: #111827;
-  --panel-soft: #172033;
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --panel-soft: #263449;
   --text: #f8fafc;
-  --muted: #a9b4c6;
+  --muted: #94a3b8;
   --line: rgba(255, 255, 255, 0.14);
+  --primary: #5b4b8a;
+  --secondary: #7a6ea8;
+  --accent: #d8b4fe;
   --pink: #ff4d6d;
   --gold: #f59e0b;
   --green: #22c55e;
   --cyan: #38bdf8;
   --violet: #8b5cf6;
+  --error: #ef4444;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   color: var(--text);
   background: var(--bg);

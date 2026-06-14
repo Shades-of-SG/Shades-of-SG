@@ -1,14 +1,15 @@
-import { NavLink, Link } from 'react-router-dom'
 import { useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 const navigationByRole = {
   creator: [
     { label: 'Dashboard', to: '/creator/dashboard' },
     { label: 'Studio', to: '/creator/studio' },
-    { label: 'Songs', to: '/songs' },
+    { label: 'Songs', to: '/creator/songs' },
     { label: 'Reflection Moderation', to: '/creator/reflections' },
-    { label: 'Profile', to: '/profile' },
-    { label: 'Settings', to: '/settings' },
+    { label: 'Profile', to: '/creator/profile' },
+    { label: 'Settings', to: '/creator/settings' },
   ],
   guest: [
     { label: 'Home', to: '/' },
@@ -32,7 +33,15 @@ const navigationByRole = {
 
 export default function Navbar({ role = 'guest', variant = 'public' }) {
   const [isOpen, setIsOpen] = useState(false)
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
   const links = navigationByRole[role] || navigationByRole.guest
+
+  function handleLogout() {
+    signOut()
+    setIsOpen(false)
+    navigate('/login', { replace: true })
+  }
 
   return (
     <header className={`site-header site-header-${variant}`}>
@@ -67,7 +76,7 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
             </NavLink>
           ))}
           {role !== 'guest' && (
-            <button className="nav-action" type="button">
+            <button className="nav-action" onClick={handleLogout} type="button">
               Logout
             </button>
           )}

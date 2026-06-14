@@ -381,6 +381,407 @@ The feature is suitable for an MVP demo, but several items should be improved la
 
 ---
 
+## 2026-06-14
+
+### Feature
+
+Frontend Shell, Routing Scaffold, and Responsive Base Layout
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Create the complete base frontend layout for Shades of SG so the project has a navigable structure for the public experience, creator portal, and authentication flow.
+
+The goal was to scaffold the webapp foundation only, not implement feature logic.
+
+### Prompt Summary
+
+Ferlyn provided the `Base.md` specification and requested the whole responsive webapp base layout for:
+
+* `MainLayout`
+  * Landing
+  * Songs Library
+  * Song Experience
+  * Learning Hub
+  * Instrument Playground
+  * Trivia
+  * Rhythm Game
+  * Reflection Wall
+* `CreatorLayout`
+  * Dashboard
+  * Studio
+  * Generation Progress
+  * Reflection Moderation
+* `AuthLayout`
+  * Login
+  * Register
+  * Forgot Password
+  * Reset Password
+
+The requested layout needed to work across desktop, tablet, and mobile sizes while preserving the existing rhythm game implementation.
+
+### AI Output Summary
+
+Codex added the page-level scaffold and responsive styling for the requested frontend base.
+
+Page scaffold work:
+
+* Created placeholder pages for:
+  * `Landing.jsx`
+  * `SongsLibrary.jsx`
+  * `SongExperience.jsx`
+  * `LearningHub.jsx`
+  * `InstrumentPlayground.jsx`
+  * `TriviaHub.jsx`
+  * `RhythmHub.jsx`
+  * `ReflectionWall.jsx`
+  * `Dashboard.jsx`
+  * `Studio.jsx`
+  * `GenerationProgress.jsx`
+  * `ReflectionModeration.jsx`
+  * `Login.jsx`
+  * `Register.jsx`
+  * `ForgotPassword.jsx`
+  * `ResetPassword.jsx`
+  * `Profile.jsx`
+  * `Settings.jsx`
+  * `NotFound.jsx`
+* Added `pageData.js` for temporary placeholder song and card data.
+* Added TODO ownership comments to page files so teammates know which feature areas to continue.
+
+Routing and layout work:
+
+* Wired the app routes through the existing React Router setup.
+* Added public shell pages under the main experience.
+* Added creator portal pages under `/creator/...`.
+* Added authentication pages under their own auth layout.
+* Preserved the existing rhythm game route at `/game/:songId`.
+* Added `/rhythm-game` as a public rhythm entry page that links into the existing gameplay route.
+
+Responsive UI work:
+
+* Updated `frontend/src/App.css` with the responsive design system for the new shell.
+* Updated `frontend/src/index.css` color tokens to match the Twilight Singapore palette.
+* Added desktop, tablet, and mobile layout handling for:
+  * Sticky navigation.
+  * Mobile hamburger menu.
+  * Responsive grids.
+  * Creator sidebar behavior.
+  * Auth card layout.
+  * Song cards.
+  * Filter bars.
+  * Placeholder content sections.
+* Updated `frontend/src/App.test.jsx` so the smoke test matches the new landing page shell.
+
+### Human Review
+
+Accepted for scaffold implementation.
+
+Ferlyn corrected the workflow by reminding Codex that the edits also needed to be recorded in the AI development journal.
+
+### Human Modifications
+
+No direct code modifications were made by the user after generation in this step.
+
+Human guidance clarified that the work must be traceable in `AI_DEVELOPMENT_JOURNAL.md`.
+
+### Final Outcome
+
+The frontend now has a complete responsive base shell ready for feature implementation.
+
+The current scaffold supports:
+
+* Public navigation and placeholder pages.
+* Creator portal navigation and placeholder pages.
+* Auth page shell and forms.
+* Responsive desktop, tablet, and mobile layouts.
+* Reusable page sections and placeholder content.
+* Preserved rhythm game gameplay route and results route.
+
+### Verification
+
+The implementation was checked with frontend commands:
+
+* `npm.cmd run build`
+* `npm.cmd test`
+* `npm.cmd run lint`
+
+The Vite development server was also started and checked successfully at:
+
+* `http://127.0.0.1:5173`
+
+### Known Limitations and Future Work
+
+This is intentionally a frontend scaffold. Future feature work should replace placeholders with real functionality:
+
+* Connect song library and filters to backend data.
+* Implement authentication flows.
+* Implement creator studio forms and generation progress logic.
+* Implement reflection submission and moderation.
+* Connect profile, settings, achievements, and game scores to real user data.
+
+---
+
+## 2026-06-14
+
+### Feature
+
+Padlet-Style Reflection Wall UI
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Replace the basic Reflection Wall placeholder with an actual Padlet-like community reflection board.
+
+The goal was to make the page feel closer to the intended product experience while keeping it frontend-only and avoiding backend implementation.
+
+### Prompt Summary
+
+Ferlyn requested a Padlet-like Reflection Wall based on a visual reference and hand-drawn layout sketch.
+
+The key requirement was that the add-post UI should not always be visible. Instead, users should click a circular plus button with a `+` sign, and only then should the add post component appear as a card.
+
+### AI Output Summary
+
+Codex updated the Reflection Wall page and styles.
+
+Frontend page work:
+
+* Replaced the placeholder two-column Reflection Wall with a Padlet-style board.
+* Added a visual hero section for the Reflection Wall.
+* Added song filter chips for sample song categories.
+* Added sample reflection cards with author, song, location, title, and story content.
+* Added a masonry-style board layout using responsive CSS columns.
+* Added a circular plus button for opening and closing the add-post card.
+* Added an add-post composer card that only appears when the plus button is clicked.
+* Kept the form as frontend-only placeholder UI with title, song selection, reflection textarea, save draft, and submit-for-review controls.
+
+Styling work:
+
+* Added Reflection Wall-specific CSS in `frontend/src/App.css`.
+* Added responsive behavior for desktop, tablet, and mobile sizes.
+* Added card color variants and pin-dot styling to make posts feel more like a shared board.
+* Made the board collapse from three columns to two columns to one column across smaller screens.
+
+### Human Review
+
+Accepted for implementation direction.
+
+Ferlyn provided the visual reference and clarified the interaction requirement for the add-post component.
+
+### Human Modifications
+
+No direct user code modifications were made in this step.
+
+### Final Outcome
+
+The Reflection Wall now behaves like a real frontend board rather than a placeholder page.
+
+Users can:
+
+* View reflection cards in a Padlet-like layout.
+* Filter sample posts by song.
+* Click a circular `+` button to reveal the add-post card.
+* Hide the add-post card by clicking the same button again.
+
+### Verification
+
+The implementation was checked with frontend commands:
+
+* `npm.cmd run build`
+* `npm.cmd run lint`
+* `npm.cmd test`
+
+### Known Limitations and Future Work
+
+This is still frontend-only.
+
+Future work should:
+
+* Load approved reflections from the backend.
+* Persist submitted reflections through an API.
+* Add moderation status handling.
+* Connect song filters to real song data.
+* Add image, video, or audio attachments if required.
+
+---
+
+## 2026-06-14
+
+### Feature
+
+Creator Seed Login and Creator Route Protection
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Connect the local seeded creator credential flow to the creator-side pages without exposing Violet's password in frontend code or tracked documentation.
+
+### Prompt Summary
+
+Ferlyn added `SEED_CREATOR_EMAIL` and `SEED_CREATOR_PASSWORD` to `backend/.env` and asked how to route that account into the creator side pages.
+
+### AI Output Summary
+
+Codex added a minimal backend and frontend auth path.
+
+Backend work:
+
+* Added `backend/services/authService.js`.
+* Added password hashing and verification using Node's built-in `crypto.pbkdf2Sync`.
+* Added seeded creator account creation from:
+  * `SEED_CREATOR_EMAIL`
+  * `SEED_CREATOR_PASSWORD`
+  * `SEED_CREATOR_NAME`
+* Added signed local auth token creation.
+* Added `backend/routes/auth.js`.
+* Added `POST /api/auth/login`.
+* Mounted the auth router in `backend/server.js`.
+* Added `sequelize.sync()` and seed creation during backend startup.
+* Updated env examples with non-secret placeholder keys only.
+
+Frontend work:
+
+* Added `frontend/src/services/authApi.js`.
+* Updated `AuthContext` to persist both token and user role.
+* Updated `Login.jsx` to submit email and password to the backend.
+* Redirected creator users to `/creator/dashboard` after login.
+* Updated `ProtectedRoute.jsx` to support nested routes.
+* Protected creator pages so only users with role `CREATOR` can access them.
+* Updated the app smoke test to wrap `App` in `AuthProvider`.
+
+### Human Review
+
+Accepted for local development routing.
+
+Ferlyn provided the seed environment variables and requested the connection to the creator side.
+
+### Human Modifications
+
+No direct user code modifications were made in this step.
+
+### Final Outcome
+
+Violet can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
+
+After successful login:
+
+* If the user role is `CREATOR`, the frontend redirects to `/creator/dashboard`.
+* Creator routes are protected from non-creator users.
+* The seed password remains backend-only and is not placed in frontend code.
+
+### Verification
+
+The implementation was checked with:
+
+* `npm.cmd run build` in `frontend`
+* `npm.cmd run lint` in `frontend`
+* `npm.cmd test` in `frontend`
+* `npm.cmd run lint` in `backend`
+* `npm.cmd test` in `backend`
+
+### Known Limitations and Future Work
+
+This is a local development auth path, not a production-grade authentication system.
+
+Future work should:
+
+* Replace local signed tokens with the final session/JWT strategy.
+* Add `GET /api/auth/me` for token rehydration.
+* Add logout handling against real sessions if server-side sessions are used.
+* Add role checks to backend creator APIs when those APIs are implemented.
+* Add password reset or admin invitation flow for real creator accounts.
+
+---
+
+## 2026-06-14
+
+### Feature
+
+Role-Separated Creator and User Navigation
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Prevent creator users from being sent into public pages when using creator navigation.
+
+The goal was to keep each account type in a clear experience:
+
+* Creator users stay inside `/creator/*`.
+* Registered users use the user-facing public shell.
+* Guests use the guest public shell.
+
+### Prompt Summary
+
+Ferlyn noticed that clicking `Songs` from the creator account redirected to the public `/songs` page and requested that the creator view should stay fully creator-only instead of jumping between public and creator layouts.
+
+### AI Output Summary
+
+Codex updated frontend role routing and navigation.
+
+Routing and navigation work:
+
+* Changed creator `Songs` navigation from `/songs` to `/creator/songs`.
+* Added a creator-only `CreatorSongs.jsx` page.
+* Added `/creator/songs` under `CreatorLayout`.
+* Changed creator `Profile` and `Settings` links to `/creator/profile` and `/creator/settings`.
+* Added creator profile and settings routes inside the creator layout.
+* Updated the creator sidebar to include Songs.
+* Added role-aware route handling:
+  * Creator users are redirected away from public MainLayout routes into `/creator/dashboard`.
+  * Logged-in non-creator users see the registered-user navbar.
+  * Guests see the guest navbar.
+  * Logged-in users are redirected away from auth pages.
+* Wired navbar logout to clear auth state and return to `/login`.
+
+Styling work:
+
+* Added creator song action styles for the creator song management page.
+
+### Human Review
+
+Accepted for behavior correction.
+
+Ferlyn identified the issue by testing the creator account flow in the browser.
+
+### Human Modifications
+
+No direct user code modifications were made in this step.
+
+### Final Outcome
+
+The creator experience no longer jumps into the public song library when clicking Songs.
+
+Creator users now stay inside creator routes and see creator-specific pages.
+
+### Verification
+
+The implementation was checked with frontend commands:
+
+* `npm.cmd run build`
+* `npm.cmd run lint`
+* `npm.cmd test`
+
+### Known Limitations and Future Work
+
+The creator song management page is still placeholder UI.
+
+Future work should connect `/creator/songs` to real creator-owned song data and editing actions.
+
+---
+
 # AI Usage Summary
 
 ## Architecture
