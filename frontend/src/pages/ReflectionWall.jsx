@@ -101,6 +101,8 @@ const stats = [
   { label: 'Songs Inspiring Us', value: '23', icon: 'sparkle' },
 ]
 
+const suggestedTags = ['Family', 'Home', 'Nostalgia', 'Pride', 'Unity', 'Hope']
+
 function Icon({ name }) {
   const paths = {
     home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3V10.5Z',
@@ -110,6 +112,7 @@ function Icon({ name }) {
     play: 'M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z M10 9v6l5-3-5-3Z',
     heart: 'M20.8 5.6a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.4a5.2 5.2 0 0 0-7.4 7.4L12 21.8 20.8 13a5.2 5.2 0 0 0 0-7.4Z',
     sun: 'M12 4V2m0 20v-2m8-8h2M2 12h2m14.36-6.36 1.42-1.42M4.22 19.78l1.42-1.42m12.72 0 1.42 1.42M4.22 4.22l1.42 1.42M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z',
+    moon: 'M21 14.6A8.5 8.5 0 0 1 9.4 3a7 7 0 1 0 11.6 11.6Z',
     bell: 'M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z M10 20a2 2 0 0 0 4 0',
     grid: 'M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z',
     pen: 'M4 20h4l10.5-10.5-4-4L4 16v4Z M13.5 6.5l4 4',
@@ -157,6 +160,27 @@ function ReflectionPost({ post }) {
 }
 
 function ReflectionForm({ onClose }) {
+  const [selectedTags, setSelectedTags] = useState(['Family'])
+  const [customTag, setCustomTag] = useState('')
+
+  const toggleTag = (tag) => {
+    setSelectedTags((current) =>
+      current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
+    )
+  }
+
+  const addCustomTag = () => {
+    const normalizedTag = customTag.trim().replace(/^#/, '')
+
+    if (!normalizedTag || selectedTags.includes(normalizedTag)) {
+      setCustomTag('')
+      return
+    }
+
+    setSelectedTags((current) => [...current, normalizedTag])
+    setCustomTag('')
+  }
+
   return (
     <div className="reflection-overlay" role="presentation" onMouseDown={onClose}>
       <section
@@ -206,6 +230,48 @@ function ReflectionForm({ onClose }) {
           </select>
         </label>
 
+        <fieldset className="tag-field">
+          <legend>
+            Tags <span>(optional)</span>
+          </legend>
+          <div className="tag-chip-list">
+            {suggestedTags.map((tag) => (
+              <button
+                aria-pressed={selectedTags.includes(tag)}
+                className={selectedTags.includes(tag) ? 'selected' : ''}
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                type="button"
+              >
+                # {tag}
+              </button>
+            ))}
+          </div>
+          <div className="custom-tag-row">
+            <input
+              maxLength="18"
+              onChange={(event) => setCustomTag(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  addCustomTag()
+                }
+              }}
+              placeholder="Add your own tag"
+              type="text"
+              value={customTag}
+            />
+            <button onClick={addCustomTag} type="button">
+              Add
+            </button>
+          </div>
+          {selectedTags.length > 0 && (
+            <p className="selected-tags-preview">
+              {selectedTags.map((tag) => `#${tag}`).join(' ')}
+            </p>
+          )}
+        </fieldset>
+
         <button className="submit-reflection" type="button">
           <Icon name="send" />
           Post Reflection
@@ -223,6 +289,7 @@ function ReflectionForm({ onClose }) {
 
 export default function ReflectionWall() {
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
   const [activeSong, setActiveSong] = useState('All Songs')
   const [query, setQuery] = useState('')
 
@@ -241,7 +308,7 @@ export default function ReflectionWall() {
   }, [query])
 
   return (
-    <div className="reflection-wall-page">
+    <div className={`reflection-wall-page${isDarkMode ? ' dark-notes-enabled' : ''}`}>
       <header className="reflection-nav">
         <Link className="reflection-brand" to="/">
           <span aria-hidden="true" className="brand-clef">
@@ -280,7 +347,14 @@ export default function ReflectionWall() {
           </Link>
         </nav>
         <div className="nav-utility">
-          <Icon name="sun" />
+          <button
+            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="theme-toggle-button"
+            onClick={() => setIsDarkMode((current) => !current)}
+            type="button"
+          >
+            <Icon name={isDarkMode ? 'moon' : 'sun'} />
+          </button>
           <span className="nav-divider" />
           <span className="bell-wrap">
             <Icon name="bell" />
@@ -305,11 +379,6 @@ export default function ReflectionWall() {
             <span className="note-pin pin-red" aria-hidden="true" />
             Music is the soundtrack of our stories.
           </div>
-          <button className="add-reflection-button" onClick={() => setIsFormOpen(true)} type="button">
-            <Icon name="pen" />
-            <Icon name="plus" />
-            Add Reflection
-          </button>
         </section>
 
         <section className="reflection-toolbar" aria-label="Reflection filters">
@@ -343,6 +412,10 @@ export default function ReflectionWall() {
           <button aria-label="Open filters" className="filter-button" type="button">
             <Icon name="sliders" />
           </button>
+          <button className="toolbar-add-button" onClick={() => setIsFormOpen(true)} type="button">
+            <Icon name="plus" />
+            Add reflection
+          </button>
         </section>
 
         <section className="wall-content" aria-label="Community reflections">
@@ -351,16 +424,6 @@ export default function ReflectionWall() {
               <ReflectionPost key={`${post.author}-${post.body}`} post={post} />
             ))}
           </div>
-          <aside className="wall-side-panel" aria-label="Reflection prompt">
-            <button className="side-add-button" onClick={() => setIsFormOpen(true)} type="button">
-              <Icon name="plus" />
-              Add your reflection
-            </button>
-            <div className="side-paper">
-              Thank you for being part of our community. Your story matters.
-            </div>
-            <div className="skyline-card" aria-hidden="true" />
-          </aside>
         </section>
 
         <p className="approval-strip">New reflections appear here once approved by the creator.</p>
