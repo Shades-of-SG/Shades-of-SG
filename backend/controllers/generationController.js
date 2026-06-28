@@ -1,59 +1,67 @@
+// backend/controllers/generationController.js
 const { GenerationJob } = require('../models')
 const aiScenePlanner = require('../services/aiScenePlanner')
+const frameGenerator = require('../services/frameGenerator')
 
 /**
- * POST /api/generation/:id/generate
- * Initiates the AI scene generation pipeline asynchronously.
+ * Controller to handle the kickoff of the AI Video Generation Pipeline.
+ * Responds to the client immediately and delegates generation to a detached background process.
  */
 const startGeneration = async (req, res, next) => {
   try {
-    const songId = req.params.id
+    const { songId } = req.body
 
-    // 1. Prevent duplicate generation jobs
-    const existingJob = await GenerationJob.findOne({
-      where: {
-        songId: songId,
-        status: 'IN_PROGRESS',
-      },
-    })
-
-    if (existingJob) {
-      return res.status(409).json({
-        error: 'Conflict',
-        message: 'A generation job is already in progress for this song.',
-      })
+    if (!songId) {
+      return res.status(400).json({ error: 'songId is required' })
     }
 
-    // 2. Create a new pending job record
-    const newJob = await GenerationJob.create({
-      songId: songId,
-      status: 'IN_PROGRESS',
+    // Upsert a GenerationJob to track the state
+    const [job, created] = await GenerationJob.findOrCreate({
+      where: { songId },
+      defaults: { status: 'IN_PROGRESS', errorMessage: null },
     })
 
-    // 3. Fire-and-Forget Background Process
-    // We do NOT await this. We let it run in the background.
+    if (!created && job.status === 'IN_PROGRESS') {
+      return res
+        .status(409)
+        .json({ error: 'A generation job is already in progress for this song' })
+    }
+
+    // If the job was previously FAILED or COMPLETED, overwrite it to restart the process
+    await job.update({ status: 'IN_PROGRESS', errorMessage: null })
+
+    // Return a 202 Accepted response immediately so the frontend can start its polling loop
+    res.status(202).json({
+      message: 'AI Generation Pipeline started successfully',
+      jobId: job.id,
+    })
+
+    // --- Detached Promise Chain (Background Process) ---
+    // We intentionally DO NOT await this chain so the HTTP cycle can safely close.
     aiScenePlanner
       .generateScenePlan(songId)
-      .then(async () => {
-        await newJob.update({ status: 'COMPLETED' })
-        // Note: When Phase 3 is ready, we will trigger the DALL-E generation here instead of marking COMPLETED
+      .then(() => {
+        // Phase 3: The Image Loop & Chorus-Caching
+        // Execute sequentially only AFTER the Scene Segment plans are safely written to DB
+        return frameGenerator.generateFramesForSong(songId)
       })
-      .catch(async (error) => {
-        console.error(`[Job ${newJob.id}] Generation Failed:`, error)
-        await newJob.update({
+      .then(() => {
+        // Pipeline successfully reached the end!
+        return job.update({ status: 'COMPLETED' })
+      })
+      .catch((error) => {
+        // Centralized Pipeline Error Handling
+        // Catches errors thrown by either the planner (Phase 2) or the image generator (Phase 3)
+        console.error(`[Generation Pipeline Failed for Song ${songId}]:`, error)
+
+        return job.update({
           status: 'FAILED',
-          errorMessage: error.message || 'An unknown error occurred during scene generation.',
+          errorMessage: error.message || 'An unknown error occurred during generation',
         })
       })
-
-    // 4. Instantly acknowledge the request
-    return res.status(202).json({
-      message: 'Scene generation job accepted and started in the background.',
-      jobId: newJob.id,
-      songId: songId,
-    })
   } catch (error) {
-    // Only catch synchronous setup errors here (e.g., DB connection failing on job creation)
+    // Passes immediate synchronous controller errors (e.g. database disconnects on findOrCreate)
+    // down to the global Express error handler `next(error)`
     next(error)
   }
 }

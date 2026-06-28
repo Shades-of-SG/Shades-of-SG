@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const cloudinary = require('../config/cloudinary');
+const fs = require('fs')
+const path = require('path')
+const cloudinary = require('../config/cloudinary')
 
 /**
  * Upload an image file to Cloudinary.
@@ -12,16 +12,16 @@ async function uploadImage(filePath) {
   try {
     // Validate file exists
     if (!fs.existsSync(filePath)) {
-      throw new Error(`File not found: ${filePath}`);
+      throw new Error(`File not found: ${filePath}`)
     }
 
     // Validate file extension
-    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const fileExt = path.extname(filePath).toLowerCase();
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    const fileExt = path.extname(filePath).toLowerCase()
     if (!validExtensions.includes(fileExt)) {
       throw new Error(
         `Invalid file type: ${fileExt}. Supported types: ${validExtensions.join(', ')}`
-      );
+      )
     }
 
     // Upload to Cloudinary
@@ -30,16 +30,16 @@ async function uploadImage(filePath) {
       folder: 'shades-of-sg',
       use_filename: true,
       unique_filename: true,
-    });
+    })
 
     return {
       public_id: result.public_id,
       secure_url: result.secure_url,
       url: result.url,
       cloudinary_id: result.public_id,
-    };
+    }
   } catch (error) {
-    throw new Error(`Cloudinary upload failed: ${error.message}`, { cause: error });
+    throw new Error(`Cloudinary upload failed: ${error.message}`, { cause: error })
   }
 }
 
@@ -52,57 +52,26 @@ async function uploadImage(filePath) {
 async function deleteImage(publicId) {
   try {
     if (!publicId || typeof publicId !== 'string') {
-      throw new Error('Invalid public_id: must be a non-empty string');
+      throw new Error('Invalid public_id: must be a non-empty string')
     }
 
-    const result = await cloudinary.uploader.destroy(publicId);
+    const result = await cloudinary.uploader.destroy(publicId)
 
     if (result.result !== 'ok' && result.result !== 'not_found') {
-      throw new Error(`Unexpected result from Cloudinary: ${result.result}`);
+      throw new Error(`Unexpected result from Cloudinary: ${result.result}`)
     }
 
     return {
       public_id: publicId,
       result: result.result,
       deleted: result.result === 'ok',
-    };
+    }
   } catch (error) {
-    throw new Error(`Cloudinary deletion failed: ${error.message}`, { cause: error });
+    throw new Error(`Cloudinary deletion failed: ${error.message}`, { cause: error })
   }
 }
-
-const uploadAudioStream = (fileData) => {
-  // Inline requires to guarantee zero conflicts with top-level imports
-  const cloudinary = require('../config/cloudinary');
-  const { Readable } = require('stream');
-
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        resource_type: 'video', // Mandated by Cloudinary for audio
-        folder: 'shades-of-sg/audio'
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve({
-          audioUrl: result.secure_url,
-          duration: Math.round(result.duration || 0)
-        });
-      }
-    );
-
-    if (Buffer.isBuffer(fileData)) {
-      Readable.from(fileData).pipe(uploadStream);
-    } else if (fileData && typeof fileData.pipe === 'function') {
-      fileData.pipe(uploadStream);
-    } else {
-      reject(new Error('Invalid file data provided.'));
-    }
-  });
-};
 
 module.exports = {
   uploadImage,
   deleteImage,
-  uploadAudioStream,
-};
+}
