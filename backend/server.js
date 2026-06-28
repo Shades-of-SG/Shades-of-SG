@@ -5,7 +5,8 @@ const errorHandler = require('./middleware/errorHandler');
 const sequelize = require('./config/database');
 const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
-const songsRouter = require('./routes/songs');
+const songsRouter = require('./routes/songs')
+const generationRouter = require('./routes/generation')
 const { seedCreatorAccount } = require('./services/authService');
 
 const app = express();
@@ -28,6 +29,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/songs', songsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/generation', generationRouter)
 
 app.use(errorHandler);
 

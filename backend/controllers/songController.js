@@ -1,5 +1,5 @@
 const { Song } = require('../models')
-const cloudinaryService = require('../services/cloudinaryService')
+const aiStorageService = require('../services/aiStorageService')
 const youtubeService = require('../services/youtubeService')
 
 const uploadSong = async (req, res, next) => {
@@ -24,7 +24,7 @@ const uploadSong = async (req, res, next) => {
 
     // Route to the appropriate service
     if (req.file) {
-      audioData = await cloudinaryService.uploadAudioStream(req.file.buffer)
+      audioData = await aiStorageService.uploadAudioStream(req.file.buffer)
     } else if (youtubeUrl) {
       audioData = await youtubeService.processYouTubeAudio(youtubeUrl)
     }

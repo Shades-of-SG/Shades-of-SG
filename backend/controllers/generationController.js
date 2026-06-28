@@ -9,7 +9,8 @@ const frameGenerator = require('../services/frameGenerator')
  */
 const startGeneration = async (req, res, next) => {
   try {
-    const { songId } = req.body
+    // ✅ FIX: Check the URL param first (req.params.id), fallback to req.body.songId
+    const songId = req.params.id || req.body.songId
 
     if (!songId) {
       return res.status(400).json({ error: 'songId is required' })
