@@ -2,6 +2,7 @@
 const { GenerationJob } = require('../models')
 const aiScenePlanner = require('../services/aiScenePlanner')
 const frameGenerator = require('../services/frameGenerator')
+const videoAssembler = require('../services/videoAssembler') // ✅ Added Phase 4 Import
 
 /**
  * Controller to handle the kickoff of the AI Video Generation Pipeline.
@@ -9,7 +10,7 @@ const frameGenerator = require('../services/frameGenerator')
  */
 const startGeneration = async (req, res, next) => {
   try {
-    // ✅ FIX: Check the URL param first (req.params.id), fallback to req.body.songId
+    // Check the URL param first (req.params.id), fallback to req.body.songId
     const songId = req.params.id || req.body.songId
 
     if (!songId) {
@@ -47,12 +48,17 @@ const startGeneration = async (req, res, next) => {
         return frameGenerator.generateFramesForSong(songId)
       })
       .then(() => {
+        // ✅ Phase 4: FFmpeg Assembly Engine
+        // Stitch the downloaded frames, audio, and subtitles together
+        return videoAssembler.assembleVideo(songId)
+      })
+      .then(() => {
         // Pipeline successfully reached the end!
         return job.update({ status: 'COMPLETED' })
       })
       .catch((error) => {
         // Centralized Pipeline Error Handling
-        // Catches errors thrown by either the planner (Phase 2) or the image generator (Phase 3)
+        // Catches errors thrown by the planner, frame generator, or video assembler
         console.error(`[Generation Pipeline Failed for Song ${songId}]:`, error)
 
         return job.update({

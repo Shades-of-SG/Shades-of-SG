@@ -6,6 +6,7 @@ const { Readable } = require('stream')
  * (PHASE 1) Uploads an audio stream (File Buffer or URL pipe) to Cloudinary
  */
 const uploadAudioStream = (fileData) => {
+  // ... (Your existing code untouched)
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -14,7 +15,6 @@ const uploadAudioStream = (fileData) => {
       },
       (error, result) => {
         if (error) {
-          // Properly forwarding the cause to satisfy ESLint
           return reject(
             new Error(`Cloudinary Audio Upload Error: ${error.message}`, { cause: error })
           )
@@ -38,10 +38,9 @@ const uploadAudioStream = (fileData) => {
 
 /**
  * (PHASE 3) Fetches an image from a temporary URL and uploads it to Cloudinary as a Buffer stream.
- * @param {string} imageUrl - The temporary URL from OpenAI DALL-E 3
- * @returns {Promise<string>} The permanent Cloudinary secure_url
  */
 const uploadImageFromUrl = async (imageUrl) => {
+  // ... (Your existing code untouched)
   try {
     const response = await fetch(imageUrl)
     if (!response.ok) {
@@ -51,11 +50,10 @@ const uploadImageFromUrl = async (imageUrl) => {
     const arrayBuffer = await response.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // We MUST await the promise here so the outer try/catch can grab any rejections
     return await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
-          folder: 'shades-of-sg/frames', // Standardized the folder name to use dashes
+          folder: 'shades-of-sg/frames',
           resource_type: 'image',
         },
         (error, result) => {
@@ -66,18 +64,40 @@ const uploadImageFromUrl = async (imageUrl) => {
           }
         }
       )
-
-      // Using Readable.pipe() instead of .end() satisfies the IDE's method resolution
-      // and keeps our stream logic 100% consistent with Phase 1.
       Readable.from(buffer).pipe(uploadStream)
     })
   } catch (error) {
-    // Appending { cause: error } preserves the original stack trace for the linter
     throw new Error(`Error in aiStorageService: ${error.message}`, { cause: error })
   }
+}
+
+/**
+ * (PHASE 4) Uploads a compiled MP4 video to Cloudinary from the local disk.
+ * @param {string} localFilePath - The local path to the generated .mp4 file.
+ * @returns {Promise<string>} The permanent Cloudinary secure_url
+ */
+const uploadCompiledVideo = (localFilePath) => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload(
+      localFilePath,
+      {
+        resource_type: 'video',
+        folder: 'shades-of-sg/compiled-videos',
+      },
+      (error, result) => {
+        if (error) {
+          return reject(
+            new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error })
+          )
+        }
+        resolve(result.secure_url)
+      }
+    )
+  })
 }
 
 module.exports = {
   uploadAudioStream,
   uploadImageFromUrl,
+  uploadCompiledVideo, // Added Phase 4 export
 }
