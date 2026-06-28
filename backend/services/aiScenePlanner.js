@@ -1,67 +1,73 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai')
 const { Song, SceneSegment } = require('../models')
 
-async function generateScenePlan(songId) {
-  // 1. Fetch the song and validate required data
+/**
+ * Calls Gemini AI to generate a timestamped scene plan for a given song,
+ * and saves the generated segments to the database.
+ * * @param {string} songId - The UUID of the song.
+ */
+const generateScenePlan = async (songId) => {
+  // 1. Fetch the Song and validate required fields
   const song = await Song.findByPk(songId)
 
   if (!song) {
-    throw new Error('Song not found in the database.')
-  }
-  if (!song.lyrics || !song.durationSecs) {
-    throw new Error('Song is missing lyrics or duration required for scene planning.')
+    throw new Error(`Song with ID ${songId} not found.`)
   }
 
-  // 2. Initialize Gemini API
-  // Ensure GEMINI_API_KEY is present in your backend/.env
+  if (!song.lyrics || !song.durationSecs) {
+    throw new Error('Song is missing lyrics or durationSecs required for scene planning.')
+  }
+
+  // 2. Initialize Gemini API Client
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+
+  // We enforce a strict JSON output by setting the responseMimeType
   const model = genAI.getGenerativeModel({
     model: 'gemini-1.5-flash',
     generationConfig: {
-      // CRITICAL: Forces Gemini to return strict JSON
       responseMimeType: 'application/json',
     },
   })
 
-  // 3. Construct the director prompt
+  // 3. Construct the System/Instruction Prompt
   const prompt = `
-        You are an expert music video director and visual prompt engineer. 
-        Your task is to break down the following song into a chronological sequence of video scenes.
+        Act as a music video director for a project called "Shades of SG".
+        Analyze the following song and create a timestamped video scene plan covering the entire duration of ${song.durationSecs} seconds.
         
-        Song Theme: ${song.theme || 'General'}
-        Total Duration: ${song.durationSecs} seconds
+        Song Theme: ${song.theme || 'Singapore Heritage'}
+        
         Lyrics:
         ${song.lyrics}
 
-        Requirements:
-        1. Break the lyrics into chronological segments that cover the entire ${song.durationSecs} seconds.
-        2. Output a JSON array of objects.
-        3. Each object must contain EXACTLY these keys:
-           - "startTime" (Float): Start time in seconds.
-           - "endTime" (Float): End time in seconds.
-           - "lyrics" (String): The lyrics for this segment.
-           - "emotion" (String): The core emotion of this segment.
-           - "visualPrompt" (String): A highly descriptive prompt for a Text-to-Image AI to generate this scene.
+        Break the lyrics into chronological segments. 
+        Output a pure JSON array of objects with the following exact keys:
+        - "startTime": (float) Starting timestamp in seconds.
+        - "endTime": (float) Ending timestamp in seconds.
+        - "lyrics": (string) The specific lyrics for this segment.
+        - "emotion": (string) The emotional tone of the segment.
+        - "visualPrompt": (string) A highly descriptive prompt for a Text-to-Image AI to generate a scene matching the lyrics and theme.
 
         CRITICAL CHORUS INSTRUCTION: If a stanza or chorus repeats in the song, you MUST output the exact same lyrics, emotion, and visualPrompt strings for those repeated segments. Do not vary the text for repeated sections. This is mandatory for our downstream hashing/caching engine.
     `
 
-  // 4. Hit the LLM and parse the response
+  // 4. Execute the AI Call
   const result = await model.generateContent(prompt)
-  const sceneData = JSON.parse(result.response.text())
+  const responseText = result.response.text()
 
-  // 5. Map the returned array to our database schema
-  const scenesToCreate = sceneData.map((scene) => ({
+  // Because we set responseMimeType, we can safely parse this directly
+  const sceneSegmentsData = JSON.parse(responseText)
+
+  // 5. Map data to the DB Schema and Bulk Insert
+  const segmentsToCreate = sceneSegmentsData.map((segment) => ({
     songId: song.id,
-    startTime: scene.startTime,
-    endTime: scene.endTime,
-    lyrics: scene.lyrics,
-    emotion: scene.emotion,
-    visualPrompt: scene.visualPrompt,
+    startTime: segment.startTime,
+    endTime: segment.endTime,
+    lyrics: segment.lyrics,
+    emotion: segment.emotion,
+    visualPrompt: segment.visualPrompt,
   }))
 
-  // 6. Bulk insert into PostgreSQL
-  await SceneSegment.bulkCreate(scenesToCreate)
+  await SceneSegment.bulkCreate(segmentsToCreate)
 }
 
 module.exports = {
