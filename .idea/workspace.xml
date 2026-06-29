@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="clean up">
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="JavaScript File" />
+        <option value="JSX File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="feat/public-task-4" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;Htet-Aung&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/IamLost-web/Shades-of-SG.git&quot;,
+    &quot;accountId&quot;: &quot;eaa48a3c-23b7-4a36-ba80-dc422d86fcb2&quot;
+  }
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="3EA5gtq6aixPX3lPjU3WAZdqrX7" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "feat/violet-task-1",
+    "ignore.virus.scanning.warn.message": "true",
+    "javascript.preferred.runtime.type.id": "node",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "ts.external.directory.path": "C:\\Program Files\\JetBrains\\WebStorm 2026.1.2\\plugins\\javascript-plugin\\jsLanguageServicesImpl\\external",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\oxy\WebstormProjects\Shades-of-SG\frontend\src\pages" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-WS-261.24374.125" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="" />
+      <created>1779608649108</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1779608649108</updated>
+      <workItem from="1779608652313" duration="2072000" />
+      <workItem from="1779686758112" duration="2648000" />
+      <workItem from="1779716245977" duration="3974000" />
+      <workItem from="1779768533278" duration="525000" />
+      <workItem from="1781400371173" duration="285000" />
+      <workItem from="1781445397919" duration="2416000" />
+      <workItem from="1782545696107" duration="7521000" />
+      <workItem from="1782635459410" duration="10198000" />
+    </task>
+    <task id="LOCAL-00001" summary="basic setup">
+      <option name="closed" value="true" />
+      <created>1779609953058</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1779609953059</updated>
+    </task>
+    <task id="LOCAL-00002" summary="chore: remove .idea folder from remote tracking">
+      <option name="closed" value="true" />
+      <created>1779686870439</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1779686870439</updated>
+    </task>
+    <task id="LOCAL-00003" summary="chore: add .idea to gitignore and untrack">
+      <option name="closed" value="true" />
+      <created>1779686981976</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1779686981976</updated>
+    </task>
+    <task id="LOCAL-00004" summary="basic setup fixes">
+      <option name="closed" value="true" />
+      <created>1779717556397</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1779717556397</updated>
+    </task>
+    <task id="LOCAL-00005" summary="changed to newer versions when i ran npm i">
+      <option name="closed" value="true" />
+      <created>1781445900634</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1781445900634</updated>
+    </task>
+    <task id="LOCAL-00006" summary="added to ignore .Junie/ (ai agent)">
+      <option name="closed" value="true" />
+      <created>1781445982992</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1781445982993</updated>
+    </task>
+    <task id="LOCAL-00007">
+      <option name="closed" value="true" />
+      <created>1782565635217</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1782565635217</updated>
+    </task>
+    <task id="LOCAL-00008" summary="store song details for generation in Cloudinary">
+      <option name="closed" value="true" />
+      <created>1782565974343</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1782565974343</updated>
+    </task>
+    <task id="LOCAL-00009" summary="still getting songs from YT">
+      <option name="closed" value="true" />
+      <created>1782566376408</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1782566376408</updated>
+    </task>
+    <task id="LOCAL-00010" summary="generate scene descriptions">
+      <option name="closed" value="true" />
+      <created>1782568357558</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1782568357558</updated>
+    </task>
+    <task id="LOCAL-00011" summary="generating prompts for image generation">
+      <option name="closed" value="true" />
+      <created>1782568592070</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1782568592070</updated>
+    </task>
+    <task id="LOCAL-00012" summary="prompt generation for images (fix)">
+      <option name="closed" value="true" />
+      <created>1782659332325</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1782659332325</updated>
+    </task>
+    <task id="LOCAL-00013" summary="yo idk what's happening anymore">
+      <option name="closed" value="true" />
+      <created>1782660226473</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1782660226473</updated>
+    </task>
+    <task id="LOCAL-00014" summary="fixed incorrect routing">
+      <option name="closed" value="true" />
+      <created>1782660674362</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1782660674362</updated>
+    </task>
+    <task id="LOCAL-00015" summary="- Add subtitleGenerator.js to convert DB segments into strict .srt format&#10;- Add videoAssembler.js to stitch frames, audio, and subtitles via fluent-ffmpeg&#10;- Update aiStorageService.js with local MP4 Cloudinary upload support&#10;- Chain Phase 4 assembly into generationController's background process">
+      <option name="closed" value="true" />
+      <created>1782662934289</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1782662934289</updated>
+    </task>
+    <task id="LOCAL-00016" summary="frontend work for Violet (also optimized image generation by reusing same pics for chorus)">
+      <option name="closed" value="true" />
+      <created>1782752770010</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1782752770011</updated>
+    </task>
+    <task id="LOCAL-00017" summary="clean up">
+      <option name="closed" value="true" />
+      <created>1782754352720</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1782754352720</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="basic setup" />
+    <MESSAGE value="chore: remove .idea folder from remote tracking" />
+    <MESSAGE value="chore: add .idea to gitignore and untrack" />
+    <MESSAGE value="basic setup fixes" />
+    <MESSAGE value="changed to newer versions when i ran npm i" />
+    <MESSAGE value="added to ignore .Junie/ (ai agent)" />
+    <MESSAGE value="extract audio from YT" />
+    <MESSAGE value="store song details for generation in Cloudinary" />
+    <MESSAGE value="still getting songs from YT" />
+    <MESSAGE value="generate scene descriptions" />
+    <MESSAGE value="generating prompts for image generation" />
+    <MESSAGE value="prompt generation for images (fix)" />
+    <MESSAGE value="yo idk what's happening anymore" />
+    <MESSAGE value="fixed incorrect routing" />
+    <MESSAGE value="- Add subtitleGenerator.js to convert DB segments into strict .srt format&#10;- Add videoAssembler.js to stitch frames, audio, and subtitles via fluent-ffmpeg&#10;- Update aiStorageService.js with local MP4 Cloudinary upload support&#10;- Chain Phase 4 assembly into generationController's background process" />
+    <MESSAGE value="frontend work for Violet (also optimized image generation by reusing same pics for chorus)" />
+    <MESSAGE value="clean up" />
+    <option name="LAST_COMMIT_MESSAGE" value="clean up" />
+  </component>
+</project>
