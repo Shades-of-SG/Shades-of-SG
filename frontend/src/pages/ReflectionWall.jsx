@@ -103,6 +103,17 @@ const stats = [
 
 const suggestedTags = ['Family', 'Home', 'Nostalgia', 'Pride', 'Unity', 'Hope']
 
+const savedReflectionsKey = 'shades-of-sg-reflections'
+
+const getSavedReflections = () => {
+  try {
+    const savedReflections = window.localStorage.getItem(savedReflectionsKey)
+    return savedReflections ? JSON.parse(savedReflections) : []
+  } catch {
+    return []
+  }
+}
+
 function Icon({ name }) {
   const paths = {
     home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3V10.5Z',
@@ -159,7 +170,11 @@ function ReflectionPost({ post }) {
   )
 }
 
-function ReflectionForm({ onClose }) {
+function ReflectionForm({ onClose, onSubmit }) {
+  const [displayName, setDisplayName] = useState('')
+  const [isAnonymous, setIsAnonymous] = useState(true)
+  const [reflection, setReflection] = useState('')
+  const [song, setSong] = useState('')
   const [selectedTags, setSelectedTags] = useState(['Family'])
   const [customTag, setCustomTag] = useState('')
 
@@ -181,12 +196,28 @@ function ReflectionForm({ onClose }) {
     setCustomTag('')
   }
 
+  const handleSubmit = (event) => {
+    event.preventDefault()
+
+    if (!reflection.trim()) {
+      return
+    }
+
+    onSubmit({
+      author: isAnonymous ? 'Anonymous' : displayName.trim() || 'Guest',
+      body: reflection.trim(),
+      song,
+      tags: selectedTags.length > 0 ? selectedTags : ['Reflection'],
+    })
+  }
+
   return (
     <div className="reflection-overlay" role="presentation" onMouseDown={onClose}>
-      <section
+      <form
         aria-labelledby="reflection-form-title"
         className="reflection-form-card"
         onMouseDown={(event) => event.stopPropagation()}
+        onSubmit={handleSubmit}
         role="dialog"
       >
         <button aria-label="Close reflection form" className="form-close" onClick={onClose} type="button">
@@ -200,27 +231,41 @@ function ReflectionForm({ onClose }) {
 
         <label>
           Display name <span>(optional)</span>
-          <input maxLength="20" placeholder="e.g. Jia En" type="text" />
+          <input
+            disabled={isAnonymous}
+            maxLength="20"
+            onChange={(event) => setDisplayName(event.target.value)}
+            placeholder="e.g. Jia En"
+            type="text"
+            value={displayName}
+          />
         </label>
 
         <label className="anonymous-row">
           <span className="incognito-mark" aria-hidden="true" />
           Post anonymously
-          <input defaultChecked type="checkbox" />
+          <input
+            checked={isAnonymous}
+            onChange={(event) => setIsAnonymous(event.target.checked)}
+            type="checkbox"
+          />
         </label>
 
         <label>
           Your reflection
           <textarea
             maxLength="500"
+            onChange={(event) => setReflection(event.target.value)}
             placeholder="Write your reflection here...&#10;(Your words may inspire others.)"
+            required
             rows="5"
+            value={reflection}
           />
         </label>
 
         <label>
           Song <span>(optional)</span>
-          <select defaultValue="">
+          <select onChange={(event) => setSong(event.target.value)} value={song}>
             <option value="" disabled>
               Choose a song
             </option>
@@ -272,7 +317,7 @@ function ReflectionForm({ onClose }) {
           )}
         </fieldset>
 
-        <button className="submit-reflection" type="button">
+        <button className="submit-reflection" type="submit">
           <Icon name="send" />
           Post Reflection
           <span aria-hidden="true">+</span>
@@ -280,9 +325,9 @@ function ReflectionForm({ onClose }) {
 
         <p className="review-note">
           <Icon name="shield" />
-          All reflections will be reviewed before appearing on the wall.
+          Your reflection will appear on this wall immediately in this preview.
         </p>
-      </section>
+      </form>
     </div>
   )
 }
@@ -292,20 +337,45 @@ export default function ReflectionWall() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [activeSong, setActiveSong] = useState('All Songs')
   const [query, setQuery] = useState('')
+  const [wallReflections, setWallReflections] = useState(() => [
+    ...getSavedReflections(),
+    ...reflections,
+  ])
 
   const visibleReflections = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
 
     if (!normalizedQuery) {
-      return reflections
+      return wallReflections
     }
 
-    return reflections.filter((post) =>
+    return wallReflections.filter((post) =>
       [post.author, post.body, ...post.tags].some((value) =>
         value.toLowerCase().includes(normalizedQuery),
       ),
     )
-  }, [query])
+  }, [query, wallReflections])
+
+  const handleReflectionSubmit = (reflectionData) => {
+    const noteColors = ['yellow', 'rose', 'blue', 'lavender', 'green', 'coral', 'mint']
+    const noteDoodles = ['heart', 'flower', 'lion', 'big-heart', 'leaf']
+    const newReflection = {
+      ...reflectionData,
+      age: 'Just now',
+      color: noteColors[Date.now() % noteColors.length],
+      doodle: noteDoodles[Date.now() % noteDoodles.length],
+      id: `reflection-${Date.now()}`,
+      pin: isDarkMode ? 'purple' : 'red',
+      rotation: `${((Date.now() % 7) - 3).toString()}deg`,
+    }
+
+    setWallReflections((current) => {
+      const savedReflections = [newReflection, ...current.filter((post) => post.id)]
+      window.localStorage.setItem(savedReflectionsKey, JSON.stringify(savedReflections))
+      return [newReflection, ...current]
+    })
+    setIsFormOpen(false)
+  }
 
   return (
     <div className={`reflection-wall-page${isDarkMode ? ' dark-notes-enabled' : ''}`}>
@@ -421,7 +491,7 @@ export default function ReflectionWall() {
         <section className="wall-content" aria-label="Community reflections">
           <div className="post-grid">
             {visibleReflections.map((post) => (
-              <ReflectionPost key={`${post.author}-${post.body}`} post={post} />
+              <ReflectionPost key={post.id || `${post.author}-${post.body}`} post={post} />
             ))}
           </div>
         </section>
@@ -441,7 +511,12 @@ export default function ReflectionWall() {
         </section>
       </main>
 
-      {isFormOpen && <ReflectionForm onClose={() => setIsFormOpen(false)} />}
+      {isFormOpen && (
+        <ReflectionForm
+          onClose={() => setIsFormOpen(false)}
+          onSubmit={handleReflectionSubmit}
+        />
+      )}
     </div>
   )
 }
