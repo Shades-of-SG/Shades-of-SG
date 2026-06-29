@@ -12,15 +12,26 @@ const getAllJobs = async (req, res, next) => {
       include: [
         {
           model: Song,
+          as: 'song', // STRICT MATCH: Must match the alias defined in models/index.js
           attributes: ['title'],
         },
       ],
       order: [['createdAt', 'DESC']],
     })
 
+    // Map the database's lower-case 'song' alias to the upper-case 'Song'
+    // expected by the React frontend's data contract.
+    const formattedJobs = jobs.map((job) => {
+      const plainJob = job.get({ plain: true })
+      return {
+        ...plainJob,
+        Song: plainJob.song,
+      }
+    })
+
     return res.status(200).json({
       success: true,
-      data: jobs,
+      data: formattedJobs,
     })
   } catch (error) {
     next(error)
@@ -41,6 +52,7 @@ const getGenerationStatus = async (req, res, next) => {
       include: [
         {
           model: Song,
+          as: 'song', // STRICT MATCH: Must match the alias defined in models/index.js
           attributes: ['title'],
         },
       ],
@@ -53,12 +65,14 @@ const getGenerationStatus = async (req, res, next) => {
       })
     }
 
+    const plainJob = job.get({ plain: true })
+
     return res.status(200).json({
       success: true,
       data: {
-        status: job.status,
-        errorMessage: job.errorMessage,
-        Song: job.Song,
+        status: plainJob.status,
+        errorMessage: plainJob.errorMessage,
+        Song: plainJob.song, // Map alias to expected frontend contract
       },
     })
   } catch (error) {
