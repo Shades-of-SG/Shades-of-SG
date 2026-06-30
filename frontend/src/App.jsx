@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext'
 import AuthLayout from './layouts/AuthLayout'
 import CreatorLayout from './layouts/CreatorLayout'
 import MainLayout from './layouts/MainLayout'
+import CreatorUpload from './pages/CreatorUpload'
 import CreatorSongs from './pages/CreatorSongs'
 import Dashboard from './pages/Dashboard'
 import ForgotPassword from './pages/ForgotPassword'
@@ -85,6 +86,7 @@ function App() {
             <Route element={<Navigate replace to="/creator/dashboard" />} path="/creator" />
             <Route element={<Dashboard />} path="/creator/dashboard" />
             <Route element={<Studio />} path="/creator/studio" />
+            <Route element={<CreatorUpload />} path="/creator/upload" />
             <Route element={<CreatorSongs />} path="/creator/songs" />
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
