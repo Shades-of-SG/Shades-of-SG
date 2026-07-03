@@ -812,12 +812,14 @@
   width: 100%;
 }
 
-.studio-preview-art__youtube {
+.studio-preview-art__youtube,
+.studio-preview-art__video {
   aspect-ratio: 16 / 9;
   background: #050817;
   border: 0;
   display: block;
   min-height: 260px;
+  object-fit: cover;
   width: 100%;
 }
 

@@ -25,18 +25,18 @@ export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAu
             ♫
           </div>
           <div>
-            <strong>Upload Audio</strong>
-            <span>MP3 or WAV, max 50MB</span>
+            <strong>Upload Media</strong>
+            <span>MP3, WAV, or MP4, max 50MB</span>
           </div>
           <label className="studio-button studio-button--secondary studio-media-upload__choose">
             Choose File
-            <input accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" onChange={onAudioFileChange} ref={audioInputRef} type="file" />
+            <input accept=".mp3,.wav,.mp4,audio/mpeg,audio/wav,audio/x-wav,video/mp4" onChange={onAudioFileChange} ref={audioInputRef} type="file" />
           </label>
         </div>
         {audioFileName && (
           <div className="studio-media-upload__filename">
             <span>{audioFileName}</span>
-            <button aria-label="Remove uploaded audio file" className="studio-media-upload__remove" onClick={clearAudioFile} type="button">
+            <button aria-label="Remove uploaded media file" className="studio-media-upload__remove" onClick={clearAudioFile} type="button">
               x
             </button>
           </div>

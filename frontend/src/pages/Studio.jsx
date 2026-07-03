@@ -24,6 +24,7 @@ export default function Studio() {
   const [audioFileName, setAudioFileName] = useState('')
   const [audioDuration, setAudioDuration] = useState('')
   const [audioPreviewUrl, setAudioPreviewUrl] = useState('')
+  const [mediaType, setMediaType] = useState('')
 
   useEffect(() => {
     return () => {
@@ -68,23 +69,26 @@ export default function Studio() {
     if (!file) {
       setAudioDuration('')
       setAudioPreviewUrl('')
+      setMediaType('')
       return
     }
 
-    const audio = document.createElement('audio')
+    const isVideo = file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')
+    const media = document.createElement(isVideo ? 'video' : 'audio')
     const objectUrl = URL.createObjectURL(file)
+    setMediaType(isVideo ? 'video' : 'audio')
     setAudioPreviewUrl(objectUrl)
 
-    audio.preload = 'metadata'
-    audio.src = objectUrl
-    audio.onloadedmetadata = () => {
-      if (Number.isFinite(audio.duration)) {
-        const minutes = Math.floor(audio.duration / 60)
-        const seconds = Math.floor(audio.duration % 60)
+    media.preload = 'metadata'
+    media.src = objectUrl
+    media.onloadedmetadata = () => {
+      if (Number.isFinite(media.duration)) {
+        const minutes = Math.floor(media.duration / 60)
+        const seconds = Math.floor(media.duration % 60)
         setAudioDuration(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
       }
     }
-    audio.onerror = () => {
+    media.onerror = () => {
       setAudioDuration('')
     }
   }
@@ -93,6 +97,7 @@ export default function Studio() {
     setAudioFileName('')
     setAudioDuration('')
     setAudioPreviewUrl('')
+    setMediaType('')
   }
 
   function updateOtherLanguage(value) {
@@ -137,6 +142,7 @@ export default function Studio() {
           description={formData.description}
           duration={audioDuration}
           languages={previewLanguages}
+          mediaType={mediaType}
           moods={selectedMoods}
           theme={formData.theme}
           title={formData.title}

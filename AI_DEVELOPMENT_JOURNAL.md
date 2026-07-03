@@ -1141,3 +1141,66 @@ Each build completed successfully after the latest changes.
 * Connect uploaded media and YouTube link persistence to real Studio save APIs.
 * Replace remaining placeholder or corrupted glyph icons in older components with consistent icon components.
 * Reuse `CreatorAccountWidget` across other creator pages that need the same account cluster.
+
+---
+
+## 2026-07-03
+
+### Feature
+
+Creator Studio Refinement Journal Consolidation
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Record the completed Creator Studio refinements in the AI development journal so the work remains traceable for project documentation and review.
+
+### Prompt Summary
+
+Ferlyn asked Codex to add everything completed during the recent Creator Studio work into `AI_DEVELOPMENT_JOURNAL.md` again.
+
+### AI Output Summary
+
+Codex reviewed the existing journal and confirmed that the previous Studio follow-up work had been documented. A new consolidation entry was added to make the latest documentation action explicit.
+
+The documented Studio work includes:
+
+* Creator Studio layout and Song Information refinements.
+* Audio upload filename display and remove button.
+* Local audio duration detection for uploaded files.
+* Live preview audio playback for uploaded songs.
+* YouTube link embed preview.
+* Decision to leave YouTube duration as `--` until backend metadata support exists.
+* Usable Mood Tags text input with duplicate prevention and a maximum of five tags.
+* Live preview support for all selected mood tags.
+* Preview pill icons for moods and languages using provided SVG paths.
+* Custom `Others` language handling so typed values appear in the preview.
+* Extraction of the repeated creator account action cluster into `CreatorAccountWidget`.
+* Refactoring `Studio.jsx` to use `StudioHeader`.
+* Reusable styling for the account widget in `App.css`.
+
+### Human Review
+
+Accepted as a documentation update request.
+
+Ferlyn specifically requested that the AI journal be updated again after the Studio refinements.
+
+### Human Modifications
+
+No direct code changes were made by the user during this documentation update.
+
+### Final Outcome
+
+The AI development journal now includes an additional dated entry summarising the recent Creator Studio changes and the documentation action itself.
+
+### Verification
+
+The journal was inspected before editing to avoid overwriting earlier entries.
+
+### Remaining Work
+
+* Continue updating the journal after future AI-assisted implementation, debugging, testing, or design refinement work.
+* Connect the current Studio UI interactions to backend persistence when the API implementation resumes.

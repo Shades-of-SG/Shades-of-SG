@@ -61,6 +61,7 @@ export default function LivePreviewCard({
   description = '',
   duration = '',
   languages = [],
+  mediaType = '',
   moods = [],
   theme = '',
   title = '',
@@ -70,6 +71,7 @@ export default function LivePreviewCard({
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackMessage, setPlaybackMessage] = useState('')
   const activeLanguages = languages.filter((language) => language !== 'Others')
+  const isVideoMedia = mediaType === 'video'
   const previewMoods = moods.length ? moods : theme ? [theme] : []
   const youtubeEmbedUrl = audioSrc ? '' : getYoutubeEmbedUrl(youtubeLink)
   const previewStats = [
@@ -108,6 +110,11 @@ export default function LivePreviewCard({
     }
   }
 
+  function enableVideoAudio(event) {
+    event.currentTarget.muted = false
+    event.currentTarget.volume = 1
+  }
+
   return (
     <section className="studio-card studio-preview-card">
       <header className="studio-card__header studio-card__header--spread">
@@ -118,8 +125,22 @@ export default function LivePreviewCard({
         <span className="studio-preview-card__status">DRAFT</span>
       </header>
 
-      <div className="studio-preview-art" aria-hidden={youtubeEmbedUrl ? undefined : true}>
-        {youtubeEmbedUrl ? (
+      <div className="studio-preview-art" aria-hidden={youtubeEmbedUrl || isVideoMedia ? undefined : true}>
+        {isVideoMedia && audioSrc ? (
+          <video
+            className="studio-preview-art__video"
+            src={audioSrc}
+            controls
+            playsInline
+            onEnded={() => setIsPlaying(false)}
+            onLoadedMetadata={enableVideoAudio}
+            onPause={() => setIsPlaying(false)}
+            onPlay={(event) => {
+              enableVideoAudio(event)
+              setIsPlaying(true)
+            }}
+          />
+        ) : youtubeEmbedUrl ? (
           <iframe
             className="studio-preview-art__youtube"
             src={youtubeEmbedUrl}
@@ -172,7 +193,7 @@ export default function LivePreviewCard({
             </button>
           </>
         )}
-        {audioSrc && (
+        {audioSrc && !isVideoMedia && (
           <audio
             ref={audioRef}
             src={audioSrc}
