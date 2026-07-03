@@ -1,4 +1,4 @@
-import PageHeader from '../components/PageHeader'
+import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import SongCard from '../components/SongCard'
 import { sampleSongs } from './pageData'
@@ -12,8 +12,17 @@ Implement quick actions.
 */
 export default function Dashboard() {
   return (
-    <div className="page-stack">
-      <PageHeader description="Creator overview for song health, moderation needs, and publishing actions." eyebrow="Creator Portal" title="Dashboard" />
+    <CreatorPageShell
+      breadcrumbs={['Dashboard']}
+      description="Creator overview for song health, moderation needs, and publishing actions."
+      title="Dashboard"
+      actions={
+        <>
+          <button className="studio-button studio-button--secondary" type="button">Review Reflections</button>
+          <button className="studio-button studio-button--primary" type="button">New Song</button>
+        </>
+      }
+    >
       <section className="stats-grid">
         <SectionCard title="Song Statistics"><strong>12</strong><p>Total placeholder songs</p></SectionCard>
         <SectionCard title="Reflection Queue"><strong>8</strong><p>Pending moderation</p></SectionCard>
@@ -21,6 +30,6 @@ export default function Dashboard() {
       </section>
       <section className="responsive-grid">{sampleSongs.map((song) => <SongCard key={song.id} song={song} />)}</section>
       <SectionCard title="Quick Actions"><div className="button-row"><button type="button">New Song</button><button type="button">Review Reflections</button></div></SectionCard>
-    </div>
+    </CreatorPageShell>
   )
 }
