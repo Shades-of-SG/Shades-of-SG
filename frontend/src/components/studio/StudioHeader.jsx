@@ -1,13 +1,47 @@
 import CreatorAccountWidget from '../CreatorAccountWidget'
 
-export default function StudioHeader({ onMenuToggle, showMenuButton = false }) {
+const stepContent = {
+  1: {
+    breadcrumb: 'Edit Song',
+    primaryAction: 'Save Draft',
+    secondaryAction: 'Generate Video',
+    subtitle: 'Create and curate your song details. Save as draft or generate your AI music video.',
+    title: 'Studio',
+  },
+  2: {
+    breadcrumb: 'Edit Song',
+    primaryAction: 'Save Draft',
+    secondaryAction: 'Generate Video',
+    subtitle: 'Write and organize your lyrics. AI will help extract and shape your song draft.',
+    title: 'Studio - Lyrics',
+  },
+  3: {
+    breadcrumb: 'Preview & Publish',
+    primaryAction: 'Publish Song',
+    secondaryAction: 'Save Draft',
+    subtitle: 'This is how your song will appear to the community. Review all details before publishing.',
+    title: 'Preview & Publish',
+  },
+}
+
+export default function StudioHeader({
+  activeStep = 1,
+  onBackToLyrics,
+  onGenerateVideo,
+  onMenuToggle,
+  onPublishSong,
+  onSaveDraft,
+  showMenuButton = false,
+}) {
+  const content = stepContent[activeStep] || stepContent[1]
+
   return (
     <header className="studio-header">
       <div className="studio-header__copy">
         <div className="studio-breadcrumbs" aria-label="Breadcrumb">
           <span>Creator Portal</span>
           <span>Studio</span>
-          <span>Edit Song</span>
+          <span>{content.breadcrumb}</span>
         </div>
         <div className="studio-header__title-row">
           {showMenuButton && (
@@ -16,8 +50,8 @@ export default function StudioHeader({ onMenuToggle, showMenuButton = false }) {
             </button>
           )}
           <div>
-            <h1>Studio</h1>
-            <p>Create and curate your song details. Save as draft or generate your AI music video.</p>
+            <h1>{content.title}</h1>
+            <p>{content.subtitle}</p>
           </div>
         </div>
       </div>
@@ -25,14 +59,16 @@ export default function StudioHeader({ onMenuToggle, showMenuButton = false }) {
       <div className="studio-header__actions">
         <CreatorAccountWidget />
         <div className="studio-header__button-row">
-          <button className="studio-button studio-button--secondary" type="button">
-            Preview Song Experience
+          {activeStep === 3 && (
+            <button className="studio-button studio-button--ghost" onClick={onBackToLyrics} type="button">
+              Back to Lyrics
+            </button>
+          )}
+          <button className="studio-button studio-button--secondary" onClick={onGenerateVideo} type="button">
+            {content.secondaryAction}
           </button>
-          <button className="studio-button studio-button--secondary" type="button">
-            Generate Video
-          </button>
-          <button className="studio-button studio-button--primary" type="button">
-            Save Draft
+          <button className="studio-button studio-button--primary" onClick={activeStep === 3 ? onPublishSong : onSaveDraft} type="button">
+            {content.primaryAction}
           </button>
         </div>
       </div>

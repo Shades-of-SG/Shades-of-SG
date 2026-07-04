@@ -6,13 +6,14 @@ const sequelize = require('./config/database');
 const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
+const transcriptionsRouter = require('./routes/transcriptions');
 const { seedCreatorAccount } = require('./services/authService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '40mb' }));
 
 app.get('/api', (req, res) => {
     res.json({ message: 'Shades of SG backend is running.' });
@@ -28,6 +29,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/songs', songsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/transcriptions', transcriptionsRouter);
 
 app.use(errorHandler);
 

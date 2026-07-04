@@ -1204,3 +1204,236 @@ The journal was inspected before editing to avoid overwriting earlier entries.
 
 * Continue updating the journal after future AI-assisted implementation, debugging, testing, or design refinement work.
 * Connect the current Studio UI interactions to backend persistence when the API implementation resumes.
+
+---
+
+## 2026-07-03
+
+### Feature
+
+Creator Studio AI Lyrics Extraction, YouTube Audio Extraction, and Lyrics Workflow Refinement
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Implement and debug the Creator Studio lyrics extraction workflow so creators can generate an editable lyrics draft from uploaded media or a YouTube link, while making extraction status, errors, and draft formatting clearer in the Studio UI.
+
+### Prompt Summary
+
+Ferlyn asked Codex to continue improving the Creator Studio lyrics workflow through several prompts:
+
+* Investigate why lyric extraction kept showing that it was unable to extract lyrics.
+* Explain whether the backend needed to be running and how to configure an OpenAI API key.
+* Try the locally saved song file and determine why extraction failed.
+* Show AI generation or extraction status in the Lyrics step.
+* Implement server-side audio extraction for YouTube links.
+* Explain where `yt-dlp` should be installed and how to configure it on Windows.
+* Debug why `yt-dlp` still could not run after installation.
+* Reset the Lyrics step contents when a new uploaded audio file or YouTube link is selected on the Metadata step.
+* Improve the generated lyrics formatting so the output is easier to read.
+* Explain why AI sometimes does not generate the full song lyrics.
+* Add all of the day's edits and prompts into the AI development journal.
+
+### AI Output Summary
+
+Codex implemented the AI lyrics extraction flow and related debugging improvements across the frontend and backend.
+
+Files created:
+
+* `backend/routes/transcriptions.js`
+* `backend/services/transcriptionService.js`
+* `backend/services/audioExtractionService.js`
+* `frontend/src/components/studio/LyricsCard.jsx`
+
+Files modified:
+
+* `backend/server.js`
+* `backend/.env.example`
+* `backend/package.json`
+* `backend/package-lock.json`
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/components/studio/LyricsCard.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/StudioFooter.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Implemented backend features:
+
+* Added `POST /api/transcriptions/lyrics` for AI lyrics transcription.
+* Added `GET /api/transcriptions/status` so the frontend can detect whether transcription is configured.
+* Added OpenAI audio transcription support using `OPENAI_API_KEY` and `OPENAI_TRANSCRIPTION_MODEL`.
+* Added validation for supported uploaded media formats including MP3, WAV, M4A, WEBM, MPEG, MPGA, and MP4.
+* Added 25MB validation for transcription-bound files.
+* Added server-side YouTube audio extraction using `yt-dlp`.
+* Added `YT_DLP_PATH` support so Windows can point directly to `yt-dlp.exe` when it is not on PATH.
+* Added temporary YouTube audio extraction under `backend/storage/temp`.
+* Added cleanup of extracted temporary audio files after transcription.
+* Added clearer backend errors for missing OpenAI API key, missing `yt-dlp`, unsupported files, oversized files, and incomplete YouTube video IDs.
+* Added a lyric-focused transcription prompt asking the model to preserve repeated choruses, ad-libs, and line breaks where possible.
+* Added a backend formatter that converts paragraph-style transcripts into lyric-style lines and stanzas.
+
+Implemented frontend features:
+
+* Added a Lyrics step card with an editable lyrics draft textarea.
+* Added AI extraction status states such as checking, waiting for media, ready, extracting, ready for review, and needs attention.
+* Added a themed progress/status panel for AI lyrics extraction.
+* Allowed uploaded audio/video files to be sent to the transcription backend.
+* Allowed YouTube-only extraction requests to use the backend YouTube extraction route.
+* Fixed the old frontend behavior that always threw an upload-file error after posting a YouTube link.
+* Reset lyrics draft, extraction errors, and extraction status whenever the creator uploads a new media file, clears a media file, or changes the YouTube link.
+* Updated Studio footer navigation for the Lyrics step.
+* Updated upload UI copy and file picker support for additional transcription media types.
+* Added UI copy reminding creators that AI lyrics are editable drafts and may need manual review.
+
+Debugging and configuration work:
+
+* Confirmed that the original extraction failure was caused by a missing `OPENAI_API_KEY` in `backend/.env`.
+* Confirmed the backend health endpoint was reachable when the backend was running.
+* Confirmed the local test song could be packaged and posted to the backend.
+* Confirmed that `yt-dlp` was installed but not available on PATH because Python installed it under `C:\Users\belle\AppData\Local\Programs\Python\Python313\Scripts`.
+* Verified that setting `YT_DLP_PATH` to the full `yt-dlp.exe` path and restarting the backend allowed the backend to locate the tool.
+* Diagnosed a pasted YouTube URL with an incomplete video ID and added a clearer validation error for that case.
+
+### Human Review
+
+Accepted through iterative browser review.
+
+Ferlyn tested the Studio page in the local browser, shared screenshots of confusing states, and confirmed which behavior should change next. The feedback drove fixes for stale Lyrics content, misleading AI status, YouTube extraction handling, and lyrics formatting.
+
+### Human Modifications
+
+Ferlyn installed `yt-dlp` locally using:
+
+* `py -m pip install yt-dlp`
+
+Ferlyn also updated local environment configuration in `backend/.env`, including the OpenAI key and `YT_DLP_PATH`. Secret values were not recorded in the journal.
+
+### Final Outcome
+
+The Creator Studio now supports an end-to-end AI lyrics draft workflow for uploaded files and a backend-ready YouTube extraction path.
+
+Creators can:
+
+* Upload supported audio/video media and request an AI lyrics draft.
+* Paste a YouTube link and request backend audio extraction followed by transcription.
+* See clear AI extraction status instead of a silent or vague failure.
+* Receive clearer errors for missing configuration, missing tools, incomplete YouTube links, and unsupported media.
+* Edit the resulting lyrics draft directly in the Lyrics step.
+* Change the source media and have stale lyrics/error state reset automatically.
+* Receive a more readable lyrics draft with line and stanza formatting.
+
+### Verification
+
+Codex verified the implementation with:
+
+* `node --check services/transcriptionService.js`
+* `node --check services/audioExtractionService.js`
+* `node --check routes/transcriptions.js`
+* `npm.cmd run lint` in `backend`
+* `npm.cmd run lint` in `frontend`
+* `npm.cmd run build` in `frontend`
+* Backend health and transcription status endpoint checks.
+* Direct backend test posts for uploaded local media and YouTube URL handling.
+* A formatter sanity check confirming paragraph transcripts are converted into lyric-style lines and stanzas.
+
+### Remaining Work
+
+* Continue testing with full valid YouTube URLs because YouTube extraction may still fail depending on video availability, regional restrictions, age restrictions, or YouTube anti-bot behavior.
+* Consider adding `ffmpeg` support if future extraction needs conversion to MP3/WAV instead of using the downloaded best audio stream directly.
+* Store generated lyrics in the song metadata backend once the save workflow is expanded.
+* Add a stronger review workflow for incomplete or low-confidence AI transcriptions.
+* Consider integrating an official lyrics provider later if exact licensed lyrics are required, because speech transcription is not guaranteed to reproduce full official lyrics.
+
+---
+
+## Date
+2026-07-03
+
+## Task
+Refine the Creator Studio flow across Metadata, Lyrics, and Preview & Publish, including navigation, preview behavior, publish UI, and draft/publish interactions.
+
+## Prompts
+* Make the Studio stepper clickable so creators can jump back to Metadata and Lyrics.
+* Create a real Preview & Publish page using the existing Studio visual style.
+* Update the Lyrics-page live preview to better match the provided reference layout.
+* Expand the Lyrics editor container to better match the height of the live preview panel.
+* Remove the extra `Add tag` chip from the live preview tags row.
+* Set a default placeholder YouTube video for preview fallback.
+* Improve the Preview & Publish layout so the left side handles publishing controls and the right side focuses on the public preview.
+* Shrink the oversized publish preview media block.
+* Show `0 Views` instead of a fake value and use actual media in the publish preview.
+* Remove duplicate fake playback timing and use only the real video timing.
+* Add a UI-only publish date scheduling control.
+* After publish success, redirect the creator to `My Songs`.
+* Add all of the day's work into the AI development journal.
+
+## Files Created
+* `frontend/src/components/studio/PreviewPublishPanel.jsx`
+
+## Files Modified
+* `frontend/src/App.css`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/LyricsCard.jsx`
+* `frontend/src/components/studio/MetadataStepper.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/StudioFooter.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/pages/Studio.jsx`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+## Features Implemented
+* Made the Studio stepper clickable so creators can move between Metadata, Lyrics, and Preview & Publish.
+* Added a dedicated `PreviewPublishPanel` for Studio step 3 instead of reusing the Lyrics/Metadata two-column layout.
+* Updated the Studio header so its title, breadcrumb, and top-right actions change by step.
+* Simplified Studio footer actions so the bottom bar keeps a single primary progression action instead of repeating secondary buttons.
+* Added a UI-only draft save interaction using a browser popup and tracked the actual last-saved time in the footer.
+* Wired `Generate Video` to redirect to the Generation Jobs page for now.
+* Wired publish success to redirect the creator to `My Songs`.
+* Reworked the Lyrics-step live preview to a more video-first presentation with compact metadata and cleaner tag rows.
+* Removed the extra `Add tag` preview chip.
+* Added a default fallback YouTube preview source when no uploaded media or pasted link exists.
+* Reworked Preview & Publish into a clearer master-detail layout:
+  * left column for publish controls and readiness checklist
+  * right column for public preview and explore content
+* Changed the checklist to use scan-friendly ready/pending icons instead of only text states.
+* Merged the old standalone Reflection Prompt treatment into the `Explore & Learn` area.
+* Added a UI-only publish timing control with `Publish now` and `Schedule`, including a `datetime-local` picker.
+* Updated the publish preview to use real media inputs:
+  * uploaded MP4 shows as video
+  * pasted YouTube links show as embeds
+  * placeholder art is only shown when no real media source exists
+* Replaced the fake `128 Views` display with `0 Views`.
+* Removed the duplicate fake playback timing strip under the publish preview media area.
+* Added a compact stepper variant for Preview & Publish so the navigation strip does not dominate the page.
+
+## AI Assistance
+AI was used to:
+* translate visual feedback and screenshots into incremental frontend refinements
+* refactor the Studio page into a clearer multi-step flow without rewriting unrelated parts
+* implement reusable UI states for header, footer, stepper, preview cards, and publish controls
+* keep behavior consistent across top and bottom actions by centralizing handlers in `Studio.jsx`
+* verify each pass with frontend linting and production builds
+
+## Decisions Made
+* Kept the current implementation frontend-first and UI-driven instead of introducing backend persistence for publish scheduling or publishing state.
+* Reused the existing Studio page state in `Studio.jsx` as the single source of truth for metadata, media, preview values, save timestamps, and step navigation.
+* Used a dedicated `PreviewPublishPanel` component rather than overloading `LivePreviewCard`, because Preview & Publish serves a different purpose from the Metadata/Lyrics side preview.
+* Preserved one global default placeholder YouTube video as the lowest-priority fallback for previews.
+* Chose simple browser alerts for save/publish feedback to satisfy immediate interaction requirements without adding a toast system yet.
+* Used `0 Views` as the draft-safe placeholder until real publish analytics exist.
+
+## Remaining Work
+* Persist save draft, schedule, and publish actions to the backend instead of keeping them local-only.
+* Replace browser alerts with a proper in-app toast or modal system.
+* Connect publish scheduling to real song data and backend publication workflows.
+* Add real published/draft status handling so the checklist and preview metadata reflect persisted song state.
+* Replace placeholder explore cards with real navigation or feature entry points.
+* Decide whether the default placeholder YouTube video should remain global or be stored per song as generated preview media.
+
+## Verification
+* `npm.cmd run lint` in `frontend`
+* `npm.cmd run build` in `frontend`

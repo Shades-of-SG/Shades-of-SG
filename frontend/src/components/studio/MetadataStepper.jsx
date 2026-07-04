@@ -4,21 +4,34 @@ const steps = [
   { id: 'publish', label: 'Preview & Publish', description: 'Review and publish' },
 ]
 
-export default function MetadataStepper({ activeStep = 1 }) {
+export default function MetadataStepper({ activeStep = 1, compact = false, onStepChange }) {
   return (
-    <section className="studio-stepper" aria-label="Studio progress">
+    <section className={`studio-stepper ${compact ? 'studio-stepper--compact' : ''}`} aria-label="Studio progress">
       {steps.map((step, index) => {
-        const isActive = index + 1 === activeStep
-        const isComplete = index + 1 < activeStep
+        const stepNumber = index + 1
+        const isActive = stepNumber === activeStep
+        const isComplete = stepNumber < activeStep
+        const isAvailable = stepNumber <= 3
 
         return (
-          <div className={`studio-stepper__item ${isActive ? 'is-active' : ''} ${isComplete ? 'is-complete' : ''}`} key={step.id}>
-            <div className="studio-stepper__number">{index + 1}</div>
+          <button
+            aria-current={isActive ? 'step' : undefined}
+            className={`studio-stepper__item ${isActive ? 'is-active' : ''} ${isComplete ? 'is-complete' : ''}`}
+            disabled={!isAvailable}
+            key={step.id}
+            onClick={() => {
+              if (isAvailable) {
+                onStepChange?.(stepNumber)
+              }
+            }}
+            type="button"
+          >
+            <div className="studio-stepper__number">{stepNumber}</div>
             <div className="studio-stepper__text">
               <strong>{step.label}</strong>
-              <span>{step.description}</span>
+              {!compact && <span>{step.description}</span>}
             </div>
-          </div>
+          </button>
         )
       })}
     </section>

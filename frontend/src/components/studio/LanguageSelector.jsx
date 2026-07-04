@@ -5,12 +5,12 @@ export default function LanguageSelector({ selectedLanguages, otherLanguage, onO
     <section className="studio-languages">
       <div className="studio-card__section-heading">
         <h3>
-          Languages Used <span aria-hidden="true">ⓘ</span>
+          Languages Spoken <span aria-hidden="true">i</span>
         </h3>
       </div>
 
       <div className="studio-languages__grid">
-        {defaultLanguages.slice(0, 4).map((language) => {
+        {defaultLanguages.map((language) => {
           const checked = selectedLanguages.includes(language)
 
           return (
@@ -22,15 +22,14 @@ export default function LanguageSelector({ selectedLanguages, otherLanguage, onO
         })}
       </div>
 
-      <div className="studio-language-other-row">
-        <label className={`studio-option-chip ${selectedLanguages.includes('Others') ? 'is-selected' : ''}`}>
-          <input checked={selectedLanguages.includes('Others')} onChange={() => onToggleLanguage('Others')} type="checkbox" />
-          <span>Others</span>
-        </label>
-        <label className="studio-field studio-other-language">
-        <input onChange={(event) => onOtherLanguageChange(event.target.value)} placeholder="Specify language" value={otherLanguage} />
+      <label className="studio-field studio-other-language">
+        <span>Other language(s)</span>
+        <input
+          onChange={(event) => onOtherLanguageChange(event.target.value)}
+          placeholder="e.g. Hokkien, Cantonese, Japanese"
+          value={otherLanguage}
+        />
       </label>
-      </div>
     </section>
   )
 }

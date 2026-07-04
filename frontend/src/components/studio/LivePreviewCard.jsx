@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const emptyPreviewValue = '--'
+const defaultPlaceholderYoutubeLink = 'https://youtu.be/HhxKClOx4PQ?si=Abw0g-Phmso2QK_x'
 
 function getPreviewValue(value) {
   return value?.trim() || emptyPreviewValue
@@ -58,7 +59,6 @@ function PreviewTagIcon({ type }) {
 export default function LivePreviewCard({
   artist = '',
   audioSrc = '',
-  description = '',
   duration = '',
   languages = [],
   mediaType = '',
@@ -73,10 +73,16 @@ export default function LivePreviewCard({
   const activeLanguages = languages.filter((language) => language !== 'Others')
   const isVideoMedia = mediaType === 'video'
   const previewMoods = moods.length ? moods : theme ? [theme] : []
-  const youtubeEmbedUrl = audioSrc ? '' : getYoutubeEmbedUrl(youtubeLink)
-  const previewStats = [
+  const effectiveYoutubeLink = youtubeLink?.trim() || defaultPlaceholderYoutubeLink
+  const youtubeEmbedUrl = audioSrc ? '' : getYoutubeEmbedUrl(effectiveYoutubeLink)
+  const moodValue = previewMoods.length ? previewMoods.join(', ') : emptyPreviewValue
+  const languageValue = activeLanguages.length ? activeLanguages.join(', ') : emptyPreviewValue
+  const previewDetails = [
+    { label: 'Theme', value: getPreviewValue(theme) },
+    { label: 'Mood', value: moodValue },
+    { label: 'Languages', value: languageValue },
+    { label: 'Status', value: 'Draft' },
     { label: 'Duration', value: duration || emptyPreviewValue },
-    { label: 'Languages', value: activeLanguages.length ? activeLanguages.length : emptyPreviewValue },
     { label: 'Views', value: 'Draft' },
   ]
 
@@ -183,6 +189,21 @@ export default function LivePreviewCard({
               <path d="M640 438 C692 386 750 378 820 414" fill="none" stroke="#efe2ff" strokeOpacity="0.3" strokeWidth="6" />
             </svg>
 
+            <div className="studio-preview-art__overlay studio-preview-art__overlay--top">
+              <div className="studio-preview-art__channel">
+                <span className="studio-preview-art__avatar" />
+                <div>
+                  <strong>{getPreviewValue(title)}</strong>
+                  <span>{getPreviewValue(artist)}</span>
+                </div>
+              </div>
+              <div className="studio-preview-art__icons">
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+
             <button
               className={`studio-preview-art__play ${isPlaying ? 'is-playing' : ''}`}
               onClick={handlePreviewPlayback}
@@ -191,6 +212,21 @@ export default function LivePreviewCard({
             >
               <span />
             </button>
+
+            <div className="studio-preview-art__overlay studio-preview-art__overlay--bottom">
+              <div className="studio-preview-art__time">
+                <strong>0:00</strong>
+                <span>/ {duration || '--'}</span>
+              </div>
+              <div className="studio-preview-art__progress">
+                <span />
+              </div>
+              <div className="studio-preview-art__controls">
+                <span />
+                <span />
+                <span className="studio-preview-art__brand">YouTube</span>
+              </div>
+            </div>
           </>
         )}
         {audioSrc && !isVideoMedia && (
@@ -206,10 +242,14 @@ export default function LivePreviewCard({
       {playbackMessage && <p className="studio-preview-card__playback-message">{playbackMessage}</p>}
 
       <div className="studio-preview-card__body">
-        <div>
-          <h3>{getPreviewValue(title)}</h3>
-          <p>{getPreviewValue(artist)}</p>
-        </div>
+        <dl className="studio-preview-card__details">
+          {previewDetails.map((detail) => (
+            <div key={detail.label}>
+              <dt>{detail.label}</dt>
+              <dd>{detail.value}</dd>
+            </div>
+          ))}
+        </dl>
 
         <div className="studio-preview-card__tags">
           {previewMoods.length ? (
@@ -230,17 +270,6 @@ export default function LivePreviewCard({
             {activeLanguages.length ? activeLanguages.join(', ') : emptyPreviewValue}
           </span>
         </div>
-
-        <p className="studio-preview-card__description">{getPreviewValue(description)}</p>
-
-        <dl className="studio-preview-card__stats">
-          {previewStats.map((stat) => (
-            <div key={stat.label}>
-              <dt>{stat.label}</dt>
-              <dd>{stat.value}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
 
       <div className="studio-preview-card__tip">
