@@ -3,7 +3,7 @@ import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
 import { Link } from 'react-router-dom'
-import { sampleSongs } from './pageData'
+import { creatorSongs, songFilterStatusMap, songStatusFilters } from './pageData'
 
 /*
 TODO - Shermaine
@@ -11,33 +11,6 @@ TODO - Shermaine
 Implement song statistics.
 Implement creator song grid.
 */
-
-const dashboardSongs = [
-  {
-    badge: 'Published',
-    description: 'Violet Tay',
-    id: 'demo-song',
-    status: 'Published',
-    title: 'Song #1',
-  },
-  {
-    badge: 'Processing video generation',
-    description: 'Violet Tay',
-    id: 'kampong-light',
-    progress: 50,
-    status: 'Processing',
-    title: 'Song #2',
-  },
-  {
-    badge: 'Published',
-    description: 'Violet Tay',
-    id: 'city-pulse',
-    status: 'Published',
-    title: 'Song #3',
-  },
-]
-
-const songFilters = ['All', 'Published', 'Drafts', 'Processing', 'Archived']
 
 const weeklyPlays = [
   { day: 'Mon', minutes: 18 },
@@ -54,20 +27,13 @@ const generationJobs = [
   { id: 'song-2', status: 'Rendering frame set', title: 'Song #2' },
 ]
 
-const FILTER_STATUS = {
-  Archived: 'Archived',
-  Drafts: 'Draft',
-  Processing: 'Processing',
-  Published: 'Published',
-}
-
 export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState('All')
 
   const filteredSongs =
     activeFilter === 'All'
-      ? dashboardSongs
-      : dashboardSongs.filter((song) => song.status === FILTER_STATUS[activeFilter])
+      ? creatorSongs
+      : creatorSongs.filter((song) => song.status === songFilterStatusMap[activeFilter])
 
   return (
     <CreatorPageShell
@@ -92,7 +58,7 @@ export default function Dashboard() {
         <div className="dashboard-grid__main">
           <SectionCard title="My Songs">
             <div className="dashboard-filter-bar" aria-label="Song filters">
-              {songFilters.map((filter) => (
+              {songStatusFilters.map((filter) => (
                 <button
                   key={filter}
                   className={`dashboard-filter-pill ${filter === activeFilter ? 'is-selected' : ''}`}
@@ -114,7 +80,7 @@ export default function Dashboard() {
                 {filteredSongs.map((song) => (
                   <article key={song.id} className="dashboard-song-item">
                     <div className="dashboard-song-art" aria-hidden="true">
-                      {sampleSongs.find((track) => track.id === song.id)?.initials || 'SO'}
+                      {song.initials}
                     </div>
 
                     <div className="dashboard-song-copy">
