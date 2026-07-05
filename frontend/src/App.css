@@ -3752,20 +3752,29 @@ textarea {
   align-items: center;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 14px;
+  border-radius: 8px;
   display: grid;
   gap: 14px;
   grid-template-columns: 84px minmax(0, 1fr);
   padding: 14px;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.dashboard-song-item:hover {
+  border-color: rgba(216, 180, 254, 0.4);
+  box-shadow: 0 12px 26px rgba(124, 58, 237, 0.14);
+  transform: translateY(-2px);
 }
 
 .dashboard-song-art {
   align-items: center;
   aspect-ratio: 1;
-  background: rgba(12, 16, 53, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.42);
+  background:
+    radial-gradient(circle at 30% 18%, rgba(216, 180, 254, 0.42), transparent 34%),
+    linear-gradient(135deg, var(--primary), #172033);
+  border: 1px solid rgba(216, 180, 254, 0.22);
+  border-radius: 8px;
+  color: #ffffff;
   display: flex;
   font-size: 0.95rem;
   font-weight: 900;
@@ -3799,13 +3808,23 @@ textarea {
 }
 
 .dashboard-song-badge.is-published {
-  background: #3e8f3f;
-  color: #ecfdf3;
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
 }
 
 .dashboard-song-badge.is-processing {
-  background: #5166f2;
-  color: #eef2ff;
+  background: rgba(139, 92, 246, 0.2);
+  color: var(--accent);
+}
+
+.dashboard-song-badge.is-draft {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--muted);
+}
+
+.dashboard-song-badge.is-archived {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
 }
 
 .dashboard-song-progress {
@@ -3829,7 +3848,7 @@ textarea {
   gap: 8px;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   min-height: 180px;
-  padding: 16px 2px 12px 0;
+  padding: 16px 16px 12px 4px;
 }
 
 .dashboard-chart__bar-group {
@@ -3908,6 +3927,14 @@ textarea {
   width: max-content;
   padding: 0 16px;
   justify-self: center;
+}
+
+.dashboard-chart__bar-group:first-child .dashboard-chart__tooltip {
+  justify-self: start;
+}
+
+.dashboard-chart__bar-group:last-child .dashboard-chart__tooltip {
+  justify-self: end;
 }
 
 .dashboard-chart__tooltip-value {

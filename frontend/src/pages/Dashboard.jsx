@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
+import EmptyState from '../components/EmptyState'
 import { Link } from 'react-router-dom'
 import { sampleSongs } from './pageData'
 
@@ -15,6 +17,7 @@ const dashboardSongs = [
     badge: 'Published',
     description: 'Violet Tay',
     id: 'demo-song',
+    status: 'Published',
     title: 'Song #1',
   },
   {
@@ -22,12 +25,14 @@ const dashboardSongs = [
     description: 'Violet Tay',
     id: 'kampong-light',
     progress: 50,
+    status: 'Processing',
     title: 'Song #2',
   },
   {
     badge: 'Published',
     description: 'Violet Tay',
     id: 'city-pulse',
+    status: 'Published',
     title: 'Song #3',
   },
 ]
@@ -49,7 +54,21 @@ const generationJobs = [
   { id: 'song-2', status: 'Rendering frame set', title: 'Song #2' },
 ]
 
+const FILTER_STATUS = {
+  Archived: 'Archived',
+  Drafts: 'Draft',
+  Processing: 'Processing',
+  Published: 'Published',
+}
+
 export default function Dashboard() {
+  const [activeFilter, setActiveFilter] = useState('All')
+
+  const filteredSongs =
+    activeFilter === 'All'
+      ? dashboardSongs
+      : dashboardSongs.filter((song) => song.status === FILTER_STATUS[activeFilter])
+
   return (
     <CreatorPageShell
       breadcrumbs={['Dashboard']}
@@ -73,10 +92,11 @@ export default function Dashboard() {
         <div className="dashboard-grid__main">
           <SectionCard title="My Songs">
             <div className="dashboard-filter-bar" aria-label="Song filters">
-              {songFilters.map((filter, index) => (
+              {songFilters.map((filter) => (
                 <button
                   key={filter}
-                  className={`dashboard-filter-pill ${index === 0 ? 'is-selected' : ''}`}
+                  className={`dashboard-filter-pill ${filter === activeFilter ? 'is-selected' : ''}`}
+                  onClick={() => setActiveFilter(filter)}
                   type="button"
                 >
                   {filter}
@@ -84,32 +104,39 @@ export default function Dashboard() {
               ))}
             </div>
 
-            <div className="dashboard-song-list">
-              {dashboardSongs.map((song) => (
-                <article key={song.id} className="dashboard-song-item">
-                  <div className="dashboard-song-art" aria-hidden="true">
-                    {sampleSongs.find((track) => track.id === song.id)?.initials || 'SO'}
-                  </div>
+            {filteredSongs.length === 0 ? (
+              <EmptyState
+                description={`No ${activeFilter.toLowerCase()} songs yet.`}
+                title="No songs found"
+              />
+            ) : (
+              <div className="dashboard-song-list">
+                {filteredSongs.map((song) => (
+                  <article key={song.id} className="dashboard-song-item">
+                    <div className="dashboard-song-art" aria-hidden="true">
+                      {sampleSongs.find((track) => track.id === song.id)?.initials || 'SO'}
+                    </div>
 
-                  <div className="dashboard-song-copy">
-                    <h3>{song.title}</h3>
-                    <p>{song.description}</p>
-                    <span className={`dashboard-song-badge ${song.badge === 'Published' ? 'is-published' : 'is-processing'}`}>
-                      {song.badge}
-                    </span>
+                    <div className="dashboard-song-copy">
+                      <h3>{song.title}</h3>
+                      <p>{song.description}</p>
+                      <span className={`dashboard-song-badge is-${song.status.toLowerCase()}`}>
+                        {song.badge}
+                      </span>
 
-                    {song.progress ? (
-                      <div className="dashboard-song-progress">
-                        <div className="progress-track">
-                          <span style={{ width: `${song.progress}%` }} />
+                      {song.progress ? (
+                        <div className="dashboard-song-progress">
+                          <div className="progress-track">
+                            <span style={{ width: `${song.progress}%` }} />
+                          </div>
+                          <small>{song.progress}%</small>
                         </div>
-                        <small>{song.progress}%</small>
-                      </div>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
-            </div>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </SectionCard>
         </div>
 
