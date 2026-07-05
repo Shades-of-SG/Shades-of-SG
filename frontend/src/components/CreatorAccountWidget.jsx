@@ -1,5 +1,5 @@
-export default function CreatorAccountWidget({ className = '', notificationCount = 3, role = 'Creator', userName = 'Ferlyn' }) {
-  const initial = userName.trim().charAt(0).toUpperCase() || 'F'
+export default function CreatorAccountWidget({ className = '', notificationCount = 3, role = 'Creator', userName = role === 'Creator' ? 'Violet' : 'Ferlyn' }) {
+  const initial = userName.trim().charAt(0).toUpperCase() || 'V'
 
   return (
     <div className={`creator-account-widget ${className}`.trim()} aria-label="Creator account actions">

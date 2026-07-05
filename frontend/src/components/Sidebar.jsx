@@ -81,9 +81,6 @@ export default function Sidebar() {
     signOut()
     navigate('/login', { replace: true })
   }
-    signOut()
-    navigate('/login', { replace: true })
-  }
 
   return (
     <aside className="creator-sidebar">
@@ -160,4 +157,5 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
-  )}
+  )
+}

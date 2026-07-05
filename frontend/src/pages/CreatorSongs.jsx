@@ -1,4 +1,4 @@
-import CreatorPageShell from '../components/CreatorPageShell'
+import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
 import SongCard from '../components/SongCard'
 import { sampleSongs } from './pageData'
@@ -12,12 +12,12 @@ Add edit, publish, and archive actions.
 */
 export default function CreatorSongs() {
   return (
-    <CreatorPageShell
-      breadcrumbs={['My Songs']}
-      description="Creator-only song management for drafts, published songs, and generation status."
-      title="My Songs"
-      actions={<button className="studio-button studio-button--primary" type="button">Create Song</button>}
-    >
+    <div className="page-stack">
+      <PageHeader
+        description="Creator-only song management for drafts, published songs, and generation status."
+        eyebrow="Creator Songs"
+        title="Songs"
+      />
       <section className="stats-grid">
         <SectionCard title="Drafts"><strong>4</strong><p>Songs being prepared.</p></SectionCard>
         <SectionCard title="Published"><strong>8</strong><p>Live in the public library.</p></SectionCard>
@@ -35,6 +35,6 @@ export default function CreatorSongs() {
           </article>
         ))}
       </section>
-    </CreatorPageShell>
+    </div>
   )
 }
