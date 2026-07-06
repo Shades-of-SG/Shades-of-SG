@@ -6,8 +6,7 @@ import useReveal from '../hooks/useReveal'
 /*
 TODO - Shermaine
 
-Wire "Cultural & Historical Explorer" and "Guided Music Lessons" cards
-to their real routes once those pages exist.
+Wire "Guided Music Lessons" card to its real route once that page exists.
 */
 
 const milestones = [
@@ -49,8 +48,8 @@ const learningModules = [
     description: "Discover how Singapore's journey shaped today's National Day celebrations.",
     icon: '🏛️',
     id: 'explorer',
-    title: 'Cultural & Historical Explorer',
-    to: null,
+    title: 'The Heritage Vault',
+    to: '/learning/heritage-vault',
   },
   {
     cta: 'Play Now',
