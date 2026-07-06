@@ -52,12 +52,12 @@ const learningModules = [
     to: '/learning/heritage-vault',
   },
   {
-    cta: 'Play Now',
+    cta: 'Discover',
     description: "Listen to and interact with traditional instruments from Singapore's multicultural heritage.",
     icon: '🥁',
     id: 'playground',
-    title: 'Instrument Playground',
-    to: '/songs/demo-song/playground',
+    title: 'Instrument Discovery Lab',
+    to: '/learning/instrument-lab',
   },
   {
     cta: 'Start Learning',

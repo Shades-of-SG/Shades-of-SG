@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard'
 import ForgotPassword from './pages/ForgotPassword'
 import GenerationProgress from './pages/GenerationProgress'
 import HeritageVault from './pages/HeritageVault'
+import InstrumentDiscoveryLab from './pages/InstrumentDiscoveryLab'
 import InstrumentPlayground from './pages/InstrumentPlayground'
 import Landing from './pages/Landing'
 import LearningHub from './pages/LearningHub'
@@ -69,6 +70,7 @@ function App() {
           <Route element={<InstrumentPlayground />} path="/songs/:id/playground" />
           <Route element={<LearningHub />} path="/learning" />
           <Route element={<HeritageVault />} path="/learning/heritage-vault" />
+          <Route element={<InstrumentDiscoveryLab />} path="/learning/instrument-lab" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />
