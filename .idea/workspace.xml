@@ -4,15 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="clean up">
-      <change afterPath="$PROJECT_DIR$/backend/services/transcriptions.js" afterDir="false" />
+    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="merged with violet 3">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/server.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/services/audioExtractionService.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/audioExtractionService.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/services/transcriptionService.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/transcriptionService.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/services/youtubeService.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/studio/LanguageSelector.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/studio/LanguageSelector.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -249,7 +242,15 @@
       <option name="project" value="LOCAL" />
       <updated>1782754352720</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="merged with violet 3">
+      <option name="closed" value="true" />
+      <created>1783407673604</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1783407673607</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -273,6 +274,7 @@
     <MESSAGE value="- Add subtitleGenerator.js to convert DB segments into strict .srt format&#10;- Add videoAssembler.js to stitch frames, audio, and subtitles via fluent-ffmpeg&#10;- Update aiStorageService.js with local MP4 Cloudinary upload support&#10;- Chain Phase 4 assembly into generationController's background process" />
     <MESSAGE value="frontend work for Violet (also optimized image generation by reusing same pics for chorus)" />
     <MESSAGE value="clean up" />
-    <option name="LAST_COMMIT_MESSAGE" value="clean up" />
+    <MESSAGE value="merged with violet 3" />
+    <option name="LAST_COMMIT_MESSAGE" value="merged with violet 3" />
   </component>
 </project>
