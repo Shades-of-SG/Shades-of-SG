@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 const navigationItems = [
   { label: 'Dashboard', shortLabel: 'DB', to: '/creator/dashboard' },
@@ -10,7 +11,14 @@ const navigationItems = [
 ]
 
 export default function CreatorSidebar({ collapsed = false, drawerOpen = false, isDrawerMode = false, onCloseDrawer, onToggleCollapse }) {
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
   const drawerStateClass = drawerOpen ? 'is-open' : ''
+
+  function handleLogout() {
+    signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <>
@@ -52,7 +60,7 @@ export default function CreatorSidebar({ collapsed = false, drawerOpen = false, 
             </span>
             <span className="studio-sidebar__link-label">Help &amp; Support</span>
           </button>
-          <button className="studio-sidebar__utility" type="button">
+          <button className="studio-sidebar__utility" onClick={handleLogout} type="button">
             <span className="studio-sidebar__link-icon" aria-hidden="true">
               O
             </span>

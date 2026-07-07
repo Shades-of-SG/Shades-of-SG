@@ -144,7 +144,6 @@ export default function Sidebar() {
           />
           <span>Help &amp; Support</span>
         </button>
-
         <button
           className="creator-sidebar__utility"
           type="button"
@@ -158,4 +157,5 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
-  )}
+  )
+}

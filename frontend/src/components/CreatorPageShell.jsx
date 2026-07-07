@@ -11,7 +11,7 @@ export default function CreatorPageShell({ actions, breadcrumbs = [], children, 
               <span key={breadcrumb}>{breadcrumb}</span>
             ))}
           </p>
-          <div>
+          <div className="creator-page__title">
             <h1>{title}</h1>
             {description && <p>{description}</p>}
           </div>
