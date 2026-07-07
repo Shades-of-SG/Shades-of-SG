@@ -1,6 +1,11 @@
 const defaultLanguages = ['English', 'Chinese', 'Malay', 'Tamil', 'Others']
 
-export default function LanguageSelector({ selectedLanguages, otherLanguage, onOtherLanguageChange, onToggleLanguage }) {
+export default function LanguageSelector({
+  selectedLanguages,
+  otherLanguage,
+  onOtherLanguageChange,
+  onToggleLanguage,
+}) {
   return (
     <section className="studio-languages">
       <div className="studio-card__section-heading">
@@ -15,7 +20,11 @@ export default function LanguageSelector({ selectedLanguages, otherLanguage, onO
 
           return (
             <label className={`studio-option-chip ${checked ? 'is-selected' : ''}`} key={language}>
-              <input checked={checked} onChange={() => onToggleLanguage(language)} type="checkbox" />
+              <input
+                checked={checked}
+                onChange={() => onToggleLanguage(language)}
+                type="checkbox"
+              />
               <span>{language}</span>
             </label>
           )
