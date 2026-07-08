@@ -1,75 +1,146 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai')
-const { Song, SceneSegment } = require('../models')
+const { OpenAI } = require('openai')
+const { Song, GenerationJob, SceneSegment } = require('../models')
+
+// Initialize the OpenAI SDK.
+// It will automatically use the process.env.OPENAI_API_KEY if not explicitly passed,
+// but passing it explicitly is good practice for visibility.
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 /**
- * Calls Gemini AI to generate a timestamped scene plan for a given song,
- * and saves the generated segments to the database.
- * * @param {string} songId - The UUID of the song.
+ * Phase 2 Pipeline: Analyzes song lyrics and generates a chronological scene plan.
+ * * @param {number|string} jobId - The primary key of the GenerationJob
+ * @param {number|string} songId - The primary key of the Song
+ * @returns {Promise<Array>} The array of generated scenes
  */
-const generateScenePlan = async (songId) => {
-  // 1. Fetch the Song and validate required fields
-  const song = await Song.findByPk(songId)
+async function generateScenePlan(jobId, songId) {
+  try {
+    // 1. Database Fetching & State Validation
+    const job = await GenerationJob.findByPk(jobId)
+    if (!job) {
+      throw new Error(`GenerationJob with ID ${jobId} not found.`)
+    }
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is in state '${job.status}', expected 'PROCESSING'.`)
+    }
 
-  if (!song) {
-    throw new Error(`Song with ID ${songId} not found.`)
-  }
+    const song = await Song.findByPk(songId)
+    if (!song) {
+      throw new Error(`Song with ID ${songId} not found.`)
+    }
 
-  if (!song.lyrics || !song.durationSecs) {
-    throw new Error('Song is missing lyrics or durationSecs required for scene planning.')
-  }
+    // 2. The System Prompt (Music Video Director)
+    const systemPrompt = `You are an expert cinematic music video director and visual storyteller. 
+Your task is to analyze the provided song's lyrics, theme, title, and artist, and break the song down into a chronological sequence of highly visual scenes.
 
-  // 2. Initialize Gemini API Client
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+This project, "Shades of SG", is focused on Singapore's rich heritage and community history. Please keep local context in mind if the theme calls for it.
 
-  // We enforce a strict JSON output by setting the responseMimeType
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash',
-    generationConfig: {
-      responseMimeType: 'application/json',
-    },
-  })
+For each scene, you must generate a rich, highly detailed imagePrompt optimized for DALL-E 3. 
+Each imagePrompt must specify:
+- Subject matter and key elements.
+- Lighting, atmosphere, and mood.
+- Camera angle or cinematic style.
+- Integration of the song's theme: ${song.theme || 'Singaporean Heritage'}.
 
-  // 3. Construct the System/Instruction Prompt
-  const prompt = `
-        Act as a music video director for a project called "Shades of SG".
-        Analyze the following song and create a timestamped video scene plan covering the entire duration of ${song.durationSecs} seconds.
-        
-        Song Theme: ${song.theme || 'Singapore Heritage'}
-        
-        Lyrics:
-        ${song.lyrics}
+You must return ONLY a JSON object. Do NOT return an array as the root element.
+The root of the JSON object must have a single property "scenes" which is an array of objects.
 
-        Break the lyrics into chronological segments. 
-        Output a pure JSON array of objects with the following exact keys:
-        - "startTime": (float) Starting timestamp in seconds.
-        - "endTime": (float) Ending timestamp in seconds.
-        - "lyrics": (string) The specific lyrics for this segment.
-        - "emotion": (string) The emotional tone of the segment.
-        - "visualPrompt": (string) A highly descriptive prompt for a Text-to-Image AI to generate a scene matching the lyrics and theme.
-
-        CRITICAL CHORUS INSTRUCTION: If a stanza or chorus repeats in the song, you MUST output the exact same lyrics, emotion, and visualPrompt strings for those repeated segments. Do not vary the text for repeated sections. This is mandatory for our downstream hashing/caching engine.
-    `
-
-  // 4. Execute the AI Call
-  const result = await model.generateContent(prompt)
-  const responseText = result.response.text()
-
-  // Because we set responseMimeType, we can safely parse this directly
-  const sceneSegmentsData = JSON.parse(responseText)
-
-  // 5. Map data to the DB Schema and Bulk Insert
-  const segmentsToCreate = sceneSegmentsData.map((segment) => ({
-    songId: song.id,
-    startTime: segment.startTime,
-    endTime: segment.endTime,
-    lyrics: segment.lyrics,
-    emotion: segment.emotion,
-    visualPrompt: segment.visualPrompt,
-  }))
-
-  await SceneSegment.bulkCreate(segmentsToCreate)
+The JSON schema must strictly follow this structure:
+{
+  "scenes": [
+    {
+      "timestampSecs": <number, starting second of the scene>,
+      "duration": <number, duration of the scene in seconds>,
+      "lyrics": "<string, the exact lyrics spoken/sung during this scene, or '[Instrumental]' if none>",
+      "imagePrompt": "<string, detailed DALL-E 3 image generation prompt>"
+    }
+  ]
 }
 
-module.exports = {
-  generateScenePlan,
+Ensure the generated scenes logically cover the progression of the song.`
+
+    const userMessage = `Title: ${song.title}
+Artist: ${song.artist}
+Theme: ${song.theme || 'N/A'}
+Lyrics:
+${song.lyrics || 'No lyrics provided.'}`
+
+    // 3. OpenAI API Call with Strict JSON Enforcement
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o', // using the flagship model for better prompt adherence
+      response_format: { type: 'json_object' },
+      temperature: 0.7, // 0.7 provides a good balance of creativity and structure
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    })
+
+    // 4. Safely Parse the Returned JSON
+    const responseText = response.choices[0].message.content
+    let parsedData
+
+    try {
+      parsedData = JSON.parse(responseText)
+    } catch (parseError) {
+      throw new Error(
+        `Failed to parse OpenAI JSON response: ${parseError.message}\nRaw Output: ${responseText}`,
+        { cause: parseError }
+      )
+    }
+
+    // Validate that the root object contains the expected "scenes" array
+    if (!parsedData.scenes || !Array.isArray(parsedData.scenes)) {
+      throw new Error(
+        'OpenAI response did not contain a valid "scenes" array at the root object level.'
+      )
+    }
+
+    // 5. Database Saving (The DB Handoff via bulkCreate)
+    // Map the scenes to match your Sequelize schema, injecting foreign keys for relations.
+    const sceneRecords = parsedData.scenes.map((scene) => ({
+      jobId: jobId,
+      songId: songId,
+      timestampSecs: scene.timestampSecs,
+      duration: scene.duration,
+      lyrics: scene.lyrics,
+      imagePrompt: scene.imagePrompt,
+    }))
+
+    await SceneSegment.bulkCreate(sceneRecords)
+
+    // 6. Progress Update
+    job.progress = 25
+    await job.save()
+
+    return parsedData.scenes
+  } catch (error) {
+    // 7. Error Boundaries & Failsafes
+    console.error(
+      `[aiScenePlanner] Critical error during scene generation for Job ${jobId}:`,
+      error
+    )
+
+    try {
+      // Attempt to fetch the job again to ensure we have the latest instance before updating to FAILED
+      const failedJob = await GenerationJob.findByPk(jobId)
+      if (failedJob) {
+        failedJob.status = 'FAILED'
+        // Substring the error message just in case it exceeds string column limits in Postgres
+        failedJob.errorMessage = error.message.substring(0, 1000)
+        await failedJob.save()
+      }
+    } catch (dbFailsafeError) {
+      console.error(
+        `[aiScenePlanner] Failsafe: Could not update job ${jobId} to FAILED status.`,
+        dbFailsafeError
+      )
+    }
+
+    // Throw the error upstream so the orchestrator/caller is aware of the failure
+    throw error
+  }
 }
+
+module.exports = { generateScenePlan }

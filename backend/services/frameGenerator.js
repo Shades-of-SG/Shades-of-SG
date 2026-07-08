@@ -1,92 +1,114 @@
-// backend/services/frameGenerator.js
-const crypto = require('crypto')
-const OpenAI = require('openai')
-const aiStorageService = require('./aiStorageService')
-const { SceneSegment, GeneratedFrame } = require('../models')
+/**
+ * backend/services/frameGenerator.js
+ * * Phase 3 of AI Video Generation Pipeline: Image Generation & Chorus Caching.
+ * Orchestrates text-to-image generation for song segments using DALL-E 3 and Cloudinary.
+ */
 
-// Initialize OpenAI SDK
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+const { OpenAI } = require('openai')
+const { GenerationJob, SceneSegment, GeneratedFrame } = require('../models')
+const aiStorageService = require('./aiStorageService')
+
+// Initialize OpenAI client (automatically picks up process.env.OPENAI_API_KEY)
+const openai = new OpenAI()
 
 /**
- * Iterates over SceneSegments for a song, generating DALL-E 3 images sequentially.
- * Employs a cryptographic hash of the prompt to cache and reuse images for repeated choruses.
- * @param {string} songId - The UUID of the song
+ * Generates and stores frames for a specific job sequentially.
+ * * @param {number|string} jobId - The ID of the GenerationJob.
+ * @param {number|string} songId - The ID of the song (for context/logging).
  */
-const generateFramesForSong = async (songId) => {
+async function generateFrames(jobId, songId) {
+  let job
+
   try {
-    // Step 1: Fetch all SceneSegment records for this songId, ordered chronologically
+    // 1. Database Fetching & Job Validation
+    job = await GenerationJob.findByPk(jobId)
+
+    if (!job) {
+      throw new Error(`GenerationJob with ID ${jobId} not found.`)
+    }
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
+    }
+
+    // Fetch scene segments ordered chronologically
     const segments = await SceneSegment.findAll({
-      where: { songId },
-      order: [['startTime', 'ASC']],
+      where: { jobId },
+      order: [['timestampSecs', 'ASC']],
     })
 
-    // Step 2: Iterate sequentially using for...of to respect OpenAI's rate limits
+    if (!segments || segments.length === 0) {
+      throw new Error('No SceneSegments found for this job.')
+    }
+
+    // 2. The Chorus Cache (Cost-Saving Logic)
+    // Used to store generated Cloudinary URLs keyed by their exact image prompt.
+    const imagePromptCache = new Map()
+
+    // Use a for...of loop to enforce synchronous execution and avoid OpenAI rate limits
     for (const segment of segments) {
-      if (!segment.visualPrompt) continue
+      let finalImageUrl
 
-      // Normalize the prompt to ensure identical prompts hash perfectly
-      const normalizedPrompt = segment.visualPrompt.trim().toLowerCase()
-
-      // THE HASHING MECHANISM:
-      // We generate a SHA-256 hash of the normalized prompt string.
-      // If a song repeats a chorus, the LLM generated the same exact visual prompt.
-      // This hash acts as a unique fingerprint, allowing us to find matching frames and save money.
-      const promptHash = crypto.createHash('sha256').update(normalizedPrompt).digest('hex')
-
-      // Check if we've already generated an image for this exact prompt hash in this song
-      const existingFrame = await GeneratedFrame.findOne({
-        where: {
-          songId,
-          promptHash,
-        },
-      })
-
-      if (existingFrame) {
-        // THE CACHE HIT (Chorus / Repeated Segment)
-        console.log(`[Cache Hit] Reusing frame for segment ID: ${segment.id}`)
-
-        // Immediately map the existing Cloudinary URL to the new Segment ID
-        await GeneratedFrame.create({
-          songId,
-          sceneSegmentId: segment.id,
-          promptHash,
-          imageUrl: existingFrame.imageUrl, // Reusing the permanent URL
-        })
+      // Check if we already generated an image for this exact prompt (e.g., a repeated chorus)
+      if (imagePromptCache.has(segment.imagePrompt)) {
+        // Cache HIT: Skip DALL-E and reuse the permanent Cloudinary URL
+        console.log(
+          `[Cache Hit] Reusing frame for prompt: "${segment.imagePrompt.substring(0, 30)}..."`
+        )
+        finalImageUrl = imagePromptCache.get(segment.imagePrompt)
       } else {
-        // THE CACHE MISS (New Segment)
-        console.log(`[Cache Miss] Generating new DALL-E image for segment ID: ${segment.id}`)
+        // Cache MISS: Generate via DALL-E 3
+        console.log(`[Cache Miss] Generating new DALL-E frame for segment ${segment.id}...`)
 
-        // 1. Call OpenAI DALL-E 3 API (Using original unmodified prompt text for best results)
+        // 3. DALL-E 3 Integration
         const response = await openai.images.generate({
           model: 'dall-e-3',
-          prompt: segment.visualPrompt,
-          n: 1,
+          prompt: segment.imagePrompt,
           size: '1024x1024',
+          n: 1, // DALL-E 3 only supports generating 1 image per request
         })
 
-        const temporaryImageUrl = response.data[0].url
+        const openAiImageUrl = response.data[0].url
 
-        // 2. Convert and upload the temporary URL to Cloudinary permanently using our NEW service
-        const permanentImageUrl = await aiStorageService.uploadImageFromUrl(temporaryImageUrl)
+        // 4. Cloudinary Handoff
+        // Immediately upload to persistent storage before the OpenAI URL expires
+        finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
 
-        // 3. Save the new GeneratedFrame record for future cache checks
-        await GeneratedFrame.create({
-          songId,
-          sceneSegmentId: segment.id,
-          promptHash,
-          imageUrl: permanentImageUrl,
-        })
+        // Cache the newly acquired permanent URL for future segments
+        imagePromptCache.set(segment.imagePrompt, finalImageUrl)
       }
+
+      // 5. Database Saving
+      // Record the generated frame mapping to the specific segment
+      await GeneratedFrame.create({
+        jobId: jobId,
+        sceneSegmentId: segment.id,
+        imageUrl: finalImageUrl,
+      })
     }
+
+    // 6. Progress Update
+    // Update job progress to 60% after all frames have been safely processed and stored
+    await job.update({ progress: 60 })
+    console.log(
+      `[Phase 3 Complete] All frames generated for Job ${jobId} (Song ${songId}). Progress updated to 60%.`
+    )
   } catch (error) {
-    console.error(`[Frame Generator Error for song ${songId}]:`, error)
-    // FIX: Appended { cause: error } to preserve the original stack trace for ESLint
-    throw new Error(`Frame generation failed: ${error.message}`, { cause: error })
+    // 7. Error Boundaries
+    console.error(`[Frame Generator Error] Job ${jobId} (Song ${songId}):`, error)
+
+    // Update the database to reflect the failed pipeline status if the job was found
+    if (job) {
+      await job.update({
+        status: 'FAILED',
+        errorMessage: error.message || 'An unknown error occurred during frame generation.',
+      })
+    }
+
+    // Throw the error upstream so the orchestrator can halt the pipeline execution
+    throw error
   }
 }
 
 module.exports = {
-  generateFramesForSong,
+  generateFrames,
 }

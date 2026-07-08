@@ -2,9 +2,6 @@ const { GenerationJob, Song } = require('../models')
 
 /**
  * Retrieves all generation jobs, including their associated song titles.
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const getAllJobs = async (req, res, next) => {
   try {
@@ -12,15 +9,13 @@ const getAllJobs = async (req, res, next) => {
       include: [
         {
           model: Song,
-          as: 'song', // STRICT MATCH: Must match the alias defined in models/index.js
+          as: 'song',
           attributes: ['title'],
         },
       ],
       order: [['createdAt', 'DESC']],
     })
 
-    // Map the database's lower-case 'song' alias to the upper-case 'Song'
-    // expected by the React frontend's data contract.
     const formattedJobs = jobs.map((job) => {
       const plainJob = job.get({ plain: true })
       return {
@@ -40,9 +35,6 @@ const getAllJobs = async (req, res, next) => {
 
 /**
  * Retrieves the live status of a specific generation job.
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const getGenerationStatus = async (req, res, next) => {
   try {
@@ -52,7 +44,7 @@ const getGenerationStatus = async (req, res, next) => {
       include: [
         {
           model: Song,
-          as: 'song', // STRICT MATCH: Must match the alias defined in models/index.js
+          as: 'song',
           attributes: ['title'],
         },
       ],
@@ -72,8 +64,51 @@ const getGenerationStatus = async (req, res, next) => {
       data: {
         status: plainJob.status,
         errorMessage: plainJob.errorMessage,
-        Song: plainJob.song, // Map alias to expected frontend contract
+        Song: plainJob.song,
       },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Placeholder for the background video generation pipeline.
+ */
+const runGenerationPipeline = async (jobId) => {
+  console.log(`[Background Worker] Starting generation pipeline for Job ID: ${jobId}...`)
+  // Future logic goes here...
+}
+
+/**
+ * Initiates the AI generation process.
+ * Responds immediately to the client while the heavy lifting runs in the background.
+ */
+const startGeneration = async (req, res, next) => {
+  try {
+    const { songId } = req.body
+
+    if (!songId) {
+      return res.status(400).json({
+        success: false,
+        message: 'songId is required to start the generation process.',
+      })
+    }
+
+    const newJob = await GenerationJob.create({
+      songId: songId,
+      status: 'PROCESSING',
+      progress: 10,
+    })
+
+    // The Background Trigger (No await)
+    runGenerationPipeline(newJob.id).catch((err) => {
+      console.error(`[Background Worker Error] Job ID ${newJob.id}:`, err)
+    })
+
+    return res.status(202).json({
+      success: true,
+      jobId: newJob.id,
     })
   } catch (error) {
     next(error)
@@ -83,4 +118,6 @@ const getGenerationStatus = async (req, res, next) => {
 module.exports = {
   getAllJobs,
   getGenerationStatus,
+  startGeneration,
+  runGenerationPipeline,
 }
