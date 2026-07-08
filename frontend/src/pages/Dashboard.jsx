@@ -38,6 +38,7 @@ export default function Dashboard() {
   return (
     <CreatorPageShell
       breadcrumbs={['Dashboard']}
+      className="creator-page--hero"
       description="Creator overview for song health, moderation needs, and publishing actions."
       title="Dashboard"
       actions={

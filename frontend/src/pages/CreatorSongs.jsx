@@ -96,6 +96,7 @@ export default function CreatorSongs() {
   return (
     <CreatorPageShell
       breadcrumbs={['My Songs']}
+      className="creator-page--hero"
       description="Creator-only song management for drafts, published songs, and generation status."
       title="My Songs"
       actions={
@@ -107,7 +108,7 @@ export default function CreatorSongs() {
           <button
             aria-label="Delete selected songs"
             className="creator-icon-button"
-            disabled={checkedSongIds.size === 0}
+            disabled={!isSelectMode}
             onClick={handleDeleteSelected}
             type="button"
           >
@@ -116,7 +117,7 @@ export default function CreatorSongs() {
           <button
             aria-label="Archive selected songs"
             className="creator-icon-button"
-            disabled={checkedSongIds.size === 0}
+            disabled={!isSelectMode}
             onClick={handleArchiveSelected}
             type="button"
           >
