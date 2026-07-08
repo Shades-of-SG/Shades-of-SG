@@ -22,6 +22,9 @@ import ResetPassword from './pages/ResetPassword'
 import RhythmHub from './pages/RhythmHub'
 import RhythmResults from './pages/RhythmResults'
 import Settings from './pages/Settings'
+import ProfileSettings from './pages/ProfileSettings'
+import AccountSecurity from './pages/AccountSecurity'
+import DataPrivacy from './pages/DataPrivacy'
 import SongExperience from './pages/SongExperience'
 import SongsLibrary from './pages/SongsLibrary'
 import Studio from './pages/Studio'
@@ -70,6 +73,9 @@ function App() {
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />
           <Route element={<Settings />} path="/settings" />
+          <Route path="/settings/profile" element={<ProfileSettings />} />
+          <Route path="/settings/account-security" element={<AccountSecurity />} />
+          <Route path="/settings/data-privacy" element={<DataPrivacy />} />
         </Route>
 
         <Route element={<AuthExperience />}>
@@ -89,6 +95,9 @@ function App() {
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
             <Route element={<Settings />} path="/creator/settings" />
+            <Route path="/settings/profile" element={<ProfileSettings />} />
+            <Route path="/settings/account-security" element={<AccountSecurity />} />
+            <Route path="/settings/data-privacy" element={<DataPrivacy />} />
           </Route>
         </Route>
 

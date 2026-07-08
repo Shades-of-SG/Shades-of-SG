@@ -27,7 +27,7 @@ function verifyPassword(password, storedHash) {
     return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(nextHash, 'hex'));
 }
 
-function createToken(user) {
+function createToken(user) {    //Gotta figure out this: whether to change + i ned to put auth_token_secret
     const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
@@ -37,6 +37,18 @@ function createToken(user) {
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
 
     return `${payload}.${signature}`;
+   /*
+    const jwt = require("jsonwebtoken");
+
+    function createToken(user) {
+        const secret = process.env.AUTH_TOKEN_SECRET || "local-dev-auth-secret";
+        return jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            secret,
+            { expiresIn: "7d" }
+        );
+    }
+    */
 }
 
 function serializeUser(user) {
