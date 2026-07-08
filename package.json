@@ -36,6 +36,8 @@
     "yargs-parser": "^21.1.1"
   },
   "scripts": {
+    "prebuild": "npm install --prefix frontend",
+    "build": "npm run build --prefix frontend",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
