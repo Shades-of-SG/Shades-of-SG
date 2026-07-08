@@ -861,3 +861,712 @@ For this project, a rhythm game feature should not be treated as a separate mini
 Visual polish matters most when it improves readability and flow. The most important changes were not fancy effects, but clear layering, centered gameplay, visible notes, intentional start state, pause support, and a meaningful Results page that leads to Reflection Wall work.
 
 Human review was essential because the AI could implement mechanics, but Ferlyn's references and product judgement determined whether the feature actually matched the intended experience.
+
+---
+
+## 2026-07-01
+
+### Feature
+
+Studio Page Rebuild
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Rebuild only the creator Studio page from scratch so it matches the provided Figma reference, stays responsive across desktop and tablet/mobile widths, and avoids the instability of the previous implementation.
+
+### Prompt Summary
+
+Ferlyn requested a full rebuild of the Studio page only, with reusable components, a collapsible creator sidebar, a responsive metadata form, a live preview panel, footer actions, local React state only, no API calls, and no changes to unrelated pages, routing, authentication, or backend logic.
+
+### AI Output Summary
+
+Codex rebuilt the Studio route into a dedicated component set and route-owned shell.
+
+Components created:
+
+* `frontend/src/components/studio/CreatorSidebar.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/components/studio/MetadataStepper.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/LanguageSelector.jsx`
+* `frontend/src/components/studio/MoodTagSelector.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/StudioFooter.jsx`
+
+Files created or updated:
+
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/layouts/CreatorLayout.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Design decisions:
+
+* Kept the implementation within the existing dark creator palette and card language already used by the app.
+* Made the Studio route own its shell so the page can use the requested sidebar, header, form, preview, and footer layout without affecting other creator pages.
+* Used local component state only for form fields, selected languages, mood tags, and sidebar collapse state.
+* Persisted the sidebar collapse state in `localStorage`.
+* Used a desktop-first responsive grid with a two-column main layout on larger widths and a single-column stack below tablet widths.
+* Built the live preview with mock data only and no backend integration.
+
+### Human Review
+
+Fully accepted.
+
+### Human Modifications
+
+No user edits were required after implementation.
+
+### Final Outcome
+
+The Studio page now renders as a dedicated responsive creator workspace with reusable components, a collapsible sidebar, a metadata form, a mock live preview, and footer actions that match the provided visual reference much more closely.
+
+### Verification
+
+The Studio rebuild was checked with frontend commands:
+
+* `npm run lint`
+* `npm run build`
+
+### Remaining Work
+
+* Replace mock content with real song data when backend integration is ready.
+* Add actual shadcn/ui or Tailwind wiring only if the project stack is later expanded to support it.
+* Connect the save, preview, and generate actions to real Studio workflows when those APIs exist.
+
+### Follow-up Adjustment
+
+The Studio page was later adjusted to remove the separate top bar entirely and move the creator branding, logout control, and navigation into the sidebar so the requested layout matched the current creator top navigation more closely.
+
+### Sidebar Restyle Update
+
+The shared creator sidebar was then rebuilt to match the provided reference more closely across all creator routes, including the compact icon rail, stacked branding, creator portal label, highlighted active item, notification badge, decorative lower artwork, and footer support/logout actions.
+
+---
+
+## 2026-07-02
+
+### Feature
+
+Creator Studio Song Information Form Refinement
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Refine the Creator Studio page so the Song Information card and surrounding Studio layout more closely match Ferlyn's provided Figma screenshots.
+
+### Prompt Summary
+
+Ferlyn requested several visual corrections to the Creator Studio page, especially the Song Information container. The requested layout was:
+
+* A top section with left-side song metadata fields and right-side selectors.
+* A Figma-matched Song Information card where the left column contains Title, Artist, Theme, and Description.
+* A right column containing Languages Used, Mood Tags, and Song Media.
+* Language options styled as selectable checkbox pills.
+* Mood tags styled as selected pills with a visible count and an Add mood tag row.
+* Description character counting and vulgarity validation.
+* Song Media kept at the bottom with upload audio and YouTube link options.
+
+### AI Output Summary
+
+Codex iteratively adjusted the existing Studio implementation rather than rebuilding the page from scratch.
+
+Files updated:
+
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/LanguageSelector.jsx`
+* `frontend/src/components/studio/MoodTagSelector.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Implemented refinements:
+
+* Reworked the Studio header area to include breadcrumb, title, subtitle, creator controls, and action buttons.
+* Moved the stepper into the left form column above the Song Information card.
+* Reworked the Song Information card into a two-column layout matching the screenshot:
+  * Left column: Title, Artist, Theme, Description.
+  * Right column: Languages Used, Mood Tags, Song Media.
+* Added title and artist character counters inside the input rows.
+* Set description max length to 300 characters to match the latest screenshot.
+* Added local vulgarity validation feedback for the description field.
+* Changed Language Selector to use two-column checkbox pills and an Others row with a Specify language input.
+* Changed Mood Tag Selector to show selected mood pills with remove indicators, a count, and a dashed Add mood tag row.
+* Changed Song Media Upload to use a dashed upload box, divider, and YouTube link input.
+* Tuned card spacing, borders, radii, input sizing, pill styling, media upload styling, and footer/sidebar offsets in `App.css`.
+
+### Human Review
+
+In progress. Ferlyn is comparing the updated Studio card against the Figma screenshot and giving visual correction prompts.
+
+### Human Modifications
+
+No direct human code modifications were made during this update.
+
+### Final Outcome
+
+The Creator Studio Song Information card is now much closer to the supplied Figma reference, with the correct two-column field grouping, compact dark input styling, selected language and mood pills, description validation, and Figma-like Song Media controls.
+
+### Verification
+
+The frontend was checked after the layout and component changes with:
+
+* `npm.cmd run lint`
+* `npm.cmd run build`
+* `npm.cmd test`
+
+### Remaining Work
+
+* Continue pixel-level visual tuning against the Figma screenshot if Ferlyn identifies remaining spacing, sizing, or color differences.
+* Replace placeholder symbols with Lucide icons where appropriate.
+* Connect Add mood tag to an actual editable input or selector.
+* Expand vulgarity validation into a shared validation utility if other forms need the same behavior.
+* Reconnect save/preview/generate actions to real workflows when backend integration resumes.
+
+---
+
+## 2026-07-02
+
+### Feature
+
+Creator Studio Live Preview, Media Controls, and Header Refactor Follow-up
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Continue refining the Creator Studio page so the metadata form, media upload controls, live preview panel, and reusable header account controls behave more like the intended creator workflow.
+
+The focus was to improve local UI behavior without adding backend logic.
+
+### Prompt Summary
+
+Ferlyn requested multiple follow-up improvements to the Studio page:
+
+* Add a remove or cross button beside the uploaded audio file.
+* Allow uploaded audio to be played from the live preview.
+* Allow a detected YouTube link to be playable in the preview area.
+* Leave YouTube duration as `--` because backend metadata extraction is not implemented yet.
+* Turn the Mood Tags add row into a usable text field.
+* Add icons to the mood and language pills in the preview.
+* Replace the preview pill icons with the supplied SVGs.
+* Ensure all selected mood tags appear in the preview, not only the first mood.
+* Extract the Ferlyn profile, dark mode, and notification cluster into a reusable component because it repeats across creator pages.
+* Make the custom "Others" language input participate in the live preview when the creator types a value such as `korean`.
+
+### AI Output Summary
+
+Codex implemented the requested Studio refinements across the existing React component structure.
+
+Files created:
+
+* `frontend/src/components/CreatorAccountWidget.jsx`
+
+Files modified:
+
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/MoodTagSelector.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Implemented refinements:
+
+* Added an uploaded audio remove button beside the selected filename.
+* Cleared the stored filename, audio duration, preview URL, and file input when removing uploaded audio.
+* Added browser audio playback support from the live preview play button when an uploaded audio file exists.
+* Added YouTube embed preview support when a valid YouTube link is pasted and no uploaded audio is selected.
+* Kept YouTube duration as `--` because direct frontend duration detection is not reliable without backend metadata support.
+* Converted the Mood Tags add control from a static button into a local text input with Add and Enter submit behavior.
+* Prevented duplicate mood tags and preserved the maximum of five mood tags.
+* Added SVG icons inside preview pills.
+* Replaced the mood and language pill icons with Ferlyn-provided SVG paths.
+* Updated the preview to display every selected mood tag as its own pill.
+* Updated the preview language pill and language count to include custom "Others" input values.
+* Made typing in the custom language field automatically select the `Others` checkbox.
+* Extracted the creator profile/actions cluster into `CreatorAccountWidget`.
+* Updated `StudioHeader` to consume the reusable account widget.
+* Updated `Studio.jsx` to render `StudioHeader` instead of owning header markup directly.
+* Moved the account cluster CSS from Studio-specific selectors to reusable `creator-account-widget` selectors.
+
+### Human Review
+
+Partially accepted through iterative review.
+
+Ferlyn reviewed the UI in the browser after each small change and identified missing behavior or visual mismatches, including missing mood display, custom language handling, and repeated header account markup.
+
+### Human Modifications
+
+No direct human code modifications were made during this follow-up.
+
+Ferlyn provided the visual references, SVG icon paths, and product decisions for how the preview should behave.
+
+### Final Outcome
+
+The Studio page now has richer local creator interactions:
+
+* Uploaded audio can be removed and previewed.
+* YouTube links can display a playable embedded preview.
+* Live preview fields update as the creator types.
+* Mood tags can be added through an actual text field.
+* All selected mood tags display in the preview.
+* Custom "Others" languages display in the preview and count.
+* The repeated creator account control is now separated into a reusable component.
+
+### Verification
+
+The frontend was checked repeatedly after changes with:
+
+* `npm.cmd run build`
+
+Each build completed successfully after the latest changes.
+
+### Remaining Work
+
+* Connect YouTube duration to backend metadata later, likely through a YouTube Data API or server-side extraction endpoint.
+* Connect uploaded media and YouTube link persistence to real Studio save APIs.
+* Replace remaining placeholder or corrupted glyph icons in older components with consistent icon components.
+* Reuse `CreatorAccountWidget` across other creator pages that need the same account cluster.
+
+---
+
+## 2026-07-03
+
+### Feature
+
+Creator Studio Refinement Journal Consolidation
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Record the completed Creator Studio refinements in the AI development journal so the work remains traceable for project documentation and review.
+
+### Prompt Summary
+
+Ferlyn asked Codex to add everything completed during the recent Creator Studio work into `AI_DEVELOPMENT_JOURNAL.md` again.
+
+### AI Output Summary
+
+Codex reviewed the existing journal and confirmed that the previous Studio follow-up work had been documented. A new consolidation entry was added to make the latest documentation action explicit.
+
+The documented Studio work includes:
+
+* Creator Studio layout and Song Information refinements.
+* Audio upload filename display and remove button.
+* Local audio duration detection for uploaded files.
+* Live preview audio playback for uploaded songs.
+* YouTube link embed preview.
+* Decision to leave YouTube duration as `--` until backend metadata support exists.
+* Usable Mood Tags text input with duplicate prevention and a maximum of five tags.
+* Live preview support for all selected mood tags.
+* Preview pill icons for moods and languages using provided SVG paths.
+* Custom `Others` language handling so typed values appear in the preview.
+* Extraction of the repeated creator account action cluster into `CreatorAccountWidget`.
+* Refactoring `Studio.jsx` to use `StudioHeader`.
+* Reusable styling for the account widget in `App.css`.
+
+### Human Review
+
+Accepted as a documentation update request.
+
+Ferlyn specifically requested that the AI journal be updated again after the Studio refinements.
+
+### Human Modifications
+
+No direct code changes were made by the user during this documentation update.
+
+### Final Outcome
+
+The AI development journal now includes an additional dated entry summarising the recent Creator Studio changes and the documentation action itself.
+
+### Verification
+
+The journal was inspected before editing to avoid overwriting earlier entries.
+
+### Remaining Work
+
+* Continue updating the journal after future AI-assisted implementation, debugging, testing, or design refinement work.
+* Connect the current Studio UI interactions to backend persistence when the API implementation resumes.
+
+---
+
+## 2026-07-03
+
+### Feature
+
+Creator Studio AI Lyrics Extraction, YouTube Audio Extraction, and Lyrics Workflow Refinement
+
+### AI Tool Used
+
+Codex
+
+### Objective
+
+Implement and debug the Creator Studio lyrics extraction workflow so creators can generate an editable lyrics draft from uploaded media or a YouTube link, while making extraction status, errors, and draft formatting clearer in the Studio UI.
+
+### Prompt Summary
+
+Ferlyn asked Codex to continue improving the Creator Studio lyrics workflow through several prompts:
+
+* Investigate why lyric extraction kept showing that it was unable to extract lyrics.
+* Explain whether the backend needed to be running and how to configure an OpenAI API key.
+* Try the locally saved song file and determine why extraction failed.
+* Show AI generation or extraction status in the Lyrics step.
+* Implement server-side audio extraction for YouTube links.
+* Explain where `yt-dlp` should be installed and how to configure it on Windows.
+* Debug why `yt-dlp` still could not run after installation.
+* Reset the Lyrics step contents when a new uploaded audio file or YouTube link is selected on the Metadata step.
+* Improve the generated lyrics formatting so the output is easier to read.
+* Explain why AI sometimes does not generate the full song lyrics.
+* Add all of the day's edits and prompts into the AI development journal.
+
+### AI Output Summary
+
+Codex implemented the AI lyrics extraction flow and related debugging improvements across the frontend and backend.
+
+Files created:
+
+* `backend/routes/transcriptions.js`
+* `backend/services/transcriptionService.js`
+* `backend/services/audioExtractionService.js`
+* `frontend/src/components/studio/LyricsCard.jsx`
+
+Files modified:
+
+* `backend/server.js`
+* `backend/.env.example`
+* `backend/package.json`
+* `backend/package-lock.json`
+* `frontend/src/pages/Studio.jsx`
+* `frontend/src/components/studio/LyricsCard.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/StudioFooter.jsx`
+* `frontend/src/App.css`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+Implemented backend features:
+
+* Added `POST /api/transcriptions/lyrics` for AI lyrics transcription.
+* Added `GET /api/transcriptions/status` so the frontend can detect whether transcription is configured.
+* Added OpenAI audio transcription support using `OPENAI_API_KEY` and `OPENAI_TRANSCRIPTION_MODEL`.
+* Added validation for supported uploaded media formats including MP3, WAV, M4A, WEBM, MPEG, MPGA, and MP4.
+* Added 25MB validation for transcription-bound files.
+* Added server-side YouTube audio extraction using `yt-dlp`.
+* Added `YT_DLP_PATH` support so Windows can point directly to `yt-dlp.exe` when it is not on PATH.
+* Added temporary YouTube audio extraction under `backend/storage/temp`.
+* Added cleanup of extracted temporary audio files after transcription.
+* Added clearer backend errors for missing OpenAI API key, missing `yt-dlp`, unsupported files, oversized files, and incomplete YouTube video IDs.
+* Added a lyric-focused transcription prompt asking the model to preserve repeated choruses, ad-libs, and line breaks where possible.
+* Added a backend formatter that converts paragraph-style transcripts into lyric-style lines and stanzas.
+
+Implemented frontend features:
+
+* Added a Lyrics step card with an editable lyrics draft textarea.
+* Added AI extraction status states such as checking, waiting for media, ready, extracting, ready for review, and needs attention.
+* Added a themed progress/status panel for AI lyrics extraction.
+* Allowed uploaded audio/video files to be sent to the transcription backend.
+* Allowed YouTube-only extraction requests to use the backend YouTube extraction route.
+* Fixed the old frontend behavior that always threw an upload-file error after posting a YouTube link.
+* Reset lyrics draft, extraction errors, and extraction status whenever the creator uploads a new media file, clears a media file, or changes the YouTube link.
+* Updated Studio footer navigation for the Lyrics step.
+* Updated upload UI copy and file picker support for additional transcription media types.
+* Added UI copy reminding creators that AI lyrics are editable drafts and may need manual review.
+
+Debugging and configuration work:
+
+* Confirmed that the original extraction failure was caused by a missing `OPENAI_API_KEY` in `backend/.env`.
+* Confirmed the backend health endpoint was reachable when the backend was running.
+* Confirmed the local test song could be packaged and posted to the backend.
+* Confirmed that `yt-dlp` was installed but not available on PATH because Python installed it under `C:\Users\belle\AppData\Local\Programs\Python\Python313\Scripts`.
+* Verified that setting `YT_DLP_PATH` to the full `yt-dlp.exe` path and restarting the backend allowed the backend to locate the tool.
+* Diagnosed a pasted YouTube URL with an incomplete video ID and added a clearer validation error for that case.
+
+### Human Review
+
+Accepted through iterative browser review.
+
+Ferlyn tested the Studio page in the local browser, shared screenshots of confusing states, and confirmed which behavior should change next. The feedback drove fixes for stale Lyrics content, misleading AI status, YouTube extraction handling, and lyrics formatting.
+
+### Human Modifications
+
+Ferlyn installed `yt-dlp` locally using:
+
+* `py -m pip install yt-dlp`
+
+Ferlyn also updated local environment configuration in `backend/.env`, including the OpenAI key and `YT_DLP_PATH`. Secret values were not recorded in the journal.
+
+### Final Outcome
+
+The Creator Studio now supports an end-to-end AI lyrics draft workflow for uploaded files and a backend-ready YouTube extraction path.
+
+Creators can:
+
+* Upload supported audio/video media and request an AI lyrics draft.
+* Paste a YouTube link and request backend audio extraction followed by transcription.
+* See clear AI extraction status instead of a silent or vague failure.
+* Receive clearer errors for missing configuration, missing tools, incomplete YouTube links, and unsupported media.
+* Edit the resulting lyrics draft directly in the Lyrics step.
+* Change the source media and have stale lyrics/error state reset automatically.
+* Receive a more readable lyrics draft with line and stanza formatting.
+
+### Verification
+
+Codex verified the implementation with:
+
+* `node --check services/transcriptionService.js`
+* `node --check services/audioExtractionService.js`
+* `node --check routes/transcriptions.js`
+* `npm.cmd run lint` in `backend`
+* `npm.cmd run lint` in `frontend`
+* `npm.cmd run build` in `frontend`
+* Backend health and transcription status endpoint checks.
+* Direct backend test posts for uploaded local media and YouTube URL handling.
+* A formatter sanity check confirming paragraph transcripts are converted into lyric-style lines and stanzas.
+
+### Remaining Work
+
+* Continue testing with full valid YouTube URLs because YouTube extraction may still fail depending on video availability, regional restrictions, age restrictions, or YouTube anti-bot behavior.
+* Consider adding `ffmpeg` support if future extraction needs conversion to MP3/WAV instead of using the downloaded best audio stream directly.
+* Store generated lyrics in the song metadata backend once the save workflow is expanded.
+* Add a stronger review workflow for incomplete or low-confidence AI transcriptions.
+* Consider integrating an official lyrics provider later if exact licensed lyrics are required, because speech transcription is not guaranteed to reproduce full official lyrics.
+
+---
+
+## Date
+2026-07-03
+
+## Task
+Refine the Creator Studio flow across Metadata, Lyrics, and Preview & Publish, including navigation, preview behavior, publish UI, and draft/publish interactions.
+
+## Prompts
+* Make the Studio stepper clickable so creators can jump back to Metadata and Lyrics.
+* Create a real Preview & Publish page using the existing Studio visual style.
+* Update the Lyrics-page live preview to better match the provided reference layout.
+* Expand the Lyrics editor container to better match the height of the live preview panel.
+* Remove the extra `Add tag` chip from the live preview tags row.
+* Set a default placeholder YouTube video for preview fallback.
+* Improve the Preview & Publish layout so the left side handles publishing controls and the right side focuses on the public preview.
+* Shrink the oversized publish preview media block.
+* Show `0 Views` instead of a fake value and use actual media in the publish preview.
+* Remove duplicate fake playback timing and use only the real video timing.
+* Add a UI-only publish date scheduling control.
+* After publish success, redirect the creator to `My Songs`.
+* Add all of the day's work into the AI development journal.
+
+## Files Created
+* `frontend/src/components/studio/PreviewPublishPanel.jsx`
+
+## Files Modified
+* `frontend/src/App.css`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/LyricsCard.jsx`
+* `frontend/src/components/studio/MetadataStepper.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/StudioFooter.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/pages/Studio.jsx`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+## Features Implemented
+* Made the Studio stepper clickable so creators can move between Metadata, Lyrics, and Preview & Publish.
+* Added a dedicated `PreviewPublishPanel` for Studio step 3 instead of reusing the Lyrics/Metadata two-column layout.
+* Updated the Studio header so its title, breadcrumb, and top-right actions change by step.
+* Simplified Studio footer actions so the bottom bar keeps a single primary progression action instead of repeating secondary buttons.
+* Added a UI-only draft save interaction using a browser popup and tracked the actual last-saved time in the footer.
+* Wired `Generate Video` to redirect to the Generation Jobs page for now.
+* Wired publish success to redirect the creator to `My Songs`.
+* Reworked the Lyrics-step live preview to a more video-first presentation with compact metadata and cleaner tag rows.
+* Removed the extra `Add tag` preview chip.
+* Added a default fallback YouTube preview source when no uploaded media or pasted link exists.
+* Reworked Preview & Publish into a clearer master-detail layout:
+  * left column for publish controls and readiness checklist
+  * right column for public preview and explore content
+* Changed the checklist to use scan-friendly ready/pending icons instead of only text states.
+* Merged the old standalone Reflection Prompt treatment into the `Explore & Learn` area.
+* Added a UI-only publish timing control with `Publish now` and `Schedule`, including a `datetime-local` picker.
+* Updated the publish preview to use real media inputs:
+  * uploaded MP4 shows as video
+  * pasted YouTube links show as embeds
+  * placeholder art is only shown when no real media source exists
+* Replaced the fake `128 Views` display with `0 Views`.
+* Removed the duplicate fake playback timing strip under the publish preview media area.
+* Added a compact stepper variant for Preview & Publish so the navigation strip does not dominate the page.
+
+## AI Assistance
+AI was used to:
+* translate visual feedback and screenshots into incremental frontend refinements
+* refactor the Studio page into a clearer multi-step flow without rewriting unrelated parts
+* implement reusable UI states for header, footer, stepper, preview cards, and publish controls
+* keep behavior consistent across top and bottom actions by centralizing handlers in `Studio.jsx`
+* verify each pass with frontend linting and production builds
+
+## Decisions Made
+* Kept the current implementation frontend-first and UI-driven instead of introducing backend persistence for publish scheduling or publishing state.
+* Reused the existing Studio page state in `Studio.jsx` as the single source of truth for metadata, media, preview values, save timestamps, and step navigation.
+* Used a dedicated `PreviewPublishPanel` component rather than overloading `LivePreviewCard`, because Preview & Publish serves a different purpose from the Metadata/Lyrics side preview.
+* Preserved one global default placeholder YouTube video as the lowest-priority fallback for previews.
+* Chose simple browser alerts for save/publish feedback to satisfy immediate interaction requirements without adding a toast system yet.
+* Used `0 Views` as the draft-safe placeholder until real publish analytics exist.
+
+## Remaining Work
+* Persist save draft, schedule, and publish actions to the backend instead of keeping them local-only.
+* Replace browser alerts with a proper in-app toast or modal system.
+* Connect publish scheduling to real song data and backend publication workflows.
+* Add real published/draft status handling so the checklist and preview metadata reflect persisted song state.
+* Replace placeholder explore cards with real navigation or feature entry points.
+* Decide whether the default placeholder YouTube video should remain global or be stored per song as generated preview media.
+
+## Verification
+* `npm.cmd run lint` in `frontend`
+* `npm.cmd run build` in `frontend`
+
+---
+
+## Date
+2026-07-08
+
+## Task
+Refine the Creator Studio metadata, media preview, and Preview & Publish experience for a cleaner creator workflow.
+
+## Prompts
+* Prevent the uploaded song filename/media area from overflowing in the Metadata form.
+* Adjust upload media text sizing and spacing.
+* Replace the inline maximum mood tag message with a more user-friendly behavior.
+* Update the live song metadata preview to show a clearer Song Summary layout.
+* Change empty preview values to user-friendly defaults such as `Not set`, `Not selected`, and `Calculated after upload`.
+* Remove profanity blocked-word validation from trusted Creator Studio metadata fields.
+* Replace the fake YouTube-style MP3 preview with a custom audio preview card.
+* Make the audio preview fully reactive to title, artist, uploaded audio, YouTube link, and video state changes.
+* Create a CSS vinyl record preview inspired by the provided vinyl reference image.
+* Resize the vinyl preview and place the play/pause control correctly.
+* Restore YouTube embed support and default placeholder YouTube preview behavior.
+* Reuse the same placeholder video behavior on the Preview & Publish page.
+* Add real MP3 playback and a duration/progress strip to the Preview & Publish page.
+* Make the Preview & Publish stepper match the full-width stepper used on the other Studio pages.
+* Remove the Desktop, Tablet, and Mobile preview buttons.
+* Simplify the Preview & Publish page from a creator UX perspective by removing unrelated public-learning content.
+* Ensure Preview & Publish values stay reactive across Metadata, Lyrics, media upload, and publishing state.
+* Fix the large gap above the public preview media.
+* Only mark AI Video as complete when an uploaded MP4/video exists.
+* Fix Save Draft on Preview & Publish so it saves instead of redirecting to Generation Jobs.
+* Add the day's AI-assisted development work to the AI development journal.
+
+## Files Created
+* `frontend/src/components/studio/AudioPreviewCard.jsx`
+
+## Files Modified
+* `frontend/src/App.css`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/PreviewPublishPanel.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/pages/Studio.jsx`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+## Features Implemented
+* Added a reusable `AudioPreviewCard` component for Studio live preview media.
+* Replaced the previous fake YouTube-style audio placeholder with a custom MP3/audio preview.
+* Built the audio preview around a CSS-rendered vinyl record:
+  * black vinyl body
+  * circular groove rings
+  * glossy highlights
+  * colored center label
+  * centered play/pause control
+  * CSS rotation while audio is playing
+* Added real audio playback for uploaded MP3/audio files in the live preview.
+* Added a duration/progress slider for uploaded audio previews.
+* Kept YouTube embeds available for pasted YouTube links and restored the default placeholder YouTube preview when no media is provided.
+* Ensured media preview priority is consistent:
+  * generated/uploaded video first
+  * YouTube embed next
+  * uploaded audio/vinyl preview next
+  * empty placeholder last
+* Updated the live preview Song Summary to reflect real metadata values immediately.
+* Updated empty metadata preview labels so incomplete fields read clearly to creators.
+* Prevented uploaded media filenames and upload controls from overflowing their container.
+* Removed Creator Studio profanity blacklist validation so trusted creators are not blocked from legitimate song titles, artist names, descriptions, or lyrics.
+* Kept validation focused on required fields, field length, trimming, HTML avoidance, and whitelist-based values where appropriate.
+* Improved mood tag UX so the maximum-tag state is handled more cleanly instead of replacing the input area with a large inline warning.
+* Added real MP3 playback support to the Preview & Publish page.
+* Added a Preview & Publish audio progress strip with current time, total duration, and seek behavior.
+* Updated Preview & Publish to consume live Studio state for:
+  * title
+  * artist
+  * description
+  * theme
+  * languages
+  * mood tags
+  * lyrics
+  * uploaded audio/video
+  * YouTube link
+  * duration
+  * draft save timestamp
+* Fixed the Preview & Publish checklist so Lyrics readiness is based on the actual lyrics draft instead of being hardcoded as ready.
+* Simplified Preview & Publish into a creator-focused workflow:
+  * status
+  * last edited
+  * visibility
+  * AI generation state
+  * estimated duration
+  * publish controls
+  * compact checklist
+  * public preview
+* Removed the `Explore & Learn` section from the creator publishing workflow.
+* Removed the tip card from Preview & Publish.
+* Removed Desktop, Tablet, and Mobile preview buttons.
+* Changed the Preview & Publish stepper to use the same full-width layout as the Metadata and Lyrics pages.
+* Fixed the large vertical gap in the public preview card by preventing the preview card grid rows from stretching.
+* Changed AI Video readiness so it is only complete when an uploaded MP4/video exists.
+* Fixed the Preview & Publish `Save Draft` action so it calls the save handler instead of the generate-video handler.
+
+## AI Assistance
+AI was used to:
+* translate screenshot feedback into focused React and CSS changes
+* identify component wiring issues across `Studio.jsx`, `LivePreviewCard`, `AudioPreviewCard`, `PreviewPublishPanel`, and `StudioHeader`
+* design the reusable vinyl-based audio preview without external animation libraries
+* preserve live reactivity by keeping `Studio.jsx` as the source of truth for creator inputs
+* simplify the publishing workflow by separating creator tasks from public-learning features
+* debug UI behavior caused by CSS grid stretching and mismatched button handlers
+* verify changes with repeated frontend lint and production build checks
+
+## Decisions Made
+* Treated Creator Studio as a trusted authenticated creator workflow, so profanity blocking was removed from metadata validation.
+* Kept public moderation concerns separate from creator metadata entry.
+* Used whitelists and field validation for structured values such as theme, mood, and language.
+* Kept YouTube embeds for pasted links and placeholder preview behavior, but stopped counting YouTube placeholders as generated AI video.
+* Chose uploaded MP4/video as the current frontend-only signal that AI Video is complete.
+* Removed public learning modules from Preview & Publish because they belong in the public song experience, not the creator publishing workflow.
+* Kept draft, publish, schedule, and AI-generation state frontend-only until backend persistence is expanded.
+* Kept simple browser alerts for save/publish feedback until a dedicated toast or modal system is introduced.
+
+## Remaining Work
+* Persist draft saves, publish state, scheduled publish date, and AI video generation status to the backend.
+* Replace browser alerts with polished in-app toast or modal feedback.
+* Add a real generated video URL/status once AI video generation is connected.
+* Store uploaded media metadata and generated previews in persistent song records.
+* Add backend validation that mirrors the frontend trusted-creator field rules.
+* Add automated component tests for preview reactivity and publish checklist readiness.
+* Revisit mobile layout screenshots for the vinyl/audio preview and Preview & Publish sidebar.
+
+## Verification
+* `npm.cmd run lint --prefix frontend`
+* `npm.cmd run build --prefix frontend`

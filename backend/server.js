@@ -6,6 +6,7 @@ const sequelize = require('./config/database');
 //const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
+const transcriptionsRouter = require('./routes/transcriptions');
 const { seedCreatorAccount } = require('./services/authService');
 
 
@@ -21,6 +22,8 @@ app.use("/auth", authRoutes); //gg bruh this was commented then i dah uncomment 
 app.use("/api/auth", authRoutes); // ✅ mount under /api/auth
 //End of Lia auth added code
 
+app.use(cors());
+app.use(express.json({ limit: '40mb' }));
 
 app.get('/api', (req, res) => {
     res.json({ message: 'Shades of SG backend is running.' });

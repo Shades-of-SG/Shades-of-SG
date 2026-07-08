@@ -1,5 +1,4 @@
-/*
-import PageHeader from '../components/PageHeader'
+import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 
 /*
@@ -12,8 +11,11 @@ Implement accessibility preferences.
 /*
 export default function Settings() {
   return (
-    <div className="page-stack">
-      <PageHeader description="Preference sections for account, accessibility, and future notifications." eyebrow="Settings" title="Settings" />
+    <CreatorPageShell
+      breadcrumbs={['Settings']}
+      description="Preference sections for account, accessibility, and future notifications."
+      title="Settings"
+    >
       <section className="two-column">
         <SectionCard title="Profile"><p>Manage username and email.</p></SectionCard>
         <SectionCard title="Account & Security"><p>Manage password and enable 2FA.</p></SectionCard>
@@ -47,6 +49,6 @@ export default function Settings() {
           <SectionCard title="Data & Privacy"><p>Delete your account.</p></SectionCard>
         </Link>
       </section>
-    </div>
+    </CreatorPageShell>
   )
 }

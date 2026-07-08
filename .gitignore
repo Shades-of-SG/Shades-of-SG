@@ -14,3 +14,7 @@ node_modules/
 # Logs
 *.log
 npm-debug.log*
+
+# Local uploads and generated media
+backend/storage/
+IMPLEMENTATION_PROGRESS.md

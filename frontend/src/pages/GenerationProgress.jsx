@@ -1,4 +1,4 @@
-import PageHeader from '../components/PageHeader'
+import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import { placeholderCards } from './pageData'
 
@@ -11,13 +11,16 @@ Implement logs view.
 */
 export default function GenerationProgress() {
   return (
-    <div className="page-stack">
-      <PageHeader description="Track AI-assisted asset generation without implementing the pipeline yet." eyebrow="Generation" title="Generation Progress" />
+    <CreatorPageShell
+      breadcrumbs={['Generation Jobs']}
+      description="Track AI-assisted asset generation without implementing the pipeline yet."
+      title="Generation Progress"
+    >
       <section className="three-column">
         <SectionCard title="Generation Status"><div className="progress-track"><span style={{ width: '62%' }} /></div><p>Placeholder status: processing.</p></SectionCard>
         <SectionCard title="Progress Timeline"><ol className="timeline-list"><li>Queued</li><li>Processing</li><li>Review</li></ol></SectionCard>
         <SectionCard title="Logs"><ul className="clean-list">{placeholderCards.logs.map((item) => <li key={item}>{item}</li>)}</ul></SectionCard>
       </section>
-    </div>
+    </CreatorPageShell>
   )
 }
