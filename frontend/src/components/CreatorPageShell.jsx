@@ -1,8 +1,8 @@
 import CreatorAccountWidget from './CreatorAccountWidget'
 
-export default function CreatorPageShell({ actions, breadcrumbs = [], children, className = '', description, eyebrow = 'Creator Portal', title }) {
+export default function CreatorPageShell({ actions, breadcrumbs = [], children, description, eyebrow = 'Creator Portal', title }) {
   return (
-    <div className={`creator-page ${className}`.trim()}>
+    <div className="creator-page">
       <header className="creator-page__header">
         <div className="creator-page__copy">
           <p className="creator-page__breadcrumbs" aria-label="Breadcrumb">

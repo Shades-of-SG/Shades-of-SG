@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 
 const reflections = [
   {
@@ -68,8 +67,7 @@ Implement reflection submission persistence.
 Connect song filters to live song data.
 */
 export default function ReflectionWall() {
-  const [searchParams] = useSearchParams()
-  const [isComposerOpen, setIsComposerOpen] = useState(() => searchParams.get('compose') === '1')
+  const [isComposerOpen, setIsComposerOpen] = useState(false)
   const [selectedSong, setSelectedSong] = useState('All Songs')
 
   const visibleReflections =

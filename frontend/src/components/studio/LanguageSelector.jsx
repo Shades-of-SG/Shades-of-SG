@@ -10,7 +10,7 @@ export default function LanguageSelector({
     <section className="studio-languages">
       <div className="studio-card__section-heading">
         <h3>
-          Languages Spoken <span aria-hidden="true"></span>
+          Languages Spoken <span aria-hidden="true">i</span>
         </h3>
       </div>
 
@@ -32,7 +32,7 @@ export default function LanguageSelector({
       </div>
 
       <label className="studio-field studio-other-language">
-        <span>Other language(s)/ dialect(s)</span>
+        <span>Other language(s)</span>
         <input
           onChange={(event) => onOtherLanguageChange(event.target.value)}
           placeholder="e.g. Hokkien, Cantonese, Japanese"
