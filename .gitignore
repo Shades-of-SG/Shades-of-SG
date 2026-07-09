@@ -17,3 +17,6 @@ npm-debug.log*
 
 # audio and video files
 backend/storage/
+# Local uploads and generated media
+backend/storage/
+IMPLEMENTATION_PROGRESS.md

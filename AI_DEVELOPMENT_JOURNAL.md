@@ -1437,3 +1437,136 @@ AI was used to:
 ## Verification
 * `npm.cmd run lint` in `frontend`
 * `npm.cmd run build` in `frontend`
+
+---
+
+## Date
+2026-07-08
+
+## Task
+Refine the Creator Studio metadata, media preview, and Preview & Publish experience for a cleaner creator workflow.
+
+## Prompts
+* Prevent the uploaded song filename/media area from overflowing in the Metadata form.
+* Adjust upload media text sizing and spacing.
+* Replace the inline maximum mood tag message with a more user-friendly behavior.
+* Update the live song metadata preview to show a clearer Song Summary layout.
+* Change empty preview values to user-friendly defaults such as `Not set`, `Not selected`, and `Calculated after upload`.
+* Remove profanity blocked-word validation from trusted Creator Studio metadata fields.
+* Replace the fake YouTube-style MP3 preview with a custom audio preview card.
+* Make the audio preview fully reactive to title, artist, uploaded audio, YouTube link, and video state changes.
+* Create a CSS vinyl record preview inspired by the provided vinyl reference image.
+* Resize the vinyl preview and place the play/pause control correctly.
+* Restore YouTube embed support and default placeholder YouTube preview behavior.
+* Reuse the same placeholder video behavior on the Preview & Publish page.
+* Add real MP3 playback and a duration/progress strip to the Preview & Publish page.
+* Make the Preview & Publish stepper match the full-width stepper used on the other Studio pages.
+* Remove the Desktop, Tablet, and Mobile preview buttons.
+* Simplify the Preview & Publish page from a creator UX perspective by removing unrelated public-learning content.
+* Ensure Preview & Publish values stay reactive across Metadata, Lyrics, media upload, and publishing state.
+* Fix the large gap above the public preview media.
+* Only mark AI Video as complete when an uploaded MP4/video exists.
+* Fix Save Draft on Preview & Publish so it saves instead of redirecting to Generation Jobs.
+* Add the day's AI-assisted development work to the AI development journal.
+
+## Files Created
+* `frontend/src/components/studio/AudioPreviewCard.jsx`
+
+## Files Modified
+* `frontend/src/App.css`
+* `frontend/src/components/studio/LivePreviewCard.jsx`
+* `frontend/src/components/studio/PreviewPublishPanel.jsx`
+* `frontend/src/components/studio/SongInformationCard.jsx`
+* `frontend/src/components/studio/SongMediaUpload.jsx`
+* `frontend/src/components/studio/StudioHeader.jsx`
+* `frontend/src/pages/Studio.jsx`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+## Features Implemented
+* Added a reusable `AudioPreviewCard` component for Studio live preview media.
+* Replaced the previous fake YouTube-style audio placeholder with a custom MP3/audio preview.
+* Built the audio preview around a CSS-rendered vinyl record:
+  * black vinyl body
+  * circular groove rings
+  * glossy highlights
+  * colored center label
+  * centered play/pause control
+  * CSS rotation while audio is playing
+* Added real audio playback for uploaded MP3/audio files in the live preview.
+* Added a duration/progress slider for uploaded audio previews.
+* Kept YouTube embeds available for pasted YouTube links and restored the default placeholder YouTube preview when no media is provided.
+* Ensured media preview priority is consistent:
+  * generated/uploaded video first
+  * YouTube embed next
+  * uploaded audio/vinyl preview next
+  * empty placeholder last
+* Updated the live preview Song Summary to reflect real metadata values immediately.
+* Updated empty metadata preview labels so incomplete fields read clearly to creators.
+* Prevented uploaded media filenames and upload controls from overflowing their container.
+* Removed Creator Studio profanity blacklist validation so trusted creators are not blocked from legitimate song titles, artist names, descriptions, or lyrics.
+* Kept validation focused on required fields, field length, trimming, HTML avoidance, and whitelist-based values where appropriate.
+* Improved mood tag UX so the maximum-tag state is handled more cleanly instead of replacing the input area with a large inline warning.
+* Added real MP3 playback support to the Preview & Publish page.
+* Added a Preview & Publish audio progress strip with current time, total duration, and seek behavior.
+* Updated Preview & Publish to consume live Studio state for:
+  * title
+  * artist
+  * description
+  * theme
+  * languages
+  * mood tags
+  * lyrics
+  * uploaded audio/video
+  * YouTube link
+  * duration
+  * draft save timestamp
+* Fixed the Preview & Publish checklist so Lyrics readiness is based on the actual lyrics draft instead of being hardcoded as ready.
+* Simplified Preview & Publish into a creator-focused workflow:
+  * status
+  * last edited
+  * visibility
+  * AI generation state
+  * estimated duration
+  * publish controls
+  * compact checklist
+  * public preview
+* Removed the `Explore & Learn` section from the creator publishing workflow.
+* Removed the tip card from Preview & Publish.
+* Removed Desktop, Tablet, and Mobile preview buttons.
+* Changed the Preview & Publish stepper to use the same full-width layout as the Metadata and Lyrics pages.
+* Fixed the large vertical gap in the public preview card by preventing the preview card grid rows from stretching.
+* Changed AI Video readiness so it is only complete when an uploaded MP4/video exists.
+* Fixed the Preview & Publish `Save Draft` action so it calls the save handler instead of the generate-video handler.
+
+## AI Assistance
+AI was used to:
+* translate screenshot feedback into focused React and CSS changes
+* identify component wiring issues across `Studio.jsx`, `LivePreviewCard`, `AudioPreviewCard`, `PreviewPublishPanel`, and `StudioHeader`
+* design the reusable vinyl-based audio preview without external animation libraries
+* preserve live reactivity by keeping `Studio.jsx` as the source of truth for creator inputs
+* simplify the publishing workflow by separating creator tasks from public-learning features
+* debug UI behavior caused by CSS grid stretching and mismatched button handlers
+* verify changes with repeated frontend lint and production build checks
+
+## Decisions Made
+* Treated Creator Studio as a trusted authenticated creator workflow, so profanity blocking was removed from metadata validation.
+* Kept public moderation concerns separate from creator metadata entry.
+* Used whitelists and field validation for structured values such as theme, mood, and language.
+* Kept YouTube embeds for pasted links and placeholder preview behavior, but stopped counting YouTube placeholders as generated AI video.
+* Chose uploaded MP4/video as the current frontend-only signal that AI Video is complete.
+* Removed public learning modules from Preview & Publish because they belong in the public song experience, not the creator publishing workflow.
+* Kept draft, publish, schedule, and AI-generation state frontend-only until backend persistence is expanded.
+* Kept simple browser alerts for save/publish feedback until a dedicated toast or modal system is introduced.
+
+## Remaining Work
+* Persist draft saves, publish state, scheduled publish date, and AI video generation status to the backend.
+* Replace browser alerts with polished in-app toast or modal feedback.
+* Add a real generated video URL/status once AI video generation is connected.
+* Store uploaded media metadata and generated previews in persistent song records.
+* Add backend validation that mirrors the frontend trusted-creator field rules.
+* Add automated component tests for preview reactivity and publish checklist readiness.
+* Revisit mobile layout screenshots for the vinyl/audio preview and Preview & Publish sidebar.
+
+## Verification
+* `npm.cmd run lint --prefix frontend`
+* `npm.cmd run build --prefix frontend`
