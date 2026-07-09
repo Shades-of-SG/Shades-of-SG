@@ -313,15 +313,13 @@ export default function Studio() {
 
       {studioStep === 3 ? (
         <section className="studio-form-column">
-          <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
+          <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />
           <PreviewPublishPanel
             audioSrc={audioPreviewUrl}
             artist={formData.artist}
             description={formData.description}
             duration={audioDuration}
-            lastSavedLabel={lastSavedLabel}
             languages={previewLanguages}
-            lyrics={lyrics}
             mediaType={mediaType}
             moods={selectedMoods}
             theme={formData.theme}
