@@ -1,4 +1,17 @@
-# SQLite Local Database Files
+node_modules/
+.env
+
+# Ignore the local fallback database
 database.sqlite
-database.sqlite-journal
-*.db
+
+# CRITICAL: Ignore temporary FFmpeg and Multer media files so you don't push videos to GitHub
+temp/
+tmp/
+uploads/
+*.mp4
+*.mp3
+*.wav
+
+# Logs
+npm-debug.log*
+yarn-error.log*

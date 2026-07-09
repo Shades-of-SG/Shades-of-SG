@@ -18,7 +18,6 @@ import LearningHub from './pages/LearningHub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
-import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
 import Register from './pages/Register'
@@ -31,6 +30,7 @@ import SongsLibrary from './pages/SongsLibrary'
 import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
 import './App.css'
+import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 
 function MainExperience() {
   const { user } = useAuth()
@@ -88,8 +88,8 @@ function App() {
             <Route element={<Dashboard />} path="/creator/dashboard" />
             <Route element={<Studio />} path="/creator/studio" />
             <Route element={<CreatorSongs />} path="/creator/songs" />
-            <Route element={<GenerationProgress />} path="/creator/generation" />
-            <Route element={<TotalPlays />} path="/creator/plays" />
+            <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
+            <Route element={<GenerationProgress />} path="/creator/generation/:id" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
             <Route element={<Settings />} path="/creator/settings" />

@@ -46,4 +46,31 @@ router.get('/:id', async (req, res, next) => {
     }
 });
 
+const multer = require('multer')
+const songController = require('../controllers/songController')
+
+// Multer Config
+const storage = multer.memoryStorage()
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === 'audio/mpeg' || file.mimetype === 'audio/wav') {
+    cb(null, true)
+  } else {
+    const error = new Error('Invalid file type. Only MP3 and WAV files are allowed.')
+    error.statusCode = 400
+    cb(error, false)
+  }
+}
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+})
+
+// Placeholder JWT Auth bypass for testing
+const requireAuth = (req, res, next) => next()
+
+// POST Route
+router.post('/', requireAuth, upload.single('audioFile'), songController.uploadSong)
+
 module.exports = router;
