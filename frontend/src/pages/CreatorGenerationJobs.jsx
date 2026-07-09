@@ -40,8 +40,12 @@ export default function CreatorGenerationJobs() {
     const loadInitialJobs = async () => {
       try {
         const response = await fetch('/api/generation')
-        if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Server returned an invalid response");
+        }
         const json = await response.json()
+        if (!response.ok) throw new Error(json.message || `Failed to fetch: ${response.status}`)
         if (json.success && isMounted) setJobs(json.data)
       } catch (err) {
         if (isMounted) setError(err.message)
@@ -59,8 +63,12 @@ export default function CreatorGenerationJobs() {
     setError(null)
     try {
       const response = await fetch('/api/generation')
-      if (!response.ok) throw new Error(`Failed to fetch: ${response.status}`)
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response");
+      }
       const json = await response.json()
+      if (!response.ok) throw new Error(json.message || `Failed to fetch: ${response.status}`)
       if (json.success) setJobs(json.data)
     } catch (err) {
       setError(err.message)
@@ -79,6 +87,10 @@ export default function CreatorGenerationJobs() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ youtubeUrl: youtubeLink })
       })
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response");
+      }
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Failed to extract audio')
 
@@ -107,6 +119,11 @@ export default function CreatorGenerationJobs() {
         headers: { 'Content-Type': 'application/json' },
         body: payload
       })
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response");
+      }
 
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Failed to extract lyrics')
@@ -139,6 +156,10 @@ export default function CreatorGenerationJobs() {
           description: 'AI Generated' // Dummy data for constraints
         })
       })
+      const songContentType = songRes.headers.get("content-type");
+      if (!songContentType || !songContentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response when creating song");
+      }
       const songData = await songRes.json()
       if (!songRes.ok) throw new Error(songData.message || 'Failed to create song record')
 
@@ -147,7 +168,12 @@ export default function CreatorGenerationJobs() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ songId: songData.data.id })
       })
-      if (!genRes.ok) throw new Error('Failed to start generation pipeline')
+      const genContentType = genRes.headers.get("content-type");
+      if (!genContentType || !genContentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response when starting generation");
+      }
+      const genData = await genRes.json()
+      if (!genRes.ok) throw new Error(genData.message || 'Failed to start generation pipeline')
 
       setIsCreating(false)
       setFormData({ title: '', artist: '', lyrics: '' })
@@ -363,8 +389,8 @@ export default function CreatorGenerationJobs() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <div className="dashboard-song-art" aria-hidden="true">🎵</div>
                   <div className="dashboard-song-copy">
-                    <h3>{job.Song?.title || 'Unknown Song'}</h3>
-                    <p className="text-xs text-slate-500 mb-1">{job.Song?.artist || 'Unknown Artist'}</p>
+                    <h3>{job.song?.title || job.Song?.title || 'Unknown Song'}</h3>
+                    <p className="text-xs text-slate-500 mb-1">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
                     <span className={`dashboard-song-badge is-${job.status.toLowerCase()}`}>{job.status}</span>
                     {job.status.toLowerCase() === 'processing' && (
                       <div className="dashboard-song-progress" style={{ marginTop: '0.5rem' }}>

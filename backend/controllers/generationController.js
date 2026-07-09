@@ -86,7 +86,7 @@ const getGenerationStatus = async (req, res, next) => {
     const { jobId } = req.params
 
     const job = await GenerationJob.findByPk(jobId, {
-      include: [{ model: Song, attributes: ['title', 'artist'] }],
+      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
     })
 
     if (!job) {
@@ -107,7 +107,7 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, attributes: ['title', 'artist'] }],
+      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
       order: [['createdAt', 'DESC']],
     })
 

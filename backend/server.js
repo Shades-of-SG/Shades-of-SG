@@ -33,6 +33,11 @@ app.use('/api/auth', authRouter);
 app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
 
+// Global 404 JSON Handler to prevent Express HTML fallbacks
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
+});
+
 app.use(errorHandler);
 
 async function startServer() {

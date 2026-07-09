@@ -1,8 +1,15 @@
 const express = require('express');
 const { Song } = require('../models');
+const songController = require('../controllers/songController');
 
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Placeholder JWT Auth bypass for testing
+const requireAuth = (req, res, next) => next();
+
+// POST Route for extraction (Must be above dynamic routes like /:id)
+router.post('/extract-audio', requireAuth, songController.extractAudio);
 
 router.get('/:id', async (req, res, next) => {
     try {
@@ -47,7 +54,6 @@ router.get('/:id', async (req, res, next) => {
 });
 
 const multer = require('multer')
-const songController = require('../controllers/songController')
 
 // Multer Config
 const storage = multer.memoryStorage()
@@ -66,9 +72,6 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 })
-
-// Placeholder JWT Auth bypass for testing
-const requireAuth = (req, res, next) => next()
 
 // POST Route
 router.post('/', requireAuth, upload.single('audioFile'), songController.uploadSong)

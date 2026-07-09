@@ -3,13 +3,13 @@ function errorHandler(error, req, res, next) {
         return next(error);
     }
 
+    console.error('[Error Handler]', error);
+
     const statusCode = error.statusCode || error.status || 500;
 
     return res.status(statusCode).json({
-        error: {
-            message: statusCode === 500 ? 'Internal server error' : error.message,
-            statusCode,
-        },
+        success: false,
+        message: statusCode === 500 ? 'Internal server error' : error.message
     });
 }
 

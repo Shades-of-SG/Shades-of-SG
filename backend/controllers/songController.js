@@ -59,6 +59,35 @@ const uploadSong = async (req, res, next) => {
   }
 }
 
+const extractAudio = async (req, res, next) => {
+  try {
+    const { youtubeUrl } = req.body
+    if (!youtubeUrl) {
+      const error = new Error('YouTube URL is required.')
+      error.statusCode = 400
+      throw error
+    }
+
+    const extractedInfo = await audioExtractionService.extractAudioFromYouTube(youtubeUrl)
+
+    try {
+      const fileStream = fs.createReadStream(extractedInfo.filePath)
+      const audioData = await aiStorageService.uploadAudioStream(fileStream)
+
+      return res.status(200).json({
+        success: true,
+        audioUrl: audioData.audioUrl,
+      })
+    } finally {
+      // Must call cleanup to prevent leaking temp files on the server
+      await extractedInfo.cleanup()
+    }
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   uploadSong,
+  extractAudio,
 }
