@@ -2,15 +2,12 @@ import LanguageSelector from './LanguageSelector'
 import MoodTagSelector from './MoodTagSelector'
 import SongMediaUpload from './SongMediaUpload'
 
-const themeOptions = ['Select a theme', 'Heritage', 'Memory', 'Rhythm', 'Nightscape', 'Festive', 'Reflective']
-const blockedWords = ['fuck', 'shit', 'bitch', 'cb', 'knn', 'pukimak']
+const themeOptions = ['Select a theme', 'National Identity', 'Unity & Harmony', 'Home & Belonging', 'History & Journey', 'Community']
+const htmlTagPattern = /<[^>]*>/
 
 function getDescriptionValidationMessage(description) {
-  const normalizedDescription = description.toLowerCase()
-  const matchedWord = blockedWords.find((word) => normalizedDescription.includes(word))
-
-  if (matchedWord) {
-    return 'Please remove vulgarities before saving this song description.'
+  if (htmlTagPattern.test(description)) {
+    return 'Please remove HTML tags from this song description.'
   }
 
   return ''

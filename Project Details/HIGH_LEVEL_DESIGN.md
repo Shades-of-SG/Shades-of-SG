@@ -406,7 +406,7 @@ Shades-of-SG/
 │   ├── routes/                      # Express routers (thin, no business logic)
 │   │   ├── auth.js
 │   │   ├── songs.js
-│   │   ├── aiGeneration.js
+│   │   ├── generation.js
 │   │   ├── reflections.js
 │   │   ├── trivia.js
 │   │   ├── scores.js
