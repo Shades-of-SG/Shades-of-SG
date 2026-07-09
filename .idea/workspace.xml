@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="Cleanup">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/controllers/generationController.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/controllers/generationController.js" afterDir="false" />
-    </list>
+    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="Cleanup" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
