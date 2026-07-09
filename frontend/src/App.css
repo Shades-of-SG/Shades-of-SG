@@ -2161,6 +2161,32 @@
   color: #f8c98f;
 }
 
+.studio-publish-blocker {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.24);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.studio-publish-blocker p {
+  color: #fde68a;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.studio-publish-blocker ul {
+  color: #d8def4;
+  display: grid;
+  font-size: 0.78rem;
+  gap: 6px;
+  line-height: 1.45;
+  list-style-position: outside;
+  margin-left: 18px;
+}
+
 .studio-publish-main {
   display: grid;
   gap: 18px;

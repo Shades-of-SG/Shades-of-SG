@@ -67,6 +67,7 @@ export default function PreviewPublishPanel({
   lyrics = '',
   mediaType = '',
   moods = [],
+  publishChecklist = [],
   theme = '',
   title = '',
   youtubeLink = '',
@@ -111,15 +112,16 @@ export default function PreviewPublishPanel({
     return 'The song will go live immediately.'
   }, [publishMode, scheduledAt])
 
-  const checklist = [
-    { label: 'Metadata', status: title.trim() && artist.trim() && hasDescription ? 'Ready' : 'Needs details', done: Boolean(title.trim() && artist.trim() && hasDescription) },
-    { label: 'Lyrics', status: hasLyrics ? 'Ready' : 'Missing', done: hasLyrics },
-    { label: 'Audio', status: hasMediaPreview ? 'Uploaded' : 'Missing', done: hasMediaPreview },
-    { label: 'Theme', status: hasTheme ? 'Selected' : 'Missing', done: hasTheme },
-    { label: 'AI Video', status: isAiPreviewReady ? 'Preview ready' : 'Pending', done: isAiPreviewReady },
+  const checklist = publishChecklist.length ? publishChecklist : [
+    { label: 'Metadata', prompt: 'Add the song title, artist, and description.', status: title.trim() && artist.trim() && hasDescription ? 'Ready' : 'Needs details', done: Boolean(title.trim() && artist.trim() && hasDescription) },
+    { label: 'Lyrics', prompt: 'Add or extract the lyrics draft.', status: hasLyrics ? 'Ready' : 'Missing', done: hasLyrics },
+    { label: 'Audio', prompt: 'Upload audio/video media or add a YouTube link.', status: hasMediaPreview ? 'Uploaded' : 'Missing', done: hasMediaPreview },
+    { label: 'Theme', prompt: 'Select the song theme.', status: hasTheme ? 'Selected' : 'Missing', done: hasTheme },
+    { label: 'AI Video', prompt: 'Generate or upload the AI video preview.', status: isAiPreviewReady ? 'Preview ready' : 'Pending', done: isAiPreviewReady },
   ]
   const completeCount = checklist.filter((item) => item.done).length
-  const incompleteCount = checklist.filter((item) => !item.done).length
+  const incompleteItems = checklist.filter((item) => !item.done)
+  const incompleteCount = incompleteItems.length
 
   async function toggleAudioPreview() {
     if (!audioRef.current) {
@@ -222,7 +224,14 @@ export default function PreviewPublishPanel({
             ))}
           </div>
           {incompleteCount > 0 && (
-            <p className="studio-publish-settings__subtext">{incompleteCount} item{incompleteCount === 1 ? '' : 's'} need attention before publishing.</p>
+            <div className="studio-publish-blocker" role="status">
+              <p>Violet needs to complete these before publishing, or save the song as a draft.</p>
+              <ul>
+                {incompleteItems.map((item) => (
+                  <li key={item.label}>{item.prompt}</li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </aside>

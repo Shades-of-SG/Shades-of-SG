@@ -22,6 +22,48 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 const initialLanguages = ['English', 'Chinese']
 const initialMoods = ['joyful', 'nostalgic', 'hopeful']
 
+function getPublishChecklist({ artist, audioSrc, description, lyrics, mediaType, theme, title, youtubeLink }) {
+  const hasDescription = Boolean(description.trim())
+  const hasLyrics = Boolean(lyrics.trim())
+  const hasMediaPreview = Boolean(audioSrc || youtubeLink.trim())
+  const hasTheme = Boolean(theme.trim())
+  const isAiPreviewReady = Boolean(mediaType === 'video' && audioSrc)
+  const hasMetadata = Boolean(title.trim() && artist.trim() && hasDescription)
+
+  return [
+    {
+      done: hasMetadata,
+      label: 'Metadata',
+      prompt: 'Add the song title, artist, and description.',
+      status: hasMetadata ? 'Ready' : 'Needs details',
+    },
+    {
+      done: hasLyrics,
+      label: 'Lyrics',
+      prompt: 'Add or extract the lyrics draft.',
+      status: hasLyrics ? 'Ready' : 'Missing',
+    },
+    {
+      done: hasMediaPreview,
+      label: 'Audio',
+      prompt: 'Upload audio/video media or add a YouTube link.',
+      status: hasMediaPreview ? 'Uploaded' : 'Missing',
+    },
+    {
+      done: hasTheme,
+      label: 'Theme',
+      prompt: 'Select the song theme.',
+      status: hasTheme ? 'Selected' : 'Missing',
+    },
+    {
+      done: isAiPreviewReady,
+      label: 'AI Video',
+      prompt: 'Generate or upload the AI video preview.',
+      status: isAiPreviewReady ? 'Preview ready' : 'Pending',
+    },
+  ]
+}
+
 function getApiErrorMessage(data, fallback) {
   return data?.message || data?.error?.message || fallback
 }
@@ -209,6 +251,17 @@ export default function Studio() {
 
     return `Draft last saved at ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
   }, [lastSavedAt])
+  const publishChecklist = useMemo(() => getPublishChecklist({
+    artist: formData.artist,
+    audioSrc: audioPreviewUrl,
+    description: formData.description,
+    lyrics,
+    mediaType,
+    theme: formData.theme,
+    title: formData.title,
+    youtubeLink: formData.youtubeLink,
+  }), [audioPreviewUrl, formData.artist, formData.description, formData.theme, formData.title, formData.youtubeLink, lyrics, mediaType])
+  const incompletePublishTasks = useMemo(() => publishChecklist.filter((item) => !item.done), [publishChecklist])
 
   function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
@@ -293,6 +346,15 @@ export default function Studio() {
   }
 
   function handlePublishSong() {
+    if (incompletePublishTasks.length > 0) {
+      const taskList = incompletePublishTasks
+        .map((item) => `- ${item.label}: ${item.prompt}`)
+        .join('\n')
+
+      window.alert(`Violet, complete these tasks before publishing, or save this song as a draft:\n\n${taskList}`)
+      return
+    }
+
     window.alert('Song published successfully')
     navigate('/creator/songs')
   }
@@ -322,6 +384,7 @@ export default function Studio() {
             lastSavedLabel={lastSavedLabel}
             languages={previewLanguages}
             lyrics={lyrics}
+            publishChecklist={publishChecklist}
             mediaType={mediaType}
             moods={selectedMoods}
             theme={formData.theme}
@@ -380,9 +443,11 @@ export default function Studio() {
 
       <StudioFooter
         activeStep={studioStep}
+        canPublish={incompletePublishTasks.length === 0}
         lastSavedLabel={lastSavedLabel}
         onNext={handleNextStep}
         onPublish={handlePublishSong}
+        onSaveDraft={handleSaveDraft}
       />
     </div>
   )
