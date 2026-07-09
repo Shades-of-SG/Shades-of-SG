@@ -35,10 +35,6 @@ import './App.css'
 function MainExperience() {
   const { user } = useAuth()
 
-  if (user?.role === 'CREATOR') {
-    return <Navigate replace to="/creator/dashboard" />
-  }
-
   return <MainLayout role={user ? 'user' : 'guest'} />
 }
 
