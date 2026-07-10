@@ -19,6 +19,7 @@ import LearningHub from './pages/LearningHub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
@@ -31,6 +32,7 @@ import SongExperience from './pages/SongExperience'
 import SongsLibrary from './pages/SongsLibrary'
 import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
+import TermsAndConditions from './pages/TermsAndConditions'
 import './App.css'
 
 function MainExperience() {
@@ -75,6 +77,8 @@ function App() {
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />
           <Route element={<Settings />} path="/settings" />
+          <Route element={<PrivacyPolicy />} path="/privacy" />
+          <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
 
         <Route element={<AuthExperience />}>

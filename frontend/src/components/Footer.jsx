@@ -43,9 +43,9 @@ export default function Footer() {
         <div aria-label="Legal information" className="footer-legal">
           <a href="mailto:shadesofsg@gmail.com?subject=Shades%20of%20SG%20Vulnerability%20Report">Report Vulnerability</a>
           <span aria-hidden="true">|</span>
-          <Link to="/">Privacy Statement</Link>
+          <Link to="/privacy">Privacy Policy</Link>
           <span aria-hidden="true">|</span>
-          <span>Terms of Use</span>
+          <Link to="/terms">Terms &amp; Conditions</Link>
         </div>
       </div>
     </footer>

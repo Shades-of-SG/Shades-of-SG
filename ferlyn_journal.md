@@ -2201,3 +2201,342 @@ The public website now opens on the landing page at `/`, and internal route navi
 ### Lesson
 
 A polished footer depends on composition as much as content. A full-width background can provide visual closure while a narrower, deliberately clustered grid keeps columns connected. Framework-specific markup should also be translated into the project's actual stack instead of pasted directly into React.
+
+---
+
+## 2026-07-10 — Reflection Wall CRUD Integration, Memory-Board UX, and Brand Consistency
+
+### AI Tool Used
+
+Codex.
+
+### Objective
+
+Turn Public Task 4's Reflection Wall from a duplicated, mock-data page into a database-backed community memory board with working create, read, update, and delete behaviour, ownership protection, authentication continuity, responsive masonry, and a distinctive Shades of SG visual identity.
+
+The same work session also addressed local dependency and merge-related build failures and replaced temporary `SG` brand marks with the real project logo.
+
+### Context
+
+The Reflection Wall initially rendered its own navigation and background inside the shared public layout. This produced a double-layer appearance, excessive height, competing page backgrounds, and constrained board width. Its posts were hardcoded and saved to browser storage rather than the backend.
+
+The branch also contained a bad merge result that concatenated old placeholder page implementations with newer implementations. This caused duplicate default exports, unclosed React functions, and one unclosed CSS block. Frontend and backend dependencies were also temporarily out of sync, causing missing-module errors for `yup` and `nodemailer` on the branches where those packages were declared but not installed.
+
+### Prompt Summary
+
+I directed Codex through several reviewed iterations to:
+
+- diagnose the double-layer issue from the component tree rather than hide it with margins;
+- remove the Reflection Wall's duplicate navigation, background, full-viewport wrapper, and obsolete `reflection-shell` behaviour;
+- keep one shared `MainLayout` while allowing the board to use a wider content area;
+- replace hardcoded and local-storage reflection data with real Express and Sequelize CRUD endpoints;
+- make reading public while requiring authentication for creation, editing, and deletion;
+- restrict editing and deletion to the reflection owner;
+- preserve optimistic updates, loading feedback, rollback, errors, confirmations, and toast notifications;
+- add search, song filtering, latest/oldest sorting, and a responsive masonry layout;
+- show the Add Reflection action in the compact empty state when no posts exist, then move it to the toolbar after the first post exists;
+- redesign posts as pinned memory notes rather than generic social-media cards;
+- use stable muted stationery colours, small rotations, push pins, tape, paperclips, and restrained doodles;
+- keep the Shades of SG dark-purple atmosphere instead of using a corkboard texture;
+- improve heading, toolbar, input, empty-state, and modal contrast;
+- show a friendly authentication-required dialog with Login, Register, and Cancel actions;
+- return users to `/reflections` after login or registration, reopen the composer, and restore a session-backed reflection draft;
+- make the post-login intent mechanism reusable for future protected actions;
+- replace temporary text and `SG` block marks with the real `public/images/Brand Logo.png` asset across shared frontend surfaces;
+- remove the old CSS that placed a purple gradient tile behind the transparent logo image;
+- update the browser title and favicon from the Vite defaults to Shades of SG branding.
+
+### AI Output
+
+Codex implemented and refined:
+
+- signed-token parsing and reusable optional/required authentication middleware;
+- `/api/reflections` GET and POST routes plus owner-restricted PUT and DELETE routes;
+- public song-list loading for the Reflection form and filter;
+- reflection API integration tests covering authenticated CRUD and unauthenticated rejection;
+- modular frontend components for filters, cards, masonry, empty state, reflection modal, and authentication-required modal;
+- a dedicated reflection service for backend requests;
+- a session-storage post-login intent service used by Login, Register, and Reflection Wall;
+- optimistic create, edit, and delete handling with rollback when an API request fails;
+- a compact responsive board using four to five desktop columns, fewer tablet columns, and one mobile column;
+- deterministic note colour, rotation, pin/tape/clip style, and occasional decorative doodles based on reflection id;
+- a shared `BrandLogo` component used by the navbar, authentication layout, creator sidebar, footer, and placeholder pages;
+- removal of stale placeholder logo styles so only the transparent image is displayed;
+- restoration of functional account registration on this branch;
+- cleanup of concatenated placeholder page prefixes and the malformed CSS block introduced by the branch merge.
+
+### My Review and Decisions
+
+I did not accept the first Reflection Wall layout as final. I reviewed the page through screenshots and repeatedly narrowed the direction:
+
+- I identified that the page still looked layered and required Codex to inspect `MainLayout`, duplicate wrappers, page backgrounds, and viewport-height rules before changing spacing.
+- I rejected a tall landing-page hero because Reflection Wall should open directly into a working board.
+- I chose a maximum width near 1400 pixels so the masonry board could use more of the screen.
+- I chose an empty-board-first action pattern: the first Add Reflection button belongs in the empty state, while an established board keeps the action in its toolbar.
+- I chose memory notes over equal rectangular cards because the feature should communicate personal stories rather than resemble Facebook, Reddit, or a dashboard.
+- I first explored light pastel notes and a warm board, then corrected the direction to richer vintage stationery colours on a dark-purple Shades of SG board because pale notes and cork styling did not harmonise with the application.
+- I limited handwritten styling to the page title and kept reflection bodies in the standard readable font.
+- I required authentication to preserve user intent instead of sending guests to Login with no explanation or return context.
+- I chose `sessionStorage` for post-login intent and draft restoration so the flow survives reloads without becoming permanent local data.
+- I requested the real brand image throughout the frontend and then identified that an obsolete descendant `span` rule was creating an unwanted purple square behind it. That placeholder rule was removed.
+
+### Files Created
+
+- `backend/middleware/auth.js`
+- `backend/routes/reflections.js`
+- `backend/tests/reflections.test.js`
+- `frontend/src/components/AuthRequiredModal.jsx`
+- `frontend/src/components/BrandLogo.jsx`
+- `frontend/src/components/ReflectionCard.jsx`
+- `frontend/src/components/ReflectionEmptyState.jsx`
+- `frontend/src/components/ReflectionFilters.jsx`
+- `frontend/src/components/ReflectionGrid.jsx`
+- `frontend/src/components/ReflectionModal.jsx`
+- `frontend/src/services/postLoginIntent.js`
+- `frontend/src/services/reflectionService.js`
+
+### Files Modified
+
+- `backend/routes/auth.js`
+- `backend/routes/songs.js`
+- `backend/server.js`
+- `backend/services/authService.js`
+- `frontend/index.html`
+- `frontend/src/App.css`
+- `frontend/src/components/Footer.jsx`
+- `frontend/src/components/Navbar.jsx`
+- `frontend/src/components/studio/CreatorSidebar.jsx`
+- `frontend/src/layouts/AuthLayout.jsx`
+- `frontend/src/layouts/MainLayout.jsx`
+- `frontend/src/pages/Login.jsx`
+- `frontend/src/pages/PlaceholderPage.jsx`
+- `frontend/src/pages/ReflectionWall.jsx`
+- `frontend/src/pages/Register.jsx`
+- `frontend/src/services/authApi.js`
+
+The merge repair also removed duplicated placeholder prefixes from affected page files including Dashboard, Forgot Password, Generation Progress, Instrument Playground, Landing, Learning Hub, Login, Not Found, Profile, Reflection Moderation, Register, Reset Password, Rhythm Hub, Settings, Song Experience, Songs Library, Studio, and Trivia Hub. These changes were integration cleanup rather than claims of feature ownership for those teammate pages.
+
+### Verification Performed
+
+- Ran `npm.cmd install` in the frontend after confirming `yup` was declared in both `package.json` and `package-lock.json`; installation completed and `npm.cmd ls yup --depth=0` reported `yup@1.7.1`.
+- Ran `npm.cmd install nodemailer@9.0.3` in the backend after the first dependency sync attempt failed with an operating-system/network permission error; the installation completed and a direct Node require check loaded `nodemailer` and the authentication route successfully.
+- Ran the frontend production build repeatedly during merge repair, Reflection Wall refactoring, authentication UX, sticky-note styling, toolbar behaviour, and logo replacement. The final recorded `npm.cmd run build` completed successfully with 104 modules transformed.
+- Ran the frontend Vitest suite repeatedly during the implementation. The latest recorded test run before the final logo-only CSS correction passed one test file and one test.
+- Ran the backend Jest suite after the reflection CRUD and registration work. Three test suites and five tests passed.
+- Verified that the generated reflection test SQLite database was removed after the test and added automatic cleanup to the test file.
+- Searched the frontend source for remaining `SG` placeholder brand marks after introducing `BrandLogo`; no remaining JSX stand-ins were found.
+- Ran a direct duplicate-export scan after repairing the branch merge; no page with multiple `export default function` declarations remained.
+
+No full-project lint pass was recorded for this consolidated task. Browser appearance was reviewed through the screenshots I supplied and the resulting requested iterations; a final automated cross-browser or device-matrix test was not performed.
+
+### Final Outcome
+
+The Reflection Wall now uses one clean shared layout and loads real reflection and song data from the backend. Registered users can create reflections, edit or delete their own posts, and receive optimistic feedback. Guests can browse publicly and receive a contextual authentication dialog when they try to contribute. Login and registration return them to the wall, reopen the composer, and preserve the draft intent across reloads.
+
+Visually, the wall is now a responsive dark-purple community memory board with varied muted stationery notes, clear song identity, compact filters, and restrained decorative details. The empty-state and toolbar Add Reflection behaviour changes naturally once the first post exists. Shared public, authentication, creator, footer, placeholder, favicon, and document-title branding now use the real Shades of SG identity instead of temporary Vite or `SG` block marks.
+
+### Remaining Work
+
+- Perform final browser checks at the team's target laptop, tablet, and mobile widths.
+- Add broader automated component tests for the authentication dialog, draft restoration, filtering, optimistic rollback, and ownership menus.
+- Review whether new reflections should remain immediately approved or enter the creator moderation workflow before production.
+- Replace temporary song and media data with the final published catalogue where those upstream features are still incomplete.
+- Add token expiry and server-side session validation before treating the current local authentication mechanism as production-ready.
+- Run the complete frontend and backend lint suites after resolving any unrelated pre-existing lint issues.
+
+### Lesson
+
+A strong feature refinement requires separating structural bugs from visual symptoms. The Reflection Wall's layering could not be solved reliably by reducing margins because the real causes were legacy layout branching, duplicate viewport-height behaviour, and multiple backgrounds. Once the component tree and data path were simplified, visual iteration, authentication continuity, and reusable branding became much easier to implement without breaking CRUD behaviour.
+
+---
+
+## 2026-07-10 — Terms & Conditions and Privacy Policy Legal Experience
+
+### AI Tool Used
+
+Codex.
+
+### Objective
+
+Create a complete public legal experience for Shades of SG by replacing the footer's inactive legal labels with dedicated Terms & Conditions and Privacy Policy pages. Both pages needed to feel like polished parts of the consumer website rather than plain legal documents or developer documentation.
+
+The work also aimed to establish a consistent legal-page design language: a compact branded hero, lightweight sticky quick navigation, rounded content cards, readable typography, accurate platform-specific content, responsive behaviour, smooth anchor navigation, active-section tracking, and restrained scroll-reveal motion.
+
+### Context
+
+Before this task, the public footer displayed a Privacy Statement link that returned users to the homepage and a Terms label that did not lead to a completed legal page. The project already had a dark navy visual foundation, lavender and violet accents, rounded components, shared public navigation, and a full footer, but it did not have a legal-page pattern.
+
+The first Terms implementation established the correct information architecture but initially felt too much like a documentation page. Its hero and typography were also too large for the amount of legal content, and the original quick-navigation pills competed visually with the section cards. The page therefore went through several screenshot-led refinements before becoming the reference design for the Privacy Policy.
+
+### Prompt Summary
+
+I asked Codex to:
+
+- create a dedicated Terms & Conditions page within the existing public `MainLayout`;
+- add a clean hero containing the title, introduction, and last-updated date;
+- add sticky quick navigation for Acceptance of Terms, Community Guidelines, User Accounts, Reflections & User Content, Intellectual Property, Privacy, Limitation of Liability, and Contact;
+- write content specifically for an educational, community-driven Singapore music platform rather than generic placeholder legal copy;
+- present every major section in its own rounded card with purple headings, subtle borders, and generous spacing;
+- preserve the Shades of SG dark navy, lavender, violet, rounded-component, and typography system;
+- enable smooth anchor scrolling and end with a continued-use acceptance note;
+- connect the page to the footer;
+- polish the page so it felt warmer, brighter, more editorial, and less like technical documentation;
+- replace heavy navigation pills with lightweight links and an active lavender underline;
+- alternate card tones, strengthen section hierarchy, and add restrained musical decoration;
+- compact the oversized hero and progressively tune the legal typography based on screenshots;
+- set quick-navigation text and legal body copy to 14 pixels and section numbers to 15 pixels;
+- remove the document icon from the Terms hero;
+- create a companion Privacy Policy page using the same design and layout;
+- cover information collection, data use, cookies, third-party services, security, user rights, children's privacy, and contact information;
+- use subtle blue-indigo privacy accents without departing from the purple theme;
+- connect the footer Privacy Policy link to the new route;
+- add scroll-triggered fade and slide motion to both pages;
+- refine quick-navigation interaction so a programmatic jump did not trigger every intermediate card animation while moving through the page.
+
+### AI Output
+
+Codex created a new public `/terms` route and a complete `TermsAndConditions` React page. The page contains eight platform-relevant legal sections covering use of the service, community safety, accounts, user reflections, intellectual property, privacy, liability, and contact. The content explicitly addresses learner and educator use, community moderation, user-generated reflections, anonymous display behaviour, classroom use, cultural sensitivity, third-party rights, and the platform's educational purpose.
+
+The Terms page was connected to the shared footer through a real React Router link. The previous Terms label and an intermediate invalid route containing spaces were replaced with the canonical `/terms` route and the visible footer label was standardised as “Terms & Conditions.”
+
+Codex then refined the Terms design through several visual iterations:
+
+- introduced a branded navy-to-purple hero with subtle texture, a fine circular outline, a title divider, and a faint musical-note watermark;
+- changed the quick navigation from filled pills to lightweight underlined anchor links;
+- made the navigation sticky beneath the main navbar and horizontally scrollable at narrower widths;
+- added `aria-current="location"` to the active section link;
+- tracked the visible section with `IntersectionObserver` so the underline follows reading position;
+- alternated slate and indigo card backgrounds to avoid a wall of identical navy panels;
+- increased section-heading hierarchy and added narrow violet dividers beneath headings;
+- used two-digit lavender section numbers to create a clear reading sequence;
+- limited paragraph width, increased line height, and separated paragraphs for a calmer legal-reading experience;
+- retained responsive one-column cards and horizontal navigation on mobile;
+- respected `prefers-reduced-motion` for smooth scrolling and entrance animations.
+
+The hero was subsequently compacted in response to visual feedback. Its minimum height, padding, icon scale, title scale, divider spacing, paragraph spacing, and decorative-note size were reduced. The document icon was later removed entirely and the grid was collapsed so the copy remained correctly aligned without an unused icon column.
+
+Typography was tuned independently from component dimensions. The final compact type rules use 14-pixel quick-navigation links, 14-pixel legal body copy and list items, and 15-pixel section numbers, while headings retain a larger responsive scale. This preserved the card spacing and visual hierarchy without making the long-form content feel oversized.
+
+Codex then created the companion `/privacy` route and `PrivacyPolicy` page. It deliberately reused the established Terms classes so both pages share hero proportions, navigation behaviour, card spacing, type scale, section numbering, footer-note styling, and responsive behaviour. The Privacy page introduces only controlled visual differences: a blue-indigo variation of the hero gradient, a faint shield-lock watermark, cooler dividers, slightly bluer card tones, and a lock icon in the closing transparency note.
+
+The Privacy Policy contains eight skimmable sections:
+
+- Information We Collect;
+- How We Use Your Data;
+- Cookies;
+- Third-Party Services;
+- Data Security;
+- Your Rights;
+- Children's Privacy;
+- Contact.
+
+Its copy covers account and profile information, reflections, learning activity, rhythm-game progress, preferences, analytics, browser/device data, moderation, authentication, session storage, cookie controls, account deletion, reflection deletion, younger-user supervision, and support contact details. The page ends with a transparency-and-trust message.
+
+Codex checked the actual repository before naming third-party services. It confirmed Cloudinary usage and the project's Sequelize/PostgreSQL/SQLite data layer, and avoided incorrectly claiming that Supabase was in use. The final copy names Cloudinary, database and infrastructure providers in general terms, and YouTube where linked or embedded media is involved.
+
+The footer's former homepage-bound Privacy Statement link was replaced with a `Privacy Policy` link to `/privacy`. Both legal pages therefore now have working entry points in the global footer and remain available to guests and signed-in users through the shared public layout.
+
+For motion, Codex reused the project's existing `Reveal` component and `useReveal` hook instead of adding a second animation system. It extended `Reveal` so semantic HTML attributes such as `id` and `aria-label` can pass through to the rendered tag. Heroes, navigation bars, section cards, and closing notes now fade and translate into place as they enter the viewport. Card delays alternate slightly to avoid mechanical simultaneous motion.
+
+The first quick-navigation animation behaviour revealed intermediate cards as smooth scrolling passed them. Codex corrected this by adding navigation-aware reveal suspension. When a user selects a quick-navigation link, the page:
+
+1. updates the active link immediately;
+2. updates the URL fragment without reloading the route;
+3. smoothly scrolls to the selected section;
+4. temporarily suspends observers on unrevealed legal cards during the programmatic scroll;
+5. restores observation after the scroll interval so the destination card reveals softly;
+6. preserves the normal per-card reveal experience during manual scrolling.
+
+Timeout references are cleared during component unmounting, and already revealed cards remain visible. Visitors with reduced-motion preferences continue to receive static content without transforms or transitions.
+
+### My Review and Decisions
+
+I accepted the initial Terms information structure but did not accept its first visual treatment as final. I judged that the page felt like developer documentation and asked for a warmer, more consumer-facing atmosphere. I retained the hero-plus-navigation-plus-card structure while changing the visual weight and rhythm.
+
+I rejected heavy pill navigation because it competed with the content panels. I chose a simpler navbar-like treatment with lavender text and a purple underline for the active section. I also kept sticky behaviour because the document is long enough that users benefit from persistent orientation.
+
+I asked for brighter layering rather than replacing the dark theme. The final direction retains deep navy as the page foundation, adds a purple-gradient hero, uses lighter slate and indigo cards, and alternates panel tone. This keeps the legal pages recognisably part of Shades of SG without making every surface identical.
+
+I reviewed the hero through a screenshot and found it disproportionately tall and typographically dominant. I requested that the component itself be compacted, then clarified that typography throughout the page also needed to be smaller. I selected 14 pixels for navigation and legal copy and 15 pixels for section numbers. I later removed the document icon because the title and decorative background already communicated the page purpose without it.
+
+For the Privacy Policy, I chose visual continuity over a separate redesign. The page copies the Terms structure and uses only subtle privacy-specific accents. I accepted shield and lock decoration at low opacity, but kept the palette within lavender, indigo, muted blue, and violet rather than introducing unrelated greens.
+
+I also reviewed the first scroll animation interaction and identified that quick-navigation clicks caused too many cards to reveal while the browser moved past them. I requested a less abrupt behaviour. The final solution distinguishes manual exploration from programmatic anchor navigation, allowing ordinary scroll reveals while preventing intermediate animation cascades during a quick jump.
+
+### Files Created
+
+- `frontend/src/pages/TermsAndConditions.jsx`
+- `frontend/src/pages/PrivacyPolicy.jsx`
+
+### Files Modified
+
+- `frontend/src/App.jsx`
+- `frontend/src/App.css`
+- `frontend/src/components/Footer.jsx`
+- `frontend/src/components/Reveal.jsx`
+- `frontend/src/hooks/useReveal.js`
+- `ferlyn_journal.md`
+
+### Routing and Integration Details
+
+- Added `/terms` as a public route inside `MainExperience` and `MainLayout`.
+- Added `/privacy` as a public route inside the same layout.
+- Connected the footer's Terms & Conditions link to `/terms`.
+- Connected the footer's Privacy Policy link to `/privacy`.
+- Preserved the shared public navbar, footer, maximum content width, dark application shell, and route-level scroll-to-top behaviour.
+- Used fragment identifiers for all legal sections so links remain shareable and browser-addressable.
+
+### Accessibility and Responsive Behaviour
+
+- Quick-navigation containers use semantic `nav` elements with accessible labels.
+- The active anchor exposes `aria-current="location"`.
+- Decorative dots, musical notes, shield, lock, and section numbers are hidden from assistive technology where appropriate.
+- Email addresses use functional `mailto:` links with prefilled subjects.
+- Section cards use semantic `section` elements and proper heading order.
+- Anchor destinations use `scroll-margin-top` so sticky site and legal navigation do not cover section headings.
+- Quick navigation can scroll horizontally on small screens rather than compressing or wrapping into an excessively tall toolbar.
+- Cards collapse from numbered two-column layouts into single-column mobile layouts.
+- Motion is disabled through the existing reduced-motion media query.
+- The reveal hook includes a fallback that exposes content when `IntersectionObserver` is unavailable.
+
+### Verification Performed
+
+- Ran the frontend production build after the initial Terms route and page implementation; it passed.
+- Ran the frontend Vitest suite after the Terms implementation; one test file and one test passed. JSDOM printed its existing informational warning that `window.scrollTo()` is not implemented.
+- Ran targeted ESLint on `TermsAndConditions.jsx`; it passed.
+- Attempted a full frontend lint run. It reported three pre-existing `react-hooks/set-state-in-effect` errors in `ReflectionModal.jsx` and `ReflectionWall.jsx`, unrelated to the legal pages.
+- Ran the production build after the Terms visual-polish pass; it passed.
+- Ran targeted ESLint on the polished Terms page; it passed.
+- Ran the frontend tests again after the polish pass; they passed.
+- Ran another production build after compacting the Terms hero; it passed.
+- Ran the production build after reducing the Terms typography; it passed.
+- Ran the production build after introducing the Privacy Policy route and page; it passed with 107 modules transformed.
+- Ran targeted ESLint on both `PrivacyPolicy.jsx` and `TermsAndConditions.jsx`; it passed.
+- Ran the frontend test suite after Privacy Policy integration; it passed.
+- Ran the production build after applying shared reveal motion; it passed.
+- Ran targeted ESLint on both legal pages and `Reveal.jsx`; it passed.
+- Ran the frontend tests after the reveal work; they passed.
+- Ran the production build after adding navigation-aware reveal suspension; it passed.
+- Ran targeted ESLint on both legal pages, `Reveal.jsx`, and `useReveal.js`; it passed.
+
+### Final Outcome
+
+Shades of SG now has a complete, coherent public legal experience. Terms & Conditions and Privacy Policy are real footer destinations rather than placeholders. Both pages share a compact branded hero, lightweight sticky navigation, active-section feedback, premium rounded cards, consistent numbering, readable 14-pixel body copy, responsive layouts, accurate platform-specific wording, and accessible contact actions.
+
+The two pages feel like companions: Terms uses a warmer violet music-and-community treatment, while Privacy uses cooler indigo and trust-oriented shield/lock details. Their interaction design supports both deliberate manual reading and fast section navigation. Manual scrolling produces calm per-card entrance motion, while quick-navigation clicks avoid revealing every intermediate section and instead focus attention on the selected destination.
+
+### Remaining Work
+
+- Have the final legal wording reviewed by an appropriate legal or data-protection professional before production use.
+- Replace the general third-party infrastructure description with a definitive production service list once hosting and analytics providers are finalised.
+- Confirm the lawful basis, retention period, account-deletion workflow, and child-user consent requirements for the production deployment.
+- Add component tests for active-section tracking, hash updates, reveal suspension, and reduced-motion behaviour.
+- Perform manual browser checks at the team's target desktop, tablet, and mobile widths.
+- Consider extracting the duplicated legal page structure and navigation logic into a dedicated reusable `LegalPage` or `LegalLayout` component if more legal or policy pages are added.
+- Resolve the unrelated Reflection Wall lint errors before making a full-project lint pass a release requirement.
+
+### Lesson
+
+Legal content does not need to look detached from the product. A strong legal page can preserve clarity and seriousness while still using the platform's colour, typography, rhythm, and storytelling identity. The most effective result came from separating content hierarchy from visual weight: lightweight navigation, compact typography, layered surfaces, clear numbering, and restrained decoration made the pages easier to read without making them feel generic.
+
+Motion also needs to understand user intent. An animation that feels natural during manual scrolling can become noisy when a programmatic jump passes many observed elements. Temporarily suspending intermediate reveal observers created a better distinction between exploratory reading and direct navigation while preserving accessibility and smooth orientation.
