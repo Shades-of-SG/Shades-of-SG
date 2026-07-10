@@ -64,8 +64,7 @@ const startGeneration = async (req, res, next) => {
     // 1. Create the tracking ticket
     const job = await GenerationJob.create({
       songId,
-      status: 'PROCESSING',
-      progress: 10,
+      status: 'IN_PROGRESS',
     })
 
     // 2. Fire the background worker WITHOUT awaiting it
@@ -83,18 +82,20 @@ const startGeneration = async (req, res, next) => {
 
 const getGenerationStatus = async (req, res, next) => {
   try {
-    const { jobId } = req.params
+    // Route param is :id (see aiGeneration.js), not :jobId
+    const { id } = req.params
 
-    const job = await GenerationJob.findByPk(jobId, {
+    const job = await GenerationJob.findByPk(id, {
       include: [
         { 
           model: Song, 
           as: 'song', 
-          attributes: ['title', 'artist'],
+          attributes: ['title', 'artist', 'audioUrl'],
           include: [
             {
               model: SceneSegment,
               as: 'sceneSegments',
+              order: [['startTime', 'ASC']],
               include: [
                 {
                   model: GeneratedFrame,
@@ -151,11 +152,9 @@ const runGenerationPipeline = async (jobId) => {
 
     console.log(`[Phase 2] Generating Scene Plan...`)
     await generateScenePlan(jobId, job.songId)
-    await job.update({ progress: 25 }) // Update progress bar
 
     console.log(`[Phase 3] Generating Image Frames...`)
     await generateFrames(jobId, job.songId)
-    await job.update({ progress: 60 }) // Update progress bar
 
     console.log(`[Phase 4] Assembling Video with FFmpeg...`)
     await assembleVideo(jobId, job.songId)
@@ -163,7 +162,6 @@ const runGenerationPipeline = async (jobId) => {
     // Update DB on Success
     await job.update({
       status: 'COMPLETED',
-      progress: 100,
       errorMessage: null,
     })
 

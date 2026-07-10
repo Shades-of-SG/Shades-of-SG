@@ -82,8 +82,8 @@ async function assembleVideo(jobId, songId) {
     // 2. Database Fetching
     job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`GenerationJob ${jobId} not found`)
-    if (job.status !== 'PROCESSING') {
-      throw new Error(`GenerationJob ${jobId} is not in PROCESSING state`)
+    if (job.status !== 'IN_PROGRESS') {
+      throw new Error(`GenerationJob ${jobId} is not in IN_PROGRESS state`)
     }
 
     const song = await Song.findByPk(songId)

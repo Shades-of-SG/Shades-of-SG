@@ -21,8 +21,8 @@ async function generateScenePlan(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'PROCESSING') {
-      throw new Error(`GenerationJob is in state '${job.status}', expected 'PROCESSING'.`)
+    if (job.status !== 'IN_PROGRESS') {
+      throw new Error(`GenerationJob is in state '${job.status}', expected 'IN_PROGRESS'.`)
     }
 
     const song = await Song.findByPk(songId)
@@ -109,10 +109,6 @@ ${song.lyrics || 'No lyrics provided.'}`
     }))
 
     await SceneSegment.bulkCreate(sceneRecords)
-
-    // 6. Progress Update
-    job.progress = 25
-    await job.save()
 
     return parsedData.scenes
   } catch (error) {

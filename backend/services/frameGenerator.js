@@ -26,14 +26,15 @@ async function generateFrames(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'PROCESSING') {
-      throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
+    if (job.status !== 'IN_PROGRESS') {
+      throw new Error(`GenerationJob is not in IN_PROGRESS state. Current state: ${job.status}`)
     }
 
     // Fetch scene segments ordered chronologically
+    // SceneSegment is keyed by songId (not jobId) — use the songId passed from the pipeline
     const segments = await SceneSegment.findAll({
-      where: { jobId },
-      order: [['timestampSecs', 'ASC']],
+      where: { songId },
+      order: [['startTime', 'ASC']],
     })
 
     if (!segments || segments.length === 0) {
@@ -49,48 +50,61 @@ async function generateFrames(jobId, songId) {
       let finalImageUrl
 
       // Check if we already generated an image for this exact prompt (e.g., a repeated chorus)
-      if (imagePromptCache.has(segment.imagePrompt)) {
+      if (imagePromptCache.has(segment.visualPrompt)) {
         // Cache HIT: Skip DALL-E and reuse the permanent Cloudinary URL
         console.log(
-          `[Cache Hit] Reusing frame for prompt: "${segment.imagePrompt.substring(0, 30)}..."`
+          `[Cache Hit] Reusing frame for prompt: "${segment.visualPrompt.substring(0, 30)}..."`
         )
-        finalImageUrl = imagePromptCache.get(segment.imagePrompt)
+        finalImageUrl = imagePromptCache.get(segment.visualPrompt)
       } else {
         // Cache MISS: Generate via DALL-E 3
         console.log(`[Cache Miss] Generating new DALL-E frame for segment ${segment.id}...`)
 
-        // 3. DALL-E 3 Integration
-        const response = await openai.images.generate({
-          model: 'dall-e-3',
-          prompt: segment.imagePrompt,
-          size: '1024x1024',
-          n: 1, // DALL-E 3 only supports generating 1 image per request
-        })
-
-        const openAiImageUrl = response.data[0].url
+        // 3. DALL-E Integration with Fallback
+        let openAiImageUrl
+        try {
+          const response = await openai.images.generate({
+            model: 'dall-e-3',
+            prompt: segment.visualPrompt,
+            size: '1024x1024',
+            n: 1,
+          })
+          openAiImageUrl = response.data[0].url
+        } catch (openaiError) {
+          // Fallback to DALL-E 2 if DALL-E 3 is unavailable (Tier 0) or hits a 400 error
+          if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
+            console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
+            const fallbackResponse = await openai.images.generate({
+              model: 'dall-e-2',
+              prompt: segment.visualPrompt,
+              size: '512x512',
+              n: 1,
+            })
+            openAiImageUrl = fallbackResponse.data[0].url
+          } else {
+            throw openaiError
+          }
+        }
 
         // 4. Cloudinary Handoff
         // Immediately upload to persistent storage before the OpenAI URL expires
         finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
 
         // Cache the newly acquired permanent URL for future segments
-        imagePromptCache.set(segment.imagePrompt, finalImageUrl)
+        imagePromptCache.set(segment.visualPrompt, finalImageUrl)
       }
 
       // 5. Database Saving
       // Record the generated frame mapping to the specific segment
       await GeneratedFrame.create({
-        jobId: jobId,
         sceneSegmentId: segment.id,
         imageUrl: finalImageUrl,
       })
     }
 
-    // 6. Progress Update
-    // Update job progress to 60% after all frames have been safely processed and stored
-    await job.update({ progress: 60 })
+    // 6. Phase Complete
     console.log(
-      `[Phase 3 Complete] All frames generated for Job ${jobId} (Song ${songId}). Progress updated to 60%.`
+      `[Phase 3 Complete] All frames generated for Job ${jobId} (Song ${songId}).`
     )
   } catch (error) {
     // 7. Error Boundaries
