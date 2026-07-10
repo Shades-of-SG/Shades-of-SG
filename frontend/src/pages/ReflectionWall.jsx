@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthRequiredModal from '../components/AuthRequiredModal'
+import GuestThankYouModal from '../components/GuestThankYouModal'
 import ReflectionEmptyState from '../components/ReflectionEmptyState'
 import ReflectionFilters from '../components/ReflectionFilters'
 import ReflectionGrid from '../components/ReflectionGrid'
@@ -31,6 +32,8 @@ export default function ReflectionWall() {
   const [modalReflection, setModalReflection] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [isGuestMode, setIsGuestMode] = useState(false)
+  const [showGuestThanks, setShowGuestThanks] = useState(false)
   const [reflectionDraft, setReflectionDraft] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -82,7 +85,7 @@ export default function ReflectionWall() {
     if (!user || !token) {
       savePostLoginIntent({
         action: 'create-reflection',
-        draftReflection: { content: '', isAnonymous: false, songId: songs[0]?.id || '' },
+        draftReflection: { content: '', isAnonymous: false, songId: '' },
         openReflectionModal: true,
         returnTo: '/reflections',
       })
@@ -101,6 +104,7 @@ export default function ReflectionWall() {
   function closeReflectionModal() {
     setIsModalOpen(false)
     setReflectionDraft(null)
+    setIsGuestMode(false)
     if (!modalReflection) clearPostLoginIntent()
   }
 
@@ -130,12 +134,18 @@ export default function ReflectionWall() {
 
     const temporaryId = `pending-${Date.now()}`
     const selectedSong = songs.find((song) => song.id === values.songId)
-    const optimistic = { ...values, id: temporaryId, createdAt: new Date().toISOString(), displayName: values.isAnonymous ? 'Anonymous' : user.name, isOwner: true, isPending: true, song: selectedSong }
-    setReflections((items) => [optimistic, ...items])
+    const guestSubmission = isGuestMode || !user || !token
+    const optimistic = { ...values, id: temporaryId, createdAt: new Date().toISOString(), displayName: values.isAnonymous ? 'Anonymous' : user?.name, isOwner: !guestSubmission, isPending: true, song: selectedSong }
+    if (!guestSubmission) setReflections((items) => [optimistic, ...items])
     try {
       const saved = await createReflection(values, token)
-      setReflections((items) => items.map((item) => item.id === temporaryId ? saved : item))
-      setToast('Reflection shared.')
+      if (guestSubmission) {
+        setShowGuestThanks(true)
+      } else {
+        setReflections((items) => items.map((item) => item.id === temporaryId ? saved : item))
+        setToast('Reflection shared.')
+      }
+      setIsGuestMode(false)
     } catch (nextError) {
       setReflections((items) => items.filter((item) => item.id !== temporaryId))
       setError(nextError.message)
@@ -168,14 +178,15 @@ export default function ReflectionWall() {
       {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} reflections={visibleReflections} /> : null}
       {!isLoading && visibleReflections.length === 0 ? <ReflectionEmptyState filtered={Boolean(query || songId)} onAdd={openCreate} /> : null}
 
-      {isModalOpen && <ReflectionModal draft={reflectionDraft} onClose={closeReflectionModal} onDraftChange={updateReflectionDraft} onSave={saveReflection} reflection={modalReflection} songs={songs} />}
+      {isModalOpen && <ReflectionModal draft={reflectionDraft} isGuest={isGuestMode} onClose={closeReflectionModal} onDraftChange={updateReflectionDraft} onSave={saveReflection} reflection={modalReflection} songs={songs} user={user} />}
       {isAuthModalOpen && (
         <AuthRequiredModal
           onCancel={() => { setIsAuthModalOpen(false); clearPostLoginIntent() }}
+          onGuest={() => { setIsAuthModalOpen(false); clearPostLoginIntent(); setIsGuestMode(true); setModalReflection(null); setReflectionDraft({ content: '', isAnonymous: true, songId: '' }); setIsModalOpen(true) }}
           onLogin={() => navigate('/login', { state: { from: { pathname: '/reflections' } } })}
-          onRegister={() => navigate('/register', { state: { from: { pathname: '/reflections' } } })}
         />
       )}
+      {showGuestThanks && <GuestThankYouModal onClose={() => setShowGuestThanks(false)} onRegister={() => navigate('/register', { state: { from: { pathname: '/reflections' } } })} />}
       {toast && <div className="rw-toast" role="status">{toast}</div>}
     </div>
   )

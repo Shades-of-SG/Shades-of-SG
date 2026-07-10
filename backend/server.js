@@ -9,6 +9,10 @@ const songsRouter = require('./routes/songs');
 const reflectionsRouter = require('./routes/reflections');
 const transcriptionsRouter = require('./routes/transcriptions');
 const { seedCreatorAccount } = require('./services/authService');
+const {
+    ensureGuestReflectionSchema,
+    ensureReflectionModerationSchema,
+} = require('./services/schemaService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,6 +43,8 @@ async function startServer() {
     try {
         await sequelize.authenticate();
         await sequelize.sync();
+        await ensureGuestReflectionSchema(sequelize);
+        await ensureReflectionModerationSchema(sequelize);
         await seedCreatorAccount();
 
         console.log('Database connected successfully');

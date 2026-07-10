@@ -56,8 +56,8 @@ function AuthExperience() {
 }
 
 function App() {
-  const { user } = useAuth()
-  const isCreator = user?.role === 'CREATOR'
+  const { token, user } = useAuth()
+  const isCreator = Boolean(token && user?.role === 'CREATOR')
 
   return (
     <BrowserRouter>

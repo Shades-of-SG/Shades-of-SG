@@ -32,6 +32,8 @@ Song.hasMany(Reflection, { foreignKey: 'songId', as: 'reflections' });
 Reflection.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 User.hasMany(Reflection, { foreignKey: 'userId', as: 'reflections' });
 Reflection.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Reflection, { foreignKey: 'moderatedBy', as: 'moderatedReflections' });
+Reflection.belongsTo(User, { foreignKey: 'moderatedBy', as: 'moderator' });
 
 User.hasMany(Badge, { foreignKey: 'userId', as: 'badges' });
 Badge.belongsTo(User, { foreignKey: 'userId', as: 'user' });

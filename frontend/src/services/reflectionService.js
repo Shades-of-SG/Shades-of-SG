@@ -20,6 +20,36 @@ export async function getReflections(token) {
   return data.reflections
 }
 
+export async function getModerationReflections(filters, token) {
+  const params = new URLSearchParams()
+  const values = {
+    anonymousOnly: filters.anonymousOnly ? 'true' : '',
+    dateFrom: filters.dateFrom,
+    limit: filters.limit || 8,
+    page: filters.page || 1,
+    search: filters.search?.trim(),
+    songId: filters.songId,
+    status: filters.status,
+  }
+
+  Object.entries(values).forEach(([key, value]) => {
+    if (value !== '' && value !== undefined && value !== null) params.set(key, String(value))
+  })
+
+  return request(`/reflections/moderation?${params.toString()}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export async function moderateReflection(id, values, token) {
+  const data = await request(`/reflections/${id}/moderation`, {
+    body: JSON.stringify(values),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'PUT',
+  })
+  return data.reflection
+}
+
 export async function getReflectionSongs() {
   const data = await request('/songs')
   return data.songs
