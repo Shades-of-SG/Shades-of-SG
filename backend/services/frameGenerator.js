@@ -49,13 +49,16 @@ async function generateFrames(jobId, songId) {
     for (const segment of segments) {
       let finalImageUrl
 
-      // Check if we already generated an image for this exact prompt (e.g., a repeated chorus)
-      if (imagePromptCache.has(segment.visualPrompt)) {
+      // Key the cache by the normalized lyrics (if available) to ensure repeating choruses hit the cache
+      const cacheKey = segment.lyrics ? segment.lyrics.trim().toLowerCase() : segment.visualPrompt
+
+      // Check if we already generated an image for this exact lyric/prompt (e.g., a repeated chorus)
+      if (imagePromptCache.has(cacheKey)) {
         // Cache HIT: Skip DALL-E and reuse the permanent Cloudinary URL
         console.log(
-          `[Cache Hit] Reusing frame for prompt: "${segment.visualPrompt.substring(0, 30)}..."`
+          `[Cache Hit] Reusing frame for segment: "${cacheKey.substring(0, 30)}..."`
         )
-        finalImageUrl = imagePromptCache.get(segment.visualPrompt)
+        finalImageUrl = imagePromptCache.get(cacheKey)
       } else {
         // Cache MISS: Generate via DALL-E 3
         console.log(`[Cache Miss] Generating new DALL-E frame for segment ${segment.id}...`)
@@ -72,17 +75,26 @@ async function generateFrames(jobId, songId) {
           openAiImageUrl = response.data[0].url
         } catch (openaiError) {
           // Fallback to DALL-E 2 if DALL-E 3 is unavailable (Tier 0) or hits a 400 error
-          if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
-            console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
-            const fallbackResponse = await openai.images.generate({
-              model: 'dall-e-2',
-              prompt: segment.visualPrompt,
-              size: '512x512',
-              n: 1,
-            })
-            openAiImageUrl = fallbackResponse.data[0].url
-          } else {
-            throw openaiError
+          try {
+            if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
+              console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
+              const fallbackResponse = await openai.images.generate({
+                model: 'dall-e-2',
+                prompt: segment.visualPrompt,
+                size: '512x512',
+                n: 1,
+              })
+              openAiImageUrl = fallbackResponse.data[0].url
+            } else {
+              throw openaiError
+            }
+          } catch (ultimateError) {
+            console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
+            openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
+            
+            // Explicitly assign the fallback URL and persist to DB as requested
+            segment.imageUrl = openAiImageUrl
+            await segment.save()
           }
         }
 
@@ -91,7 +103,7 @@ async function generateFrames(jobId, songId) {
         finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
 
         // Cache the newly acquired permanent URL for future segments
-        imagePromptCache.set(segment.visualPrompt, finalImageUrl)
+        imagePromptCache.set(cacheKey, finalImageUrl)
       }
 
       // 5. Database Saving
@@ -100,6 +112,10 @@ async function generateFrames(jobId, songId) {
         sceneSegmentId: segment.id,
         imageUrl: finalImageUrl,
       })
+
+      // Sync the Cloudinary final URL back to the segment's imageUrl column and save
+      segment.imageUrl = finalImageUrl
+      await segment.save()
     }
 
     // 6. Phase Complete

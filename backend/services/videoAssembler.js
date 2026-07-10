@@ -92,7 +92,7 @@ async function assembleVideo(jobId, songId) {
 
     const segments = await SceneSegment.findAll({
       where: { songId },
-      order: [['timestampSecs', 'ASC']],
+      order: [['startTime', 'ASC']],
     })
 
     if (!segments || segments.length === 0) {
@@ -110,7 +110,8 @@ async function assembleVideo(jobId, songId) {
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]
       if (!segment.imageUrl) {
-        throw new Error(`SceneSegment ${segment.id} is missing an imageUrl`)
+        console.warn(`[Warning] SceneSegment ${segment.id} is missing an imageUrl. Injecting fallback placeholder.`)
+        segment.imageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
       }
 
       const imgPath = path.join(tempDir, `img_${jobId}_${i}.jpg`)
@@ -120,9 +121,9 @@ async function assembleVideo(jobId, songId) {
 
       // Calculate duration for this segment (default to 5 seconds for the last segment)
       const nextTimestamp = segments[i + 1]
-        ? segments[i + 1].timestampSecs
-        : segment.timestampSecs + 5
-      segment.duration = Math.max(0, nextTimestamp - segment.timestampSecs)
+        ? segments[i + 1].startTime
+        : segment.startTime + 5
+      segment.duration = Math.max(0, nextTimestamp - segment.startTime)
     }
 
     // 4. SRT Subtitle Generation
@@ -132,8 +133,8 @@ async function assembleVideo(jobId, songId) {
 
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]
-      const startTime = formatSrtTime(segment.timestampSecs)
-      const endTime = formatSrtTime(segment.timestampSecs + segment.duration)
+      const startTime = formatSrtTime(segment.startTime)
+      const endTime = formatSrtTime(segment.startTime + segment.duration)
 
       // SRT format:
       // Index \n Start --> End \n Text \n\n
