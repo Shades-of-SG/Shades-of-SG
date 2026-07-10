@@ -3,7 +3,7 @@ import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
 import { Link } from 'react-router-dom'
-import { creatorSongs, songFilterStatusMap, songStatusFilters } from './pageData'
+import { creatorSongs, dashboardArchivedSongsCount, songFilterStatusMap, songStatusFilters } from './pageData'
 
 /*
 TODO - Shermaine
@@ -53,6 +53,7 @@ export default function Dashboard() {
         <SectionCard title="Published"><strong>8</strong><span>live</span><p>Available in the library</p><Link className="inline-link" to="/creator/songs">See published <span aria-hidden="true">→</span></Link></SectionCard>
         <SectionCard title="Processing"><strong>3</strong><span>jobs</span><p>AI generating right now</p><Link className="inline-link" to="/creator/generation">View generation <span aria-hidden="true">→</span></Link></SectionCard>
         <SectionCard title="Total Plays"><strong>1,240</strong><span>mins</span><p>All-time song plays</p><Link className="inline-link" to="/creator/plays">View plays <span aria-hidden="true">→</span></Link></SectionCard>
+        <SectionCard title="Archived"><strong>{dashboardArchivedSongsCount}</strong><span>songs</span><p>Removed from active rotation</p><Link className="inline-link" to="/creator/songs">View archived <span aria-hidden="true">→</span></Link></SectionCard>
       </section>
 
       <section className="dashboard-grid">

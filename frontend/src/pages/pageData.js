@@ -74,6 +74,8 @@ export const songFilterStatusMap = {
   Published: 'Published',
 }
 
+export const dashboardArchivedSongsCount = 0
+
 export const placeholderCards = {
   achievements: ['First Reflection', 'Rhythm Starter', 'Culture Explorer'],
   logs: ['Frame generation queued', 'Audio analysis pending', 'Review required before publish'],
