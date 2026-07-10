@@ -6,9 +6,14 @@ const sequelize = require('./config/database');
 const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
+const reflectionsRouter = require('./routes/reflections');
 const transcriptionsRouter = require('./routes/transcriptions');
 const generationRouter = require('./routes/aiGeneration');
 const { seedCreatorAccount } = require('./services/authService');
+const {
+    ensureGuestReflectionSchema,
+    ensureReflectionModerationSchema,
+} = require('./services/schemaService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +34,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/songs', songsRouter);
 app.use('/api/scores', scoresRouter);
+app.use('/api/reflections', reflectionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
@@ -44,6 +50,8 @@ async function startServer() {
     try {
         await sequelize.authenticate();
         await sequelize.sync();
+        await ensureGuestReflectionSchema(sequelize);
+        await ensureReflectionModerationSchema(sequelize);
         await seedCreatorAccount();
 
         console.log('Database connected successfully');

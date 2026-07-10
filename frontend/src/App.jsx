@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import RhythmGame from './components/RhythmGame'
+import ScrollToTop from './components/ScrollToTop'
 import { useAuth } from './context/AuthContext'
 import AuthLayout from './layouts/AuthLayout'
 import CreatorLayout from './layouts/CreatorLayout'
@@ -18,6 +19,7 @@ import LearningHub from './pages/LearningHub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
@@ -30,15 +32,12 @@ import SongExperience from './pages/SongExperience'
 import SongsLibrary from './pages/SongsLibrary'
 import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
+import TermsAndConditions from './pages/TermsAndConditions'
 import './App.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import KindMasterEditor from './pages/KindMasterEditor'
 function MainExperience() {
   const { user } = useAuth()
-
-  if (user?.role === 'CREATOR') {
-    return <Navigate replace to="/creator/dashboard" />
-  }
 
   return <MainLayout role={user ? 'user' : 'guest'} />
 }
@@ -58,11 +57,12 @@ function AuthExperience() {
 }
 
 function App() {
-  const { user } = useAuth()
-  const isCreator = user?.role === 'CREATOR'
+  const { token, user } = useAuth()
+  const isCreator = Boolean(token && user?.role === 'CREATOR')
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route element={<MainExperience />}>
           <Route element={<Landing />} path="/" />
@@ -78,6 +78,8 @@ function App() {
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />
           <Route element={<Settings />} path="/settings" />
+          <Route element={<PrivacyPolicy />} path="/privacy" />
+          <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
 
         <Route element={<AuthExperience />}>

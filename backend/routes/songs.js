@@ -10,6 +10,18 @@ const requireAuth = (req, res, next) => next();
 
 // POST Route for extraction (Must be above dynamic routes like /:id)
 router.post('/extract-audio', requireAuth, songController.extractAudio);
+router.get('/', async (req, res, next) => {
+    try {
+        const songs = await Song.findAll({
+            attributes: ['id', 'title'],
+            order: [['title', 'ASC']],
+        });
+
+        return res.json({ songs });
+    } catch (error) {
+        return next(error);
+    }
+});
 
 router.get('/:id', async (req, res, next) => {
     try {

@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import BrandLogo from '../BrandLogo'
 
 const navigationItems = [
   { label: 'Dashboard', shortLabel: 'DB', to: '/creator/dashboard' },
@@ -25,9 +26,8 @@ export default function CreatorSidebar({ collapsed = false, drawerOpen = false, 
       {isDrawerMode && drawerOpen && <button aria-label="Close Studio navigation" className="studio-sidebar-backdrop" onClick={onCloseDrawer} type="button" />}
       <aside className={`studio-sidebar ${collapsed ? 'is-collapsed' : ''} ${isDrawerMode ? 'is-drawer' : ''} ${drawerStateClass}`}>
         <div className="studio-sidebar__brand">
-          <span className="studio-sidebar__brand-mark">SG</span>
+          <BrandLogo className="brand-logo--creator" compact={collapsed} />
           <div className="studio-sidebar__brand-copy">
-            <strong>Shades of SG</strong>
             <span>Creator</span>
           </div>
           {!isDrawerMode && (

@@ -1,172 +1,200 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import AuthRequiredModal from '../components/AuthRequiredModal'
+import GuestThankYouModal from '../components/GuestThankYouModal'
+import ReflectionEmptyState from '../components/ReflectionEmptyState'
+import ReflectionFilters from '../components/ReflectionFilters'
+import ReflectionGrid from '../components/ReflectionGrid'
+import ReflectionModal from '../components/ReflectionModal'
+import { useAuth } from '../context/AuthContext'
+import {
+  clearPostLoginIntent,
+  getPostLoginIntent,
+  savePostLoginIntent,
+  updatePostLoginIntent,
+} from '../services/postLoginIntent'
+import {
+  createReflection,
+  deleteReflection,
+  getReflections,
+  getReflectionSongs,
+  updateReflection,
+} from '../services/reflectionService'
 
-const reflections = [
-  {
-    author: 'Jia En',
-    color: 'coral',
-    content:
-      'This song reminds me of walking through Bugis with my grandmother, hearing different languages blend into one familiar sound.',
-    location: 'Bugis',
-    song: 'Demo Song',
-    title: 'Evening Walks',
-  },
-  {
-    author: 'Marcus',
-    color: 'gold',
-    content:
-      'The rhythm feels like the void deck after school. Someone playing music, someone laughing, someone rushing home for dinner.',
-    location: 'Tampines',
-    song: 'City Pulse',
-    title: 'After School Noise',
-  },
-  {
-    author: 'Nurul',
-    color: 'violet',
-    content:
-      'My favourite part is how small memories can become part of something bigger. It feels like writing a postcard to Singapore.',
-    location: 'Kampong Glam',
-    song: 'Kampong Light',
-    title: 'Postcard Memory',
-  },
-  {
-    author: 'Sarah',
-    color: 'cyan',
-    content:
-      'The instruments made me think of National Day rehearsals, but softer. Less parade, more personal.',
-    location: 'Marina Bay',
-    song: 'Demo Song',
-    title: 'Soft Fireworks',
-  },
-  {
-    author: 'Wei Ming',
-    color: 'green',
-    content:
-      'I used to hear songs like this from a shop radio while buying snacks. It made the whole street feel alive.',
-    location: 'Chinatown',
-    song: 'Kampong Light',
-    title: 'Shop Radio',
-  },
-  {
-    author: 'Asha',
-    color: 'rose',
-    content:
-      'It sounds like a place where everyone is passing through, but somehow everyone belongs.',
-    location: 'Little India',
-    song: 'City Pulse',
-    title: 'Passing Through',
-  },
-]
-
-const songFilters = ['All Songs', 'Demo Song', 'City Pulse', 'Kampong Light']
-
-/*
-TODO - Ferlyn
-
-Connect reflection feed to approved backend posts.
-Implement reflection submission persistence.
-Connect song filters to live song data.
-*/
 export default function ReflectionWall() {
-  const [searchParams] = useSearchParams()
-  const [isComposerOpen, setIsComposerOpen] = useState(() => searchParams.get('compose') === '1')
-  const [selectedSong, setSelectedSong] = useState('All Songs')
+  const navigate = useNavigate()
+  const { token, user } = useAuth()
+  const [reflections, setReflections] = useState([])
+  const [songs, setSongs] = useState([])
+  const [query, setQuery] = useState('')
+  const [songId, setSongId] = useState('')
+  const [sort, setSort] = useState('latest')
+  const [modalReflection, setModalReflection] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [isGuestMode, setIsGuestMode] = useState(false)
+  const [showGuestThanks, setShowGuestThanks] = useState(false)
+  const [reflectionDraft, setReflectionDraft] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
 
-  const visibleReflections =
-    selectedSong === 'All Songs'
-      ? reflections
-      : reflections.filter((reflection) => reflection.song === selectedSong)
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      if (!active) return
+      setIsLoading(true)
+      Promise.all([getReflections(token), getReflectionSongs()])
+        .then(([nextReflections, nextSongs]) => {
+          if (!active) return
+          setReflections(nextReflections)
+          setSongs(nextSongs)
+          setError('')
+        })
+        .catch((nextError) => active && setError(nextError.message))
+        .finally(() => active && setIsLoading(false))
+    }, 0)
+    return () => { active = false; window.clearTimeout(timer) }
+  }, [token])
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const timer = window.setTimeout(() => setToast(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
+  useEffect(() => {
+    if (!user || !token) return undefined
+    const intent = getPostLoginIntent()
+    if (intent?.returnTo === '/reflections' && intent.openReflectionModal) {
+      const timer = window.setTimeout(() => {
+        setReflectionDraft(intent.draftReflection || null)
+        setModalReflection(null)
+        setIsModalOpen(true)
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [token, user])
+
+  const visibleReflections = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    return reflections
+      .filter((item) => !songId || item.songId === songId)
+      .filter((item) => !normalizedQuery || [item.content, item.displayName, item.song?.title].some((value) => value?.toLowerCase().includes(normalizedQuery)))
+      .sort((a, b) => {
+        const difference = new Date(b.createdAt) - new Date(a.createdAt)
+        return sort === 'latest' ? difference : -difference
+      })
+  }, [query, reflections, songId, sort])
+
+  function openCreate() {
+    if (!user || !token) {
+      savePostLoginIntent({
+        action: 'create-reflection',
+        draftReflection: { content: '', isAnonymous: false, songId: '' },
+        openReflectionModal: true,
+        returnTo: '/reflections',
+      })
+      setIsAuthModalOpen(true)
+      return
+    }
+    if (songs.length === 0) {
+      setError('No songs are available yet. Publish a song before adding a reflection.')
+      return
+    }
+    setModalReflection(null)
+    setReflectionDraft(null)
+    setIsModalOpen(true)
+  }
+
+  function closeReflectionModal() {
+    setIsModalOpen(false)
+    setReflectionDraft(null)
+    setIsGuestMode(false)
+    if (!modalReflection) clearPostLoginIntent()
+  }
+
+  function updateReflectionDraft(draftReflection) {
+    setReflectionDraft(draftReflection)
+    updatePostLoginIntent({ draftReflection })
+  }
+
+  async function saveReflection(values) {
+    setIsModalOpen(false)
+    clearPostLoginIntent()
+
+    if (modalReflection) {
+      const previous = modalReflection
+      const selectedSong = songs.find((song) => song.id === values.songId)
+      setReflections((items) => items.map((item) => item.id === previous.id ? { ...item, ...values, displayName: values.isAnonymous ? 'Anonymous' : user.name, song: selectedSong } : item))
+      try {
+        const saved = await updateReflection(previous.id, values, token)
+        setReflections((items) => items.map((item) => item.id === saved.id ? saved : item))
+        setToast('Reflection updated.')
+      } catch (nextError) {
+        setReflections((items) => items.map((item) => item.id === previous.id ? previous : item))
+        setError(nextError.message)
+      }
+      return
+    }
+
+    const temporaryId = `pending-${Date.now()}`
+    const selectedSong = songs.find((song) => song.id === values.songId)
+    const guestSubmission = isGuestMode || !user || !token
+    const optimistic = { ...values, id: temporaryId, createdAt: new Date().toISOString(), displayName: values.isAnonymous ? 'Anonymous' : user?.name, isOwner: !guestSubmission, isPending: true, song: selectedSong }
+    if (!guestSubmission) setReflections((items) => [optimistic, ...items])
+    try {
+      const saved = await createReflection(values, token)
+      if (guestSubmission) {
+        setShowGuestThanks(true)
+      } else {
+        setReflections((items) => items.map((item) => item.id === temporaryId ? saved : item))
+        setToast('Reflection shared.')
+      }
+      setIsGuestMode(false)
+    } catch (nextError) {
+      setReflections((items) => items.filter((item) => item.id !== temporaryId))
+      setError(nextError.message)
+    }
+  }
+
+  async function removeReflection(reflection) {
+    if (!window.confirm('Delete this reflection? This cannot be undone.')) return
+    setReflections((items) => items.filter((item) => item.id !== reflection.id))
+    try {
+      await deleteReflection(reflection.id, token)
+      setToast('Reflection deleted.')
+    } catch (nextError) {
+      setReflections((items) => [reflection, ...items])
+      setError(nextError.message)
+    }
+  }
 
   return (
-    <div className="reflection-wall-page">
-      <section className="reflection-hero">
-        <div>
-          <p className="eyebrow">Reflection Wall</p>
-          <h1>Every memory adds a new shade.</h1>
-          <p>
-            Read stories from the community and leave a reflection after listening, learning, or
-            playing through a song.
-          </p>
-        </div>
-        <button
-          aria-expanded={isComposerOpen}
-          aria-label={isComposerOpen ? 'Close add post card' : 'Open add post card'}
-          className="add-reflection-button"
-          onClick={() => setIsComposerOpen((current) => !current)}
-          type="button"
-        >
-          <span aria-hidden="true">{isComposerOpen ? 'x' : '+'}</span>
-        </button>
+    <div className="rw-board-page">
+      <section className="rw-heading">
+        <h1 style={{ color: 'rgb(112, 64, 219)' }}>Reflection Wall</h1>
+        <p>Share the memories, places, and feelings that Singapore's songs bring back to you.</p>
       </section>
 
-      <section className="reflection-toolbar" aria-label="Reflection filters">
-        <div>
-          <span>Song Filter</span>
-          <div className="reflection-filter-chips">
-            {songFilters.map((song) => (
-              <button
-                className={selectedSong === song ? 'active' : undefined}
-                key={song}
-                onClick={() => setSelectedSong(song)}
-                type="button"
-              >
-                {song}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p>{visibleReflections.length} reflections showing</p>
-      </section>
+      <ReflectionFilters onAdd={openCreate} query={query} setQuery={setQuery} setSongId={setSongId} setSort={setSort} showAdd={reflections.length > 0} songId={songId} songs={songs} sort={sort} />
 
-      {isComposerOpen && (
-        <section className="reflection-composer-card" aria-label="Add a reflection post">
-          <div>
-            <p className="eyebrow">Add Post</p>
-            <h2>Share your Singapore memory</h2>
-          </div>
-          <form className="reflection-form">
-            <label className="field-stack">
-              <span>Title</span>
-              <input placeholder="Give your reflection a title" />
-            </label>
-            <label className="field-stack">
-              <span>Song</span>
-              <select defaultValue="Demo Song">
-                <option>Demo Song</option>
-                <option>City Pulse</option>
-                <option>Kampong Light</option>
-              </select>
-            </label>
-            <label className="field-stack reflection-form-wide">
-              <span>Your Reflection</span>
-              <textarea placeholder="Write about a place, person, sound, or memory..." rows="5" />
-            </label>
-            <div className="reflection-form-actions">
-              <button type="button">Save Draft</button>
-              <button type="submit">Submit for Review</button>
-            </div>
-          </form>
-        </section>
+      {error && <div className="rw-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} type="button">Dismiss</button></div>}
+      {isLoading ? <div className="rw-loading" role="status">Loading community memories…</div> : null}
+      {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} reflections={visibleReflections} /> : null}
+      {!isLoading && visibleReflections.length === 0 ? <ReflectionEmptyState filtered={Boolean(query || songId)} onAdd={openCreate} /> : null}
+
+      {isModalOpen && <ReflectionModal draft={reflectionDraft} isGuest={isGuestMode} onClose={closeReflectionModal} onDraftChange={updateReflectionDraft} onSave={saveReflection} reflection={modalReflection} songs={songs} user={user} />}
+      {isAuthModalOpen && (
+        <AuthRequiredModal
+          onCancel={() => { setIsAuthModalOpen(false); clearPostLoginIntent() }}
+          onGuest={() => { setIsAuthModalOpen(false); clearPostLoginIntent(); setIsGuestMode(true); setModalReflection(null); setReflectionDraft({ content: '', isAnonymous: true, songId: '' }); setIsModalOpen(true) }}
+          onLogin={() => navigate('/login', { state: { from: { pathname: '/reflections' } } })}
+        />
       )}
-
-      <section className="padlet-board" aria-label="Community reflections">
-        {visibleReflections.map((reflection, index) => (
-          <article
-            className={`padlet-card padlet-card-${reflection.color}`}
-            key={`${reflection.title}-${reflection.author}`}
-            style={{ '--card-offset': `${(index % 3) * 14}px` }}
-          >
-            <div className="pin-dot" aria-hidden="true" />
-            <p className="eyebrow">{reflection.song}</p>
-            <h2>{reflection.title}</h2>
-            <p>{reflection.content}</p>
-            <footer>
-              <span>{reflection.author}</span>
-              <span>{reflection.location}</span>
-            </footer>
-          </article>
-        ))}
-      </section>
+      {showGuestThanks && <GuestThankYouModal onClose={() => setShowGuestThanks(false)} onRegister={() => navigate('/register', { state: { from: { pathname: '/reflections' } } })} />}
+      {toast && <div className="rw-toast" role="status">{toast}</div>}
     </div>
   )
 }

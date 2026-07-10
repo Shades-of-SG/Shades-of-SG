@@ -6,7 +6,7 @@ const creatorLinks = [
   { icon: 'music', label: 'My Songs', to: '/creator/songs' },
   { icon: 'edit', label: 'Studio', to: '/creator/studio' },
   { icon: 'jobs', label: 'Generation Jobs', to: '/creator/generation' },
-  { badge: '12', icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
+  { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
   { icon: 'profile', label: 'Profile', to: '/creator/profile' },
   { icon: 'settings', label: 'Settings', to: '/creator/settings' },
 ]
