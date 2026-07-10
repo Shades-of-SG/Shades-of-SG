@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function ReflectionModeration() {
-  return <PlaceholderPage title="Reflection Moderation" description="Creator review tools for submitted reflections will appear here." />
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import { placeholderCards } from './pageData'

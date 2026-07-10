@@ -39,6 +39,33 @@ function createToken(user) {
     return `${payload}.${signature}`;
 }
 
+function verifyToken(token) {
+    if (!token || typeof token !== 'string') {
+        return null;
+    }
+
+    const [payload, signature, extra] = token.split('.');
+
+    if (!payload || !signature || extra) {
+        return null;
+    }
+
+    const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
+    const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+
+    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    } catch {
+        return null;
+    }
+}
+
 function serializeUser(user) {
     return {
         email: user.email,
@@ -77,5 +104,6 @@ module.exports = {
     hashPassword,
     seedCreatorAccount,
     serializeUser,
+    verifyToken,
     verifyPassword,
 };

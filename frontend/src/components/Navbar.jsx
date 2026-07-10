@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import BrandLogo from './BrandLogo'
 
 const navigationByRole = {
   creator: [
@@ -43,12 +44,62 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
     navigate('/login', { replace: true })
   }
 
+  if (role === 'guest' && variant === 'public') {
+    const primaryLinks = links.filter((item) => !['Login', 'Register'].includes(item.label))
+
+    return (
+      <header className="site-header site-header-public site-header-public--guest">
+        <nav className="navbar guest-navbar" aria-label="Primary navigation">
+          <Link className="brand-mark guest-navbar__brand" to="/">
+            <BrandLogo className="brand-logo--navbar" />
+          </Link>
+
+          <div className={`guest-navbar__menu ${isOpen ? 'open' : ''}`}>
+            <div className="guest-navbar__primary">
+              {primaryLinks.map((item) => (
+                <NavLink
+                  className={({ isActive }) => (isActive ? 'active' : undefined)}
+                  end={item.to === '/'}
+                  key={item.to}
+                  onClick={() => setIsOpen(false)}
+                  to={item.to}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+
+            <div className="guest-navbar__auth">
+              <NavLink className="guest-navbar__login" onClick={() => setIsOpen(false)} to="/login">
+                Login
+              </NavLink>
+              <NavLink className="guest-navbar__register" onClick={() => setIsOpen(false)} to="/register">
+                Register
+              </NavLink>
+            </div>
+          </div>
+
+          <button
+            aria-expanded={isOpen}
+            aria-label="Toggle navigation menu"
+            className="nav-toggle guest-navbar__toggle"
+            onClick={() => setIsOpen((current) => !current)}
+            type="button"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </nav>
+      </header>
+    )
+  }
+
   return (
     <header className={`site-header site-header-${variant}`}>
       <nav className="navbar" aria-label="Primary navigation">
         <Link className="brand-mark" to={role === 'creator' ? '/creator/dashboard' : '/'}>
-          <span>SG</span>
-          <strong>Shades of SG</strong>
+          <BrandLogo className="brand-logo--navbar" />
         </Link>
 
         <button
@@ -66,7 +117,12 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
         <div className={`nav-links ${isOpen ? 'open' : ''}`}>
           {links.map((item) => (
             <NavLink
-              className={({ isActive }) => (isActive ? 'active' : undefined)}
+              className={({ isActive }) => {
+                const accountClass = role === 'guest' && ['Login', 'Register'].includes(item.label)
+                  ? ` nav-link--${item.label.toLowerCase()}`
+                  : ''
+                return `${isActive ? 'active' : ''}${accountClass}`.trim() || undefined
+              }}
               end={item.to === '/'}
               key={item.to}
               onClick={() => setIsOpen(false)}

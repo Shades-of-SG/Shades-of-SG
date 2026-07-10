@@ -1,11 +1,8 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function Login() {
-  return <PlaceholderPage title="Login" description="Authentication will be connected here." actionTo="/register" actionLabel="Create Account" />
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { loginWithEmail } from '../services/authApi'
+import { getPostLoginDestination } from '../services/postLoginIntent'
 
 /*
 TODO - Lia
@@ -33,7 +30,7 @@ export default function Login() {
       signIn(data.user, data.token)
 
       const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
-      navigate(location.state?.from?.pathname || fallbackPath, { replace: true })
+      navigate(getPostLoginDestination(location.state?.from?.pathname || fallbackPath), { replace: true })
     } catch (nextError) {
       setError(nextError.message)
     } finally {

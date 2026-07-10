@@ -4,6 +4,19 @@ const { Song } = require('../models');
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+router.get('/', async (req, res, next) => {
+    try {
+        const songs = await Song.findAll({
+            attributes: ['id', 'title'],
+            order: [['title', 'ASC']],
+        });
+
+        return res.json({ songs });
+    } catch (error) {
+        return next(error);
+    }
+});
+
 router.get('/:id', async (req, res, next) => {
     try {
         const { id } = req.params;

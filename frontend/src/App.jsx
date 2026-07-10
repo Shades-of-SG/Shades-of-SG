@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import RhythmGame from './components/RhythmGame'
+import ScrollToTop from './components/ScrollToTop'
 import { useAuth } from './context/AuthContext'
 import AuthLayout from './layouts/AuthLayout'
 import CreatorLayout from './layouts/CreatorLayout'
@@ -35,10 +36,6 @@ import './App.css'
 function MainExperience() {
   const { user } = useAuth()
 
-  if (user?.role === 'CREATOR') {
-    return <Navigate replace to="/creator/dashboard" />
-  }
-
   return <MainLayout role={user ? 'user' : 'guest'} />
 }
 
@@ -62,6 +59,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route element={<MainExperience />}>
           <Route element={<Landing />} path="/" />

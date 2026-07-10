@@ -7,12 +7,12 @@ export default function MainLayout({ role = 'guest' }) {
   const isReflectionWall = pathname === '/reflections'
 
   return (
-    <div className={`app-shell public-shell${isReflectionWall ? ' reflection-shell' : ''}`}>
-      {!isReflectionWall && <Navbar role={role} />}
-      <main className="site-main">
+    <div className="app-shell public-shell">
+      <Navbar role={role} />
+      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}`}>
         <Outlet />
       </main>
-      {!isReflectionWall && <Footer />}
+      <Footer />
     </div>
   )
 }

@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function Landing() {
-  return <PlaceholderPage title="Shades of SG" description="Music, memory, and interactive cultural learning for Singapore stories." />
 import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'

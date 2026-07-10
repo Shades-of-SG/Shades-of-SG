@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function RhythmHub() {
-  return <PlaceholderPage title="Rhythm Game" description="Choose a song and play along with Singapore's sounds." actionTo="/game/demo-song" actionLabel="Play Demo Song" />
 import { Link } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'

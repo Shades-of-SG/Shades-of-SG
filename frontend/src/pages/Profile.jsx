@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function Profile() {
-  return <PlaceholderPage title="Profile" description="Your saved stories and account details will appear here." />
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import { placeholderCards } from './pageData'

@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function SongsLibrary() {
-  return <PlaceholderPage title="Songs Library" description="Browse Singapore songs and their stories." />
 import FilterBar from '../components/FilterBar'
 import PageHeader from '../components/PageHeader'
 import SongCard from '../components/SongCard'

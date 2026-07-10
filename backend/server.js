@@ -6,6 +6,7 @@ const sequelize = require('./config/database');
 const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
+const reflectionsRouter = require('./routes/reflections');
 const transcriptionsRouter = require('./routes/transcriptions');
 const { seedCreatorAccount } = require('./services/authService');
 
@@ -28,6 +29,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/songs', songsRouter);
 app.use('/api/scores', scoresRouter);
+app.use('/api/reflections', reflectionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
 

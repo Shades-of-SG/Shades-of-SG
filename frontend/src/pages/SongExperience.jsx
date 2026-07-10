@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function SongExperience() {
-  return <PlaceholderPage title="Song Experience" description="Song details, lyrics, and learning moments will appear here." />
 import { Link, useParams } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'

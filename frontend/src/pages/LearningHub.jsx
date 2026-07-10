@@ -1,7 +1,3 @@
-import PlaceholderPage from './PlaceholderPage'
-
-export default function LearningHub() {
-  return <PlaceholderPage title="Learning Hub" description="Lessons and cultural learning journeys will be added here." />
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Reveal from '../components/Reveal'

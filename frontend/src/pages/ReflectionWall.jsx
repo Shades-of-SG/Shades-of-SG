@@ -1,691 +1,182 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-
-const songs = ['All Songs', 'Stronger Together', 'Our Singapore Dream', 'Heartbeat of the Bay']
-
-const reflections = [
-  {
-    author: 'Anonymous',
-    age: '2h ago',
-    body: 'This song brings me back to my childhood in Toa Payoh. So many memories with my family.',
-    color: 'yellow',
-    rotation: '-7deg',
-    tape: 'pink',
-    tags: ['Family', 'Home'],
-    doodle: 'heart',
-  },
-  {
-    author: 'Nurul',
-    age: '3h ago',
-    body: 'Reminds me of National Day celebrations with the whole neighbourhood!',
-    color: 'rose',
-    rotation: '-4deg',
-    pin: 'red',
-    tags: ['Nostalgia', 'Unity'],
-    doodle: 'flower',
-  },
-  {
-    author: 'Anonymous',
-    age: '5h ago',
-    body: 'This song gives me so much hope for our future generations.',
-    color: 'blue',
-    rotation: '-2deg',
-    tape: 'blue',
-    tags: ['Hope', 'Future'],
-    doodle: 'lion',
-  },
-  {
-    author: 'Marcus',
-    age: '6h ago',
-    body: 'Every time I hear this song, I think of home and the people I love.',
-    color: 'lavender',
-    rotation: '4deg',
-    pin: 'purple',
-    tags: ['Home', 'Love'],
-    doodle: 'flag',
-  },
-  {
-    author: 'Jia En',
-    age: '4h ago',
-    body: 'The melody makes me feel proud to be Singaporean. Thank you for this beautiful tribute!',
-    color: 'lilac',
-    rotation: '-3deg',
-    pin: 'purple',
-    tags: ['Pride'],
-    doodle: 'corner',
-  },
-  {
-    author: 'Wei Lin',
-    age: '7h ago',
-    body: 'The lyrics about heritage really spoke to me. Our roots, our identity.',
-    color: 'green',
-    rotation: '1deg',
-    pin: 'green',
-    tags: ['Heritage'],
-    doodle: 'leaf',
-  },
-  {
-    author: 'Anonymous',
-    age: '8h ago',
-    body: 'I used to sing this with my grandpa. He would be so proud today.',
-    color: 'yellow',
-    rotation: '-1deg',
-    tape: 'orange',
-    tags: ['Family'],
-    doodle: 'big-heart',
-  },
-  {
-    author: 'Shannon',
-    age: '9h ago',
-    body: 'Singapore is small, but it holds so many different stories like ours.',
-    color: 'coral',
-    rotation: '-2deg',
-    pin: 'red',
-    tags: ['Community', 'SG'],
-    doodle: 'heart-stamp',
-  },
-  {
-    author: 'Anonymous',
-    age: '10h ago',
-    body: 'Thank you for creating a song that brings us all together.',
-    color: 'mint',
-    rotation: '2deg',
-    tags: ['Togetherness'],
-    doodle: 'pressed-flower',
-  },
-]
-
-const stats = [
-  { label: 'Reflections Shared', value: '1,245', icon: 'people' },
-  { label: 'Contributors', value: '892', icon: 'heart' },
-  { label: 'Songs Inspiring Us', value: '23', icon: 'sparkle' },
-]
-
-const suggestedTags = ['Family', 'Home', 'Nostalgia', 'Pride', 'Unity', 'Hope']
-
-const savedReflectionsKey = 'shades-of-sg-reflections'
-
-const getSavedReflections = () => {
-  try {
-    const savedReflections = window.localStorage.getItem(savedReflectionsKey)
-    return savedReflections ? JSON.parse(savedReflections) : []
-  } catch {
-    return []
-  }
-}
-
-function Icon({ name }) {
-  const paths = {
-    home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3V10.5Z',
-    music: 'M9 18V5l10-2v13M9 18a3 3 0 1 1-2-2.83M19 16a3 3 0 1 1-2-2.83',
-    compass: 'm14.5 9.5-2 5-5 2 2-5 5-2Z M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z',
-    learn: 'm12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9L12 3Z',
-    play: 'M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z M10 9v6l5-3-5-3Z',
-    heart: 'M20.8 5.6a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.4a5.2 5.2 0 0 0-7.4 7.4L12 21.8 20.8 13a5.2 5.2 0 0 0 0-7.4Z',
-    sun: 'M12 4V2m0 20v-2m8-8h2M2 12h2m14.36-6.36 1.42-1.42M4.22 19.78l1.42-1.42m12.72 0 1.42 1.42M4.22 4.22l1.42 1.42M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z',
-    moon: 'M21 14.6A8.5 8.5 0 0 1 9.4 3a7 7 0 1 0 11.6 11.6Z',
-    bell: 'M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z M10 20a2 2 0 0 0 4 0',
-    grid: 'M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z',
-    pen: 'M4 20h4l10.5-10.5-4-4L4 16v4Z M13.5 6.5l4 4',
-    plus: 'M12 5v14M5 12h14',
-    search: 'M10.5 18a7.5 7.5 0 1 1 5.3-2.2L21 21',
-    sliders: 'M4 7h10M18 7h2M6 17h14M4 17h2M8 5v4M16 15v4',
-    send: 'M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z',
-    shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z M9 12l2 2 4-5',
-    people: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-    sparkle: 'm12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z',
-  }
-
-  return (
-    <svg aria-hidden="true" className="rw-icon" viewBox="0 0 24 24">
-      <path d={paths[name] || paths.heart} />
-    </svg>
-  )
-}
-
-function ReflectionPost({ post }) {
-  return (
-    <article
-      className={`reflection-note note-${post.color}`}
-      style={{ '--note-rotation': post.rotation }}
-    >
-      {post.tape && <span className={`note-tape tape-${post.tape}`} aria-hidden="true" />}
-      {post.pin && <span className={`note-pin pin-${post.pin}`} aria-hidden="true" />}
-      <div className="note-meta">
-        <span className="note-avatar" aria-hidden="true" />
-        <div>
-          <strong>{post.author}</strong>
-          <small>{post.age}</small>
-        </div>
-        <span>{post.age}</span>
-      </div>
-      <p>{post.body}</p>
-      <div className="note-tags">
-        {post.tags.map((tag) => (
-          <span key={tag}># {tag}</span>
-        ))}
-      </div>
-      <span className={`note-doodle doodle-${post.doodle}`} aria-hidden="true" />
-    </article>
-  )
-}
-
-function ReflectionForm({ onClose, onSubmit }) {
-  const [displayName, setDisplayName] = useState('')
-  const [isAnonymous, setIsAnonymous] = useState(true)
-  const [reflection, setReflection] = useState('')
-  const [song, setSong] = useState('')
-  const [selectedTags, setSelectedTags] = useState(['Family'])
-  const [customTag, setCustomTag] = useState('')
-
-  const toggleTag = (tag) => {
-    setSelectedTags((current) =>
-      current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
-    )
-  }
-
-  const addCustomTag = () => {
-    const normalizedTag = customTag.trim().replace(/^#/, '')
-
-    if (!normalizedTag || selectedTags.includes(normalizedTag)) {
-      setCustomTag('')
-      return
-    }
-
-    setSelectedTags((current) => [...current, normalizedTag])
-    setCustomTag('')
-  }
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-
-    if (!reflection.trim()) {
-      return
-    }
-
-    onSubmit({
-      author: isAnonymous ? 'Anonymous' : displayName.trim() || 'Guest',
-      body: reflection.trim(),
-      song,
-      tags: selectedTags.length > 0 ? selectedTags : ['Reflection'],
-    })
-  }
-
-  return (
-    <div className="reflection-overlay" role="presentation" onMouseDown={onClose}>
-      <form
-        aria-labelledby="reflection-form-title"
-        className="reflection-form-card"
-        onMouseDown={(event) => event.stopPropagation()}
-        onSubmit={handleSubmit}
-        role="dialog"
-      >
-        <button aria-label="Close reflection form" className="form-close" onClick={onClose} type="button">
-          x
-        </button>
-        <div className="form-title-row">
-          <h2 id="reflection-form-title">Share your reflection</h2>
-          <Icon name="heart" />
-        </div>
-        <p>What does this song mean to you?</p>
-
-        <label>
-          Display name <span>(optional)</span>
-          <input
-            disabled={isAnonymous}
-            maxLength="20"
-            onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="e.g. Jia En"
-            type="text"
-            value={displayName}
-          />
-        </label>
-
-        <label className="anonymous-row">
-          <span className="incognito-mark" aria-hidden="true" />
-          Post anonymously
-          <input
-            checked={isAnonymous}
-            onChange={(event) => setIsAnonymous(event.target.checked)}
-            type="checkbox"
-          />
-        </label>
-
-        <label>
-          Your reflection
-          <textarea
-            maxLength="500"
-            onChange={(event) => setReflection(event.target.value)}
-            placeholder="Write your reflection here...&#10;(Your words may inspire others.)"
-            required
-            rows="5"
-            value={reflection}
-          />
-        </label>
-
-        <label>
-          Song <span>(optional)</span>
-          <select onChange={(event) => setSong(event.target.value)} value={song}>
-            <option value="" disabled>
-              Choose a song
-            </option>
-            <option>Stronger Together</option>
-            <option>Our Singapore Dream</option>
-            <option>Heartbeat of the Bay</option>
-          </select>
-        </label>
-
-        <fieldset className="tag-field">
-          <legend>
-            Tags <span>(optional)</span>
-          </legend>
-          <div className="tag-chip-list">
-            {suggestedTags.map((tag) => (
-              <button
-                aria-pressed={selectedTags.includes(tag)}
-                className={selectedTags.includes(tag) ? 'selected' : ''}
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                type="button"
-              >
-                # {tag}
-              </button>
-            ))}
-          </div>
-          <div className="custom-tag-row">
-            <input
-              maxLength="18"
-              onChange={(event) => setCustomTag(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  addCustomTag()
-                }
-              }}
-              placeholder="Add your own tag"
-              type="text"
-              value={customTag}
-            />
-            <button onClick={addCustomTag} type="button">
-              Add
-            </button>
-          </div>
-          {selectedTags.length > 0 && (
-            <p className="selected-tags-preview">
-              {selectedTags.map((tag) => `#${tag}`).join(' ')}
-            </p>
-          )}
-        </fieldset>
-
-        <button className="submit-reflection" type="submit">
-          <Icon name="send" />
-          Post Reflection
-          <span aria-hidden="true">+</span>
-        </button>
-
-        <p className="review-note">
-          <Icon name="shield" />
-          Your reflection will appear on this wall immediately in this preview.
-        </p>
-      </form>
-    </div>
-  )
-}
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import AuthRequiredModal from '../components/AuthRequiredModal'
+import ReflectionEmptyState from '../components/ReflectionEmptyState'
+import ReflectionFilters from '../components/ReflectionFilters'
+import ReflectionGrid from '../components/ReflectionGrid'
+import ReflectionModal from '../components/ReflectionModal'
+import { useAuth } from '../context/AuthContext'
+import {
+  clearPostLoginIntent,
+  getPostLoginIntent,
+  savePostLoginIntent,
+  updatePostLoginIntent,
+} from '../services/postLoginIntent'
+import {
+  createReflection,
+  deleteReflection,
+  getReflections,
+  getReflectionSongs,
+  updateReflection,
+} from '../services/reflectionService'
 
 export default function ReflectionWall() {
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  const [activeSong, setActiveSong] = useState('All Songs')
+  const navigate = useNavigate()
+  const { token, user } = useAuth()
+  const [reflections, setReflections] = useState([])
+  const [songs, setSongs] = useState([])
   const [query, setQuery] = useState('')
-  const [wallReflections, setWallReflections] = useState(() => [
-    ...getSavedReflections(),
-    ...reflections,
-  ])
+  const [songId, setSongId] = useState('')
+  const [sort, setSort] = useState('latest')
+  const [modalReflection, setModalReflection] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [reflectionDraft, setReflectionDraft] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [toast, setToast] = useState('')
+
+  useEffect(() => {
+    let active = true
+    setIsLoading(true)
+    Promise.all([getReflections(token), getReflectionSongs()])
+      .then(([nextReflections, nextSongs]) => {
+        if (!active) return
+        setReflections(nextReflections)
+        setSongs(nextSongs)
+        setError('')
+      })
+      .catch((nextError) => active && setError(nextError.message))
+      .finally(() => active && setIsLoading(false))
+    return () => { active = false }
+  }, [token])
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const timer = window.setTimeout(() => setToast(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [toast])
+
+  useEffect(() => {
+    if (!user || !token) return
+    const intent = getPostLoginIntent()
+    if (intent?.returnTo === '/reflections' && intent.openReflectionModal) {
+      setReflectionDraft(intent.draftReflection || null)
+      setModalReflection(null)
+      setIsModalOpen(true)
+    }
+  }, [token, user])
 
   const visibleReflections = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
+    return reflections
+      .filter((item) => !songId || item.songId === songId)
+      .filter((item) => !normalizedQuery || [item.content, item.displayName, item.song?.title].some((value) => value?.toLowerCase().includes(normalizedQuery)))
+      .sort((a, b) => {
+        const difference = new Date(b.createdAt) - new Date(a.createdAt)
+        return sort === 'latest' ? difference : -difference
+      })
+  }, [query, reflections, songId, sort])
 
-    if (!normalizedQuery) {
-      return wallReflections
+  function openCreate() {
+    if (!user || !token) {
+      savePostLoginIntent({
+        action: 'create-reflection',
+        draftReflection: { content: '', isAnonymous: false, songId: songs[0]?.id || '' },
+        openReflectionModal: true,
+        returnTo: '/reflections',
+      })
+      setIsAuthModalOpen(true)
+      return
+    }
+    if (songs.length === 0) {
+      setError('No songs are available yet. Publish a song before adding a reflection.')
+      return
+    }
+    setModalReflection(null)
+    setReflectionDraft(null)
+    setIsModalOpen(true)
+  }
+
+  function closeReflectionModal() {
+    setIsModalOpen(false)
+    setReflectionDraft(null)
+    if (!modalReflection) clearPostLoginIntent()
+  }
+
+  function updateReflectionDraft(draftReflection) {
+    setReflectionDraft(draftReflection)
+    updatePostLoginIntent({ draftReflection })
+  }
+
+  async function saveReflection(values) {
+    setIsModalOpen(false)
+    clearPostLoginIntent()
+
+    if (modalReflection) {
+      const previous = modalReflection
+      const selectedSong = songs.find((song) => song.id === values.songId)
+      setReflections((items) => items.map((item) => item.id === previous.id ? { ...item, ...values, displayName: values.isAnonymous ? 'Anonymous' : user.name, song: selectedSong } : item))
+      try {
+        const saved = await updateReflection(previous.id, values, token)
+        setReflections((items) => items.map((item) => item.id === saved.id ? saved : item))
+        setToast('Reflection updated.')
+      } catch (nextError) {
+        setReflections((items) => items.map((item) => item.id === previous.id ? previous : item))
+        setError(nextError.message)
+      }
+      return
     }
 
-    return wallReflections.filter((post) =>
-      [post.author, post.body, ...post.tags].some((value) =>
-        value.toLowerCase().includes(normalizedQuery),
-      ),
-    )
-  }, [query, wallReflections])
-
-  const handleReflectionSubmit = (reflectionData) => {
-    const noteColors = ['yellow', 'rose', 'blue', 'lavender', 'green', 'coral', 'mint']
-    const noteDoodles = ['heart', 'flower', 'lion', 'big-heart', 'leaf']
-    const newReflection = {
-      ...reflectionData,
-      age: 'Just now',
-      color: noteColors[Date.now() % noteColors.length],
-      doodle: noteDoodles[Date.now() % noteDoodles.length],
-      id: `reflection-${Date.now()}`,
-      pin: isDarkMode ? 'purple' : 'red',
-      rotation: `${((Date.now() % 7) - 3).toString()}deg`,
+    const temporaryId = `pending-${Date.now()}`
+    const selectedSong = songs.find((song) => song.id === values.songId)
+    const optimistic = { ...values, id: temporaryId, createdAt: new Date().toISOString(), displayName: values.isAnonymous ? 'Anonymous' : user.name, isOwner: true, isPending: true, song: selectedSong }
+    setReflections((items) => [optimistic, ...items])
+    try {
+      const saved = await createReflection(values, token)
+      setReflections((items) => items.map((item) => item.id === temporaryId ? saved : item))
+      setToast('Reflection shared.')
+    } catch (nextError) {
+      setReflections((items) => items.filter((item) => item.id !== temporaryId))
+      setError(nextError.message)
     }
+  }
 
-    setWallReflections((current) => {
-      const savedReflections = [newReflection, ...current.filter((post) => post.id)]
-      window.localStorage.setItem(savedReflectionsKey, JSON.stringify(savedReflections))
-      return [newReflection, ...current]
-    })
-    setIsFormOpen(false)
+  async function removeReflection(reflection) {
+    if (!window.confirm('Delete this reflection? This cannot be undone.')) return
+    setReflections((items) => items.filter((item) => item.id !== reflection.id))
+    try {
+      await deleteReflection(reflection.id, token)
+      setToast('Reflection deleted.')
+    } catch (nextError) {
+      setReflections((items) => [reflection, ...items])
+      setError(nextError.message)
+    }
   }
 
   return (
-    <div className={`reflection-wall-page${isDarkMode ? ' dark-notes-enabled' : ''}`}>
-      <header className="reflection-nav">
-        <Link className="reflection-brand" to="/">
-          <span aria-hidden="true" className="brand-clef">
-            S
-          </span>
-          <strong>
-            Shades
-            <br />
-            of SG
-          </strong>
-        </Link>
-        <nav aria-label="Reflection wall navigation">
-          <Link to="/">
-            <Icon name="home" />
-            Home
-          </Link>
-          <Link to="/songs">
-            <Icon name="music" />
-            Songs
-          </Link>
-          <Link to="/songs">
-            <Icon name="compass" />
-            Explore
-          </Link>
-          <Link to="/learning">
-            <Icon name="learn" />
-            Learn
-          </Link>
-          <Link to="/rhythm-game">
-            <Icon name="play" />
-            Play
-          </Link>
-          <Link className="active" to="/reflections">
-            <Icon name="heart" />
-            Reflections
-          </Link>
-        </nav>
-        <div className="nav-utility">
-          <button
-            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="theme-toggle-button"
-            onClick={() => setIsDarkMode((current) => !current)}
-            type="button"
-          >
-            <Icon name={isDarkMode ? 'moon' : 'sun'} />
-          </button>
-          <span className="nav-divider" />
-          <span className="bell-wrap">
-            <Icon name="bell" />
-            <b>3</b>
-          </span>
-          <span className="guest-avatar" aria-hidden="true" />
-          <span>Guest</span>
-        </div>
-      </header>
+    <div className="rw-board-page">
+      <section className="rw-heading">
+        <h1 style={{ color: 'rgb(112, 64, 219)' }}>Reflection Wall</h1>
+        <p>Share the memories, places, and feelings that Singapore's songs bring back to you.</p>
+      </section>
 
-      <main className="reflection-wall">
-        <section className="reflection-hero" aria-labelledby="reflection-title">
-          <div>
-            <h1 id="reflection-title">Reflection Wall</h1>
-            <p>
-              A space for all of us to share our <strong>memories</strong> and{' '}
-              <strong>emotions</strong> inspired by Singapore's songs.
-            </p>
-          </div>
-          <p className="hero-note">Every story matters. Every memory lives on.</p>
-          <div className="pinned-quote">
-            <span className="note-pin pin-red" aria-hidden="true" />
-            Music is the soundtrack of our stories.
-          </div>
-        </section>
+      <ReflectionFilters onAdd={openCreate} query={query} setQuery={setQuery} setSongId={setSongId} setSort={setSort} showAdd={reflections.length > 0} songId={songId} songs={songs} sort={sort} />
 
-        <section className="reflection-toolbar" aria-label="Reflection filters">
-          <div className="song-pills">
-            {songs.map((song) => (
-              <button
-                className={song === activeSong ? 'active' : ''}
-                key={song}
-                onClick={() => setActiveSong(song)}
-                type="button"
-              >
-                {song === 'All Songs' ? <Icon name="grid" /> : <Icon name="music" />}
-                {song}
-              </button>
-            ))}
-            <button type="button">More</button>
-          </div>
-          <label className="search-box">
-            <span className="sr-only">Search reflections</span>
-            <input
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search reflections..."
-              type="search"
-              value={query}
-            />
-            <Icon name="search" />
-          </label>
-          <button className="sort-button" type="button">
-            Sort: Latest
-          </button>
-          <button aria-label="Open filters" className="filter-button" type="button">
-            <Icon name="sliders" />
-          </button>
-          <button className="toolbar-add-button" onClick={() => setIsFormOpen(true)} type="button">
-            <Icon name="plus" />
-            Add reflection
-          </button>
-        </section>
+      {error && <div className="rw-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} type="button">Dismiss</button></div>}
+      {isLoading ? <div className="rw-loading" role="status">Loading community memories…</div> : null}
+      {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} reflections={visibleReflections} /> : null}
+      {!isLoading && visibleReflections.length === 0 ? <ReflectionEmptyState filtered={Boolean(query || songId)} onAdd={openCreate} /> : null}
 
-        <section className="wall-content" aria-label="Community reflections">
-          <div className="post-grid">
-            {visibleReflections.map((post) => (
-              <ReflectionPost key={post.id || `${post.author}-${post.body}`} post={post} />
-            ))}
-          </div>
-        </section>
-
-        <p className="approval-strip">New reflections appear here once approved by the creator.</p>
-
-        <section className="reflection-stats" aria-label="Reflection statistics">
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <span className={`stat-icon stat-${stat.icon}`}>
-                <Icon name={stat.icon} />
-              </span>
-              <strong>{stat.value}</strong>
-              <small>{stat.label}</small>
-            </div>
-          ))}
-        </section>
-      </main>
-
-      {isFormOpen && (
-        <ReflectionForm
-          onClose={() => setIsFormOpen(false)}
-          onSubmit={handleReflectionSubmit}
+      {isModalOpen && <ReflectionModal draft={reflectionDraft} onClose={closeReflectionModal} onDraftChange={updateReflectionDraft} onSave={saveReflection} reflection={modalReflection} songs={songs} />}
+      {isAuthModalOpen && (
+        <AuthRequiredModal
+          onCancel={() => { setIsAuthModalOpen(false); clearPostLoginIntent() }}
+          onLogin={() => navigate('/login', { state: { from: { pathname: '/reflections' } } })}
+          onRegister={() => navigate('/register', { state: { from: { pathname: '/reflections' } } })}
         />
       )}
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-
-const reflections = [
-  {
-    author: 'Jia En',
-    color: 'coral',
-    content:
-      'This song reminds me of walking through Bugis with my grandmother, hearing different languages blend into one familiar sound.',
-    location: 'Bugis',
-    song: 'Demo Song',
-    title: 'Evening Walks',
-  },
-  {
-    author: 'Marcus',
-    color: 'gold',
-    content:
-      'The rhythm feels like the void deck after school. Someone playing music, someone laughing, someone rushing home for dinner.',
-    location: 'Tampines',
-    song: 'City Pulse',
-    title: 'After School Noise',
-  },
-  {
-    author: 'Nurul',
-    color: 'violet',
-    content:
-      'My favourite part is how small memories can become part of something bigger. It feels like writing a postcard to Singapore.',
-    location: 'Kampong Glam',
-    song: 'Kampong Light',
-    title: 'Postcard Memory',
-  },
-  {
-    author: 'Sarah',
-    color: 'cyan',
-    content:
-      'The instruments made me think of National Day rehearsals, but softer. Less parade, more personal.',
-    location: 'Marina Bay',
-    song: 'Demo Song',
-    title: 'Soft Fireworks',
-  },
-  {
-    author: 'Wei Ming',
-    color: 'green',
-    content:
-      'I used to hear songs like this from a shop radio while buying snacks. It made the whole street feel alive.',
-    location: 'Chinatown',
-    song: 'Kampong Light',
-    title: 'Shop Radio',
-  },
-  {
-    author: 'Asha',
-    color: 'rose',
-    content:
-      'It sounds like a place where everyone is passing through, but somehow everyone belongs.',
-    location: 'Little India',
-    song: 'City Pulse',
-    title: 'Passing Through',
-  },
-]
-
-const songFilters = ['All Songs', 'Demo Song', 'City Pulse', 'Kampong Light']
-
-/*
-TODO - Ferlyn
-
-Connect reflection feed to approved backend posts.
-Implement reflection submission persistence.
-Connect song filters to live song data.
-*/
-export default function ReflectionWall() {
-  const [searchParams] = useSearchParams()
-  const [isComposerOpen, setIsComposerOpen] = useState(() => searchParams.get('compose') === '1')
-  const [selectedSong, setSelectedSong] = useState('All Songs')
-
-  const visibleReflections =
-    selectedSong === 'All Songs'
-      ? reflections
-      : reflections.filter((reflection) => reflection.song === selectedSong)
-
-  return (
-    <div className="reflection-wall-page">
-      <section className="reflection-hero">
-        <div>
-          <p className="eyebrow">Reflection Wall</p>
-          <h1>Every memory adds a new shade.</h1>
-          <p>
-            Read stories from the community and leave a reflection after listening, learning, or
-            playing through a song.
-          </p>
-        </div>
-        <button
-          aria-expanded={isComposerOpen}
-          aria-label={isComposerOpen ? 'Close add post card' : 'Open add post card'}
-          className="add-reflection-button"
-          onClick={() => setIsComposerOpen((current) => !current)}
-          type="button"
-        >
-          <span aria-hidden="true">{isComposerOpen ? 'x' : '+'}</span>
-        </button>
-      </section>
-
-      <section className="reflection-toolbar" aria-label="Reflection filters">
-        <div>
-          <span>Song Filter</span>
-          <div className="reflection-filter-chips">
-            {songFilters.map((song) => (
-              <button
-                className={selectedSong === song ? 'active' : undefined}
-                key={song}
-                onClick={() => setSelectedSong(song)}
-                type="button"
-              >
-                {song}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p>{visibleReflections.length} reflections showing</p>
-      </section>
-
-      {isComposerOpen && (
-        <section className="reflection-composer-card" aria-label="Add a reflection post">
-          <div>
-            <p className="eyebrow">Add Post</p>
-            <h2>Share your Singapore memory</h2>
-          </div>
-          <form className="reflection-form">
-            <label className="field-stack">
-              <span>Title</span>
-              <input placeholder="Give your reflection a title" />
-            </label>
-            <label className="field-stack">
-              <span>Song</span>
-              <select defaultValue="Demo Song">
-                <option>Demo Song</option>
-                <option>City Pulse</option>
-                <option>Kampong Light</option>
-              </select>
-            </label>
-            <label className="field-stack reflection-form-wide">
-              <span>Your Reflection</span>
-              <textarea placeholder="Write about a place, person, sound, or memory..." rows="5" />
-            </label>
-            <div className="reflection-form-actions">
-              <button type="button">Save Draft</button>
-              <button type="submit">Submit for Review</button>
-            </div>
-          </form>
-        </section>
-      )}
-
-      <section className="padlet-board" aria-label="Community reflections">
-        {visibleReflections.map((reflection, index) => (
-          <article
-            className={`padlet-card padlet-card-${reflection.color}`}
-            key={`${reflection.title}-${reflection.author}`}
-            style={{ '--card-offset': `${(index % 3) * 14}px` }}
-          >
-            <div className="pin-dot" aria-hidden="true" />
-            <p className="eyebrow">{reflection.song}</p>
-            <h2>{reflection.title}</h2>
-            <p>{reflection.content}</p>
-            <footer>
-              <span>{reflection.author}</span>
-              <span>{reflection.location}</span>
-            </footer>
-          </article>
-        ))}
-      </section>
+      {toast && <div className="rw-toast" role="status">{toast}</div>}
     </div>
   )
 }
