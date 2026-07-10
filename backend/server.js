@@ -18,7 +18,29 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+const allowedOrigins = [
+    'http://localhost:5173',
+    process.env.FRONTEND_URL,
+].filter(Boolean);
+
+app.use(
+    cors({
+        origin(origin, callback) {
+            // Allow tools such as Postman and server-to-server requests
+            if (!origin) {
+                return callback(null, true);
+            }
+
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error('Not allowed by CORS'));
+        },
+        credentials: true,
+    })
+);
+
 app.use(express.json({ limit: '40mb' }));
 
 app.get('/api', (req, res) => {
@@ -40,7 +62,7 @@ app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
-app.use((req, res, next) => {
+app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
