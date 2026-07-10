@@ -28,7 +28,7 @@ import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
 import './App.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
-
+import KindMasterEditor from './pages/KindMasterEditor'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -88,6 +88,7 @@ function App() {
             <Route element={<CreatorSongs />} path="/creator/songs" />
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
+            <Route element={<KindMasterEditor />} path="/creator/editor/:id" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
             <Route element={<Settings />} path="/creator/settings" />

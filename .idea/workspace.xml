@@ -4,12 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="the image generation is broken now wtf">
+    <list default="true" id="f754e5c7-39e4-48fe-930f-c5abcd004952" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/backend/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/services/frameGenerator.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/frameGenerator.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/services/videoAssembler.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/services/videoAssembler.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/frontend/src/pages/GenerationProgress.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/GenerationProgress.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,7 +113,8 @@
       <workItem from="1783590108170" duration="1620000" />
       <workItem from="1783605927360" duration="600000" />
       <workItem from="1783617070900" duration="2882000" />
-      <workItem from="1783620323301" duration="9493000" />
+      <workItem from="1783620323301" duration="11507000" />
+      <workItem from="1783697360518" duration="363000" />
     </task>
     <task id="LOCAL-00001" summary="basic setup">
       <option name="closed" value="true" />
@@ -332,15 +332,29 @@
       <option name="project" value="LOCAL" />
       <updated>1783691292967</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="image generation works now !!">
+      <option name="closed" value="true" />
+      <created>1783694869609</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1783694869609</updated>
+    </task>
+    <task id="LOCAL-00029" summary="mock data for editor testing">
+      <option name="closed" value="true" />
+      <created>1783694898701</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1783694898701</updated>
+    </task>
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="chore: add .idea to gitignore and untrack" />
-    <MESSAGE value="basic setup fixes" />
     <MESSAGE value="changed to newer versions when i ran npm i" />
     <MESSAGE value="added to ignore .Junie/ (ai agent)" />
     <MESSAGE value="extract audio from YT" />
@@ -364,6 +378,8 @@
     <MESSAGE value="fixed audio extraction and lyrics extraction (it all works as it had last night)" />
     <MESSAGE value="attempt to start image generation" />
     <MESSAGE value="the image generation is broken now wtf" />
-    <option name="LAST_COMMIT_MESSAGE" value="the image generation is broken now wtf" />
+    <MESSAGE value="image generation works now !!" />
+    <MESSAGE value="mock data for editor testing" />
+    <option name="LAST_COMMIT_MESSAGE" value="mock data for editor testing" />
   </component>
 </project>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, ChevronDown, ChevronRight, AlertCircle } from 'lucide-react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
 
@@ -99,38 +99,56 @@ export default function GenerationProgress() {
         </button>
       }
     >
+      <div style={{ marginBottom: '1.5rem' }}>
+        <h1 className="text-3xl font-bold text-white mb-1">{jobData?.song?.title || 'Unknown Project'}</h1>
+        <p className="text-violet-400 font-medium text-lg">{jobData?.song?.artist || 'Unknown Artist'}</p>
+      </div>
+
       {/* 1. Status Card */}
       <section className="studio-card studio-form-card" style={{ marginBottom: '2rem' }}>
         <header className="studio-card__header studio-card__header--spread">
           <div className="studio-card__title">
             <span aria-hidden="true">🎬</span>
-            <h2>{jobData?.song?.title || 'Unknown Project'}</h2>
+            <h2>Compilation Status</h2>
           </div>
           <GenerationStatusBadge status={status} errorMessage={jobData?.errorMessage} />
         </header>
 
         <div style={{ padding: '20px 30px' }}>
-          {jobData?.song?.artist && (
-            <p style={{ color: '#94a3b8', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              By {jobData.song.artist}
-            </p>
-          )}
-
           {status === 'FAILED' && jobData?.errorMessage && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px' }}>
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px' }}>
                <p style={{ color: '#f87171', fontSize: '0.875rem', fontFamily: 'monospace' }}>{jobData.errorMessage}</p>
             </div>
           )}
 
-          {status === 'COMPLETED' && (
-            <p style={{ color: '#34d399', fontWeight: 500, marginTop: '1rem' }}>
-              ✨ Your cinematic video has been assembled successfully!
-            </p>
+          {status === 'COMPLETED' ? (
+            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+              <p style={{ color: '#34d399', fontWeight: 500, fontSize: '1.1rem', marginBottom: '1.5rem' }}>
+                ✨ Your cinematic video has been assembled successfully!
+              </p>
+              <Link 
+                to={`/creator/editor/${jobData.id}`} 
+                className="w-full block text-center bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all"
+              >
+                Proceed to KindMaster Editor
+              </Link>
+            </div>
+          ) : (
+            <p style={{ color: '#94a3b8' }}>Video is currently processing...</p>
           )}
         </div>
       </section>
 
-      {/* 2. Phase 2 Accordion */}
+      {/* Static Phase 1 */}
+      <section className="studio-card studio-form-card" style={{ marginBottom: '2rem', padding: '1.5rem 30px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <CheckCircle className="w-8 h-8 text-emerald-500" />
+        <div>
+          <h3 className="text-white font-bold text-lg">Phase 1: Audio & Lyrics Extraction</h3>
+          <p className="text-emerald-400 text-sm">Successfully completed.</p>
+        </div>
+      </section>
+
+      {/* Phase 2 Accordion */}
       <section className="studio-card studio-form-card">
         <header 
           className="studio-card__header studio-card__header--spread"
