@@ -1,20 +1,4 @@
-node_modules/
-dist/
-dist-ssr/
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Security
-.env
-.env.*
-!.env.example
+# Production Build Outputs
+dist
+dist-ssr
+.vite/

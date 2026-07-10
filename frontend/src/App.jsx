@@ -9,12 +9,16 @@ import CreatorSongs from './pages/CreatorSongs'
 import Dashboard from './pages/Dashboard'
 import ForgotPassword from './pages/ForgotPassword'
 import GenerationProgress from './pages/GenerationProgress'
+import GuidedMusicLessons from './pages/GuidedMusicLessons'
+import HeritageVault from './pages/HeritageVault'
+import InstrumentDiscoveryLab from './pages/InstrumentDiscoveryLab'
 import InstrumentPlayground from './pages/InstrumentPlayground'
 import Landing from './pages/Landing'
 import LearningHub from './pages/LearningHub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
+import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
 import Register from './pages/Register'
@@ -32,11 +36,11 @@ import KindMasterEditor from './pages/KindMasterEditor'
 function MainExperience() {
   const { user } = useAuth()
 
-  if (user?.role === 'CREATOR') {
-    return <Navigate replace to="/creator/dashboard" />
-  }
-
   return <MainLayout role={user ? 'user' : 'guest'} />
+}
+
+function PublicLandingExperience() {
+  return <MainLayout role="guest" />
 }
 
 function AuthExperience() {
@@ -60,13 +64,19 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<MainExperience />}>
+        <Route element={<PublicLandingExperience />}>
           <Route element={<Landing />} path="/" />
+        </Route>
+
+        <Route element={<MainExperience />}>
           <Route element={<SongsLibrary />} path="/songs" />
           <Route element={<SongExperience />} path="/songs/:id" />
           <Route element={<TriviaHub />} path="/songs/:id/trivia" />
           <Route element={<InstrumentPlayground />} path="/songs/:id/playground" />
           <Route element={<LearningHub />} path="/learning" />
+          <Route element={<HeritageVault />} path="/learning/heritage-vault" />
+          <Route element={<InstrumentDiscoveryLab />} path="/learning/instrument-lab" />
+          <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />
@@ -89,6 +99,7 @@ function App() {
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
             <Route element={<KindMasterEditor />} path="/creator/editor/:id" />
+            <Route element={<TotalPlays />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
             <Route element={<Settings />} path="/creator/settings" />

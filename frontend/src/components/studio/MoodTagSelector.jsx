@@ -3,13 +3,18 @@ import { useState } from 'react'
 export default function MoodTagSelector({ selectedTags, onToggleTag, maxSelections = 5 }) {
   const [newTag, setNewTag] = useState('')
   const canAddTag = selectedTags.length < maxSelections
+  const maxTagsMessage = `You can add up to ${maxSelections} mood tags. Remove one to add another.`
 
   function handleAddTag(event) {
     event.preventDefault()
 
     const trimmedTag = newTag.trim().replace(/^#/, '')
 
-    if (!trimmedTag || !canAddTag) {
+    if (!trimmedTag) {
+      return
+    }
+
+    if (!canAddTag) {
       return
     }
 
@@ -26,7 +31,7 @@ export default function MoodTagSelector({ selectedTags, onToggleTag, maxSelectio
     <section className="studio-moods">
       <div className="studio-card__section-heading">
         <h3>
-          Mood Tags <span>(Max {maxSelections})</span> <span aria-hidden="true">i</span>
+          Mood Tags <span>(Max {maxSelections})</span> <span aria-hidden="true"></span>
         </h3>
         <strong>{selectedTags.length} / {maxSelections}</strong>
       </div>
@@ -43,16 +48,20 @@ export default function MoodTagSelector({ selectedTags, onToggleTag, maxSelectio
         <span aria-hidden="true">+</span>
         <input
           aria-label="Add mood tag"
+          aria-describedby="studio-mood-add-message"
           disabled={!canAddTag}
           maxLength={24}
           onChange={(event) => setNewTag(event.target.value)}
-          placeholder={canAddTag ? 'Add mood tag' : 'Maximum mood tags reached'}
+          placeholder="Add mood tag"
           value={newTag}
         />
         <button disabled={!newTag.trim() || !canAddTag} type="submit">
           Add
         </button>
       </form>
+      <p className={`studio-mood-add__message ${canAddTag ? '' : 'is-visible'}`} id="studio-mood-add-message" aria-live="polite">
+        {canAddTag ? '' : maxTagsMessage}
+      </p>
     </section>
   )
 }

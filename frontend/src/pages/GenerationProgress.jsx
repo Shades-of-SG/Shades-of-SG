@@ -4,6 +4,13 @@ import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lu
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
 
+/*
+TODO - Htet
+
+Implement generation status polling.
+Implement progress timeline.
+Implement logs view.
+*/
 export default function GenerationProgress() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -218,7 +225,6 @@ export default function GenerationProgress() {
           </div>
         )}
       </section>
-
     </CreatorPageShell>
   )
 }
