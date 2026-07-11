@@ -1,7 +1,9 @@
+import { API_URL } from '../services/apiConfig'
+
 export const PLACEHOLDER_VIDEO_URL = '/videos/exploding-kittens-placeholder.mp4'
 
 export async function fetchSongDetails(songId) {
-  const response = await fetch(`/api/songs/${encodeURIComponent(songId)}`)
+  const response = await fetch(`${API_URL}/songs/${encodeURIComponent(songId)}`)
 
   if (!response.ok) {
     throw new Error('Song details could not be loaded')

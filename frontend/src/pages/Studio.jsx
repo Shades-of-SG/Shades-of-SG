@@ -17,7 +17,7 @@ const initialFormData = {
   youtubeLink: '',
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+import { API_URL as API_BASE_URL } from '../services/apiConfig'
 
 const initialLanguages = ['English', 'Chinese']
 const initialMoods = ['joyful', 'nostalgic', 'hopeful']

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
+import { API_URL } from '../services/apiConfig'
 
 const jobFilters = ['All', 'Processing', 'Completed', 'Failed']
 const MAX_TITLE_LENGTH = 120
@@ -39,7 +40,7 @@ export default function CreatorGenerationJobs() {
     let isMounted = true
     const loadInitialJobs = async () => {
       try {
-        const response = await fetch('/api/generation')
+        const response = await fetch(`${API_URL}/generation`)
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
           throw new Error("Server returned an invalid response");
@@ -62,7 +63,7 @@ export default function CreatorGenerationJobs() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/generation')
+      const response = await fetch(`${API_URL}/generation`)
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         throw new Error("Server returned an invalid response");
@@ -82,7 +83,7 @@ export default function CreatorGenerationJobs() {
     if (!youtubeLink) return alert('Please enter a YouTube link to extract.')
     setIsExtractingAudio(true)
     try {
-      const response = await fetch('/api/songs/extract-audio', {
+      const response = await fetch(`${API_URL}/songs/extract-audio`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ youtubeUrl: youtubeLink })
@@ -114,7 +115,7 @@ export default function CreatorGenerationJobs() {
         ? JSON.stringify({ youtubeUrl: youtubeLink })
         : JSON.stringify({ fileName: audioFile.name })
 
-      const response = await fetch('/api/transcriptions/lyrics', {
+      const response = await fetch(`${API_URL}/transcriptions/lyrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
@@ -144,7 +145,7 @@ export default function CreatorGenerationJobs() {
 
     setIsStartingJob(true)
     try {
-      const songRes = await fetch('/api/songs', {
+      const songRes = await fetch(`${API_URL}/songs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,7 +164,7 @@ export default function CreatorGenerationJobs() {
       const songData = await songRes.json()
       if (!songRes.ok) throw new Error(songData.message || 'Failed to create song record')
 
-      const genRes = await fetch('/api/generation/start', {
+      const genRes = await fetch(`${API_URL}/generation/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ songId: songData.data.id })

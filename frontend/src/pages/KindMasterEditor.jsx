@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
+import { API_URL } from '../services/apiConfig'
 
 export default function KindMasterEditor() {
   const { id } = useParams()
@@ -13,7 +14,7 @@ export default function KindMasterEditor() {
   useEffect(() => {
     const fetchJob = async () => {
       try {
-        const response = await fetch(`/api/generation/${id}/status`)
+        const response = await fetch(`${API_URL}/generation/${id}/status`)
         const json = await response.json()
         if (json.success) {
           setJobData(json.data)

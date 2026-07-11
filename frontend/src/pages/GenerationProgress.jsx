@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
+import { API_URL } from '../services/apiConfig'
 
 /*
 TODO - Htet
@@ -27,7 +28,7 @@ export default function GenerationProgress() {
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`/api/generation/${id}/status`)
+        const response = await fetch(`${API_URL}/generation/${id}/status`)
         if (!response.ok) throw new Error(`Failed to fetch status: ${response.statusText}`)
 
         const json = await response.json()

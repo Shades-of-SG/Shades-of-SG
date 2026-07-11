@@ -1,5 +1,7 @@
+import { API_URL } from '../services/apiConfig'
+
 export async function saveScore(result) {
-  const response = await fetch('/api/scores', {
+  const response = await fetch(`${API_URL}/scores`, {
     body: JSON.stringify({
       accuracy: result.accuracy,
       difficulty: result.difficulty,
