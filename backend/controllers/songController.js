@@ -1,119 +1,179 @@
-const { Song, User } = require('../models')
-const aiStorageService = require('../services/aiStorageService')
-const audioExtractionService = require('../services/audioExtractionService')
-const fs = require('fs')
+const fs = require('fs');
+const { Op } = require('sequelize');
+const { Song, GenerationJob } = require('../models');
+const aiStorageService = require('../services/aiStorageService');
+const audioExtractionService = require('../services/audioExtractionService');
 
-const uploadSong = async (req, res, next) => {
-  try {
-    const { title, artist, youtubeUrl, audioUrl, lyrics, theme, description } = req.body
-    let creatorId = req.user ? req.user.id : null;
+const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
+const EDITABLE_FIELDS = [
+    'title', 'artist', 'description', 'theme', 'languages', 'otherLanguages', 'moodTags',
+    'rawLyrics', 'coverImageUrl', 'coverImagePublicId', 'audioUrl', 'audioPublicId',
+    'sourceYoutubeUrl', 'videoUrl', 'videoPublicId', 'durationSecs',
+];
 
-    if (!creatorId) {
-      // Fallback: lookup seeded user to unblock development when Auth is bypassed
-      const seedEmail = process.env.SEED_CREATOR_EMAIL || 'violet@shadesofsg.com';
-      if (seedEmail) {
-        const seedUser = await User.findOne({ where: { email: seedEmail } });
-        if (seedUser) {
-          creatorId = seedUser.id;
-        }
-      }
-    }
-
-    if (!creatorId) {
-      const error = new Error('Invalid session: User does not exist. Please log in again.')
-      error.statusCode = 401
-      throw error
-    }
-
-    const userExists = await User.findByPk(creatorId)
-    if (!userExists) {
-      const error = new Error('Invalid session: User does not exist. Please log in again.')
-      error.statusCode = 401
-      throw error
-    }
-
-    if (!title) {
-      const error = new Error('Song title is required.')
-      error.statusCode = 400
-      throw error
-    }
-
-    if (!req.file && !youtubeUrl && !audioUrl) {
-      const error = new Error('You must provide an audio file, a YouTube URL, or an existing extracted audio URL.')
-      error.statusCode = 400
-      throw error
-    }
-
-    let finalAudioUrl = audioUrl; // Default to pre-extracted if provided
-
-    // Route to the appropriate service if extraction/upload is needed
-    if (req.file) {
-      const audioData = await aiStorageService.uploadAudioStream(req.file.buffer)
-      finalAudioUrl = audioData.audioUrl
-    } else if (youtubeUrl && !audioUrl) {
-      // 1. Extract the audio to a local temp file using the new service
-      const extractedInfo = await audioExtractionService.extractAudioFromYouTube(youtubeUrl)
-
-      // 2. Create a read stream from the temp file to upload to Cloudinary
-      const fileStream = fs.createReadStream(extractedInfo.filePath)
-      const audioData = await aiStorageService.uploadAudioStream(fileStream)
-      finalAudioUrl = audioData.audioUrl
-
-      // 3. Clean up the temp file locally
-      await extractedInfo.cleanup()
-    }
-
-    // Save to PostgreSQL
-    const newSong = await Song.create({
-      creatorId,
-      title,
-      artist: artist || null,
-      audioUrl: finalAudioUrl,
-      lyrics: lyrics || null,
-      theme: theme || null,
-      description: description || null,
-      status: 'DRAFT',
-    })
-
-    return res.status(201).json({
-      success: true,
-      data: newSong,
-    })
-  } catch (error) {
-    // Passes to your exact middleware/errorHandler.js
-    next(error)
-  }
+function normalizeArray(value) {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) return null;
+    return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))];
 }
 
-const extractAudio = async (req, res, next) => {
-  try {
-    const { youtubeUrl } = req.body
-    if (!youtubeUrl) {
-      const error = new Error('YouTube URL is required.')
-      error.statusCode = 400
-      throw error
+function buildSongValues(body, { partial = false } = {}) {
+    const values = {};
+    for (const field of EDITABLE_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(body, field)) values[field] = body[field];
     }
+    // Transitional request aliases used by the existing backend clients.
+    if (body.lyrics !== undefined && body.rawLyrics === undefined) values.rawLyrics = body.lyrics;
+    if (body.youtubeUrl !== undefined && body.sourceYoutubeUrl === undefined) values.sourceYoutubeUrl = body.youtubeUrl;
+    if (body.language !== undefined && body.languages === undefined) values.languages = [body.language];
 
-    const extractedInfo = await audioExtractionService.extractAudioFromYouTube(youtubeUrl)
+    for (const field of ['languages', 'otherLanguages', 'moodTags']) {
+        if (values[field] !== undefined) values[field] = normalizeArray(values[field]);
+        if (values[field] === null) return { error: `${field} must be an array.` };
+    }
+    if (!partial && !String(values.title || '').trim()) return { error: 'Song title is required.' };
+    if (values.title !== undefined) {
+        values.title = String(values.title).trim();
+        if (!values.title) return { error: 'Song title is required.' };
+        if (values.title.length > 255) return { error: 'Song title must be 255 characters or fewer.' };
+    }
+    if (values.durationSecs !== undefined && values.durationSecs !== null) {
+        const duration = Number(values.durationSecs);
+        if (!Number.isInteger(duration) || duration < 0) return { error: 'durationSecs must be a non-negative integer.' };
+        values.durationSecs = duration;
+    }
+    return { values };
+}
 
+function publishValidation(song) {
+    const missing = [];
+    if (!song.title?.trim()) missing.push('title');
+    if (!song.artist?.trim()) missing.push('artist');
+    if (!song.description?.trim()) missing.push('description');
+    if (!song.theme?.trim()) missing.push('theme');
+    if (!Array.isArray(song.languages) || song.languages.length === 0) missing.push('languages');
+    if (!song.rawLyrics?.trim()) missing.push('rawLyrics');
+    if (!song.coverImageUrl?.trim()) missing.push('coverImageUrl');
+    if (!song.audioUrl?.trim()) missing.push('audioUrl');
+    if (!song.videoUrl?.trim()) missing.push('videoUrl');
+    if (song.status !== 'READY') missing.push('status READY');
+    return missing;
+}
+
+async function findOwnedSong(req) {
+    return Song.findOne({ where: { id: req.params.id, creatorId: req.authUserRecord.id } });
+}
+
+async function listPublicSongs(req, res, next) {
     try {
-      const fileStream = fs.createReadStream(extractedInfo.filePath)
-      const audioData = await aiStorageService.uploadAudioStream(fileStream)
-
-      return res.status(200).json({
-        success: true,
-        audioUrl: audioData.audioUrl,
-      })
-    } finally {
-      // Must call cleanup to prevent leaking temp files on the server
-      await extractedInfo.cleanup()
-    }
-  } catch (error) {
-    next(error)
-  }
+        const where = { status: 'PUBLISHED' };
+        if (req.query.theme) where.theme = req.query.theme;
+        if (req.query.language) where.languages = { [Op.contains]: [req.query.language] };
+        const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
+        return res.json({ songs });
+    } catch (error) { return next(error); }
 }
 
-module.exports = {
-  uploadSong,
-  extractAudio,
+async function getPublicSong(req, res, next) {
+    try {
+        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        return res.json({ song });
+    } catch (error) { return next(error); }
 }
+
+async function listCreatorSongs(req, res, next) {
+    try {
+        const where = { creatorId: req.authUserRecord.id };
+        if (req.query.status) {
+            const status = String(req.query.status).toUpperCase();
+            if (!SONG_STATUSES.has(status)) return res.status(400).json({ message: 'Invalid song status.' });
+            where.status = status;
+        }
+        const songs = await Song.findAll({ where, order: [['updatedAt', 'DESC']] });
+        return res.json({ songs });
+    } catch (error) { return next(error); }
+}
+
+async function getCreatorSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function createSong(req, res, next) {
+    try {
+        const parsed = buildSongValues(req.body);
+        if (parsed.error) return res.status(400).json({ message: parsed.error });
+        let { audioUrl, audioPublicId, durationSecs } = parsed.values;
+        if (req.file) {
+            const uploaded = await aiStorageService.uploadAudioStream(req.file.buffer);
+            audioUrl = uploaded.audioUrl;
+            audioPublicId = uploaded.audioPublicId;
+            durationSecs = uploaded.duration;
+        } else if (parsed.values.sourceYoutubeUrl && !audioUrl) {
+            const extracted = await audioExtractionService.extractAudioFromYouTube(parsed.values.sourceYoutubeUrl);
+            try {
+                const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
+                audioUrl = uploaded.audioUrl;
+                audioPublicId = uploaded.audioPublicId;
+                durationSecs = uploaded.duration;
+            } finally { await extracted.cleanup(); }
+        }
+        const song = await Song.create({
+            ...parsed.values, audioUrl, audioPublicId, durationSecs,
+            creatorId: req.authUserRecord.id, status: 'DRAFT', publishedDate: null,
+        });
+        return res.status(201).json({ success: true, data: song, song });
+    } catch (error) { return next(error); }
+}
+
+async function updateSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be edited.' });
+        const parsed = buildSongValues(req.body, { partial: true });
+        if (parsed.error) return res.status(400).json({ message: parsed.error });
+        await song.update(parsed.values);
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function publishSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
+        const missing = publishValidation(song);
+        if (!latestJob || latestJob.status !== 'COMPLETED') missing.push('completed generation job');
+        if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
+        await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function unpublishSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (song.status !== 'PUBLISHED') return res.status(409).json({ message: 'Only a published song can be unpublished.' });
+        await song.update({ status: 'READY', publishedDate: null });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function extractAudio(req, res, next) {
+    try {
+        if (!req.body.youtubeUrl) return res.status(400).json({ message: 'YouTube URL is required.' });
+        const extracted = await audioExtractionService.extractAudioFromYouTube(req.body.youtubeUrl);
+        try {
+            const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
+            return res.json({ success: true, ...uploaded });
+        } finally { await extracted.cleanup(); }
+    } catch (error) { return next(error); }
+}
+
+module.exports = { createSong, extractAudio, getCreatorSong, getPublicSong, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong };

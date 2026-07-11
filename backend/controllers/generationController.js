@@ -5,6 +5,14 @@ const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
 
+const completeGeneration = async (jobId) => {
+  const job = await GenerationJob.findByPk(jobId)
+  if (!job) throw new Error(`Job ${jobId} not found in database.`)
+  await job.update({ status: 'COMPLETED', errorMessage: null, completedAt: new Date() })
+  await Song.update({ status: 'READY' }, { where: { id: job.songId } })
+  return job
+}
+
 // ==========================================
 // Phase 5: The Cleanup Utility
 // ==========================================
@@ -54,20 +62,36 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    const song = await Song.findByPk(songId)
+    const song = await Song.findOne({ where: { id: songId, creatorId: req.authUserRecord.id } })
     if (!song) {
       const error = new Error('Song not found.')
       error.statusCode = 404
       throw error
     }
 
+    if (!['DRAFT', 'READY'].includes(song.status)) {
+      const error = new Error('Only DRAFT or READY songs can start generation.')
+      error.statusCode = 409
+      throw error
+    }
+
+    const activeJob = await GenerationJob.findOne({
+      where: { songId, status: ['QUEUED', 'PROCESSING'] },
+    })
+    if (activeJob) {
+      const error = new Error('This song already has an active generation job.')
+      error.statusCode = 409
+      throw error
+    }
+
     // 1. Create the tracking ticket
     const job = await GenerationJob.create({
       songId,
-      status: 'IN_PROGRESS',
+      status: 'QUEUED',
     })
 
     // 2. Fire the background worker WITHOUT awaiting it
+    await song.update({ status: 'GENERATING' })
     runGenerationPipeline(job.id).catch(console.error)
 
     // 3. Immediately return the ticket ID to the frontend
@@ -85,11 +109,13 @@ const getGenerationStatus = async (req, res, next) => {
     // Route param is :id (see aiGeneration.js), not :jobId
     const { id } = req.params
 
-    const job = await GenerationJob.findByPk(id, {
+    const job = await GenerationJob.findOne({
+      where: { id },
       include: [
-        { 
+        {
           model: Song, 
           as: 'song', 
+          where: { creatorId: req.authUserRecord.id },
           attributes: ['title', 'artist', 'audioUrl'],
           include: [
             {
@@ -126,7 +152,7 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
+      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'], where: { creatorId: req.authUserRecord.id } }],
       order: [['createdAt', 'DESC']],
     })
 
@@ -150,6 +176,7 @@ const runGenerationPipeline = async (jobId) => {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
 
+    await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
     console.log(`[Phase 2] Generating Scene Plan...`)
     await generateScenePlan(jobId, job.songId)
 
@@ -160,10 +187,7 @@ const runGenerationPipeline = async (jobId) => {
     await assembleVideo(jobId, job.songId)
 
     // Update DB on Success
-    await job.update({
-      status: 'COMPLETED',
-      errorMessage: null,
-    })
+    await completeGeneration(job.id)
 
     // Run Cleanup on successful completion
     await cleanupJobFiles(jobId)
@@ -174,6 +198,7 @@ const runGenerationPipeline = async (jobId) => {
     // ERROR BOUNDARY
     try {
       if (jobId) {
+        const failedJob = await GenerationJob.findByPk(jobId)
         await GenerationJob.update(
           {
             status: 'FAILED',
@@ -181,6 +206,12 @@ const runGenerationPipeline = async (jobId) => {
           },
           { where: { id: jobId } }
         )
+        if (failedJob) {
+          const failedSong = await Song.findByPk(failedJob.songId)
+          if (failedSong?.status === 'GENERATING') {
+            await failedSong.update({ status: failedSong.videoUrl ? 'READY' : 'DRAFT' })
+          }
+        }
         await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
       }
     } catch (fallbackError) {
@@ -193,4 +224,6 @@ module.exports = {
   startGeneration,
   getGenerationStatus,
   getAllJobs,
+  runGenerationPipeline,
+  completeGeneration,
 }

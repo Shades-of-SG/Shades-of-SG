@@ -4,7 +4,6 @@ const { GameScore } = require('../models');
 const router = express.Router();
 const DIFFICULTIES = new Set(['EASY', 'MEDIUM', 'HARD']);
 const RANKS = new Set(['S', 'A', 'B', 'C']);
-const DEMO_SONG_ID = 'demo-song';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isNonNegativeInteger(value) {
@@ -33,7 +32,7 @@ router.post('/', async (req, res, next) => {
             return res.status(400).json({ message: 'songId is required' });
         }
 
-        if (songId !== DEMO_SONG_ID && !UUID_PATTERN.test(songId)) {
+        if (!UUID_PATTERN.test(songId)) {
             return res.status(400).json({ message: 'songId must be a valid song id' });
         }
 
@@ -55,21 +54,6 @@ router.post('/', async (req, res, next) => {
 
         if (!RANKS.has(normalizedRank)) {
             return res.status(400).json({ message: 'rank must be S, A, B, or C' });
-        }
-
-        if (songId === DEMO_SONG_ID) {
-            return res.status(201).json({
-                score: {
-                    accuracy,
-                    difficulty: normalizedDifficulty,
-                    maxCombo,
-                    rank: normalizedRank,
-                    score,
-                    songId,
-                    userId,
-                    demo: true,
-                },
-            });
         }
 
         const gameScore = await GameScore.create({

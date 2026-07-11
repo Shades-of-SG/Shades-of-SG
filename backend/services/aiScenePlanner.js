@@ -21,8 +21,8 @@ async function generateScenePlan(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'IN_PROGRESS') {
-      throw new Error(`GenerationJob is in state '${job.status}', expected 'IN_PROGRESS'.`)
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is in state '${job.status}', expected 'PROCESSING'.`)
     }
 
     const song = await Song.findByPk(songId)
@@ -64,7 +64,7 @@ Ensure the generated scenes logically cover the progression of the song.`
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 Lyrics:
-${song.lyrics || 'No lyrics provided.'}`
+${song.rawLyrics || 'No lyrics provided.'}`
 
     // 3. OpenAI API Call with Strict JSON Enforcement
     const response = await openai.chat.completions.create({

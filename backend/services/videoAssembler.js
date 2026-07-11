@@ -87,8 +87,8 @@ async function assembleVideo(jobId, songId) {
     // 2. Database Fetching
     job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`GenerationJob ${jobId} not found`)
-    if (job.status !== 'IN_PROGRESS') {
-      throw new Error(`GenerationJob ${jobId} is not in IN_PROGRESS state`)
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob ${jobId} is not in PROCESSING state`)
     }
 
     const song = await Song.findByPk(songId)
@@ -194,11 +194,8 @@ async function assembleVideo(jobId, songId) {
     const uploadResult = await aiStorageService.uploadCompiledVideo(finalMp4Path)
 
     // 8. Database Saving
-    job.status = 'COMPLETED'
-    job.progress = 100
-    await job.save()
-
     song.videoUrl = uploadResult.videoUrl
+    song.videoPublicId = uploadResult.videoPublicId
     await song.save()
 
     // 9. Phase 5: The Cleanup Crew

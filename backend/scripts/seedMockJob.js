@@ -1,5 +1,5 @@
 const { User, Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models');
-const sequelize = require('../config/database');
+
 
 const MOCK_IMAGES = [
   'https://images.unsplash.com/photo-1542361345-89e58247f2d5?q=80&w=1024&h=1024&fit=crop',

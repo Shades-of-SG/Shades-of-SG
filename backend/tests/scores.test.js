@@ -1,34 +1,19 @@
 const request = require('supertest');
 const app = require('../server');
 
-const demoScorePayload = {
+const scorePayload = {
     accuracy: 97.5,
     difficulty: 'easy',
     maxCombo: 42,
     rank: 'a',
     score: 12345,
-    songId: 'demo-song',
+    songId: 'not-a-real-song',
 };
 
-test('POST /api/scores accepts demo-song scores without writing a UUID song id', async () => {
-    const response = await request(app).post('/api/scores').send(demoScorePayload);
-
-    expect(response.status).toBe(201);
-    expect(response.body.score).toMatchObject({
-        accuracy: 97.5,
-        difficulty: 'EASY',
-        maxCombo: 42,
-        rank: 'A',
-        score: 12345,
-        songId: 'demo-song',
-        demo: true,
-    });
-});
-
-test('POST /api/scores rejects malformed non-demo song ids', async () => {
+test('POST /api/scores rejects malformed song ids', async () => {
     const response = await request(app)
         .post('/api/scores')
-        .send({ ...demoScorePayload, songId: 'not-a-real-song' });
+        .send(scorePayload);
 
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({

@@ -59,8 +59,8 @@ beforeAll(async () => {
         passwordHash: hashPassword('password123'),
         role: 'CREATOR',
     });
-    song = await Song.create({ title: 'Test Song', status: 'PUBLISHED' });
-    secondSong = await Song.create({ title: 'Second Song', status: 'PUBLISHED' });
+    song = await Song.create({ creatorId: creator.id, title: 'Test Song', status: 'PUBLISHED' });
+    secondSong = await Song.create({ creatorId: creator.id, title: 'Second Song', status: 'PUBLISHED' });
     ownerToken = createToken(owner);
     creatorToken = createToken(creator);
 });
