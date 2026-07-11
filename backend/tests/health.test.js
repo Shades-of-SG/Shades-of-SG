@@ -12,6 +12,25 @@ test('GET /api/health returns service health', async () => {
     });
 });
 
+test('CORS allows the configured local frontend origin', async () => {
+    const response = await request(app)
+        .get('/api/health')
+        .set('Origin', 'http://localhost:5173');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+});
+
+test('CORS rejects an unknown browser origin', async () => {
+    const response = await request(app)
+        .options('/api/auth/login')
+        .set('Access-Control-Request-Method', 'POST')
+        .set('Origin', 'https://unknown.example');
+
+    expect(response.status).toBe(403);
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+});
+
 test('production token creation requires a configured signing secret', () => {
     const previousNodeEnv = process.env.NODE_ENV;
     const previousAuthSecret = process.env.AUTH_TOKEN_SECRET;
