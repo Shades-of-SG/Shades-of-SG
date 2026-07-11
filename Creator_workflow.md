@@ -739,3 +739,163 @@ Creator actions persist through backend endpoints and refetch authoritative stat
 Creator management pages must treat the database response as the source of truth after every mutation. Local-only deletion, archive, and publication changes create a convincing interface that immediately becomes incorrect after refresh or in another session.
 
 Metrics also need semantic honesty. A polished chart is harmful when its numbers are invented. Removing it and stating that analytics are unavailable preserves trust until real event tracking exists.
+
+---
+
+## Phase 5 — Published Songs Power Every Public Song Experience
+
+### Date
+
+11 July 2026
+
+### User Request
+
+Phase 5 established the creator workflow as the single source of truth for public content. Every public-facing Song experience needed to consume only published Songs through `GET /api/songs` and `GET /api/songs/:id`. Public pages could no longer use `pageData.js`, `sampleSongs`, `songData.js`, `demo-song`, mock Song arrays, or placeholder creator data.
+
+The required integration covered Songs Library, Song Experience, Learning Hub, Trivia, Instrument Playground, Explore Song, and rhythm entry. Rhythm score persistence and Reflection submission behavior were explicitly deferred.
+
+### Audit and Decisions
+
+The public audit found that Landing and Songs Library still imported `sampleSongs`; Song Experience rendered the route ID alongside placeholder metadata; Rhythm Hub linked directly to `demo-song`; Rhythm Game and Results defaulted missing IDs to `demo-song`; and the only bundled beatmap was a demo Song. Trivia and Instrument Playground showed fake placeholder activity content without loading the selected Song.
+
+Learning Hub contained general Singapore educational content rather than mock Song records. That curated non-Song material was preserved, while a new published-Song section was added so song-led learning activities receive a real backend ID.
+
+The public API already enforced `status = PUBLISHED`. It was reused and extended with search, theme, language, and mood filtering instead of creating another public content endpoint.
+
+### AI Output
+
+A shared `publicSongService` now owns unauthenticated published Song requests through the configured API base URL. Public list pages call `GET /api/songs`; Song-specific pages call `GET /api/songs/:id`. No public component constructs a private creator request or receives draft lifecycle data.
+
+Songs Library now loads backend Songs with loading, empty, and error states. Search is debounced and matches title, artist, description, theme, and languages. Theme, language, and mood filters use values derived from the returned published data and send supported query parameters to the backend.
+
+Song cards now display the real cover image, title, artist, description, languages, and theme. When no cover exists they show a neutral No cover state rather than invented initials. Explore Song links preserve the database UUID in `/songs/:id`.
+
+Landing's Featured Songs section now loads up to three published backend Songs. It shows an honest empty state when none have been published and no longer imports sample data.
+
+Song Experience now loads the selected published Song. It displays real metadata and uses the stored video with the cover as poster when available. If video or cover media is missing, it states that honestly. Description is used as the cultural summary; missing descriptions show an unavailable message rather than fabricated context.
+
+Song Experience passes the same real Song ID to:
+
+- `/songs/:id/trivia`;
+- `/songs/:id/playground`;
+- `/game/:id`.
+
+Trivia and Instrument Playground now validate and load the selected published Song before rendering. They show its title, artist, theme, languages, and description context. Since real trivia questions and Song-instrument content are not yet integrated, they display explicit unavailable states instead of fake questions, fake progress, fake results, or fake instrument controls.
+
+Learning Hub now loads published Songs and offers Explore, Trivia, and Playground links carrying each real Song ID. Existing historical and cultural learning content remains separate from the authoritative Song records.
+
+Rhythm Hub now lists published Songs and links each one to `/game/:songId`. The direct Play Demo Song action was removed. Rhythm Game and Rhythm Results no longer default to `demo-song`. The rhythm Song detail request uses the configured API URL and therefore validates that the selected Song is published. Score persistence was not changed.
+
+The hardcoded frontend rhythm placeholder fallback was removed from Song loading. If a published Song has no playable video or beatmap, the existing game reports an unavailable chart/media condition rather than silently substituting a demo Song.
+
+The bundled `demo-song` beatmap was deleted. All sample and creator Song exports were removed, then `pageData.js` itself was deleted after Profile was changed to an honest unavailable achievement state. This ensures no public page imports the prohibited file.
+
+### Backend Behavior
+
+`GET /api/songs` continues to require `PUBLISHED` status before applying optional filters:
+
+- `search` across title, artist, description, theme, and languages;
+- exact theme;
+- exact language, case-insensitive;
+- exact mood tag, case-insensitive.
+
+`GET /api/songs/:id` continues to return 404 for draft, generating, ready, archived, missing, or malformed Song IDs. Public responses include the persisted cover, title, artist, description, languages, theme, mood tags, audio, and video fields required by the public experiences.
+
+### Files Created
+
+- `frontend/src/services/publicSongService.js`
+
+### Files Deleted
+
+- `frontend/src/pages/pageData.js`
+- `frontend/public/beatmaps/demo-song.json`
+
+### Files Modified
+
+- `backend/controllers/songController.js`
+- `backend/tests/songLifecycle.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/FilterBar.jsx`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/components/SongCard.jsx`
+- `frontend/src/game/songDetailsApi.js`
+- `frontend/src/pages/InstrumentPlayground.jsx`
+- `frontend/src/pages/Landing.jsx`
+- `frontend/src/pages/LearningHub.jsx`
+- `frontend/src/pages/Profile.jsx`
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/pages/RhythmResults.jsx`
+- `frontend/src/pages/SongExperience.jsx`
+- `frontend/src/pages/SongsLibrary.jsx`
+- `frontend/src/pages/TriviaHub.jsx`
+- `Creator_workflow.md`
+
+No database migration or route shape change was required. The existing published Song endpoints remain the only public Song source.
+
+### Removed Mock Data
+
+- `sampleSongs` and all of its fake Song records;
+- `creatorSongs` and sample lyrics retained in the old shared page file;
+- `Song #1` through `Song #4` exports;
+- `demo-song` defaults and public links;
+- the bundled demo beatmap;
+- placeholder Song metadata in Song Experience;
+- fake trivia question progress and results;
+- fake instrument selection and controls;
+- the hardcoded rhythm video fallback;
+- public imports of `pageData.js`.
+
+### Tests Added
+
+Backend tests now prove that combined public search, theme, language, and mood filters return only the matching published Song. The result is checked for real title, artist, description, languages, theme, and cover fields, while a matching READY Song remains excluded.
+
+Frontend tests now prove that:
+
+- Songs Library renders a published backend Song;
+- real artist and cover data are used;
+- Explore Song contains the real backend ID;
+- Demo Song is absent;
+- Song Experience loads backend metadata;
+- Trivia, Playground, and Rhythm links preserve the selected real Song ID.
+
+### Verification Performed
+
+- Complete backend Jest suite: four suites and twenty-nine tests passed.
+- Complete frontend Vitest suite: two files and fourteen tests passed.
+- Full backend ESLint passed.
+- Full frontend ESLint passed.
+- Frontend production build passed with 1,880 modules transformed.
+- Repository searches confirmed no production `sampleSongs`, `creatorSongs`, `demo-song`, Song mock, or public `pageData.js` reference remains.
+
+### My Review and Decisions
+
+I used the published Song endpoints as both the data source and access boundary. Public pages should not fetch a creator record and then decide in React whether it is safe to show. The backend's published-only query is the authoritative protection.
+
+I preserved honest partial experiences. Trivia and instrument associations do not yet have complete public integrations, so displaying the selected published Song plus an unavailable message is safer than keeping convincing fake questions or instruments.
+
+I removed the rhythm demo fallback even though it made the game easier to demonstrate. Silently replacing a selected published Song with unrelated demo media breaks the source-of-truth guarantee and misrepresents what the creator published.
+
+I retained Learning Hub's non-Song cultural content because it is educational editorial material, not an alternative Song database. Song-led entry points in that page now come exclusively from the backend.
+
+### Final Outcome
+
+Published Songs now power public discovery and all named Song entry flows. A creator publishes one Song record, and that record's ID, cover, title, artist, description, language, theme, and media move consistently through Library, Explore, Experience, Learning, Trivia, Playground, and Rhythm routes.
+
+Unpublished Songs remain inaccessible. Missing optional content is described as unavailable, and no public page relies on sample Song records, demo IDs, mock Song arrays, or creator placeholder data.
+
+### Remaining Work
+
+- Real trivia-question retrieval and scoring remain unimplemented.
+- Song-linked instrument retrieval and interactive playground controls remain unimplemented.
+- Real beatmaps must be generated or uploaded for published Song IDs before rhythm gameplay is available.
+- Rhythm score persistence and authentication integration are deferred to Phase 6.
+- Reflection Song validation and submission integration are deferred to Phase 6.
+- Song Experience can later add instruments, subtitles, and richer video controls when real data sources exist.
+- Public filter option facets currently derive from the returned result set rather than a separate facet endpoint.
+
+### Lesson
+
+A public route parameter is not proof that content is public. Every page must resolve that ID through a backend query that enforces publication status. Once this rule is consistent, draft isolation, navigation, metadata, and downstream activity context all become simpler.
+
+Unavailable states are part of a trustworthy integration. They clearly distinguish real published metadata from features whose supporting content has not yet been created.

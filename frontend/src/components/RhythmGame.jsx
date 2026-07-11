@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { DIFFICULTIES, loadBeatmap } from '../game/beatmapLoader'
 import { calculateAccuracy, createResult, storeResult } from '../game/results'
 import { queuePendingScore, saveScore } from '../game/scoresApi'
-import { PLACEHOLDER_VIDEO_URL, fetchSongDetails } from '../game/songDetailsApi'
+import { fetchSongDetails } from '../game/songDetailsApi'
 
 const LANES = [
   { key: 'd', label: 'D', color: '#ff4d6d' },
@@ -130,7 +130,7 @@ function drawGame(canvas, notes, currentTime, renderNotes = true) {
 }
 
 export default function RhythmGame() {
-  const { songId = 'demo-song' } = useParams()
+  const { songId } = useParams()
   const navigate = useNavigate()
   const canvasRef = useRef(null)
   const videoRef = useRef(null)
@@ -167,8 +167,7 @@ export default function RhythmGame() {
 
   const totalNotes = notes.length
   const accuracy = calculateAccuracy(hits, totalNotes)
-  const backgroundVideoUrl =
-    videoLoadFailed ? '' : songDetails?.videoUrl || PLACEHOLDER_VIDEO_URL
+  const backgroundVideoUrl = videoLoadFailed ? '' : songDetails?.videoUrl || ''
   const progressPercent =
     totalNotes === 0 ? 0 : Math.min((currentTime / ((notes.at(-1)?.time || 0) + 0.7)) * 100, 100)
 
@@ -215,12 +214,8 @@ export default function RhythmGame() {
       })
       .catch(() => {
         if (!ignore) {
-          setSongDetails({
-            id: songId,
-            title: 'Demo Rhythm Track',
-            videoUrl: PLACEHOLDER_VIDEO_URL,
-          })
-          setVideoLoadFailed(false)
+          setSongDetails({ id: songId, title: 'Published song unavailable', videoUrl: '' })
+          setVideoLoadFailed(true)
         }
       })
 

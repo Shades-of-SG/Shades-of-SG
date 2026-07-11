@@ -116,4 +116,39 @@ describe('App', () => {
     expect(screen.queryByText('1,240')).not.toBeInTheDocument()
     expect(screen.queryByText('Plays this week:')).not.toBeInTheDocument()
   })
+
+  it('renders published backend Songs in the public library with real Explore links', async () => {
+    window.history.pushState({}, '', '/songs')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ songs: [{
+        artist: 'Public Artist', coverImageUrl: 'https://media.example/cover.jpg',
+        description: 'Published description', id: 'published-1', languages: ['English'],
+        moodTags: ['Hopeful'], status: 'PUBLISHED', theme: 'Community', title: 'Published Song',
+      }] }),
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByRole('heading', { name: 'Published Song' })).toBeInTheDocument()
+    expect(screen.getByText('Public Artist')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Explore Song' })).toHaveAttribute('href', '/songs/published-1')
+    expect(screen.queryByText('Demo Song')).not.toBeInTheDocument()
+  })
+
+  it('loads Song Experience metadata and activity links using the real Song id', async () => {
+    window.history.pushState({}, '', '/songs/published-42')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ song: {
+        artist: 'Experience Artist', coverImageUrl: '', description: 'Real cultural description',
+        id: 'published-42', languages: ['English', 'Malay'], status: 'PUBLISHED',
+        theme: 'Heritage', title: 'Experience Song', videoUrl: '',
+      } }),
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Experience Song' })).toBeInTheDocument()
+    expect(screen.getByText('Experience Artist')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Start Trivia' })).toHaveAttribute('href', '/songs/published-42/trivia')
+    expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
+    expect(screen.getByRole('link', { name: 'Play Rhythm' })).toHaveAttribute('href', '/game/published-42')
+  })
 })

@@ -317,3 +317,22 @@ test('creator list refresh reflects publish and unpublish mutations', async () =
     list = await request(app).get('/api/songs/creator').set(auth(creatorToken));
     expect(list.body.songs.find((item) => item.id === song.id).status).toBe('READY');
 });
+
+test('public song search and filters return only matching published Songs with public metadata', async () => {
+    const matching = await Song.create({
+        ...completeSong, creatorId: creator.id, status: 'PUBLISHED', publishedDate: new Date(),
+        languages: ['English', 'Malay'], moodTags: ['Hopeful'], theme: 'Community', title: 'River Home',
+    });
+    await Song.create({ ...completeSong, creatorId: creator.id, status: 'PUBLISHED', title: 'Different Song', languages: ['Tamil'], moodTags: ['Joyful'], theme: 'History' });
+    await Song.create({ ...completeSong, creatorId: creator.id, status: 'READY', title: 'River Draft', languages: ['Malay'], moodTags: ['Hopeful'], theme: 'Community' });
+
+    const response = await request(app).get('/api/songs').query({
+        search: 'river', language: 'malay', mood: 'hopeful', theme: 'Community',
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.songs.map((song) => song.id)).toEqual([matching.id]);
+    expect(response.body.songs[0]).toMatchObject({
+        artist: 'Test Artist', coverImageUrl: completeSong.coverImageUrl,
+        description: completeSong.description, languages: ['English', 'Malay'], theme: 'Community', title: 'River Home',
+    });
+});

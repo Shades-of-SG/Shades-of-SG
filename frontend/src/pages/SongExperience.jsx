@@ -1,46 +1,28 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
+import { getPublishedSong } from '../services/publicSongService'
 
-/*
-TODO - Htet
-
-Implement video player.
-Implement subtitles.
-Implement cultural summary.
-*/
 export default function SongExperience() {
-  const { id = 'demo-song' } = useParams()
-
-  return (
-    <div className="page-stack">
-      <PageHeader
-        description="A song detail workspace for media, metadata, cultural context, and connected activities."
-        eyebrow="Song Experience"
-        title={`Song: ${id}`}
-      />
-      <section className="song-experience-grid">
-        <SectionCard className="media-placeholder" title="Video Player Placeholder">
-          <div className="video-frame">Video Preview</div>
-        </SectionCard>
-        <SectionCard title="Song Metadata">
-          <dl className="detail-list">
-            <div><dt>Theme</dt><dd>Heritage</dd></div>
-            <div><dt>Language</dt><dd>Multilingual</dd></div>
-            <div><dt>Era</dt><dd>Contemporary</dd></div>
-          </dl>
-        </SectionCard>
-        <SectionCard title="Cultural Summary">
-          <p>Placeholder space for story notes, lyric context, and Singapore cultural references.</p>
-        </SectionCard>
-        <SectionCard title="Instruments Section">
-          <p>Feature teams can add instrument callouts, samples, and links to the playground.</p>
-          <div className="button-row">
-            <Link className="inline-link" to={`/songs/${id}/playground`}>Open Playground</Link>
-            <Link className="inline-link" to={`/songs/${id}/trivia`}>Start Trivia</Link>
-          </div>
-        </SectionCard>
-      </section>
-    </div>
-  )
+  const { id } = useParams()
+  const [song, setSong] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    getPublishedSong(id).then((data) => active && setSong(data)).catch((nextError) => active && setError(nextError.message)).finally(() => active && setLoading(false))
+    return () => { active = false }
+  }, [id])
+  if (loading) return <div className="page-stack"><p role="status">Loading published song…</p></div>
+  if (error || !song) return <div className="page-stack"><div className="state-box" role="alert">{error || 'Published song not found.'}</div><Link to="/songs">Back to Songs</Link></div>
+  return <div className="page-stack">
+    <PageHeader description={song.description || 'No description is available for this song.'} eyebrow="Song Experience" title={song.title} />
+    <section className="song-experience-grid">
+      <SectionCard title="Song Media">{song.videoUrl ? <video className="video-frame" controls playsInline poster={song.coverImageUrl || undefined} src={song.videoUrl} /> : song.coverImageUrl ? <img alt={`${song.title} cover`} className="video-frame" src={song.coverImageUrl} /> : <p>Video and cover media are unavailable.</p>}</SectionCard>
+      <SectionCard title="Song Metadata"><dl className="detail-list"><div><dt>Artist</dt><dd>{song.artist || 'Unavailable'}</dd></div><div><dt>Theme</dt><dd>{song.theme || 'Unavailable'}</dd></div><div><dt>Languages</dt><dd>{(song.languages || []).join(', ') || 'Unavailable'}</dd></div></dl></SectionCard>
+      <SectionCard title="Cultural Summary"><p>{song.description || 'A cultural summary is not available.'}</p></SectionCard>
+      <SectionCard title="Explore This Song"><div className="button-row"><Link className="inline-link" to={`/songs/${id}/playground`}>Open Playground</Link><Link className="inline-link" to={`/songs/${id}/trivia`}>Start Trivia</Link><Link className="inline-link" to={`/game/${id}`}>Play Rhythm</Link></div></SectionCard>
+    </section>
+  </div>
 }

@@ -1,5 +1,4 @@
 const fs = require('fs');
-const { Op } = require('sequelize');
 const { Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
@@ -72,9 +71,20 @@ async function listPublicSongs(req, res, next) {
     try {
         const where = { status: 'PUBLISHED' };
         if (req.query.theme) where.theme = req.query.theme;
-        if (req.query.language) where.languages = { [Op.contains]: [req.query.language] };
         const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
-        return res.json({ songs });
+        const search = String(req.query.search || '').trim().toLowerCase();
+        const language = String(req.query.language || '').trim().toLowerCase();
+        const mood = String(req.query.mood || '').trim().toLowerCase();
+        const filtered = songs.filter((song) => {
+            const searchable = [song.title, song.artist, song.description, song.theme, ...(song.languages || [])]
+                .filter(Boolean).join(' ').toLowerCase();
+            const languages = (song.languages || []).map((value) => String(value).toLowerCase());
+            const moods = (song.moodTags || []).map((value) => String(value).toLowerCase());
+            return (!search || searchable.includes(search))
+                && (!language || languages.includes(language))
+                && (!mood || moods.includes(mood));
+        });
+        return res.json({ songs: filtered });
     } catch (error) { return next(error); }
 }
 

@@ -14,7 +14,7 @@ function getInitials(title) {
 }
 
 export default function RhythmResults() {
-  const { songId = 'demo-song' } = useParams()
+  const { songId } = useParams()
   const location = useLocation()
   const result = location.state?.result || readStoredResult(songId)
   const [songDetails, setSongDetails] = useState(null)
