@@ -151,4 +151,20 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
     expect(screen.getByRole('link', { name: 'Play Rhythm' })).toHaveAttribute('href', '/game/published-42')
   })
+
+  it('lists only playable published Songs in Rhythm Hub using covers and real ids', async () => {
+    window.history.pushState({}, '', '/rhythm-game')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ songs: [
+        { artist: 'Playable Artist', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/rhythm.jpg', durationSecs: 60, id: 'playable-1', languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playable Published Song' },
+        { artist: 'No Audio', audioUrl: '', coverImageUrl: '', durationSecs: 0, id: 'unplayable-1', languages: [], status: 'PUBLISHED', title: 'Unplayable Song' },
+      ] }),
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByRole('heading', { name: 'Playable Published Song' })).toBeInTheDocument()
+    expect(screen.getByAltText('Playable Published Song cover')).toHaveAttribute('src', 'https://media.example/rhythm.jpg')
+    expect(screen.getByRole('link', { name: 'Play Song' })).toHaveAttribute('href', '/game/playable-1')
+    expect(screen.queryByText('Unplayable Song')).not.toBeInTheDocument()
+  })
 })

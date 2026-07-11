@@ -14,6 +14,9 @@ export async function fetchSongDetails(songId) {
     id: song.id || songId,
     artist: song.artist || '',
     description: song.description || '',
+    audioUrl: song.audioUrl || '',
+    coverImageUrl: song.coverImageUrl || '',
+    durationSecs: song.durationSecs || 0,
     languages: song.languages || [],
     theme: song.theme || '',
     thumbnailUrl:

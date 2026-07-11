@@ -1,39 +1,22 @@
 const DIFFICULTIES = ['easy', 'medium', 'hard']
 
-function normalizeNotes(notes = []) {
+function createProceduralNotes(durationSecs, difficulty) {
+  if (!Number.isFinite(durationSecs) || durationSecs < 5) return []
+  const spacing = { easy: 1.2, medium: 0.85, hard: 0.58 }[difficulty]
+  const notes = []
+  for (let time = 2, index = 0; time < durationSecs - 1; time += spacing, index += 1) {
+    notes.push({ id: `${time.toFixed(2)}-${index}`, lane: index % 4, status: 'pending', time: Number(time.toFixed(2)) })
+  }
   return notes
-    .filter((note) => Number.isFinite(note.time) && Number.isInteger(note.lane))
-    .map((note, index) => ({
-      id: `${note.time}-${note.lane}-${index}`,
-      lane: Math.min(Math.max(note.lane, 0), 3),
-      status: 'pending',
-      time: note.time,
-    }))
-    .sort((a, b) => a.time - b.time)
 }
 
-export async function loadBeatmap(songId, difficulty) {
+export async function loadBeatmap(song, difficulty) {
   const safeDifficulty = DIFFICULTIES.includes(difficulty) ? difficulty : 'easy'
-  const response = await fetch(`/beatmaps/${encodeURIComponent(songId)}.json`)
-
-  if (!response.ok) {
-    throw new Error(`Beatmap not found for song ${songId}`)
-  }
-
-  const beatmap = await response.json()
-  const notes = normalizeNotes(beatmap.difficulties?.[safeDifficulty])
-
-  if (notes.length === 0) {
-    throw new Error(`No ${safeDifficulty} notes found for song ${songId}`)
-  }
-
+  const notes = createProceduralNotes(Number(song.durationSecs), safeDifficulty)
+  if (notes.length === 0) throw new Error('This published Song does not have a usable duration for rhythm play.')
   return {
-    artist: beatmap.artist || 'Unknown artist',
-    audioUrl: beatmap.audioUrl || '',
-    difficulty: safeDifficulty,
-    notes,
-    songId: beatmap.songId || songId,
-    title: beatmap.title || 'Untitled song',
+    artist: song.artist || 'Unknown artist', audioUrl: song.audioUrl || '',
+    difficulty: safeDifficulty, notes, songId: song.id, title: song.title || 'Untitled song',
   }
 }
 

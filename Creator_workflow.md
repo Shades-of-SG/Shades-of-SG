@@ -899,3 +899,152 @@ Unpublished Songs remain inaccessible. Missing optional content is described as 
 A public route parameter is not proof that content is public. Every page must resolve that ID through a backend query that enforces publication status. Once this rule is consistent, draft isolation, navigation, metadata, and downstream activity context all become simpler.
 
 Unavailable states are part of a trustworthy integration. They clearly distinguish real published metadata from features whose supporting content has not yet been created.
+
+---
+
+## Phase 6 — Published Rhythm Songs and Secure Score Persistence
+
+### Date
+
+11 July 2026
+
+### User Request
+
+Phase 6 connected Rhythm Hub and Rhythm Game to playable published Songs and established score-persistence rules for guests, registered players, and creators. Guests could play and view their current result but could not create GameScore rows. Registered users could persist scores linked to the JWT user and selected published Song. The backend could not trust `userId` or rank supplied by the client.
+
+The phase also required validation and reasonable MVP anti-spoofing protection without extending Reflection integration.
+
+### Audit and Decisions
+
+Rhythm Hub already consumed the published Song list after Phase 5, but it did not distinguish Songs with usable audio and duration. Rhythm Game still depended on static beatmap JSON files even though the demo beatmap had been removed, and playback preferred video rather than the uploaded Song audio.
+
+The score endpoint accepted unauthenticated writes, accepted an optional body `userId`, trusted the submitted rank, did not verify Song publication, and created guest database rows with a null user. The frontend attempted score persistence for every player and queued failures locally.
+
+The implementation chose `REGISTERED` as the only role allowed to persist rhythm scores. Creator accounts may still open and play the public game, but they are treated as session-only players and are not silently recorded as regular users. This keeps creator administration separate from registered-player progress.
+
+### AI Output
+
+Rhythm Hub now filters the published API response to playable Songs with persisted audio and at least five seconds of duration data. Each card uses the uploaded cover image, real title, artist, theme, languages, and database ID. Songs without usable audio configuration do not appear as playable and the page shows an honest empty state when none qualify.
+
+Rhythm Game resolves the route ID through the published Song endpoint before creating a chart. Manually entering a draft, ready, archived, missing, or another unpublished ID therefore fails at the public API boundary and produces no playable configuration.
+
+The selected Song's persisted audio is now a real playback source. When a published Song has video, the existing video background remains usable; otherwise an audio element drives the same playback clock. Cover images remain visible in the selection and result flows rather than being replaced by demo initials where real media exists.
+
+Because the project has no beatmap model or uploaded chart format yet, Phase 6 introduced a deterministic procedural chart derived from the published Song's stored duration and selected difficulty. Easy, Medium, and Hard use different note spacing while keeping the same four gameplay lanes. If duration is missing or too short, the game reports that the Song lacks usable rhythm configuration instead of loading mock notes.
+
+The guest result remains stored for the current browser session through the existing result mechanism and is passed to the Results route. Rhythm Game no longer calls the score API for guests, so guest play cannot create a GameScore row. Local storage remains convenience state only.
+
+For authenticated accounts, the frontend calls score persistence only when `user.role === REGISTERED` and supplies the existing authentication token. Creator sessions play locally and skip persistence. If an authenticated registered save fails, the existing pending local queue remains available as a convenience, but it is not treated as a database score.
+
+The backend score endpoint now uses optional authentication while distinguishing a genuine guest request from a supplied invalid token. A missing token is a guest and receives HTTP 204 after validation with no row created. An invalid supplied token receives HTTP 401. A creator token receives HTTP 403 for score storage.
+
+For registered persistence, the backend loads the current User from the verified token and always sets `userId` from that record. Any body `userId` is ignored. The backend also derives rank from accuracy, so a client cannot submit an inflated `S` rank for an `A`-level result.
+
+The backend validates:
+
+- Song ID format;
+- Song existence;
+- `status = PUBLISHED`;
+- Easy, Medium, or Hard difficulty;
+- non-negative integer score;
+- accuracy from 0 through 100;
+- total notes from 1 through 10,000;
+- max combo from zero through total notes;
+- score below the theoretical maximum possible for the submitted chart size.
+
+The theoretical limit follows the current scoring algorithm: maximum base points for every note plus the maximum possible incremental combo bonus. This does not provide server-authoritative replay verification, but it blocks malformed values and obvious score inflation within the MVP architecture.
+
+### Backend Behavior
+
+`POST /api/scores` now behaves as follows:
+
+- Valid guest result: HTTP 204, no GameScore.
+- Invalid supplied token: HTTP 401, no GameScore.
+- Creator token: HTTP 403, no GameScore.
+- Registered token and valid published Song result: HTTP 201 with a persisted GameScore.
+- Draft or unpublished Song: HTTP 404, no GameScore.
+- Invalid score fields or impossible score: HTTP 400, no GameScore.
+
+Persisted rows always use the JWT-derived `user_id`, validated published `song_id`, normalized difficulty, and server-derived rank.
+
+### Files Modified
+
+- `backend/routes/scores.js`
+- `backend/tests/scores.test.js`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/game/beatmapLoader.js`
+- `frontend/src/game/scoresApi.js`
+- `frontend/src/game/songDetailsApi.js`
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/pages/RhythmResults.jsx`
+- `Creator_workflow.md`
+
+No model or database migration was required. Existing User, Song, and GameScore models were reused.
+
+Reflection submission logic was not changed.
+
+### Tests Added
+
+Backend score tests prove that:
+
+- valid guest gameplay returns no persisted score;
+- the GameScore table remains empty after guest submission;
+- an authenticated registered result is saved;
+- the stored `userId` matches the JWT account;
+- a body `userId` for another user is ignored;
+- submitted rank is ignored and derived from accuracy;
+- creator authentication is not treated as registered-player authentication;
+- draft Song score submission is rejected;
+- negative scores are rejected;
+- accuracy above 100 is rejected;
+- invalid difficulty is rejected;
+- zero or excessive chart sizes are rejected;
+- combo larger than total notes is rejected;
+- score above the theoretical chart maximum is rejected.
+
+Frontend coverage proves that Rhythm Hub:
+
+- lists a playable published Song;
+- uses its uploaded cover image;
+- routes Play Song with the real database ID;
+- excludes a published Song that lacks audio and duration configuration.
+
+### Verification Performed
+
+- Complete backend Jest suite: four suites and thirty-eight tests passed.
+- Complete frontend Vitest suite: two files and fifteen tests passed.
+- Full backend ESLint passed.
+- Full frontend ESLint passed.
+- Frontend production build passed with 1,880 modules transformed.
+
+### My Review and Decisions
+
+I did not persist guest rows with a null user. Such rows cannot represent registered progress, cannot be safely attributed later, and would inflate analytics. Guest results belong to the current session unless the user authenticates before a future play.
+
+I intentionally rejected creator score persistence. Creator accounts can experience the public game, but storing their runs as ordinary player progress would blur the project's role boundary and could distort future leaderboards.
+
+I derived rank and user identity on the server because both values are consequences of trusted state: rank follows validated accuracy, and identity follows the signed token. Client-provided values are only claims.
+
+I used a duration-derived procedural chart as a temporary real-Song configuration. It is reproducible and tied to the published Song's media rather than a demo file, while leaving room for a future beatmap model with authored timing data.
+
+### Final Outcome
+
+Rhythm Hub now presents only playable published Songs with real covers and IDs. Rhythm Game validates the selected Song through the published API, plays its uploaded audio or video, and builds difficulty-specific gameplay from its real duration.
+
+Guests and creators can play and view session results without database writes. Registered users persist scores linked to the JWT user and published Song. Obvious malformed and impossible submissions are rejected, client identity and rank are not trusted, and manually entered unpublished IDs cannot be played or scored.
+
+### Remaining Work
+
+- Procedural notes are not musically beat-aligned; a real beatmap model or analysis pipeline is still needed.
+- The server cannot verify every individual hit without receiving and validating a signed replay or server-issued game session.
+- Pending local registered-score retries are not automatically synchronized after reconnect.
+- Leaderboards and score-history retrieval are not implemented.
+- Audio replacement cleanup remains separate from rhythm behavior.
+- Reflection Song validation and submission integration remain outside this phase.
+
+### Lesson
+
+Authentication answers who may persist, not who may play. Keeping public gameplay open while restricting database writes produces a welcoming guest experience without contaminating registered progress data.
+
+MVP anti-cheat should protect the server's authoritative facts first: user identity, Song publication, allowed difficulty, derived rank, and feasible numeric bounds. Stronger competitive integrity requires a different architecture with issued sessions and replay verification.
