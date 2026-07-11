@@ -8,8 +8,8 @@ const { OpenAI } = require('openai')
 const { GenerationJob, SceneSegment, GeneratedFrame } = require('../models')
 const aiStorageService = require('./aiStorageService')
 
-// Initialize OpenAI client (automatically picks up process.env.OPENAI_API_KEY)
-const openai = new OpenAI()
+// Initialize OpenAI client with explicit API key passing
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 /**
  * Generates and stores frames for a specific job sequentially.
@@ -66,35 +66,28 @@ async function generateFrames(jobId, songId) {
         // 3. DALL-E Integration with Fallback
         let openAiImageUrl
         try {
+          console.log(`[OpenAI] Attempting DALL-E 3 generation with key starting with: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
           const response = await openai.images.generate({
             model: 'dall-e-3',
-            prompt: segment.visualPrompt,
+            prompt: segment.visualPrompt ? segment.visualPrompt.substring(0, 4000) : "Cinematic scene",
             size: '1024x1024',
             n: 1,
           })
           openAiImageUrl = response.data[0].url
         } catch (openaiError) {
-          // Fallback to DALL-E 2 if DALL-E 3 is unavailable (Tier 0) or hits a 400 error
+          // Fallback to DALL-E 2 on any failure
+          console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
           try {
-            if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
-              console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
-              const fallbackResponse = await openai.images.generate({
-                model: 'dall-e-2',
-                prompt: segment.visualPrompt,
-                size: '512x512',
-                n: 1,
-              })
-              openAiImageUrl = fallbackResponse.data[0].url
-            } else {
-              throw openaiError
-            }
+            const fallbackResponse = await openai.images.generate({
+              model: 'dall-e-2',
+              prompt: segment.visualPrompt ? segment.visualPrompt.substring(0, 1000) : "Cinematic scene",
+              size: '512x512',
+              n: 1,
+            })
+            openAiImageUrl = fallbackResponse.data[0].url
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
             openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
-            
-            // Explicitly assign the fallback URL and persist to DB as requested
-            segment.imageUrl = openAiImageUrl
-            await segment.save()
           }
         }
 

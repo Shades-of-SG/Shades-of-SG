@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
+import GenerationStatusBadge from '../components/GenerationStatusBadge'
 import { API_URL } from '../services/apiConfig'
 
 const jobFilters = ['All', 'Processing', 'Completed', 'Failed']
@@ -392,7 +393,7 @@ export default function CreatorGenerationJobs() {
                   <div className="dashboard-song-copy">
                     <h3>{job.song?.title || job.Song?.title || 'Unknown Song'}</h3>
                     <p className="text-xs text-slate-500 mb-1">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
-                    <span className={`dashboard-song-badge is-${job.status.toLowerCase()}`}>{job.status}</span>
+                    <GenerationStatusBadge status={job.status} />
                     {job.status.toLowerCase() === 'processing' && (
                       <div className="dashboard-song-progress" style={{ marginTop: '0.5rem' }}>
                         <div className="progress-track"><span style={{ width: `${job.progress || 0}%` }} /></div>
