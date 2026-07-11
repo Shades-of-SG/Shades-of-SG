@@ -1,0 +1,25 @@
+/* Final profile overrides load after the shared application stylesheet. */
+.profile-page { gap:clamp(38px,4vw,54px); max-width:none; min-height:100vh; padding:42px max(24px,calc((100vw - 1280px)/2)) 92px; width:100%; }
+.profile-page .profile-hero { border-radius:10px 24px 12px 18px; grid-template-columns:235px minmax(0,1fr) 150px; min-height:310px; padding:38px 42px; }
+.profile-page .profile-hero::after { border:1px dashed rgba(123,67,207,.2); border-radius:inherit; content:""; inset:10px; pointer-events:none; position:absolute; }
+.profile-page .profile-hero__photo { height:238px; width:205px; }
+.profile-page .profile-hero__copy { max-width:620px; }
+.profile-page .profile-hero h1 { font-size:clamp(2.5rem,4vw,3.35rem); line-height:1.05; }
+.profile-page .profile-bio { font-size:1rem; line-height:1.75; }
+.profile-page .profile-member { font-size:.88rem; }
+.profile-page .profile-hero__skyline { bottom:8px; color:var(--pf-accent); fill:none; height:170px; opacity:.15; right:-18px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:3; width:500px; }
+.profile-page .profile-stats { gap:20px; }
+.profile-page .profile-stats article { border:0; border-radius:9px 16px 8px 13px; grid-template-columns:58px 1fr; min-height:108px; overflow:hidden; padding:18px 24px; position:relative; }
+.profile-page .profile-stats article:nth-child(1){background:linear-gradient(135deg,#fde5e3,#f6d4dc)}.profile-page .profile-stats article:nth-child(2){background:linear-gradient(135deg,#eee1fb,#ded5f3)}.profile-page .profile-stats article:nth-child(3){background:linear-gradient(135deg,#fff0c9,#f6dfb2)}
+.profile-page .profile-stats svg { background:rgba(255,255,255,.55); border-radius:50%; height:46px; padding:11px; width:46px; }
+.profile-page .profile-stats strong { font-size:2.15rem; }.profile-page .profile-stats article>span:last-child{grid-column:2}
+.profile-page .profile-section-heading { margin-bottom:22px; }.profile-page .profile-section-heading h2{font-size:clamp(1.55rem,2.5vw,2rem)}
+.profile-page .profile-note-grid { gap:22px; }.profile-page .profile-note{border:0;border-radius:2px 5px 14px 3px;min-height:280px;padding:34px 22px 20px}.profile-page .profile-note>p{font-size:.96rem;line-height:1.65}
+.profile-page .profile-lower-grid { gap:34px; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); }
+.profile-page .profile-keepsakes { background:linear-gradient(180deg,var(--pf-paper),var(--pf-paper-2)); border-radius:16px; padding:26px; }
+.profile-page .profile-badge { border:0; flex-basis:165px; min-height:215px; }
+.profile-page .profile-score { border:0; grid-template-columns:60px minmax(120px,1fr) auto auto 42px; min-height:86px; padding:12px 14px 19px; position:relative; }.profile-page .profile-score img,.profile-page .profile-score__fallback{height:60px;width:60px}
+.profile-page .profile-empty { border:0; border-radius:8px 18px 8px 14px; min-height:260px; padding:35px 30px; }
+@media(prefers-color-scheme:dark){.profile-page .profile-stats article:nth-child(1){background:linear-gradient(135deg,#49263b,#38233b)}.profile-page .profile-stats article:nth-child(2){background:linear-gradient(135deg,#2d2754,#202848)}.profile-page .profile-stats article:nth-child(3){background:linear-gradient(135deg,#463829,#3b2c35)}.profile-page .profile-keepsakes{background:linear-gradient(180deg,#151d3b,#211a39)}}
+@media(max-width:900px){.profile-page{padding-inline:24px}.profile-page .profile-hero{grid-template-columns:180px 1fr;padding:30px}.profile-page .profile-hero__photo{height:205px;width:175px}.profile-page .profile-hero__edit{grid-column:2}.profile-page .profile-lower-grid{grid-template-columns:1fr}.profile-page .profile-note-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.profile-page{gap:38px;padding:24px 14px 78px}.profile-page .profile-hero{grid-template-columns:1fr;min-height:0;padding:28px 20px}.profile-page .profile-hero__photo{height:190px;width:165px}.profile-page .profile-hero__edit{grid-column:auto}.profile-page .profile-stats{grid-template-columns:1fr}.profile-page .profile-note-grid{grid-template-columns:1fr}.profile-page .profile-note{min-height:240px;transform:none}.profile-page .profile-lower-grid{gap:40px}.profile-page .profile-keepsakes{padding:20px 15px}.profile-page .profile-score{grid-template-columns:52px 1fr 38px}.profile-page .profile-score img,.profile-page .profile-score__fallback{height:52px;width:52px}}

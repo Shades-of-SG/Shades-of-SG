@@ -1,11 +1,29 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { GameScore, Song, User } = require('../models');
-const { optionalAuth } = require('../middleware/auth');
+const { optionalAuth, requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 const DIFFICULTIES = new Set(['EASY', 'MEDIUM', 'HARD']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+router.get('/mine', requireAuth, async (req, res, next) => {
+    try {
+        const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required.' });
+        const scores = await GameScore.findAll({
+            where: { userId: user.id },
+            // Keep history readable while migration 007 is being rolled out to
+            // legacy databases that predate max_combo and rank.
+            attributes: ['id', 'userId', 'songId', 'score', 'accuracy', 'difficulty', 'createdAt'],
+            include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'coverImageUrl'] }],
+            limit: 20,
+            order: [['createdAt', 'DESC']],
+        });
+        return res.json({ scores });
+    } catch (error) { return next(error); }
+});
 
 function expectedRank(accuracy) {
     if (accuracy >= 95) return 'S';

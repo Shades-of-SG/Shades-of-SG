@@ -234,6 +234,17 @@ router.get('/moderation', requireCreator, async (req, res, next) => {
     }
 });
 
+router.get('/mine', requireAuth, async (req, res, next) => {
+    try {
+        const reflections = await Reflection.findAll({
+            where: { userId: req.authUser.id },
+            include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'coverImageUrl'] }],
+            order: [['createdAt', 'DESC']],
+        });
+        return res.json({ reflections: reflections.map((reflection) => serializeReflection(reflection, req.authUser.id)) });
+    } catch (error) { return next(error); }
+});
+
 router.get('/', optionalAuth, async (req, res, next) => {
     try {
         const where = { status: 'APPROVED' };

@@ -34,6 +34,7 @@ import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
 import TermsAndConditions from './pages/TermsAndConditions'
 import './App.css'
+import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import KindMasterEditor from './pages/KindMasterEditor'
 function MainExperience() {
@@ -59,6 +60,7 @@ function AuthExperience() {
 function App() {
   const { token, user } = useAuth()
   const isCreator = Boolean(token && user?.role === 'CREATOR')
+  const isRegistered = Boolean(token && user?.role === 'REGISTERED')
 
   return (
     <BrowserRouter>
@@ -76,7 +78,7 @@ function App() {
           <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
-          <Route element={<Profile />} path="/profile" />
+          <Route element={<ProtectedRoute isAllowed={isRegistered}><Profile /></ProtectedRoute>} path="/profile" />
           <Route element={<Settings />} path="/settings" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />

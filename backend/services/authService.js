@@ -40,6 +40,7 @@ function createToken(user) {
     const secret = getTokenSecret();
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
+        createdAt: user.createdAt,
         id: user.id,
         role: user.role,
     })).toString('base64url');

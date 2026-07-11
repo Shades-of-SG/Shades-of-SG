@@ -9,6 +9,7 @@ const songsRouter = require('./routes/songs');
 const reflectionsRouter = require('./routes/reflections');
 const transcriptionsRouter = require('./routes/transcriptions');
 const generationRouter = require('./routes/aiGeneration');
+const badgesRouter = require('./routes/badges');
 const {
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
@@ -67,6 +68,7 @@ app.use('/api/reflections', reflectionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
+app.use('/api/badges', badgesRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {
