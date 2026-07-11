@@ -3,7 +3,6 @@ const User = require('../models/User');
 const {
     createToken,
     hashPassword,
-    seedCreatorAccount,
     serializeUser,
     verifyPassword,
 } = require('../services/authService');
@@ -34,9 +33,8 @@ router.post('/login', async (req, res, next) => {
             return res.status(400).json({ message: 'Email and password are required.' });
         }
 
-        await seedCreatorAccount();
-
-        const user = await User.findOne({ where: { email } });
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const user = await User.findOne({ where: { email: normalizedEmail } });
 
         if (!user || !verifyPassword(password, user.passwordHash)) {
             return res.status(401).json({ message: 'Invalid email or password.' });
