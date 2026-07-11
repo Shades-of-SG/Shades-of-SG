@@ -25,6 +25,19 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /browse songs/i })).toBeInTheDocument()
   })
 
+  it('opens a direct root visit as the logged-out public landing page', () => {
+    localStorage.setItem('authToken', 'stale-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+
+    render(<AuthProvider resetOnPublicEntry><App /></AuthProvider>)
+
+    expect(screen.getByRole('heading', { level: 1, name: /shades of sg/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('authToken')).toBeNull()
+    expect(localStorage.getItem('authUser')).toBeNull()
+  })
+
   it('redirects guests away from the creator moderation route', async () => {
     window.history.pushState({}, '', '/creator/reflections')
     render(<AuthProvider><App /></AuthProvider>)
