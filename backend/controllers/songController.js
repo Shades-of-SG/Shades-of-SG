@@ -64,6 +64,13 @@ function publishValidation(song) {
     return missing;
 }
 
+async function reconcileCompletedGeneration(song, latestJob) {
+    if (latestJob?.status === 'COMPLETED' && song.videoUrl && ['DRAFT', 'GENERATING'].includes(song.status)) {
+        await song.update({ status: 'READY' });
+    }
+    return song;
+}
+
 async function findOwnedSong(req) {
     return Song.findOne({ where: { id: req.params.id, creatorId: req.authUserRecord.id } });
 }
@@ -201,6 +208,7 @@ async function publishSong(req, res, next) {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
+        await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
         if (!latestJob || latestJob.status !== 'COMPLETED') missing.push('completed generation job');
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
@@ -214,6 +222,7 @@ async function getPublishReadiness(req, res, next) {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
+        await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
         if (!latestJob || latestJob.status !== 'COMPLETED') missing.push('completed generation job');
         return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });

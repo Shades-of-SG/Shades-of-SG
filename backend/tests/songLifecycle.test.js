@@ -76,6 +76,20 @@ test('generation completion marks the job COMPLETED and song READY without publi
     expect((await request(app).get(`/api/songs/${song.id}`)).status).toBe(404);
 });
 
+test('publish readiness repairs a completed video generation left in GENERATING', async () => {
+    const song = await Song.create({ ...completeSong, creatorId: creator.id, status: 'GENERATING' });
+    await GenerationJob.create({ songId: song.id, status: 'COMPLETED', completedAt: new Date() });
+
+    const response = await request(app)
+        .get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ generationStatus: 'COMPLETED', ready: true, songStatus: 'READY' });
+    await song.reload();
+    expect(song.status).toBe('READY');
+    expect(song.publishedDate).toBeNull();
+});
+
 test('publish fails and reports missing required data', async () => {
     const song = await Song.create({ creatorId: creator.id, status: 'READY', title: 'Incomplete' });
     await GenerationJob.create({ songId: song.id, status: 'COMPLETED' });
