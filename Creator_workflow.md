@@ -200,3 +200,208 @@ The reset database can be given one initial creator account through a dedicated 
 Generation readiness and publication approval are different business decisions. Treating them as one status makes incomplete or unreviewed content public and leaves creators without a deliberate release step. A separate `READY` state provides a safe boundary between automated processing and human publication.
 
 Seed utilities should be narrow, explicit, and idempotent. Reading credentials from the environment, using the application's own password hashing, and exiting without modifying an existing account makes database recovery predictable without reintroducing demo content into the normal application flow.
+
+---
+
+## Phase 2 — Studio as the Authoritative Draft Workflow
+
+### Date
+
+11 July 2026
+
+### User Request
+
+After approving the backend lifecycle work, the next phase was limited to making Studio the authoritative creator workflow for draft creation and editing. Studio needed to persist a draft, keep one Song ID throughout editing and generation, reload saved data after refresh, support cover uploads and replacement, preserve lyric extraction, save manual lyrics as `rawLyrics`, use real backend data in Preview & Publish, and call the explicit publish endpoint only when backend readiness validation succeeded.
+
+The work was deliberately restricted from updating Dashboard, My Songs, Songs Library, Rhythm Game, Reflection Wall, or other unrelated interfaces.
+
+### Audit and Decisions
+
+Codex inspected the existing Studio page, its information, lyrics, preview, header, and footer components, the creator route configuration, authentication context, API base configuration, Cloudinary helpers, and frontend test structure.
+
+The existing Studio already had a useful three-step interface and a working transcription flow, but its workflow was entirely temporary:
+
+- Save Draft only displayed an alert.
+- Generate Video only navigated to Generation Tasks.
+- Publish Song only displayed an alert and navigated away.
+- no Song ID was retained;
+- no existing draft could be loaded;
+- refresh discarded all metadata and lyrics;
+- cover images were unsupported;
+- Preview & Publish included a hardcoded YouTube fallback rather than only real Song media.
+
+The implementation retained the existing Studio layout instead of redesigning it. The chosen URL structure was:
+
+- `/creator/studio/new` for a new draft;
+- `/creator/studio/:songId` for an existing draft;
+- `/creator/studio` as a compatibility redirect to the new-draft route.
+
+This structure prepares My Songs to link its future Edit action directly to an authoritative Song record without requiring further Studio routing changes.
+
+### AI Output
+
+Codex created a dedicated frontend `songService` that uses the configured API base URL and sends the existing authentication token. Studio no longer embeds song API calls throughout the component or relies on mock page data.
+
+On the first Save Draft, Studio calls the backend to create a real `DRAFT` Song. The backend returns the new UUID, Studio stores it, and the route is replaced with `/creator/studio/:songId`. Every later save updates that same record. Generation receives that same ID and therefore cannot create a duplicate Song row through the Studio workflow.
+
+Opening an existing Studio URL now loads the creator-owned Song and publish-readiness response in parallel. The page restores:
+
+- title;
+- artist;
+- description;
+- theme;
+- languages;
+- other languages;
+- mood tags;
+- raw lyrics;
+- source YouTube URL;
+- cover image;
+- persisted audio or video preview;
+- lifecycle status and last-saved time.
+
+Refreshing the browser therefore reloads saved database values instead of resetting the form.
+
+Save Draft persists the required metadata fields. Lyrics produced through AI extraction remain editable, and the final textarea value is saved as `rawLyrics`, so manual corrections are not lost. The existing transcription-status check, YouTube transcription path, uploaded-media Base64 path, file-size behaviour, and error presentation were preserved.
+
+Studio supports audio during initial creation and after a draft already exists. A new draft can send its selected audio with the create request. An existing draft uses a creator-owned audio endpoint that updates the same Song with its Cloudinary URL, public ID, and duration.
+
+Cover-image support was added without introducing another media model. Studio accepts JPG, PNG, or WebP files and immediately shows a local preview. Saving uploads the image to a creator-owned Song endpoint, which stores `coverImageUrl` and `coverImagePublicId`. Selecting another image previews the replacement; after the new upload and database update succeed, the backend attempts to delete the old Cloudinary cover.
+
+Generate Video now runs the same draft-save function first. Only after a successful save does it call the generation endpoint with the stable Song ID. This means newly entered metadata and manually edited lyrics are persisted before the Song enters `GENERATING`.
+
+Preview & Publish now uses the current persisted Song media and database-backed form values. The previous hardcoded YouTube preview fallback was removed. Studio fetches a backend readiness result containing the missing requirements, current Song status, and latest GenerationJob status. Publish controls remain disabled until that authoritative response reports `ready: true`.
+
+Publishing calls the existing explicit `PUT /api/songs/:id/publish` endpoint. The frontend does not set publication state itself. It saves first, refreshes readiness, reports missing requirements when necessary, and only then asks the backend to publish. Loading, error, successful save, queued generation, and successful publication states are displayed within Studio instead of relying on success alerts.
+
+### Backend Changes
+
+Cloudinary support gained a buffer-based image upload helper using the existing configuration. Uploaded covers are stored under `shades-of-sg/covers` and return their secure URL and public ID.
+
+The Song controller gained:
+
+- creator-owned cover upload and replacement;
+- creator-owned audio upload for existing drafts;
+- non-mutating publish-readiness inspection;
+- multipart JSON parsing for languages, other languages, and mood tags.
+
+The readiness endpoint reuses the same required-data logic as publication. It checks Song metadata and media plus the latest completed GenerationJob, but does not mutate the Song.
+
+### Frontend Changes
+
+Studio now includes:
+
+- new and edit route modes;
+- persisted Song ID handling;
+- backend draft creation and updates;
+- database-backed refresh recovery;
+- cover preview, upload, and replacement;
+- existing-draft audio upload;
+- save-before-generate behaviour;
+- generation using the existing Song ID;
+- real media and metadata preview;
+- explicit backend publication;
+- backend-controlled readiness and disabled publish actions;
+- loading, error, and success messages;
+- busy-state button disabling.
+
+The Studio header and footer received only the disabled/busy properties necessary for the workflow. The Song Information card received only the cover field and preview. No unrelated visual redesign was performed.
+
+### Routes Added or Changed
+
+Frontend:
+
+- `/creator/studio` redirects to `/creator/studio/new`.
+- `/creator/studio/new` opens a new draft workflow.
+- `/creator/studio/:songId` loads an existing owned draft.
+
+Backend:
+
+- `POST /api/songs/:id/audio` uploads audio to an existing owned Song.
+- `POST /api/songs/:id/cover` uploads or replaces an owned Song's cover.
+- `GET /api/songs/:id/readiness` reports whether an owned Song can be published.
+
+Existing routes reused by Studio:
+
+- `POST /api/songs`
+- `GET /api/songs/creator/:id`
+- `PUT /api/songs/:id/metadata`
+- `POST /api/generation/start`
+- `PUT /api/songs/:id/publish`
+- transcription status and lyrics routes.
+
+### Files Created
+
+- `frontend/src/services/songService.js`
+
+### Files Modified
+
+- `backend/controllers/songController.js`
+- `backend/routes/songs.js`
+- `backend/services/cloudinaryService.js`
+- `backend/tests/songLifecycle.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.jsx`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/studio/PreviewPublishPanel.jsx`
+- `frontend/src/components/studio/SongInformationCard.jsx`
+- `frontend/src/components/studio/StudioFooter.jsx`
+- `frontend/src/components/studio/StudioHeader.jsx`
+- `frontend/src/pages/Studio.jsx`
+
+No database migration was required because Phase 2 uses the cover, audio, lyrics, ownership, and lifecycle fields introduced in Phase 1.
+
+No Dashboard, My Songs, Songs Library, Rhythm Game, or Reflection Wall implementation was modified.
+
+### Tests Added
+
+Backend lifecycle coverage now also proves that:
+
+- another creator cannot upload a cover for a Song they do not own;
+- the owning creator can upload a cover;
+- replacement persists the new URL and public ID;
+- replacement requests deletion of the previous Cloudinary cover.
+
+Frontend route coverage now proves that an authenticated creator can open `/creator/studio/:songId` and receive saved draft title and artist values from the backend.
+
+### Verification Performed
+
+- Ran the complete backend Jest suite: four suites and nineteen tests passed.
+- Ran the complete frontend Vitest suite: two files and ten tests passed.
+- Ran targeted backend ESLint on the changed controller, route, and Cloudinary service; it passed.
+- Ran targeted frontend ESLint on Studio, its service, changed components, routing, and tests; it passed.
+- Ran the frontend production build; 1,880 modules transformed successfully.
+- Ran `git diff --check`; no whitespace errors were reported.
+
+### My Review and Decisions
+
+I made the route ID the durable workflow identity. Local component state is useful while typing, but it is not a reliable identifier for media, generation jobs, publication, or later editing. Replacing `/new` with the returned UUID immediately after the first save makes refresh and navigation predictable.
+
+I reused one save operation before generation instead of maintaining a separate generation form. This ensures that generation always sees the latest metadata and lyrics and prevents the most serious previous conflict: creating another Song row when the creator only intended to generate the current draft.
+
+I placed publish readiness on the backend because the backend owns the actual Song status, media URLs, and latest GenerationJob state. A frontend-only checklist can help explain missing work, but it cannot safely authorize publication. The UI therefore uses the readiness response to disable Publish and still relies on the publish endpoint to validate again.
+
+I chose immediate local cover preview followed by server persistence. This gives creators useful replacement feedback without pretending an upload succeeded. The saved Cloudinary URL replaces the temporary blob URL after the operation completes.
+
+I removed the hardcoded YouTube preview because Preview & Publish should not imply that a creator's draft contains media that is not actually associated with its database record.
+
+### Final Outcome
+
+Studio is now the single creator entry point for creating and editing a Song draft. The first save creates one database row, the route adopts its UUID, refresh restores the saved work, media remains attached to the same Song, and generation uses that same ID. Extracted and manually corrected lyrics persist in the authoritative `rawLyrics` field.
+
+Cover images can be previewed, uploaded, and replaced through authenticated ownership-checked endpoints. Preview & Publish reflects real Song data, publication remains disabled until the backend confirms readiness, and the only publication transition occurs through the explicit backend endpoint.
+
+### Remaining Work
+
+- Remove the old secondary song-creation form from Generation Tasks in a later approved phase.
+- Connect My Songs Edit actions to `/creator/studio/:songId`.
+- Add cleanup for replaced Cloudinary audio assets.
+- Decide whether cover cleanup failures require a retry queue rather than logging only.
+- Complete the real generated MP4 pipeline; temporary placeholder MP4 URLs remain accepted.
+- Remove or implement the currently visual-only publication scheduling controls.
+- Integrate Dashboard and public experiences only in their later approved phases.
+
+### Lesson
+
+A persisted draft needs both durable data and durable identity. Saving fields without retaining the returned Song ID still produces fragmented workflows because media uploads and generation cannot know which record they belong to. Route-based identity solves refresh recovery, future edit links, and generation handoff with one consistent mechanism.
+
+Readiness should be explained in the frontend but decided in the backend. This keeps the interface responsive and understandable while ensuring that stale UI state cannot bypass ownership, lifecycle, media, or generation requirements.

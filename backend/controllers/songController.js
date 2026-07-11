@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const { Song, GenerationJob } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
+const cloudinaryService = require('../services/cloudinaryService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const EDITABLE_FIELDS = [
@@ -13,6 +14,9 @@ const EDITABLE_FIELDS = [
 
 function normalizeArray(value) {
     if (value === undefined) return undefined;
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { return null; }
+    }
     if (!Array.isArray(value)) return null;
     return [...new Set(value.map((item) => String(item).trim()).filter(Boolean))];
 }
@@ -155,6 +159,49 @@ async function publishSong(req, res, next) {
     } catch (error) { return next(error); }
 }
 
+async function getPublishReadiness(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
+        const missing = publishValidation(song);
+        if (!latestJob || latestJob.status !== 'COMPLETED') missing.push('completed generation job');
+        return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });
+    } catch (error) { return next(error); }
+}
+
+async function uploadCoverImage(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (!req.file) return res.status(400).json({ message: 'Cover image is required.' });
+        const previousPublicId = song.coverImagePublicId;
+        const uploaded = await cloudinaryService.uploadImageBuffer(req.file.buffer);
+        await song.update({ coverImageUrl: uploaded.secure_url, coverImagePublicId: uploaded.public_id });
+        if (previousPublicId && previousPublicId !== uploaded.public_id) {
+            await cloudinaryService.deleteImage(previousPublicId).catch((error) => {
+                console.error(`Unable to delete replaced cover ${previousPublicId}:`, error.message);
+            });
+        }
+        return res.json({ song, coverImageUrl: song.coverImageUrl, coverImagePublicId: song.coverImagePublicId });
+    } catch (error) { return next(error); }
+}
+
+async function uploadSongAudio(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (!req.file) return res.status(400).json({ message: 'Audio file is required.' });
+        const uploaded = await aiStorageService.uploadAudioStream(req.file.buffer);
+        await song.update({
+            audioUrl: uploaded.audioUrl,
+            audioPublicId: uploaded.audioPublicId,
+            durationSecs: uploaded.duration,
+        });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
 async function unpublishSong(req, res, next) {
     try {
         const song = await findOwnedSong(req);
@@ -176,4 +223,4 @@ async function extractAudio(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { createSong, extractAudio, getCreatorSong, getPublicSong, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong };
+module.exports = { createSong, extractAudio, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio };

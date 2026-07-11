@@ -15,10 +15,12 @@ function getDescriptionValidationMessage(description) {
 
 export default function SongInformationCard({
   audioFileName,
+  coverImageUrl,
   descriptionLength,
   formData,
   onAudioFileChange,
   onAudioFileClear,
+  onCoverImageChange,
   onFieldChange,
   onLanguageToggle,
   onMoodToggle,
@@ -88,6 +90,12 @@ export default function SongInformationCard({
         </div>
 
         <div className="studio-form-column studio-form-column--right">
+          <label className="studio-field studio-cover-upload">
+            <span>Cover Image <strong>*</strong></span>
+            {coverImageUrl ? <img alt="Song cover preview" className="studio-cover-upload__preview" src={coverImageUrl} /> : null}
+            <input accept="image/jpeg,image/png,image/webp" onChange={onCoverImageChange} type="file" />
+            <small>{coverImageUrl ? 'Choose another image to replace this cover.' : 'JPG, PNG, or WebP up to 10MB.'}</small>
+          </label>
           <LanguageSelector
             onOtherLanguageChange={onOtherLanguageChange}
             onToggleLanguage={onLanguageToggle}

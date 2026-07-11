@@ -93,7 +93,9 @@ function App() {
           <Route element={<CreatorLayout />}>
             <Route element={<Navigate replace to="/creator/dashboard" />} path="/creator" />
             <Route element={<Dashboard />} path="/creator/dashboard" />
-            <Route element={<Studio />} path="/creator/studio" />
+            <Route element={<Navigate replace to="/creator/studio/new" />} path="/creator/studio" />
+            <Route element={<Studio />} path="/creator/studio/new" />
+            <Route element={<Studio />} path="/creator/studio/:songId" />
             <Route element={<CreatorSongs />} path="/creator/songs" />
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />

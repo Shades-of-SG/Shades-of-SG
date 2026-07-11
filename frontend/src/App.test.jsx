@@ -54,4 +54,30 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: /reflection moderation/i })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/creator/reflections')
   })
+
+  it('loads an existing creator draft into Studio by song id', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/song-123')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/readiness')
+        ? { generationStatus: null, missing: ['coverImageUrl'], ready: false, songStatus: 'DRAFT' }
+        : {
+            song: {
+              artist: 'Studio Artist', description: 'Saved description', id: 'song-123',
+              languages: ['English'], moodTags: ['hopeful'], otherLanguages: [],
+              rawLyrics: 'Saved lyrics', status: 'DRAFT', theme: 'Community',
+              title: 'Saved Studio Draft', updatedAt: new Date().toISOString(),
+            },
+          },
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByDisplayValue('Saved Studio Draft')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Studio Artist')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/creator/studio/song-123')
+  })
 })

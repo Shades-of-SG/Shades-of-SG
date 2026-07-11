@@ -10,6 +10,7 @@ const app = require('../server');
 const { sequelize, GenerationJob, Song, User } = require('../models');
 const { completeGeneration } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
+const cloudinaryService = require('../services/cloudinaryService');
 
 let creator;
 let creatorToken;
@@ -139,4 +140,35 @@ test('creator song endpoints return only that creator\'s songs across all lifecy
         new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED'])
     );
     expect(response.body.songs.every((song) => song.creatorId === creator.id)).toBe(true);
+});
+
+test('creator can upload and replace an owned cover image while another creator cannot', async () => {
+    const song = await Song.create({ creatorId: creator.id, status: 'DRAFT', title: 'Cover Test' });
+    const upload = jest.spyOn(cloudinaryService, 'uploadImageBuffer')
+        .mockResolvedValueOnce({ public_id: 'covers/first', secure_url: 'https://media.example/first.jpg' })
+        .mockResolvedValueOnce({ public_id: 'covers/second', secure_url: 'https://media.example/second.jpg' });
+    const remove = jest.spyOn(cloudinaryService, 'deleteImage').mockResolvedValue({ deleted: true });
+
+    const forbidden = await request(app)
+        .post(`/api/songs/${song.id}/cover`).set(auth(otherToken))
+        .attach('coverImage', Buffer.from('image'), { contentType: 'image/png', filename: 'cover.png' });
+    expect(forbidden.status).toBe(404);
+    expect(upload).not.toHaveBeenCalled();
+
+    const first = await request(app)
+        .post(`/api/songs/${song.id}/cover`).set(auth(creatorToken))
+        .attach('coverImage', Buffer.from('first'), { contentType: 'image/png', filename: 'first.png' });
+    expect(first.status).toBe(200);
+    expect(first.body).toMatchObject({
+        coverImagePublicId: 'covers/first', coverImageUrl: 'https://media.example/first.jpg',
+    });
+
+    const second = await request(app)
+        .post(`/api/songs/${song.id}/cover`).set(auth(creatorToken))
+        .attach('coverImage', Buffer.from('second'), { contentType: 'image/jpeg', filename: 'second.jpg' });
+    expect(second.status).toBe(200);
+    expect(second.body.coverImagePublicId).toBe('covers/second');
+    expect(remove).toHaveBeenCalledWith('covers/first');
+    upload.mockRestore();
+    remove.mockRestore();
 });
