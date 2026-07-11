@@ -99,12 +99,23 @@ ${song.lyrics || 'No lyrics provided.'}`
 
     // 5. Database Saving (The DB Handoff via bulkCreate)
     // Map the scenes to match your Sequelize schema, injecting foreign keys for relations.
+    // Sanitize lyrics aggressively before saving so that repeated choruses are stored
+    // as identical strings, enabling the Chorus Cache in frameGenerator to hit reliably.
+    const sanitizeLyrics = (raw) => {
+      if (!raw || typeof raw !== 'string') return null
+      const cleaned = raw
+        .replace(/\[.*?\]/g, '')        // Strip [Chorus], [0:30], [Verse 1], etc.
+        .replace(/\s+/g, ' ')           // Collapse multiple spaces / newlines into single space
+        .trim()
+      return cleaned.length > 0 ? cleaned : null
+    }
+
     const sceneRecords = parsedData.scenes.map((scene) => ({
       jobId: jobId,
       songId: songId,
       startTime: scene.startTime,
       endTime: scene.endTime,
-      lyrics: scene.lyrics,
+      lyrics: sanitizeLyrics(scene.lyrics),
       visualPrompt: scene.visualPrompt,
     }))
 

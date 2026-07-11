@@ -1,7 +1,7 @@
 /**
  * backend/services/frameGenerator.js
  * * Phase 3 of AI Video Generation Pipeline: Image Generation & Chorus Caching.
- * Orchestrates text-to-image generation for song segments using DALL-E 3 and Cloudinary.
+ * Orchestrates text-to-image generation for song segments using GPT Image 2 and Cloudinary.
  */
 
 const { OpenAI } = require('openai')
@@ -45,12 +45,27 @@ async function generateFrames(jobId, songId) {
     // Used to store generated Cloudinary URLs keyed by their exact image prompt.
     const imagePromptCache = new Map()
 
+    /**
+     * Aggressively normalizes a lyrics string for cache key comparison.
+     * Strips timestamps, section markers like [Chorus], punctuation, and collapses whitespace.
+     */
+    const normalizeCacheKey = (str) => {
+      return str
+        .toLowerCase()
+        .replace(/\[.*?\]/g, '')        // Strip [Chorus], [0:30], [Instrumental], etc.
+        .replace(/[^a-z0-9\s]/g, '')    // Strip all punctuation
+        .replace(/\s+/g, ' ')           // Collapse multiple spaces into one
+        .trim()
+    }
+
     // Use a for...of loop to enforce synchronous execution and avoid OpenAI rate limits
     for (const segment of segments) {
       let finalImageUrl
 
-      // Key the cache by the normalized lyrics (if available) to ensure repeating choruses hit the cache
-      const cacheKey = segment.lyrics ? segment.lyrics.trim().toLowerCase() : segment.visualPrompt
+      // Key the cache by aggressively normalized lyrics to ensure repeating choruses always hit the cache
+      const cacheKey = segment.lyrics && segment.lyrics.trim() !== ''
+        ? normalizeCacheKey(segment.lyrics)
+        : segment.visualPrompt
 
       // Check if we already generated an image for this exact lyric/prompt (e.g., a repeated chorus)
       if (imagePromptCache.has(cacheKey)) {
@@ -60,31 +75,35 @@ async function generateFrames(jobId, songId) {
         )
         finalImageUrl = imagePromptCache.get(cacheKey)
       } else {
-        // Cache MISS: Generate via DALL-E 3
-        console.log(`[Cache Miss] Generating new DALL-E frame for segment ${segment.id}...`)
+        // Cache MISS: Generate via GPT Image 2
+        console.log(`[Cache Miss] Generating new GPT Image 2 frame for segment ${segment.id}...`)
 
-        // 3. DALL-E Integration with Fallback
+        // 3. GPT Image Integration with Fallback
         let openAiImageUrl
         try {
-          console.log(`[OpenAI] Attempting DALL-E 3 generation with key starting with: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
+          console.log(`[OpenAI] Attempting GPT Image 2 generation with key starting with: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
           const response = await openai.images.generate({
-            model: 'dall-e-3',
+            model: 'gpt-image-2',
             prompt: segment.visualPrompt ? segment.visualPrompt.substring(0, 4000) : "Cinematic scene",
-            size: '1024x1024',
+            size: '1792x1024',
             n: 1,
           })
-          openAiImageUrl = response.data[0].url
+          openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
+          if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
+          if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI response: ${JSON.stringify(response.data)}`);
         } catch (openaiError) {
-          // Fallback to DALL-E 2 on any failure
-          console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
+          // Fallback to GPT Image 1 Mini on any failure
+          console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini for segment ${segment.id}.`)
           try {
             const fallbackResponse = await openai.images.generate({
-              model: 'dall-e-2',
+              model: 'gpt-image-1-mini',
               prompt: segment.visualPrompt ? segment.visualPrompt.substring(0, 1000) : "Cinematic scene",
-              size: '512x512',
+              size: '1536x1024',
               n: 1,
             })
-            openAiImageUrl = fallbackResponse.data[0].url
+            openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link;
+            if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0];
+            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`);
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
             openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'

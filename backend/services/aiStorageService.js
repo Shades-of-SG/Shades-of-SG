@@ -39,16 +39,22 @@ const uploadAudioStream = (fileData) => {
 /**
  * (PHASE 3) Fetches an image from a temporary URL and uploads it to Cloudinary as a Buffer stream.
  */
-const uploadImageFromUrl = async (imageUrl) => {
+const uploadImageFromUrl = async (imageSource) => {
   // ... (Your existing code untouched)
   try {
-    const response = await fetch(imageUrl)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image from DALL-E URL: ${response.statusText}`)
+    let buffer;
+    if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
+      const response = await fetch(imageSource)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image from URL: ${response.statusText}`)
+      }
+      const arrayBuffer = await response.arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
+    } else {
+      // Handle raw base64 string (strip data URI prefix if accidentally included)
+      const base64Data = imageSource.replace(/^data:image\/\w+;base64,/, '')
+      buffer = Buffer.from(base64Data, 'base64')
     }
-
-    const arrayBuffer = await response.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
 
     return await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
