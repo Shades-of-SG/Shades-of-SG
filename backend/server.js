@@ -17,10 +17,16 @@ const {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const allowedOrigins = [
-    'http://localhost:5173',
-    process.env.FRONTEND_URL,
-].filter(Boolean);
+function normalizeOrigin(value) {
+    return String(value || '').trim().replace(/\/$/, '');
+}
+
+const configuredOrigins = [process.env.FRONTEND_URL, process.env.FRONTEND_URLS]
+    .filter(Boolean)
+    .flatMap((value) => value.split(','))
+    .map(normalizeOrigin)
+    .filter(Boolean);
+const allowedOrigins = new Set(['http://localhost:5173', ...configuredOrigins]);
 
 app.use(
     cors({
@@ -30,11 +36,13 @@ app.use(
                 return callback(null, true);
             }
 
-            if (allowedOrigins.includes(origin)) {
+            if (allowedOrigins.has(normalizeOrigin(origin))) {
                 return callback(null, true);
             }
 
-            return callback(new Error('Not allowed by CORS'));
+            const error = new Error('Not allowed by CORS');
+            error.statusCode = 403;
+            return callback(error);
         },
         credentials: true,
     })
