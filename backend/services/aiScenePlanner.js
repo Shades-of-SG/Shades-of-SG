@@ -110,12 +110,26 @@ ${song.lyrics || 'No lyrics provided.'}`
       return cleaned.length > 0 ? cleaned : null
     }
 
+    // Robustly extract the lyrics, catching common LLM hallucinations
+    const extractLyrics = (scene) => {
+      let raw = scene.lyrics || scene.lyric || scene.text || scene.subtitle || scene.spoken_words;
+      if (!raw && typeof scene.visualPrompt === 'string') {
+        // If the LLM omitted the lyrics key and crammed it into the visualPrompt
+        // e.g., "We are Singapore - Cinematic shot of Marina Bay Sands"
+        const dashIndex = scene.visualPrompt.indexOf(' - ');
+        if (dashIndex > 0 && dashIndex < 100) {
+          raw = scene.visualPrompt.substring(0, dashIndex);
+        }
+      }
+      return raw || null;
+    }
+
     const sceneRecords = parsedData.scenes.map((scene) => ({
       jobId: jobId,
       songId: songId,
       startTime: scene.startTime,
       endTime: scene.endTime,
-      lyrics: sanitizeLyrics(scene.lyrics),
+      lyrics: sanitizeLyrics(extractLyrics(scene)),
       visualPrompt: scene.visualPrompt,
     }))
 

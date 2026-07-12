@@ -1,36 +1,41 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
-import { API_URL } from '../services/apiConfig'
+import mockJobData from '../data/mockJobData.json'
 
-export default function KindMasterEditor() {
+export default function VideoEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
   
-  const [jobData, setJobData] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchJob = async () => {
-      try {
-        const response = await fetch(`${API_URL}/generation/${id}/status`)
-        const json = await response.json()
-        if (json.success) {
-          setJobData(json.data)
+  const [jobData] = useState(mockJobData)
+  const [loading] = useState(false)
+  // eslint-disable-next-line no-unused-vars
+  const [song] = useState(mockJobData?.song || null)
+  
+  const [frames] = useState(() => {
+    // Temporarily bypass real fetch and hydrate from mockData
+    if (mockJobData?.song?.sceneSegments) {
+      const allFrames = []
+      const segments = [...mockJobData.song.sceneSegments].sort((a, b) => a.startTime - b.startTime)
+      
+      segments.forEach(segment => {
+        if (segment.generatedFrames && segment.generatedFrames.length > 0) {
+           const sortedFrames = [...segment.generatedFrames].sort((a, b) => a.frameOrder - b.frameOrder)
+           allFrames.push(...sortedFrames)
         }
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
+      })
+      return allFrames
     }
-    fetchJob()
-  }, [id])
+    return []
+  })
+  const [currentFrameIndex] = useState(0)
+  // eslint-disable-next-line no-unused-vars
+  const [audioUrl] = useState(mockJobData?.song?.audioUrl || '')
 
   if (loading) {
     return (
-      <CreatorPageShell breadcrumbs={['KindMaster Editor']} title="Editor" description="Loading workspace...">
+      <CreatorPageShell breadcrumbs={['Video Editor']} title="Editor" description="Loading workspace...">
         <div className="flex flex-col items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
         </div>
@@ -40,7 +45,7 @@ export default function KindMasterEditor() {
 
   return (
     <CreatorPageShell
-      breadcrumbs={['Generation Tasks', 'KindMaster Editor']}
+      breadcrumbs={['Generation Tasks', 'Video Editor']}
       title="KindMaster Timeline Editor"
       description="Refine your scenes, adjust timings, and export the final masterpiece."
       actions={
@@ -63,10 +68,20 @@ export default function KindMasterEditor() {
       <div className="flex flex-col bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-[70vh]">
         
         {/* Middle Canvas: Video Preview Placeholder */}
-        <div className="flex-1 flex items-center justify-center bg-black relative min-h-[40vh]">
-          <div className="text-center">
-            <h3 className="text-slate-500 font-bold text-xl uppercase tracking-widest mb-2">Video Preview Canvas</h3>
-            <p className="text-slate-600 text-sm">Main viewer will mount here</p>
+        <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
+          <div className="aspect-video w-full max-w-5xl mx-auto overflow-hidden rounded-xl border border-slate-700/50 bg-black shadow-2xl relative flex items-center justify-center">
+            {frames.length > 0 ? (
+              <img 
+                src={frames[currentFrameIndex]?.imageUrl} 
+                alt="Current Frame" 
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="text-center">
+                <h3 className="text-slate-500 font-bold text-xl uppercase tracking-widest mb-2">Video Preview Canvas</h3>
+                <p className="text-slate-600 text-sm">Main viewer will mount here</p>
+              </div>
+            )}
           </div>
         </div>
 

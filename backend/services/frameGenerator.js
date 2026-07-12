@@ -7,6 +7,7 @@
 const { OpenAI } = require('openai')
 const { GenerationJob, SceneSegment, GeneratedFrame } = require('../models')
 const aiStorageService = require('./aiStorageService')
+const cloudinary = require('../config/cloudinary')
 
 // Initialize OpenAI client with explicit API key passing
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -88,21 +89,36 @@ async function generateFrames(jobId, songId) {
             size: '1792x1024',
             n: 1,
           })
-          openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
-          if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
+          if (response.data?.[0]?.b64_json) {
+            openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json;
+          } else {
+            openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
+            if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
+          }
           if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI response: ${JSON.stringify(response.data)}`);
         } catch (openaiError) {
           // Fallback to GPT Image 1 Mini on any failure
           console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini for segment ${segment.id}.`)
+          
+          let safePrompt = segment.visualPrompt ? segment.visualPrompt.substring(0, 1000) : "Cinematic scene";
+          if (openaiError.message.toLowerCase().includes('safety') || openaiError.message.toLowerCase().includes('rejected')) {
+              console.warn(`[Safety Filter] Triggered! Replacing prompt with safe override.`);
+              safePrompt = "A beautiful, peaceful, abstract cinematic visualization of music and glowing light, safe for all audiences, vibrant colors";
+          }
+
           try {
             const fallbackResponse = await openai.images.generate({
               model: 'gpt-image-1-mini',
-              prompt: segment.visualPrompt ? segment.visualPrompt.substring(0, 1000) : "Cinematic scene",
+              prompt: safePrompt,
               size: '1536x1024',
               n: 1,
             })
-            openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link;
-            if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0];
+            if (fallbackResponse.data?.[0]?.b64_json) {
+              openAiImageUrl = 'data:image/png;base64,' + fallbackResponse.data[0].b64_json;
+            } else {
+              openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link;
+              if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0];
+            }
             if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`);
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
@@ -111,8 +127,21 @@ async function generateFrames(jobId, songId) {
         }
 
         // 4. Cloudinary Handoff
-        // Immediately upload to persistent storage before the OpenAI URL expires
-        finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
+        // Immediately upload to persistent storage before the OpenAI URL expires (or upload Data URI directly)
+        if (openAiImageUrl && openAiImageUrl.startsWith('data:image/')) {
+          const uploadResult = await new Promise((resolve, reject) => {
+             cloudinary.uploader.upload(openAiImageUrl, {
+               folder: 'shades-of-sg/frames',
+               resource_type: 'image'
+             }, (error, result) => {
+               if (error) reject(new Error(`Cloudinary Data URI Upload Error: ${error.message}`));
+               else resolve(result);
+             });
+          });
+          finalImageUrl = uploadResult.secure_url;
+        } else {
+          finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
+        }
 
         // Cache the newly acquired permanent URL for future segments
         imagePromptCache.set(cacheKey, finalImageUrl)

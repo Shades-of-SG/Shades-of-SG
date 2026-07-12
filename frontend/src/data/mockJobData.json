@@ -1,0 +1,901 @@
+{
+  "id": "f9395075-8e0e-4df3-99e0-29c1d7456257",
+  "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+  "status": "COMPLETED",
+  "errorMessage": null,
+  "createdAt": "2026-07-11T10:49:03.709Z",
+  "updatedAt": "2026-07-11T11:09:52.656Z",
+  "song": {
+    "id": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+    "creatorId": "f0cc0c28-3910-439c-a839-55c007d8ddff",
+    "title": "Tomorrow's Here Today",
+    "artist": "53A",
+    "theme": "Standard",
+    "language": null,
+    "moodTags": [],
+    "lyrics": "Raise your head to the skies\nThis is how we all begin\nSee the fire in your eyes\nFeel the yearning deep within\nTake a leap and you will fly\nWith all the wishes that you own\nMake your dreams light up the sky\nHome is where you're not alone\nAnd our hearts will beat together\nEchoing what dreams may come\nWalking tall in any weather\nTime has come, bang the drum\nCause tomorrow's here today\nFree away\nTake the world by the hand\nCause tomorrow's here today\nFree away\nFrom the storm right away\nCause tomorrow's here today\nStep into a brand new day\nTomorrow's calling out your name\nWhen you know just who you are\nYou can stop, you are a fire\nLooking up beyond the stars\nFly the flag you're raising higher\nAnd our hearts will beat together\nEchoing what dreams may come\nWalking tall in any weather\nTime has come, bang the drum\nCause tomorrow's here today\nFree away\nTake the world by the hand\nCause tomorrow's here today\nFree away\nFrom the storm right away\nCause tomorrow's here today\nWhen we run along\nAnd we're standing tall\nWhen we sing our song\nKnowing that we can't fall\nBe what we wanna be\nWhen we make our way\nTell the planets it's tomorrow's here today\nTake the world by the hand\nCause tomorrow's here today\nFrom the storm right away\nCause tomorrow's here today\nYeah Yeah Yeah\nYeah Yeah Yeah",
+    "description": "AI Generated",
+    "audioUrl": "https://res.cloudinary.com/dep1fjics/video/upload/v1783766931/shades-of-sg/audio/ps0fkqa3vb0nvz4jmrrn.mp4",
+    "videoUrl": null,
+    "status": "DRAFT",
+    "publishedDate": null,
+    "createdAt": "2026-07-11T10:49:03.691Z",
+    "updatedAt": "2026-07-11T11:09:52.632Z",
+    "sceneSegments": [
+      {
+        "id": "03265179-3527-4a60-9cff-428cb68ba1e1",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 0,
+        "endTime": 10,
+        "lyrics": "Raise your head to the skies",
+        "emotion": null,
+        "visualPrompt": "A panoramic view of Singapore's skyline at dawn, with the Marina Bay Sands and Gardens by the Bay in the background. The sky is beginning to lighten, filled with vibrant oranges and purples. The scene is captured from a low angle looking up, emphasizing the grandeur and potential of the new day. The atmosphere is hopeful and inspiring.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "59a6c1aa-158c-4c40-ae36-7f3d74d33499",
+            "sceneSegmentId": "03265179-3527-4a60-9cff-428cb68ba1e1",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767015/shades-of-sg/frames/zkb82sl2ulszprkgjkvb.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:50:15.493Z",
+            "updatedAt": "2026-07-11T10:50:15.493Z"
+          }
+        ]
+      },
+      {
+        "id": "7faa93a2-6cdd-46fe-ba45-f78eceb109cf",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 10,
+        "endTime": 20,
+        "lyrics": "This is how we all begin",
+        "emotion": null,
+        "visualPrompt": "A diverse group of young Singaporeans on a rooftop, looking towards the sunrise with hopeful expressions. The golden morning light casts a warm glow on their faces, symbolizing new beginnings. The camera captures them from behind, focusing on their silhouettes against the rising sun. The mood is optimistic and inclusive.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "aaa68fed-1f49-4486-a89e-a5b7d9895416",
+            "sceneSegmentId": "7faa93a2-6cdd-46fe-ba45-f78eceb109cf",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767058/shades-of-sg/frames/bkxzlgm47zowx12m71lr.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:50:58.854Z",
+            "updatedAt": "2026-07-11T10:50:58.854Z"
+          }
+        ]
+      },
+      {
+        "id": "bced435a-fd17-4065-884b-cb05295c8dc8",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 20,
+        "endTime": 30,
+        "lyrics": "See the fire in your eyes",
+        "emotion": null,
+        "visualPrompt": "Close-up of a young person's eyes reflecting the fiery hues of a sunrise. The camera zooms in to capture the determination and passion in their gaze. The lighting is intense and dramatic, highlighting the theme of inner strength and ambition.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "3149c63b-dae7-41a8-930b-ea6f048294e1",
+            "sceneSegmentId": "bced435a-fd17-4065-884b-cb05295c8dc8",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767099/shades-of-sg/frames/ii8z1ansdxznrjtjap2v.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:51:40.073Z",
+            "updatedAt": "2026-07-11T10:51:40.073Z"
+          }
+        ]
+      },
+      {
+        "id": "dc5c401a-dd29-4663-8128-9ad7b17a5cff",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 30,
+        "endTime": 40,
+        "lyrics": "Feel the yearning deep within",
+        "emotion": null,
+        "visualPrompt": "A bustling street market in Singapore, filled with vibrant colors and diverse people. The camera pans slowly over the scene, capturing the hustle and bustle, as well as the individual expressions of people deeply engaged in their daily lives. The lighting is natural, with a warm, inviting atmosphere.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "aeeb801a-bdbe-4110-8315-f3905d078eaf",
+            "sceneSegmentId": "dc5c401a-dd29-4663-8128-9ad7b17a5cff",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767229/shades-of-sg/frames/bymoo2paxxdsh4ctgf6a.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:53:50.010Z",
+            "updatedAt": "2026-07-11T10:53:50.010Z"
+          }
+        ]
+      },
+      {
+        "id": "e4c2370e-f895-459e-8358-7a5e293f2574",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 40,
+        "endTime": 50,
+        "lyrics": "Take a leap and you will fly",
+        "emotion": null,
+        "visualPrompt": "A young person standing on the edge of a rooftop, poised to jump. The cityscape stretches out below them, representing limitless possibilities. The camera captures them from a side angle, emphasizing the leap into the unknown. The atmosphere is thrilling and adventurous.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "35edf49d-6c58-4fb3-bb13-04b70b2e98fe",
+            "sceneSegmentId": "e4c2370e-f895-459e-8358-7a5e293f2574",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767239/shades-of-sg/frames/loxfo4ib1al6fo5enz2s.jpg",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:53:59.371Z",
+            "updatedAt": "2026-07-11T10:53:59.371Z"
+          }
+        ]
+      },
+      {
+        "id": "679cefad-4a72-4584-96d5-ea8bfe976a23",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 50,
+        "endTime": 60,
+        "lyrics": "With all the wishes that you own",
+        "emotion": null,
+        "visualPrompt": "A scene of a serene park in Singapore, where a person releases a paper lantern into the sky. The lantern glows softly, carrying the person's wishes into the air. The camera captures the moment from a medium angle, focusing on the gentle ascent. The mood is peaceful and hopeful.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "7de8f188-0ac7-4b98-9d1a-9480369cdf1d",
+            "sceneSegmentId": "679cefad-4a72-4584-96d5-ea8bfe976a23",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767281/shades-of-sg/frames/sgscrnk9e1pehpsxbxam.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:54:41.479Z",
+            "updatedAt": "2026-07-11T10:54:41.479Z"
+          }
+        ]
+      },
+      {
+        "id": "1c6a2ce6-5cfc-4295-a914-1969a9a60a99",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 60,
+        "endTime": 70,
+        "lyrics": "Make your dreams light up the sky",
+        "emotion": null,
+        "visualPrompt": "A night scene where fireworks explode over the Singapore River, lighting up the sky with brilliant colors. The reflection of the fireworks dances on the water. The camera captures the awe of onlookers gathered along the riverbank. The atmosphere is celebratory and magical.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "e28bd5a1-8d62-4454-a673-d259aee77ad2",
+            "sceneSegmentId": "1c6a2ce6-5cfc-4295-a914-1969a9a60a99",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767325/shades-of-sg/frames/y0s7vqr8mptrqmkretxf.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:55:25.282Z",
+            "updatedAt": "2026-07-11T10:55:25.282Z"
+          }
+        ]
+      },
+      {
+        "id": "aafc091c-0fb5-4f06-ab85-f9dd83231954",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 70,
+        "endTime": 80,
+        "lyrics": "Home is where you're not alone",
+        "emotion": null,
+        "visualPrompt": "A cozy living room setting with a family gathered together, sharing stories and laughter. The warm lighting creates a sense of comfort and belonging. The camera captures the scene from a wide angle, emphasizing the sense of togetherness and community.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "d2296a88-57e1-4a16-ad4f-dabf7c16e914",
+            "sceneSegmentId": "aafc091c-0fb5-4f06-ab85-f9dd83231954",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767372/shades-of-sg/frames/bwbh6vg0vyoqta1fqmyg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:56:12.608Z",
+            "updatedAt": "2026-07-11T10:56:12.608Z"
+          }
+        ]
+      },
+      {
+        "id": "f9ad99ac-b4a5-4491-a434-e802cf5a5321",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 80,
+        "endTime": 90,
+        "lyrics": "And our hearts will beat together",
+        "emotion": null,
+        "visualPrompt": "A montage of different people across Singapore, each placing a hand on their chest, feeling the rhythm of their heartbeat. The camera zooms in on each person individually, then pulls back to show a synchronized movement, symbolizing unity. The lighting is soft and emotive.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "fdcb0728-cb03-4dc1-9c23-34de3c494246",
+            "sceneSegmentId": "f9ad99ac-b4a5-4491-a434-e802cf5a5321",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767423/shades-of-sg/frames/n8dmw4ftgcd0wqmoeqyf.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:57:04.458Z",
+            "updatedAt": "2026-07-11T10:57:04.458Z"
+          }
+        ]
+      },
+      {
+        "id": "34eba27a-5db6-4295-bd5c-20f0f13afe88",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 90,
+        "endTime": 100,
+        "lyrics": "Echoing what dreams may come",
+        "emotion": null,
+        "visualPrompt": "A dreamlike sequence of iconic Singapore locations, such as the Esplanade and Singapore Flyer, bathed in a soft, ethereal light. The camera glides smoothly through each location, creating a sense of wonder and possibility. The mood is reflective and transcendent.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "567de69a-d657-4ac3-ab88-0ca84eee3fd2",
+            "sceneSegmentId": "34eba27a-5db6-4295-bd5c-20f0f13afe88",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767470/shades-of-sg/frames/ypq3pou4ewhynkfkzi0a.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:57:50.632Z",
+            "updatedAt": "2026-07-11T10:57:50.632Z"
+          }
+        ]
+      },
+      {
+        "id": "52bbb3e9-929e-4642-9b89-1c0cdd994b9e",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 100,
+        "endTime": 110,
+        "lyrics": "Walking tall in any weather",
+        "emotion": null,
+        "visualPrompt": "A diverse group of Singaporeans walking confidently through a bustling city street, unfazed by a light rain. The camera captures them from a low angle, emphasizing their strength and resilience. The lighting is dynamic, with raindrops glistening in the air.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "3ab20872-5cc0-425c-a90e-28fd87386227",
+            "sceneSegmentId": "52bbb3e9-929e-4642-9b89-1c0cdd994b9e",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767519/shades-of-sg/frames/zaaz1dnabwhxp7te1ab8.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:58:39.750Z",
+            "updatedAt": "2026-07-11T10:58:39.750Z"
+          }
+        ]
+      },
+      {
+        "id": "be271414-16f1-45f1-ba65-077637b5c4b7",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 110,
+        "endTime": 120,
+        "lyrics": "Time has come, bang the drum",
+        "emotion": null,
+        "visualPrompt": "A vibrant cultural festival in Singapore, with traditional drummers performing energetically. The camera captures the rhythmic movement of the drums and the lively expressions of the performers. The lighting is vibrant and energetic, reflecting the festive atmosphere.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "62402677-6c31-4982-9998-8e88776e158e",
+            "sceneSegmentId": "be271414-16f1-45f1-ba65-077637b5c4b7",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767568/shades-of-sg/frames/yyp0econsqe2pkaitrxw.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T10:59:29.117Z",
+            "updatedAt": "2026-07-11T10:59:29.117Z"
+          }
+        ]
+      },
+      {
+        "id": "7f274cae-8869-428d-809c-a94ace92cf33",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 120,
+        "endTime": 130,
+        "lyrics": "Cause tomorrow's here today",
+        "emotion": null,
+        "visualPrompt": "A symbolic scene of a sunrise over the Singaporean landscape, with a flag raised high in the foreground. The camera slowly pans from the flag to the horizon, capturing the first light of day. The mood is triumphant and forward-looking.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "d6b1c88f-104c-4005-bd0c-b647a253c4f5",
+            "sceneSegmentId": "7f274cae-8869-428d-809c-a94ace92cf33",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767613/shades-of-sg/frames/z1qnj3ibgqevakqaldrg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:00:13.864Z",
+            "updatedAt": "2026-07-11T11:00:13.864Z"
+          }
+        ]
+      },
+      {
+        "id": "295f45bd-4464-4a29-b2dc-27dd63c96a23",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 130,
+        "endTime": 140,
+        "lyrics": "Free away",
+        "emotion": null,
+        "visualPrompt": "A scene of a kite soaring high in the sky, its tail streaming in the wind against a backdrop of fluffy clouds. The camera captures the kite from a low angle, emphasizing its freedom and the vastness of the sky. The atmosphere is light and liberating.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "8b5eeaca-6e22-4b28-8dd7-5356895f80db",
+            "sceneSegmentId": "295f45bd-4464-4a29-b2dc-27dd63c96a23",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767654/shades-of-sg/frames/skgrrcqkzstivwdyudey.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:00:54.416Z",
+            "updatedAt": "2026-07-11T11:00:54.416Z"
+          }
+        ]
+      },
+      {
+        "id": "d9176aa1-18fe-4bdc-8bea-32fc752f4b2d",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 140,
+        "endTime": 150,
+        "lyrics": "Take the world by the hand",
+        "emotion": null,
+        "visualPrompt": "A symbolic image of hands from different ethnic backgrounds joining together over a map of the world. The camera focuses on the hands, emphasizing unity and collaboration. The lighting is warm and harmonious, symbolizing global connection.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "5dd8c39f-fad7-471b-8c12-9240942a1907",
+            "sceneSegmentId": "d9176aa1-18fe-4bdc-8bea-32fc752f4b2d",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767697/shades-of-sg/frames/faw3oxz2ysl4ozymuubx.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:01:38.195Z",
+            "updatedAt": "2026-07-11T11:01:38.195Z"
+          }
+        ]
+      },
+      {
+        "id": "7781ada9-7563-4ee2-a848-2679eff69606",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 150,
+        "endTime": 160,
+        "lyrics": "Cause tomorrow's here today",
+        "emotion": null,
+        "visualPrompt": "A time-lapse of a busy Singapore street transitioning from night to day, capturing the vibrant energy of the city as it awakens. The camera is positioned at a high vantage point, showcasing the flow of life and activity. The mood is optimistic and energetic.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "efbacfac-5e05-4535-aa83-523f851a40da",
+            "sceneSegmentId": "7781ada9-7563-4ee2-a848-2679eff69606",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767613/shades-of-sg/frames/z1qnj3ibgqevakqaldrg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:01:38.205Z",
+            "updatedAt": "2026-07-11T11:01:38.205Z"
+          }
+        ]
+      },
+      {
+        "id": "b62f5236-8a7d-4b35-9264-efe095d97e5d",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 160,
+        "endTime": 170,
+        "lyrics": "Free away",
+        "emotion": null,
+        "visualPrompt": "A scene of children playing freely in an open field, their laughter echoing in the air. The camera captures their joy and spontaneity from a wide angle, with the sun setting in the background. The atmosphere is carefree and joyful.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "c75f89b7-36f0-4790-9117-3076665f9b74",
+            "sceneSegmentId": "b62f5236-8a7d-4b35-9264-efe095d97e5d",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767654/shades-of-sg/frames/skgrrcqkzstivwdyudey.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:01:38.210Z",
+            "updatedAt": "2026-07-11T11:01:38.210Z"
+          }
+        ]
+      },
+      {
+        "id": "1501e450-5d1c-40e1-a568-ef35666fad30",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 170,
+        "endTime": 180,
+        "lyrics": "From the storm right away",
+        "emotion": null,
+        "visualPrompt": "A dramatic scene of storm clouds parting to reveal a clear sky, symbolizing overcoming adversity. The camera captures the transformation from a low angle, emphasizing the power of nature and resilience. The mood is empowering and hopeful.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "eb7a098c-3811-4a68-a495-fc61b303e802",
+            "sceneSegmentId": "1501e450-5d1c-40e1-a568-ef35666fad30",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767729/shades-of-sg/frames/npdbfe3twfgvr03iglkz.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:02:10.021Z",
+            "updatedAt": "2026-07-11T11:02:10.021Z"
+          }
+        ]
+      },
+      {
+        "id": "c40fd010-3e93-49ac-afd1-a06e6d8fd622",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 180,
+        "endTime": 190,
+        "lyrics": "Cause tomorrow's here today",
+        "emotion": null,
+        "visualPrompt": "A symbolic image of a young person planting a small tree in a community garden, watched by a group of supportive friends and family. The camera focuses on the act of planting, symbolizing growth and a sustainable future. The lighting is soft and nurturing.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "75445640-1d69-4617-86bb-12cfda511d4f",
+            "sceneSegmentId": "c40fd010-3e93-49ac-afd1-a06e6d8fd622",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767613/shades-of-sg/frames/z1qnj3ibgqevakqaldrg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:02:10.030Z",
+            "updatedAt": "2026-07-11T11:02:10.030Z"
+          }
+        ]
+      },
+      {
+        "id": "8e1012cc-68ab-4c9a-8829-ae2b3ff4a437",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 190,
+        "endTime": 200,
+        "lyrics": "Step into a brand new day",
+        "emotion": null,
+        "visualPrompt": "A vibrant scene of a bustling Singaporean street market waking up in the early morning light. The camera captures vendors setting up their stalls, the aroma of food wafting through the air. The mood is lively and full of anticipation.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "5a8cf2be-8d6f-4ae4-944c-ae3a8b14b6c4",
+            "sceneSegmentId": "8e1012cc-68ab-4c9a-8829-ae2b3ff4a437",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767862/shades-of-sg/frames/p3ke5px4noa49rqtp8xd.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:04:22.564Z",
+            "updatedAt": "2026-07-11T11:04:22.564Z"
+          }
+        ]
+      },
+      {
+        "id": "fa9849dd-8b37-464b-a1b8-7345f6930745",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 200,
+        "endTime": 210,
+        "lyrics": "Tomorrow's calling out your name",
+        "emotion": null,
+        "visualPrompt": "A young person standing at the edge of a busy intersection, looking determinedly into the distance. The camera captures them from a slightly elevated angle as the city moves dynamically around them. The atmosphere is filled with opportunity and promise.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "0f808ee9-cde3-4bab-b1a1-637eb4065516",
+            "sceneSegmentId": "fa9849dd-8b37-464b-a1b8-7345f6930745",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767908/shades-of-sg/frames/naw3rdiqphvjg5jgcz4z.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:05:08.487Z",
+            "updatedAt": "2026-07-11T11:05:08.487Z"
+          }
+        ]
+      },
+      {
+        "id": "c5f3ffd4-6393-4a94-b5d5-0a49a86f3cbb",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 210,
+        "endTime": 220,
+        "lyrics": "When you know just who you are",
+        "emotion": null,
+        "visualPrompt": "A reflective scene of a person looking into a mirror, seeing themselves surrounded by images of their achievements and dreams. The lighting is soft and introspective, capturing a moment of self-realization and confidence.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "3dec2fcb-f66b-49a8-82bc-1a430427d34a",
+            "sceneSegmentId": "c5f3ffd4-6393-4a94-b5d5-0a49a86f3cbb",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767957/shades-of-sg/frames/xxkhio2vrv5fgbf7ry93.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:05:58.012Z",
+            "updatedAt": "2026-07-11T11:05:58.012Z"
+          }
+        ]
+      },
+      {
+        "id": "4121e63a-c08e-40c9-8e9b-e2ac577c3aa2",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 220,
+        "endTime": 230,
+        "lyrics": "You can stop, you are a fire",
+        "emotion": null,
+        "visualPrompt": "An intense close-up of a person standing in the middle of a busy city street, their eyes filled with determination and passion as they remain unaffected by the chaos around them. The lighting is dynamic, emphasizing their inner strength and energy.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "8bd9042d-6140-4a47-8f3f-27aa9f46c88f",
+            "sceneSegmentId": "4121e63a-c08e-40c9-8e9b-e2ac577c3aa2",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783768002/shades-of-sg/frames/xi6t39dd5ghr5gnqtdm4.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:06:43.109Z",
+            "updatedAt": "2026-07-11T11:06:43.109Z"
+          }
+        ]
+      },
+      {
+        "id": "4ebaa1d5-3b97-4ac8-b1e1-fac1ac14ead0",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 230,
+        "endTime": 240,
+        "lyrics": "Looking up beyond the stars",
+        "emotion": null,
+        "visualPrompt": "A serene night scene of a person lying on a grassy hill, gazing up at a sky filled with stars. The camera captures the vastness of the universe above and the person's sense of wonder and aspiration. The atmosphere is calm and infinite.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "f00b3f93-bf0a-4924-aed6-9037b4d222b8",
+            "sceneSegmentId": "4ebaa1d5-3b97-4ac8-b1e1-fac1ac14ead0",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783768043/shades-of-sg/frames/dtvhjzculdo81dawnfai.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:07:23.877Z",
+            "updatedAt": "2026-07-11T11:07:23.877Z"
+          }
+        ]
+      },
+      {
+        "id": "ab22c239-34ff-44d6-864d-b2cc09dc4fb2",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 240,
+        "endTime": 250,
+        "lyrics": "Fly the flag you're raising higher",
+        "emotion": null,
+        "visualPrompt": "A powerful image of a flag being raised high in a community square, surrounded by people from diverse backgrounds celebrating together. The camera captures the scene from a low angle, highlighting pride and unity. The lighting is bright and uplifting.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "a71fd9c6-f22d-44af-bcd4-9610d1a63fb8",
+            "sceneSegmentId": "ab22c239-34ff-44d6-864d-b2cc09dc4fb2",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783768096/shades-of-sg/frames/m2gvdfrlf4rig7mdg6tz.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.129Z",
+            "updatedAt": "2026-07-11T11:08:17.129Z"
+          }
+        ]
+      },
+      {
+        "id": "96d4a9bc-f8cd-48a3-99f5-19da57303744",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 250,
+        "endTime": 260,
+        "lyrics": "And our hearts will beat together",
+        "emotion": null,
+        "visualPrompt": "A montage of people across Singapore, each holding their hand to their chest in a gesture of shared hope and solidarity. The camera transitions smoothly between each person, creating a sense of connectedness. The lighting is warm and inclusive.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "0a25eccd-8920-4101-bfa6-8d475e37318e",
+            "sceneSegmentId": "96d4a9bc-f8cd-48a3-99f5-19da57303744",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767423/shades-of-sg/frames/n8dmw4ftgcd0wqmoeqyf.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.137Z",
+            "updatedAt": "2026-07-11T11:08:17.137Z"
+          }
+        ]
+      },
+      {
+        "id": "3dac435f-fd80-4423-9dce-3e208cdaabdf",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 260,
+        "endTime": 270,
+        "lyrics": "Echoing what dreams may come",
+        "emotion": null,
+        "visualPrompt": "A dreamlike vision of Singapore's future, with futuristic buildings and technologies integrated into the landscape. The camera pans over this imagined skyline, filled with innovation and creativity. The atmosphere is visionary and optimistic.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "a72726e6-0749-44bd-b841-61050214c3ae",
+            "sceneSegmentId": "3dac435f-fd80-4423-9dce-3e208cdaabdf",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767470/shades-of-sg/frames/ypq3pou4ewhynkfkzi0a.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.141Z",
+            "updatedAt": "2026-07-11T11:08:17.141Z"
+          }
+        ]
+      },
+      {
+        "id": "f45a5681-1045-4885-b28b-154bacf66df4",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 270,
+        "endTime": 280,
+        "lyrics": "Walking tall in any weather",
+        "emotion": null,
+        "visualPrompt": "A diverse group of people walking confidently through a rain-soaked street, their reflections shimmering in the puddles. The camera captures them from a low angle, emphasizing their collective strength and resilience. The lighting is dramatic and empowering.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "528ea404-f399-4863-9020-e68f82f228da",
+            "sceneSegmentId": "f45a5681-1045-4885-b28b-154bacf66df4",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767519/shades-of-sg/frames/zaaz1dnabwhxp7te1ab8.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.162Z",
+            "updatedAt": "2026-07-11T11:08:17.162Z"
+          }
+        ]
+      },
+      {
+        "id": "bdfe3182-740b-4918-9254-0e551b0497a9",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 280,
+        "endTime": 290,
+        "lyrics": "Time has come, bang the drum",
+        "emotion": null,
+        "visualPrompt": "A vibrant cultural performance featuring traditional drummers and dancers in a lively street festival. The camera captures the energy of the performance, focusing on the rhythm and movement. The atmosphere is festive and energetic.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "e183d910-9598-4f5b-84d0-4e780d0abe52",
+            "sceneSegmentId": "bdfe3182-740b-4918-9254-0e551b0497a9",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767568/shades-of-sg/frames/yyp0econsqe2pkaitrxw.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.167Z",
+            "updatedAt": "2026-07-11T11:08:17.167Z"
+          }
+        ]
+      },
+      {
+        "id": "f1c38a01-06ab-4436-ad31-0ecd3f22474e",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 290,
+        "endTime": 300,
+        "lyrics": "Cause tomorrow's here today",
+        "emotion": null,
+        "visualPrompt": "A symbolic sunrise scene over Singapore, with the city waking to a new day. The camera captures the transition from darkness to light, symbolizing hope and renewal. The mood is uplifting and forward-looking.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "62335072-37e2-4e54-863f-443a9a53cbef",
+            "sceneSegmentId": "f1c38a01-06ab-4436-ad31-0ecd3f22474e",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767613/shades-of-sg/frames/z1qnj3ibgqevakqaldrg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.183Z",
+            "updatedAt": "2026-07-11T11:08:17.183Z"
+          }
+        ]
+      },
+      {
+        "id": "83bf2c48-1206-466f-9275-f13daddd07e3",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 300,
+        "endTime": 310,
+        "lyrics": "Free away",
+        "emotion": null,
+        "visualPrompt": "A scene of children running freely in an open park, their laughter and joy evident as they play together. The camera captures their movement from a wide angle, with the sun shining brightly overhead. The atmosphere is joyful and carefree.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "a8069977-ac97-4747-97e1-72910a720e73",
+            "sceneSegmentId": "83bf2c48-1206-466f-9275-f13daddd07e3",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767654/shades-of-sg/frames/skgrrcqkzstivwdyudey.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.193Z",
+            "updatedAt": "2026-07-11T11:08:17.193Z"
+          }
+        ]
+      },
+      {
+        "id": "c7acfd2f-0381-4ee5-9f5d-3308c7845326",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 310,
+        "endTime": 320,
+        "lyrics": "Take the world by the hand",
+        "emotion": null,
+        "visualPrompt": "An image of people from diverse backgrounds joining hands in a circle, symbolizing global unity and collaboration. The camera focuses on the hands and the diversity of skin tones, emphasizing connection. The lighting is soft and harmonious.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "51c84cc7-eee8-4ed8-a458-8e33b7737275",
+            "sceneSegmentId": "c7acfd2f-0381-4ee5-9f5d-3308c7845326",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767697/shades-of-sg/frames/faw3oxz2ysl4ozymuubx.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.198Z",
+            "updatedAt": "2026-07-11T11:08:17.198Z"
+          }
+        ]
+      },
+      {
+        "id": "b5b9a84a-2d21-4c3d-a59a-703a499779f1",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 320,
+        "endTime": 330,
+        "lyrics": "Cause tomorrow's here today",
+        "emotion": null,
+        "visualPrompt": "A symbolic scene of a cityscape transitioning from night to day, with the first light illuminating the skyline. The camera captures the awakening city, filled with promise and potential. The mood is optimistic and energetic.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "1b5cc0e5-3c7b-4051-8eb3-f1064e159d1b",
+            "sceneSegmentId": "b5b9a84a-2d21-4c3d-a59a-703a499779f1",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767613/shades-of-sg/frames/z1qnj3ibgqevakqaldrg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.220Z",
+            "updatedAt": "2026-07-11T11:08:17.220Z"
+          }
+        ]
+      },
+      {
+        "id": "66ee1578-3c0c-42c8-a183-f07750ad60eb",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 330,
+        "endTime": 340,
+        "lyrics": "Free away",
+        "emotion": null,
+        "visualPrompt": "A kite flying high in a clear blue sky, symbolizing freedom and limitless potential. The camera captures the kite from a low angle, emphasizing its soaring flight and the vastness of the sky. The atmosphere is light and liberating.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "bb03d9f5-3820-470b-a3a2-8a606b0ad4e3",
+            "sceneSegmentId": "66ee1578-3c0c-42c8-a183-f07750ad60eb",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767654/shades-of-sg/frames/skgrrcqkzstivwdyudey.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.231Z",
+            "updatedAt": "2026-07-11T11:08:17.231Z"
+          }
+        ]
+      },
+      {
+        "id": "1cbfc80f-5f17-47db-8811-317a0564224b",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 340,
+        "endTime": 350,
+        "lyrics": "From the storm right away",
+        "emotion": null,
+        "visualPrompt": "A dramatic scene of storm clouds giving way to clear skies, symbolizing overcoming challenges. The camera captures the change from a low angle, highlighting the power of resilience. The mood is empowering and hopeful.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "880c9a96-6619-4877-9876-cbdc7affce70",
+            "sceneSegmentId": "1cbfc80f-5f17-47db-8811-317a0564224b",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767729/shades-of-sg/frames/npdbfe3twfgvr03iglkz.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.241Z",
+            "updatedAt": "2026-07-11T11:08:17.241Z"
+          }
+        ]
+      },
+      {
+        "id": "0c3d1297-8f41-4337-a358-18b85bd67a31",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 350,
+        "endTime": 360,
+        "lyrics": "Cause tomorrow's here today",
+        "emotion": null,
+        "visualPrompt": "A scene of a young person planting a sapling in a community garden, symbolizing growth and a sustainable future. The camera focuses on the act of planting, with friends and family offering support. The lighting is soft and nurturing.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "8453c956-9c9a-481d-ba90-fa13d8d30e0e",
+            "sceneSegmentId": "0c3d1297-8f41-4337-a358-18b85bd67a31",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783767613/shades-of-sg/frames/z1qnj3ibgqevakqaldrg.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:08:17.258Z",
+            "updatedAt": "2026-07-11T11:08:17.258Z"
+          }
+        ]
+      },
+      {
+        "id": "b36e2611-ff10-4e61-8bd7-5d7cfa85259f",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 360,
+        "endTime": 370,
+        "lyrics": "Yeah Yeah Yeah",
+        "emotion": null,
+        "visualPrompt": "A montage of celebratory scenes across Singapore, with people of all ages and backgrounds enjoying life and celebrating together. The camera captures various joyful moments, emphasizing community and happiness. The atmosphere is festive and vibrant.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "c1ec8ee0-77cb-4f42-bddf-816abbbe5b4d",
+            "sceneSegmentId": "b36e2611-ff10-4e61-8bd7-5d7cfa85259f",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783768155/shades-of-sg/frames/wjwgxtydivgfwahgdxkn.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:09:16.329Z",
+            "updatedAt": "2026-07-11T11:09:16.329Z"
+          }
+        ]
+      },
+      {
+        "id": "074945b7-0341-4101-92f2-0f86398d272f",
+        "songId": "4d0cfed0-292e-4324-acf3-0059a9f7759c",
+        "startTime": 370,
+        "endTime": 380,
+        "lyrics": "Yeah Yeah Yeah",
+        "emotion": null,
+        "visualPrompt": "A final scene of a breathtaking panoramic view of Singapore at dusk, with the city lights beginning to twinkle. The camera pulls back to reveal the entire skyline, symbolizing a bright future. The mood is serene and hopeful.",
+        "createdAt": "2026-07-11T10:49:31.465Z",
+        "updatedAt": "2026-07-11T10:49:31.465Z",
+        "generatedFrames": [
+          {
+            "id": "698fcbd7-be14-4a10-bb83-7ea5336e974b",
+            "sceneSegmentId": "074945b7-0341-4101-92f2-0f86398d272f",
+            "promptHash": null,
+            "cloudinaryId": null,
+            "imageUrl": "https://res.cloudinary.com/dep1fjics/image/upload/v1783768155/shades-of-sg/frames/wjwgxtydivgfwahgdxkn.png",
+            "frameOrder": 0,
+            "createdAt": "2026-07-11T11:09:16.340Z",
+            "updatedAt": "2026-07-11T11:09:16.340Z"
+          }
+        ]
+      }
+    ]
+  }
+}
