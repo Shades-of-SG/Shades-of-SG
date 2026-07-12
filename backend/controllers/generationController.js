@@ -93,7 +93,6 @@ const getGenerationStatus = async (req, res, next) => {
         { 
           model: Song, 
           as: 'song', 
-          attributes: ['title', 'artist', 'audioUrl'],
           include: [
             {
               model: SceneSegment,
