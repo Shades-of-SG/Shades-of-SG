@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 
-const SESSION_STORAGE_KEY = 'shadesOfSgGuestSession'
+const SESSION_STORAGE_KEY = 'shadesOfSgGuestSession' //why is this here and not in env..?
 const SessionContext = createContext(null)
 
 function createGuestSession() {

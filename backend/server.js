@@ -6,6 +6,8 @@ const sequelize = require('./config/database');
 const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
+const reflectionsRouter = require("./routes/reflections");
+const statsRouter = require("./routes/stats");
 const { seedCreatorAccount } = require('./services/authService');
 
 const app = express();
@@ -28,6 +30,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/songs', songsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/auth', authRouter);
+app.use("/api/reflections", reflectionsRouter);
+app.use("/api/stats", statsRouter);
 
 app.use(errorHandler);
 
