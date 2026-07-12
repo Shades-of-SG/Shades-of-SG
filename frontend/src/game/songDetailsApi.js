@@ -1,7 +1,5 @@
 import { API_URL } from '../services/apiConfig'
 
-export const PLACEHOLDER_VIDEO_URL = '/videos/exploding-kittens-placeholder.mp4'
-
 export async function fetchSongDetails(songId) {
   const response = await fetch(`${API_URL}/songs/${encodeURIComponent(songId)}`)
 
@@ -14,7 +12,13 @@ export async function fetchSongDetails(songId) {
 
   return {
     id: song.id || songId,
-    theme: song.theme || 'Heritage',
+    artist: song.artist || '',
+    description: song.description || '',
+    audioUrl: song.audioUrl || '',
+    coverImageUrl: song.coverImageUrl || '',
+    durationSecs: song.durationSecs || 0,
+    languages: song.languages || [],
+    theme: song.theme || '',
     thumbnailUrl:
       song.thumbnail_url ||
       song.thumbnailUrl ||

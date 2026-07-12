@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Reveal from '../components/Reveal'
 import useReveal from '../hooks/useReveal'
+import { getPublishedSongs } from '../services/publicSongService'
 
 const milestones = [
   {
@@ -153,12 +154,21 @@ function ModuleCard({ module }) {
 }
 
 export default function LearningHub() {
+  const [publishedSongs, setPublishedSongs] = useState([])
+  const [songError, setSongError] = useState('')
+  const [songsLoading, setSongsLoading] = useState(true)
   const [openMilestones, setOpenMilestones] = useState(() => new Set([0]))
   const [factIndex, setFactIndex] = useState(0)
   const [questionIndex, setQuestionIndex] = useState(0)
   const [quizChoice, setQuizChoice] = useState(null)
   const timelineRef = useRef(null)
   const currentQuestion = quizQuestions[questionIndex]
+
+  useEffect(() => {
+    let active = true
+    getPublishedSongs().then((songs) => active && setPublishedSongs(songs)).catch((error) => active && setSongError(error.message)).finally(() => active && setSongsLoading(false))
+    return () => { active = false }
+  }, [])
 
   function toggleMilestone(index) {
     setOpenMilestones((current) => {
@@ -239,6 +249,14 @@ export default function LearningHub() {
             </Reveal>
           ))}
         </div>
+      </section>
+
+      <section className="learning-modules">
+        <div className="learning-section-heading"><h2>Learn Through Published Songs</h2><p>Choose a Song to carry its real ID into connected activities.</p></div>
+        {songsLoading ? <p role="status">Loading published songs…</p> : null}
+        {songError ? <div className="state-box" role="alert">{songError}</div> : null}
+        {!songsLoading && !songError && publishedSongs.length === 0 ? <div className="state-box"><strong>No published songs yet</strong><p>Song-led learning will appear after a creator publishes a Song.</p></div> : null}
+        <div className="learning-modules__grid">{publishedSongs.map((song) => <article className="learning-module-card" key={song.id}>{song.coverImageUrl ? <img alt={`${song.title} cover`} className="creator-song-cover" src={song.coverImageUrl} /> : null}<h3>{song.title}</h3><p>{song.artist || 'Artist unavailable'} · {song.theme || 'Theme unavailable'}</p><div className="button-row"><Link to={`/songs/${song.id}`}>Explore</Link><Link to={`/songs/${song.id}/trivia`}>Trivia</Link><Link to={`/songs/${song.id}/playground`}>Playground</Link></div></article>)}</div>
       </section>
 
       <Reveal as="section" className="learning-fact">

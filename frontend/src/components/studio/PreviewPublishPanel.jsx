@@ -1,7 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 
-const defaultPlaceholderYoutubeLink = 'https://youtu.be/GaMS0F0_xMI?si=3d4MR7gyws6uxbl2'
-
 function getValue(value) {
   return value?.trim() || '--'
 }
@@ -83,7 +81,7 @@ export default function PreviewPublishPanel({
   const hasDescription = Boolean(description.trim())
   const hasLyrics = Boolean(lyrics.trim())
   const isVideoMedia = mediaType === 'video'
-  const effectiveYoutubeLink = youtubeLink?.trim() || (!audioSrc ? defaultPlaceholderYoutubeLink : '')
+  const effectiveYoutubeLink = youtubeLink?.trim() || ''
   const youtubeEmbedUrl = audioSrc ? '' : getYoutubeEmbedUrl(effectiveYoutubeLink)
   const audioProgress = audioDuration ? (audioCurrentTime / audioDuration) * 100 : 0
   const hasMediaPreview = Boolean(audioSrc || youtubeEmbedUrl)

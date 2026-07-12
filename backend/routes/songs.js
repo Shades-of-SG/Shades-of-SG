@@ -1,91 +1,44 @@
 const express = require('express');
-const { Song } = require('../models');
+const multer = require('multer');
 const songController = require('../controllers/songController');
+const { requireCreator } = require('../middleware/auth');
 
 const router = express.Router();
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-// Placeholder JWT Auth bypass for testing
-const requireAuth = (req, res, next) => next();
-
-// POST Route for extraction (Must be above dynamic routes like /:id)
-router.post('/extract-audio', requireAuth, songController.extractAudio);
-router.get('/', async (req, res, next) => {
-    try {
-        const songs = await Song.findAll({
-            attributes: ['id', 'title'],
-            order: [['title', 'ASC']],
-        });
-
-        return res.json({ songs });
-    } catch (error) {
-        return next(error);
-    }
-});
-
-router.get('/:id', async (req, res, next) => {
-    try {
-        const { id } = req.params;
-
-        if (id === 'demo-song') {
-            return res.json({
-                song: {
-                    id,
-                    theme: 'Heritage',
-                    title: 'Demo Rhythm Track',
-                    thumbnail_url: '',
-                    video_url: '/videos/exploding-kittens-placeholder.mp4',
-                },
-            });
-        }
-
-        if (!UUID_PATTERN.test(id)) {
-            return res.status(404).json({ message: 'Song not found' });
-        }
-
-        const song = await Song.findByPk(id, {
-            attributes: ['id', 'theme', 'title', 'videoUrl'],
-        });
-
-        if (!song) {
-            return res.status(404).json({ message: 'Song not found' });
-        }
-
-        return res.json({
-            song: {
-                id: song.id,
-                theme: song.theme,
-                title: song.title,
-                thumbnail_url: '',
-                video_url: song.videoUrl,
-            },
-        });
-    } catch (error) {
-        return next(error);
-    }
-});
-
-const multer = require('multer')
-
-// Multer Config
-const storage = multer.memoryStorage()
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'audio/mpeg' || file.mimetype === 'audio/wav') {
-    cb(null, true)
-  } else {
-    const error = new Error('Invalid file type. Only MP3 and WAV files are allowed.')
-    error.statusCode = 400
-    cb(error, false)
-  }
-}
-
 const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
-})
+    storage: multer.memoryStorage(),
+    fileFilter(req, file, callback) {
+        if (['audio/mpeg', 'audio/wav', 'audio/x-wav'].includes(file.mimetype)) return callback(null, true);
+        const error = new Error('Invalid file type. Only MP3 and WAV files are allowed.');
+        error.statusCode = 400;
+        return callback(error, false);
+    },
+    limits: { fileSize: 50 * 1024 * 1024 },
+});
+const coverUpload = multer({
+    storage: multer.memoryStorage(),
+    fileFilter(req, file, callback) {
+        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) return callback(null, true);
+        const error = new Error('Invalid cover image type. Use JPG, PNG, or WebP.');
+        error.statusCode = 400;
+        return callback(error, false);
+    },
+    limits: { fileSize: 10 * 1024 * 1024 },
+});
 
-// POST Route
-router.post('/', requireAuth, upload.single('audioFile'), songController.uploadSong)
+router.get('/creator', requireCreator, songController.listCreatorSongs);
+router.get('/creator/dashboard/summary', requireCreator, songController.getCreatorDashboardSummary);
+router.get('/creator/:id', requireCreator, songController.getCreatorSong);
+router.post('/extract-audio', requireCreator, songController.extractAudio);
+router.post('/', requireCreator, upload.single('audioFile'), songController.createSong);
+router.put('/:id/metadata', requireCreator, songController.updateSong);
+router.post('/:id/audio', requireCreator, upload.single('audioFile'), songController.uploadSongAudio);
+router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), songController.uploadCoverImage);
+router.get('/:id/readiness', requireCreator, songController.getPublishReadiness);
+router.put('/:id/publish', requireCreator, songController.publishSong);
+router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
+router.put('/:id/archive', requireCreator, songController.archiveSong);
+router.delete('/:id', requireCreator, songController.deleteSong);
+router.get('/', songController.listPublicSongs);
+router.get('/:id', songController.getPublicSong);
 
 module.exports = router;

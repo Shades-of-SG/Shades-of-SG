@@ -17,8 +17,9 @@ function authHeaders(token) {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-export async function getReflections(token) {
-  const data = await request('/reflections', { headers: authHeaders(token) })
+export async function getReflections(token, songId = '') {
+  const query = songId ? `?songId=${encodeURIComponent(songId)}` : ''
+  const data = await request(`/reflections${query}`, { headers: authHeaders(token) })
   return data.reflections
 }
 

@@ -17,10 +17,12 @@ function relativeTime(value) {
 function actionButtons(reflection, onAction, busy) {
   const approve = <button className="is-approve" disabled={busy} onClick={() => onAction(reflection, 'approve')} type="button">Approve</button>
   const flag = <button className="is-flag" disabled={busy} onClick={() => onAction(reflection, 'flag')} type="button">{reflection.status === 'FLAGGED' ? 'Keep flagged' : reflection.status === 'APPROVED' ? 'Flag / Unpublish' : 'Flag'}</button>
+  const reject = <button className="is-delete" disabled={busy} onClick={() => onAction(reflection, 'reject')} type="button">Reject</button>
   return (
     <>
       {reflection.status !== 'APPROVED' ? approve : null}
       {flag}
+      {reflection.status !== 'REJECTED' ? reject : null}
       <button aria-label={`Delete reflection by ${reflection.displayName}`} className="is-delete" disabled={busy} onClick={() => onAction(reflection, 'delete')} type="button">Delete</button>
     </>
   )

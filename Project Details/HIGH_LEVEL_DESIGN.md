@@ -1,5 +1,17 @@
 # HIGH LEVEL DESIGN — Shades of SG
 
+> **Phase 8 authoritative integration note:** This section supersedes conflicting historical diagrams and examples later in this document.
+>
+> - Song: `DRAFT -> GENERATING -> READY -> PUBLISHED -> ARCHIVED`.
+> - GenerationJob: `QUEUED -> PROCESSING -> COMPLETED | FAILED`.
+> - Studio owns one creator-owned Song UUID through editing and generation.
+> - Completion sets the Song to `READY` and never publishes it; publishing is explicit and owner-only.
+> - Public Song endpoints and public Song experiences expose only `PUBLISHED` Songs.
+> - Guest rhythm play creates no GameScore; registered scores use JWT identity.
+> - Every reflection starts `PENDING`; creator moderation is required before public display.
+> - Temporary MP4 media and duration-derived rhythm charts are MVP limitations. Missing learning content is reported as unavailable.
+> - PostgreSQL applies migrations `001`–`006` in order. Startup uses non-destructive `sequelize.sync()` and seeds no content.
+
 > SCCCI AI Challenge | Team: Unpaid Interns
 
 ---

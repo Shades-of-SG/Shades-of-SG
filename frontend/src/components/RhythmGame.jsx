@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { DIFFICULTIES, loadBeatmap } from '../game/beatmapLoader'
 import { calculateAccuracy, createResult, storeResult } from '../game/results'
 import { queuePendingScore, saveScore } from '../game/scoresApi'
-import { PLACEHOLDER_VIDEO_URL, fetchSongDetails } from '../game/songDetailsApi'
+import { fetchSongDetails } from '../game/songDetailsApi'
+import { useAuth } from '../context/AuthContext'
 
 const LANES = [
   { key: 'd', label: 'D', color: '#ff4d6d' },
@@ -130,8 +131,9 @@ function drawGame(canvas, notes, currentTime, renderNotes = true) {
 }
 
 export default function RhythmGame() {
-  const { songId = 'demo-song' } = useParams()
+  const { songId } = useParams()
   const navigate = useNavigate()
+  const { token, user } = useAuth()
   const canvasRef = useRef(null)
   const videoRef = useRef(null)
   const animationRef = useRef(null)
@@ -167,8 +169,8 @@ export default function RhythmGame() {
 
   const totalNotes = notes.length
   const accuracy = calculateAccuracy(hits, totalNotes)
-  const backgroundVideoUrl =
-    videoLoadFailed ? '' : songDetails?.videoUrl || PLACEHOLDER_VIDEO_URL
+  const mediaUrl = videoLoadFailed ? '' : songDetails?.videoUrl || songDetails?.audioUrl || ''
+  const mediaIsVideo = Boolean(songDetails?.videoUrl)
   const progressPercent =
     totalNotes === 0 ? 0 : Math.min((currentTime / ((notes.at(-1)?.time || 0) + 0.7)) * 100, 100)
 
@@ -205,45 +207,21 @@ export default function RhythmGame() {
 
   useEffect(() => {
     let ignore = false
-
     fetchSongDetails(songId)
-      .then((song) => {
-        if (!ignore) {
-          setSongDetails(song)
-          setVideoLoadFailed(false)
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setSongDetails({
-            id: songId,
-            title: 'Demo Rhythm Track',
-            videoUrl: PLACEHOLDER_VIDEO_URL,
-          })
-          setVideoLoadFailed(false)
-        }
-      })
-
-    return () => {
-      ignore = true
-    }
-  }, [songId])
-
-  useEffect(() => {
-    let ignore = false
-
-    loadBeatmap(songId, difficulty)
-      .then((nextBeatmap) => {
+      .then(async (song) => ({ song, beatmap: await loadBeatmap(song, difficulty) }))
+      .then(({ song, beatmap: nextBeatmap }) => {
         if (ignore) {
           return
         }
-
+        setSongDetails(song)
+        setVideoLoadFailed(false)
         setBeatmap(nextBeatmap)
         resetStats(nextBeatmap.notes)
         setLoadingState('ready')
       })
       .catch(() => {
         if (!ignore) {
+          setSongDetails(null)
           setBeatmap(null)
           resetStats([])
           setLoadingState('error')
@@ -291,14 +269,16 @@ export default function RhythmGame() {
 
     storeResult(result)
 
-    try {
-      await saveScore(result)
-    } catch {
-      queuePendingScore(result)
+    if (token && user?.role === 'REGISTERED') {
+      try {
+        await saveScore(result, token)
+      } catch {
+        queuePendingScore(result)
+      }
     }
 
     navigate(`/game/${songId}/results`, { replace: true, state: { result } })
-  }, [difficulty, navigate, songId, totalNotes])
+  }, [difficulty, navigate, songId, token, totalNotes, user?.role])
 
   useEffect(() => {
     if (!isPlaying) {
@@ -484,11 +464,11 @@ export default function RhythmGame() {
 
   return (
     <main className={`rhythm-page ${videoLoadFailed ? 'video-fallback' : ''}`}>
-      {backgroundVideoUrl && (
+      {mediaUrl && mediaIsVideo && (
         <video
           aria-hidden="true"
           className="rhythm-background-video"
-          key={backgroundVideoUrl}
+          key={mediaUrl}
           muted
           onEnded={() => {
             if (isPlaying) {
@@ -499,9 +479,10 @@ export default function RhythmGame() {
           playsInline
           preload="metadata"
           ref={videoRef}
-          src={backgroundVideoUrl}
+          src={mediaUrl}
         />
       )}
+      {mediaUrl && !mediaIsVideo && <audio key={mediaUrl} onError={() => setVideoLoadFailed(true)} preload="metadata" ref={videoRef} src={mediaUrl} />}
       <div className="rhythm-video-overlay" />
       <section className="rhythm-shell">
         <nav className="game-top-icons" aria-label="Gameplay navigation">

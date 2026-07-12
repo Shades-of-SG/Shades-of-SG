@@ -253,10 +253,10 @@ export default function VideoEditor() {
 
   useEffect(() => {
     if (!isPlaying) {
-      setShowControls(true)
+      setTimeout(() => setShowControls(true), 0)
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
     } else {
-      handleMouseMove()
+      setTimeout(handleMouseMove, 0)
     }
   }, [isPlaying, handleMouseMove])
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthRequiredModal from '../components/AuthRequiredModal'
 import GuestThankYouModal from '../components/GuestThankYouModal'
 import ReflectionEmptyState from '../components/ReflectionEmptyState'
@@ -23,6 +23,8 @@ import {
 
 export default function ReflectionWall() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const requestedSongId = searchParams.get('song_id') || ''
   const { token, user } = useAuth()
   const [reflections, setReflections] = useState([])
   const [songs, setSongs] = useState([])
@@ -44,18 +46,27 @@ export default function ReflectionWall() {
     const timer = window.setTimeout(() => {
       if (!active) return
       setIsLoading(true)
-      Promise.all([getReflections(token), getReflectionSongs()])
+      Promise.all([getReflections(token, requestedSongId), getReflectionSongs()])
         .then(([nextReflections, nextSongs]) => {
           if (!active) return
           setReflections(nextReflections)
           setSongs(nextSongs)
+          if (requestedSongId) {
+            const requestedSong = nextSongs.find((song) => song.id === requestedSongId)
+            if (!requestedSong) {
+              setSongId('')
+              setError('The requested Song is unavailable or is not published.')
+              return
+            }
+            setSongId(requestedSongId)
+          }
           setError('')
         })
         .catch((nextError) => active && setError(nextError.message))
         .finally(() => active && setIsLoading(false))
     }, 0)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [token])
+  }, [requestedSongId, token])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -92,7 +103,7 @@ export default function ReflectionWall() {
     if (!user || !token) {
       savePostLoginIntent({
         action: 'create-reflection',
-        draftReflection: { content: '', isAnonymous: false, songId: '' },
+        draftReflection: { content: '', isAnonymous: false, songId },
         openReflectionModal: true,
         returnTo: '/reflections',
       })
@@ -104,7 +115,7 @@ export default function ReflectionWall() {
       return
     }
     setModalReflection(null)
-    setReflectionDraft(null)
+    setReflectionDraft({ content: '', isAnonymous: false, songId })
     setIsModalOpen(true)
   }
 
@@ -145,12 +156,12 @@ export default function ReflectionWall() {
     const optimistic = { ...values, id: temporaryId, createdAt: new Date().toISOString(), displayName: values.isAnonymous ? 'Anonymous' : user?.name, isOwner: !guestSubmission, isPending: true, song: selectedSong }
     if (!guestSubmission) setReflections((items) => [optimistic, ...items])
     try {
-      const saved = await createReflection(values, token)
+      await createReflection(values, token)
       if (guestSubmission) {
         setShowGuestThanks(true)
       } else {
-        setReflections((items) => items.map((item) => item.id === temporaryId ? saved : item))
-        setToast('Reflection shared.')
+        setReflections((items) => items.filter((item) => item.id !== temporaryId))
+        setToast('Reflection submitted for moderation.')
       }
       setIsGuestMode(false)
     } catch (nextError) {
@@ -189,7 +200,7 @@ export default function ReflectionWall() {
       {isAuthModalOpen && (
         <AuthRequiredModal
           onCancel={() => { setIsAuthModalOpen(false); clearPostLoginIntent() }}
-          onGuest={() => { setIsAuthModalOpen(false); clearPostLoginIntent(); setIsGuestMode(true); setModalReflection(null); setReflectionDraft({ content: '', isAnonymous: true, songId: '' }); setIsModalOpen(true) }}
+          onGuest={() => { setIsAuthModalOpen(false); clearPostLoginIntent(); setIsGuestMode(true); setModalReflection(null); setReflectionDraft({ content: '', isAnonymous: true, songId }); setIsModalOpen(true) }}
           onLogin={() => navigate('/login', { state: { from: { pathname: '/reflections' } } })}
         />
       )}

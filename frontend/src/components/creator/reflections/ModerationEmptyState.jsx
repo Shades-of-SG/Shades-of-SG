@@ -2,6 +2,7 @@ const COPY = {
   APPROVED: ['No approved memories yet', 'Approved reflections will appear here.'],
   FLAGGED: ['No flagged reflections', 'Nothing currently needs further attention.'],
   PENDING: ['All caught up', 'There are no reflections waiting for review.'],
+  REJECTED: ['No rejected reflections', 'Rejected community submissions will appear here.'],
 }
 
 export default function ModerationEmptyState({ filtered, onClear, status }) {

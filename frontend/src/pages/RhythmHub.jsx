@@ -1,31 +1,18 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
+import { getPublishedSongs } from '../services/publicSongService'
 
-/*
-TODO - Ferlyn
-
-Preserve existing RhythmGame logic.
-Connect song selection to playable charts.
-Add rhythm onboarding content.
-*/
 export default function RhythmHub() {
-  return (
-    <div className="page-stack">
-      <PageHeader
-        actions={<Link className="primary-link" to="/game/demo-song">Play Demo Song</Link>}
-        description="Choose a song chart, practise rhythm, and save scores through the existing game flow."
-        eyebrow="Rhythm Game"
-        title="Rhythm Game"
-      />
-      <section className="two-column">
-        <SectionCard title="Playable Charts">
-          <p>The existing game remains available at /game/:songId and is not rewritten by this shell.</p>
-        </SectionCard>
-        <SectionCard title="How It Fits">
-          <p>Scores can connect back to song experiences, reflection prompts, and profile achievements.</p>
-        </SectionCard>
-      </section>
-    </div>
-  )
+  const [songs, setSongs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    getPublishedSongs().then((data) => active && setSongs(data.filter((song) => song.audioUrl && Number(song.durationSecs) >= 5))).catch((nextError) => active && setError(nextError.message)).finally(() => active && setLoading(false))
+    return () => { active = false }
+  }, [])
+  return <div className="page-stack"><PageHeader description="Choose a published Song with uploaded audio for rhythm play." eyebrow="Rhythm Game" title="Rhythm Game" />{loading ? <p role="status">Loading published songs…</p> : null}{error ? <div className="state-box" role="alert">{error}</div> : null}{!loading && !error && songs.length === 0 ? <EmptyState description="No published Songs currently have playable audio and duration data." title="No playable songs" /> : null}<section className="responsive-grid">{songs.map((song) => <SectionCard key={song.id} title={song.title}>{song.coverImageUrl ? <img alt={`${song.title} cover`} className="song-art song-art--image" src={song.coverImageUrl} /> : <div className="song-art song-art--fallback">No cover</div>}<p>{song.artist || 'Artist unavailable'}</p><p>{song.theme || 'Theme unavailable'} · {(song.languages || []).join(', ') || 'Language unavailable'}</p><Link className="primary-link" to={`/game/${song.id}`}>Play Song</Link></SectionCard>)}</section></div>
 }

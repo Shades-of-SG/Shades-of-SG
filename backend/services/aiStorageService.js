@@ -21,6 +21,7 @@ const uploadAudioStream = (fileData) => {
         }
         resolve({
           audioUrl: result.secure_url,
+          audioPublicId: result.public_id,
           duration: Math.round(result.duration || 0),
         })
       }
@@ -80,7 +81,7 @@ const uploadImageFromUrl = async (imageSource) => {
 /**
  * (PHASE 4) Uploads a compiled MP4 video to Cloudinary from the local disk.
  * @param {string} localFilePath - The local path to the generated .mp4 file.
- * @returns {Promise<string>} The permanent Cloudinary secure_url
+ * @returns {Promise<{videoUrl: string, videoPublicId: string}>} Stored video identifiers
  */
 const uploadCompiledVideo = (localFilePath) => {
   return new Promise((resolve, reject) => {
@@ -96,7 +97,10 @@ const uploadCompiledVideo = (localFilePath) => {
             new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error })
           )
         }
-        resolve(result.secure_url)
+        resolve({
+          videoUrl: result.secure_url,
+          videoPublicId: result.public_id,
+        })
       }
     )
   })

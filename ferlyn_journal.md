@@ -2540,3 +2540,263 @@ The two pages feel like companions: Terms uses a warmer violet music-and-communi
 Legal content does not need to look detached from the product. A strong legal page can preserve clarity and seriousness while still using the platform's colour, typography, rhythm, and storytelling identity. The most effective result came from separating content hierarchy from visual weight: lightweight navigation, compact typography, layered surfaces, clear numbering, and restrained decoration made the pages easier to read without making them feel generic.
 
 Motion also needs to understand user intent. An animation that feels natural during manual scrolling can become noisy when a programmatic jump passes many observed elements. Temporarily suspending intermediate reveal observers created a better distinction between exploratory reading and direct navigation while preserving accessibility and smooth orientation.
+
+---
+
+## 2026-07-11 — Guest Reflections and Creator Moderation Workspace
+
+### AI Tool Used
+
+Codex.
+
+### Objective
+
+Expand the Reflection Wall so visitors can contribute without being forced to create an account, improve the reflection-writing experience, and complete the missing creator moderation workflow that controls when guest submissions become public.
+
+The work needed to preserve the existing public wall and creator portal while adding a coherent end-to-end journey:
+
+1. a guest chooses to continue anonymously;
+2. the guest writes and submits a reflection;
+3. the submission enters the real database as `PENDING`;
+4. an authorised creator reviews it in `/creator/reflections`;
+5. approval changes its status to `APPROVED`;
+6. the public Reflection Wall then displays it as Anonymous.
+
+The task also included redesigning the Add Reflection modal, persisting memory tags, fixing several modal alignment details, and adding automated coverage for both public and creator behaviour.
+
+### Context
+
+The existing guest experience treated authentication as a requirement. Selecting Add Reflection opened a modal with Login, Register, and Cancel actions, which meant visitors could read community memories but could not contribute unless they created an account.
+
+The backend already had a nullable reflection owner and a `status` field with `PENDING`, `APPROVED`, and `FLAGGED`, but reflection creation required authentication. The creator Reflection Moderation page existed only as three placeholder cards and had no API connection, real counts, filters, details, or actions. Consequently, once guest submissions were changed to enter `PENDING`, they remained hidden because the public endpoint correctly returned only approved reflections and there was no functional creator interface through which to approve them.
+
+The first Add Reflection identity selector also had a layout defect: generic form-label rules stretched its radio controls and text into disconnected positions with excessive whitespace. The modal was unnecessarily tall, important actions could fall below the fold, and its field order interrupted the natural writing flow.
+
+### Prompt Summary
+
+I asked Codex to:
+
+- underline the Cancel action on hover;
+- replace the login barrier with a choice between Continue as Guest and Login / Register;
+- make every guest contribution appear publicly as Anonymous;
+- prevent guests from editing or deleting a contribution later;
+- require guests to acknowledge this limitation before submission;
+- keep registered anonymous reflections tied to their accounts so their owners can still edit or delete them;
+- show a post-submission thank-you modal with Maybe Later and Create Account actions;
+- centre the Create Account button in that modal;
+- redesign the Add Reflection modal as a compact, welcoming journal-style card;
+- order its flow as Song, Reflection, optional Memory Type tags, identity, and submission actions;
+- turn My Profile and Anonymous into fully clickable selectable cards;
+- keep Cancel and Save Reflection visible in a fixed internal footer;
+- focus the textarea after a song is chosen;
+- support responsive mobile identity cards and actions;
+- explain why pending guest reflections were not appearing publicly;
+- implement the complete creator-only Reflection Moderation page from the supplied specification;
+- use real backend data rather than hardcoded Figma values or mock moderation state;
+- add creator-only approve, flag, moderator-note, and delete operations;
+- keep public queries limited to approved content;
+- add statistics, tabs, combined filters, loading states, empty states, retries, toasts, pagination, responsive detail panels, and confirmation dialogs;
+- add automated tests for moderation loading, filtering, tab switching, approval, flagging, deletion, access control, public visibility, and failed-request preservation.
+
+### AI Output
+
+Codex first redesigned the authentication-required prompt into a contribution-choice modal. Guests can now select Continue as Guest, while Login / Register is presented as an optional account upgrade with clear benefits rather than a prerequisite. Cancelling remains possible, and the Cancel text receives an underline on hover.
+
+Selecting Continue as Guest opens the same reflection composer in guest mode. Guest mode:
+
+- forces anonymous display;
+- does not request a nickname;
+- explains that the reflection will be reviewed before publication;
+- requires confirmation that it cannot be edited or deleted later;
+- disables submission until a song, non-empty reflection, and acknowledgement are present;
+- submits without an authentication token;
+- displays a thank-you modal after a successful response.
+
+The thank-you modal explains that the memory is pending moderation and offers Maybe Later or Create Account. Its action layout was subsequently corrected so the Create Account button is centred with a balanced maximum width rather than occupying only the left half of a two-column grid.
+
+The backend reflection route now uses optional authentication for creation. It distinguishes guests from account holders and stores guest submissions with:
+
+- `user_id = null`;
+- `guest_submission = true`;
+- `display_mode = ANONYMOUS`;
+- `display_name = null`;
+- `status = PENDING`.
+
+Registered users continue to own their reflections. They may choose `PROFILE` or `ANONYMOUS` display mode; anonymous account posts remain internally associated with the owner and retain edit/delete permissions. The public serializer does not expose `guestSubmission`, which prevents public viewers from distinguishing a guest anonymous post from a registered anonymous post.
+
+Codex added safe schema support for `display_mode` and `guest_submission` through the model, fresh-install schema, SQL migration, and an idempotent startup schema updater. This was necessary because the project uses `sequelize.sync()` without automatic alteration, so model changes alone would not update the existing SQLite database.
+
+The Add Reflection composer was then rebuilt into a compact journal-style modal. Its final flow is:
+
+1. Song;
+2. Reflection;
+3. optional Memory Type tags;
+4. identity choice;
+5. Cancel and Save Reflection.
+
+The redesigned modal uses a warm cream background, 20-pixel rounded corners, purple accents, softer shadows, tighter vertical rhythm, a scrollable form body, and an always-visible footer. The textarea includes a helper message and live character counter. Choosing a song moves focus to the textarea. Memory Type is implemented as a multi-select chip group containing Nostalgia, Family, National Day, Friendship, School, and Home.
+
+For signed-in users, My Profile and Anonymous are now compact selectable cards rather than stretched labels. Clicking anywhere on a card selects it. The active card receives a purple border, pale purple fill, and subtle glow. The profile card shows the user's display name and ownership benefits; the anonymous card explains that public identity is hidden while account editing remains available. On mobile the two cards stack, the footer actions become full width, and the textarea remains constrained to the viewport.
+
+The optional tags were initially visual-only to avoid changing the backend during the modal-only redesign. They were later persisted when the moderation specification required real tag display and search. The Reflection model now stores a normalised JSON tag array. Creation and owner updates accept known tags, remove duplicates, ignore unknown values, and preserve existing tags if an edit omits the tag property. The composer also restores tags when editing or resuming a draft after login.
+
+When it became clear that guest memories remained pending indefinitely, Codex confirmed the exact cause: the guest creation route intentionally assigned `PENDING`, the public wall intentionally queried only `APPROVED`, and the creator page was still a placeholder. The solution was to complete moderation rather than weaken the public query.
+
+Codex audited the creator route, layout, role checks, sidebar, service layer, model, migrations, API routes, styles, and test setup before implementation. It reused the existing `/creator/reflections` route, `CreatorLayout`, active `NavLink`, dark navy creator shell, purple design system, and existing `status` field. It removed the sidebar's hardcoded reflection count instead of presenting a fake value.
+
+The creator workspace now contains:
+
+- a Reflection Moderation heading with a subtle heart icon;
+- the description “Curate and manage memories shared by the community.”;
+- real Pending, Approved, Flagged, and New today summary cards;
+- a New today comparison with yesterday using Singapore UTC+8 day boundaries;
+- Pending, Approved, and Flagged tabs with live counts;
+- combined search, song, submitted-since, and anonymous-only filters;
+- a clear-filters action;
+- a controlled eight-item page size with Load more pagination;
+- muted sticky-note cards with varied mustard, rose, teal, blue, sage, and lavender tones;
+- song, author, relative time, preview, tags, status, pins, and status-aware card actions;
+- a persistent desktop detail panel and responsive drawer/full-screen presentation at narrower widths;
+- full text, submission type, anonymous state, timestamps, tags, moderation metadata, and moderator notes;
+- loading skeletons, empty states, API error handling, retry controls, disabled busy actions, and success/error toasts;
+- a custom destructive confirmation dialog instead of `window.confirm()`;
+- a mobile filter drawer and mobile action targets sized for touch.
+
+The moderation API uses a separate creator-only query so non-approved records never leak through the public endpoint. The creator list supports combined status, search, song, date, and anonymous filters. Search covers reflection content, display name, song title, and persisted tags. It returns real global status statistics plus pagination metadata.
+
+Creator mutations use the existing status model rather than adding a duplicate moderation field. A creator can:
+
+- approve a pending or flagged reflection, making it public;
+- flag an approved reflection, immediately hiding it from the public wall;
+- keep a reflection flagged for further attention;
+- save a moderator note of up to 1,000 characters;
+- permanently delete any reflection after confirmation.
+
+Moderation stores `moderated_by`, `moderated_at`, and `moderator_note`. The creator serializer includes the moderator's name where available. No fake moderation-history timeline or decorative Report Abuse action was added because the project does not currently support a real history or abuse-report workflow.
+
+Backend creator authorisation does not rely only on the role stored in the browser or signed token. The new asynchronous `requireCreator` middleware loads the current user from the database, returns `401` for a missing account, and returns `403` for a non-creator. The frontend creator route now also requires both a stored token and a creator role. If the moderation API rejects a stale or revoked creator with `401` or `403`, the workspace signs out and redirects to Login.
+
+Moderation mutations use pessimistic updates: the current card, counts, and details remain unchanged until the server succeeds. Successful approve, flag, and delete operations update the affected tab, counts, pagination, and selection without a full-page reload. Failed requests display an error toast and preserve the previous UI state.
+
+### My Review and Decisions
+
+I preferred optional guest contribution over forcing authentication because the Reflection Wall is intended to collect community memories, including from visitors who may not want an account. I accepted the account option as a value proposition rather than a gate: registered users gain identity, editing, badges, milestones, and future reflection tracking.
+
+I chose not to offer guest nicknames. Every guest appears as Anonymous, which keeps the public presentation and moderation rules simpler. I retained the acknowledgement that guests cannot edit or delete later so the consequence is explicit before submission.
+
+I decided that guest reflections should not appear immediately. They enter Pending moderation and become public only after creator approval. This protects the public wall while preserving a low-friction contribution experience. When pending posts did not appear, I confirmed that this was expected status behaviour and chose to complete the real moderation workspace rather than automatically approving them.
+
+I rejected the first identity layout because its radio buttons floated separately from their text, wasted vertical space, and placed a publishing decision before the user had written anything. I moved identity to the bottom and accepted the more natural Song → Reflection → Tags → Identity → Submit sequence.
+
+For the creator interface, I kept the existing dark navy portal and sidebar rather than duplicating the layout. I chose darker, muted note colours so cards still resemble the public wall without becoming unreadably pale or neon against the creator background. I also preferred a real mobile drawer/detail treatment over squeezing the desktop panel into narrow widths.
+
+I reused the existing `PENDING`, `APPROVED`, and `FLAGGED` statuses and did not add `REJECTED`, because the requested actions did not require a separate rejected-content archive. Permanent removal is handled by the confirmed Delete action. I also avoided creating a full moderation-history table because current requirements could be met safely with latest-moderator metadata.
+
+### Files Created
+
+- `backend/migrations/002_guest_reflections.sql`
+- `backend/migrations/003_reflection_moderation.sql`
+- `backend/services/schemaService.js`
+- `frontend/src/components/GuestThankYouModal.jsx`
+- `frontend/src/components/creator/reflections/ModerationCard.jsx`
+- `frontend/src/components/creator/reflections/ModerationConfirmDialog.jsx`
+- `frontend/src/components/creator/reflections/ModerationEmptyState.jsx`
+- `frontend/src/components/creator/reflections/ModerationFilters.jsx`
+- `frontend/src/components/creator/reflections/ModerationGrid.jsx`
+- `frontend/src/components/creator/reflections/ModerationStats.jsx`
+- `frontend/src/components/creator/reflections/ModerationTabs.jsx`
+- `frontend/src/components/creator/reflections/ModeratorNoteField.jsx`
+- `frontend/src/components/creator/reflections/ReflectionDetailsPanel.jsx`
+- `frontend/src/components/creator/reflections/index.js`
+- `frontend/src/components/creator/reflections/moderationPresentation.js`
+- `frontend/src/pages/ReflectionModeration.css`
+- `frontend/src/pages/ReflectionModeration.test.jsx`
+
+### Files Modified
+
+- `backend/middleware/auth.js`
+- `backend/migrations/001_initial_schema.sql`
+- `backend/models/Reflection.js`
+- `backend/models/index.js`
+- `backend/routes/reflections.js`
+- `backend/server.js`
+- `backend/tests/reflections.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.jsx`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/AuthRequiredModal.jsx`
+- `frontend/src/components/ReflectionModal.jsx`
+- `frontend/src/components/Sidebar.jsx`
+- `frontend/src/pages/ReflectionModeration.jsx`
+- `frontend/src/pages/ReflectionWall.jsx`
+- `frontend/src/pages/pageData.js`
+- `frontend/src/services/reflectionService.js`
+- `frontend/src/test/setup.js`
+
+### Database and API Details
+
+- Reused the existing reflection `status` field with `PENDING`, `APPROVED`, and `FLAGGED`.
+- Added `display_mode` and `guest_submission` for explicit guest/account display behaviour.
+- Added `tags`, `moderated_by`, `moderated_at`, and `moderator_note` through fresh-schema definitions, SQL migrations, and idempotent runtime schema checks.
+- Added a `status + created_at` index for moderation queries.
+- Added `GET /api/reflections/moderation` for creator-only filtered, paginated moderation data and statistics.
+- Added `PUT /api/reflections/:id/moderation` for status and moderator-note changes.
+- Preserved `DELETE /api/reflections/:id` for owners while allowing a database-verified creator to delete any reflection.
+- Preserved `GET /api/reflections` as an approved-only public endpoint.
+- Limited moderation pages to eight records by default and capped the API limit at 24.
+- Used Singapore day boundaries for New today and yesterday statistics.
+- Applied the new schema successfully to the existing local database; repeated schema checks are safe.
+
+### Accessibility and Responsive Behaviour
+
+- Moderation status controls use `tablist`, `tab`, and `aria-selected` semantics.
+- Reflection cards expose labelled detail controls without nesting action buttons inside the detail button.
+- The destructive dialog uses `role="dialog"`, `aria-modal`, Escape-to-close behaviour, initial focus, and focus restoration.
+- Loading, success, and error messages use appropriate live-region roles.
+- Decorative hearts, pins, and icons are hidden from assistive technology.
+- Filters retain visible labels or screen-reader labels.
+- The detail panel becomes an overlay drawer and then a full-screen mobile panel.
+- Mobile filters open in a dedicated bottom drawer with a dismissible backdrop.
+- Mobile identity cards stack vertically and modal/footer actions expand to full width.
+- Mobile moderation actions use touch-friendly minimum heights.
+- Reduced-motion rules disable moderation card, drawer, and skeleton animation.
+
+### Verification Performed
+
+- Ran the backend Jest suite after guest and moderation integration; three suites and eleven tests passed.
+- Backend tests cover guest pending creation, owner CRUD, tag normalisation, creator authentication, non-creator denial, combined filters, pagination, search across supported fields, Singapore date statistics, approval and public visibility, flagging and public removal, moderator notes, invalid-note rollback, creator deletion, owner restrictions, and public exclusion of pending/flagged content.
+- Ran the frontend Vitest suite; two test files and nine tests passed.
+- Frontend moderation tests cover loading pending reflections, status-tab switching, combined filters, approval, flagging, confirmed deletion, and preserving prior state after a failed mutation.
+- Extended App route tests to confirm that guests are redirected away from the creator route and authenticated creators can open the moderation workspace.
+- Ran full frontend ESLint; it passed without errors after correcting the existing synchronous effect updates in `ReflectionWall.jsx`.
+- Ran full backend ESLint; it passed.
+- Ran the frontend production build after final responsive and access-control changes; it passed with 118 modules transformed.
+- Added a JSDOM `window.scrollTo` test stub so the route tests no longer print irrelevant implementation warnings.
+- Ran `git diff --check`; no whitespace errors were reported.
+- Ran the idempotent runtime schema updater against the current SQLite database and confirmed that the moderation schema is ready.
+
+### Final Outcome
+
+The Reflection Wall now supports a complete low-friction guest contribution journey without sacrificing moderation. Guests can share a memory anonymously, understand the ownership limitation, select meaningful tags, and receive a clear confirmation. Registered users can still choose profile or anonymous display while retaining ownership controls.
+
+Creators now have a real moderation workspace rather than a placeholder. Pending guest memories can be searched, filtered, inspected, annotated, approved, flagged, or deleted. Approved memories become visible publicly; flagged and pending content remain hidden. Counts and cards update without a full-page refresh, failed requests preserve the previous state, and the interface remains usable across desktop, tablet, and mobile layouts.
+
+The result connects the public contribution experience, database status model, creator portal, and public visibility rule into one functional workflow.
+
+### Remaining Work
+
+- Perform a final manual browser review at the team's exact 1280-pixel laptop, tablet, and mobile target widths.
+- Decide whether registered-user reflections should continue to publish immediately or also enter moderation before production.
+- Add a moderation-history table only if the project later needs a full audit trail rather than the latest moderator metadata.
+- Consider displaying a real pending count in the shared creator sidebar through a central data source; the previous hardcoded badge was removed.
+- Add optional notifications for creators when new guest reflections arrive and for registered contributors when a submission changes status.
+- Replace the current token mechanism with expiring server-managed sessions before production deployment.
+- Confirm production retention and deletion policies for anonymous guest content.
+
+### Lesson
+
+Guest contribution and moderation are one workflow, not two independent features. Allowing anonymous submission without building the approval path creates content that is saved correctly but appears lost to both visitors and creators. The public visibility rule was not the bug; the missing creator transition from `PENDING` to `APPROVED` was.
+
+The strongest implementation reused the existing status model and creator shell, added only the metadata required for real operations, and kept public and moderation serializers separate. This reduced schema risk and protected anonymous-account privacy while still giving creators the context they need.
+
+Form hierarchy also changes how welcoming a feature feels. Asking users to pick a song and write their memory before deciding how to publish follows their natural mental sequence. Clickable identity cards, a visible action footer, compact spacing, and post-contribution account prompts made authentication feel like an optional benefit rather than a barrier.

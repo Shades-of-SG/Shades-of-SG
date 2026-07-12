@@ -9,8 +9,12 @@ const openai = new OpenAI({
 async function generateScenePlan(jobId, songId) {
   try {
     const job = await GenerationJob.findByPk(jobId)
-    if (!job) throw new Error(`GenerationJob with ID ${jobId} not found.`)
-    if (job.status !== 'IN_PROGRESS') throw new Error(`GenerationJob is in state '${job.status}', expected 'IN_PROGRESS'.`)
+    if (!job) {
+      throw new Error(`GenerationJob with ID ${jobId} not found.`)
+    }
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is in state '${job.status}', expected 'PROCESSING'.`)
+    }
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song with ID ${songId} not found.`)
@@ -76,7 +80,7 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
 }
 CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
 
-      let segmentsStr = rawSegments.map((s, i) => 
+      let segmentsStr = rawSegments.map((s) => 
         `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`
       ).join('\n');
 
@@ -119,7 +123,7 @@ CRITICAL: The entire output must be valid, parseable JSON. Do not include unesca
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 Lyrics:
-${(song.lyrics || 'No lyrics provided.').replace(/bathroom/gi, 'living room')}`
+${(song.rawLyrics || 'No lyrics provided.').replace(/bathroom/gi, 'living room')}`
     }
 
     const response = await openai.chat.completions.create({

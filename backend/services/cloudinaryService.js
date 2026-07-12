@@ -43,6 +43,26 @@ async function uploadImage(filePath) {
   }
 }
 
+async function uploadImageBuffer(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    throw new Error('Cloudinary upload failed: image data is required');
+  }
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: 'shades-of-sg/covers', resource_type: 'image' },
+      (error, result) => {
+        if (error) return reject(new Error(`Cloudinary upload failed: ${error.message}`, { cause: error }));
+        return resolve({
+          public_id: result.public_id,
+          secure_url: result.secure_url,
+        });
+      }
+    );
+    stream.end(buffer);
+  });
+}
+
 /**
  * Delete an image from Cloudinary by public ID.
  * @param {string} publicId - Cloudinary public ID of the image
@@ -71,7 +91,20 @@ async function deleteImage(publicId) {
   }
 }
 
+async function deleteAsset(publicId, resourceType = 'image') {
+  if (!publicId || typeof publicId !== 'string') return { deleted: false, result: 'skipped' };
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    if (!['ok', 'not_found'].includes(result.result)) throw new Error(`Unexpected result from Cloudinary: ${result.result}`);
+    return { public_id: publicId, result: result.result, deleted: result.result === 'ok' };
+  } catch (error) {
+    throw new Error(`Cloudinary deletion failed: ${error.message}`, { cause: error });
+  }
+}
+
 module.exports = {
   uploadImage,
+  uploadImageBuffer,
   deleteImage,
+  deleteAsset,
 };

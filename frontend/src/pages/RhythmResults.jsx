@@ -14,7 +14,7 @@ function getInitials(title) {
 }
 
 export default function RhythmResults() {
-  const { songId = 'demo-song' } = useParams()
+  const { songId } = useParams()
   const location = useLocation()
   const result = location.state?.result || readStoredResult(songId)
   const [songDetails, setSongDetails] = useState(null)
@@ -30,12 +30,7 @@ export default function RhythmResults() {
       })
       .catch(() => {
         if (!ignore) {
-          setSongDetails({
-            id: songId,
-            theme: 'Heritage',
-            thumbnailUrl: '',
-            title: 'Demo Rhythm Track',
-          })
+          setSongDetails({ id: songId, theme: '', thumbnailUrl: '', title: 'Published song unavailable' })
         }
       })
 
@@ -76,8 +71,8 @@ export default function RhythmResults() {
     )
   }
 
-  const title = songDetails?.title || 'Demo Rhythm Track'
-  const theme = songDetails?.theme || 'Heritage'
+  const title = songDetails?.title || 'Published song unavailable'
+  const theme = songDetails?.theme || 'Unavailable'
 
   return (
     <main className="results-page">

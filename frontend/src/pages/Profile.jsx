@@ -1,6 +1,5 @@
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
-import { placeholderCards } from './pageData'
 
 /*
 TODO - Ferlyn
@@ -21,7 +20,7 @@ export default function Profile() {
         <SectionCard title="User Information"><p>Name, class, and account details placeholder.</p></SectionCard>
         <SectionCard title="Reflection History"><p>Submitted reflections will be listed here.</p></SectionCard>
         <SectionCard title="Game Scores"><p>Recent rhythm game scores will be shown here.</p></SectionCard>
-        <SectionCard title="Achievements"><ul className="clean-list">{placeholderCards.achievements.map((item) => <li key={item}>{item}</li>)}</ul></SectionCard>
+        <SectionCard title="Achievements"><p>Achievement data is not available yet.</p></SectionCard>
       </section>
     </CreatorPageShell>
   )
