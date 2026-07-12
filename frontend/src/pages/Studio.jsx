@@ -110,9 +110,6 @@ export default function Studio() {
       
       // Clear the state so it doesn't re-trigger on refresh if they change it
       window.history.replaceState({}, document.title);
-      
-      // Jump to step 3 (Preview & Publish) since all data is pre-filled
-      setStudioStep(3);
     }
   }, [location.state])
 
