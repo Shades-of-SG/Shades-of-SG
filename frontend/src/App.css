@@ -9584,6 +9584,66 @@ textarea {
   width: 1px;
 }
 
+/* Public landing feature and community-stat cards */
+.feature-row {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.feature-card {
+  background: rgba(30, 30, 47, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 22px 18px;
+  text-align: center;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.feature-card:hover {
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+  transform: translateY(-4px);
+}
+
+.feature-card h3 {
+  margin: 8px 0;
+}
+
+.feature-card p {
+  margin: 0;
+}
+
+.feature-icon {
+  font-size: 2rem;
+}
+
+.stats-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-reflections {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 980px) {
+  .feature-row,
+  .landing-reflections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .feature-row,
+  .landing-reflections,
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1180px) {
   .reflection-nav {
     grid-template-columns: auto 1fr;

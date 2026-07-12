@@ -7,6 +7,7 @@ const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
 const reflectionsRouter = require('./routes/reflections');
+const statsRouter = require('./routes/stats');
 const transcriptionsRouter = require('./routes/transcriptions');
 const generationRouter = require('./routes/aiGeneration');
 const {
@@ -64,6 +65,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/songs', songsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/reflections', reflectionsRouter);
+app.use('/api/stats', statsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
