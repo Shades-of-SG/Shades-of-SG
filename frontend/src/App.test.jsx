@@ -38,6 +38,17 @@ describe('App', () => {
     expect(localStorage.getItem('authUser')).toBeNull()
   })
 
+  it('uses only the top-navbar account menu on registered settings pages', () => {
+    localStorage.setItem('authToken', 'registered-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'user-1', name: 'Bellen', role: 'REGISTERED' }))
+    window.history.pushState({}, '', '/settings')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(screen.getByRole('button', { name: /open user menu for bellen/i })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Creator account actions')).not.toBeInTheDocument()
+  })
+
   it('redirects guests away from the creator moderation route', async () => {
     window.history.pushState({}, '', '/creator/reflections')
     render(<AuthProvider><App /></AuthProvider>)

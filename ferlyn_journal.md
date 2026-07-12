@@ -2800,3 +2800,80 @@ Guest contribution and moderation are one workflow, not two independent features
 The strongest implementation reused the existing status model and creator shell, added only the metadata required for real operations, and kept public and moderation serializers separate. This reduced schema risk and protected anonymous-account privacy while still giving creators the context they need.
 
 Form hierarchy also changes how welcoming a feature feels. Asking users to pick a song and write their memory before deciding how to publish follows their natural mental sequence. Clickable identity cards, a visible action footer, compact spacing, and post-contribution account prompts made authentication feel like an optional benefit rather than a barrier.
+
+## 2026-07-12 — Registered Navbar, Account Menu, and Website Translation
+
+### Scope
+
+Standardise the registered-user navigation with the public guest experience, move account actions into one profile-picture menu, remove duplicate in-page user widgets, and add a website-wide language selector.
+
+### Navbar and Account Menu
+
+The registered-user navbar now uses the same public navigation structure as the guest navbar: Home, Songs, Learning Hub, Rhythm Game, and Reflection Wall remain centred between the brand and account utilities. Profile and Settings no longer compete with the primary experiences as full navigation links.
+
+The right side now contains the language control and a profile-picture button. The supplied `Default_pfp.jpg` asset is used when an authenticated user does not have an uploaded avatar; a real `avatarUrl` or `avatar_url` still takes precedence. The final profile trigger intentionally contains no Account label and no dropdown chevron, leaving a clean circular image as requested.
+
+Clicking the image opens a `USER MENU` dropdown containing:
+
+- View Profile;
+- Edit Profile;
+- Settings;
+- Logout.
+
+The menu closes after navigation, after logout, when clicking outside it, or when pressing Escape. Logout continues to clear the authenticated session and return the user to Login. Responsive rules place the same account utilities inside the mobile navigation panel without creating a second mobile-specific menu.
+
+The old creator-style identity widget could also appear inside registered pages such as Settings, producing a duplicate Bellen/User block below the navbar. `CreatorPageShell` now renders that widget only for an authenticated `CREATOR`. Registered-user pages therefore use the top-navbar profile menu as their single standard account control, while genuine creator screens retain their creator account interface.
+
+### Website Translation
+
+A shared translation provider now wraps the application. Its selector offers Singapore's four official languages:
+
+- English;
+- Simplified Chinese;
+- Bahasa Melayu;
+- Tamil.
+
+The selector is available in the public navbar, authentication layout, and creator sidebar. The chosen language is saved in local storage, reflected in the document language, and restored across routes and later visits. Non-English page translation is loaded lazily through the Google Translate website runtime so English-only visits do not pay the external-script cost. Returning to English clears the translation cookie and reloads the original page text. A visible attribution is retained in the language menu, and a failure message is shown if the external translation service cannot load.
+
+### Accessibility and Interaction
+
+- The avatar trigger exposes an explicit accessible name containing the signed-in user's name.
+- Account and language triggers expose `aria-expanded` and `aria-haspopup` state.
+- Account actions use menu-item semantics.
+- Language choices use single-selection menu-item-radio semantics and identify the current language.
+- Both menus support outside-click and Escape dismissal.
+- Decorative icons and the avatar image inside the already-labelled button are hidden from assistive technology.
+- Focus and hover states remain visible on the dark navbar and dropdown surfaces.
+
+### Files Created
+
+- `frontend/public/images/Default_pfp.jpg`
+- `frontend/src/Navbar.css`
+- `frontend/src/components/LanguageSwitcher.jsx`
+- `frontend/src/components/LanguageSwitcher.test.jsx`
+- `frontend/src/components/Navbar.test.jsx`
+- `frontend/src/context/TranslationContext.jsx`
+
+### Files Modified
+
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/CreatorPageShell.jsx`
+- `frontend/src/components/LanguageSwitcher.jsx`
+- `frontend/src/components/Navbar.jsx`
+- `frontend/src/components/Sidebar.jsx`
+- `frontend/src/layouts/AuthLayout.jsx`
+- `frontend/src/main.jsx`
+
+### Verification Performed
+
+- Ran the full frontend Vitest suite after the integrated changes; eight test files and forty-one tests passed.
+- Added navbar tests covering the five shared public links, default profile image, dropdown destinations, and logout session clearing.
+- Added translation tests covering all four language choices, persisted selection, document-language updates, and handoff to the translation selector.
+- Added an App regression test confirming registered Settings uses the top-navbar account menu without rendering the duplicate creator account widget.
+- Ran focused ESLint checks for all changed JavaScript and JSX files; they passed.
+- Ran the Vite production build successfully with 1,902 modules transformed.
+- Ran `git diff --check` before publication and kept unrelated rhythm-game work outside this navigation commit.
+
+### Final Outcome
+
+Registered pages now have one consistent public-facing navbar and one account entry point. The profile image is visually minimal, the dropdown contains all account actions, and duplicate user identity controls no longer appear in page headers. The same application also has a persistent language entry point across public, authentication, and creator surfaces, allowing the interface to be translated without maintaining separate page implementations.
