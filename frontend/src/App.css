@@ -1198,7 +1198,41 @@
 }
 
 .studio-button:disabled { cursor: not-allowed; opacity: .55; }
-.studio-cover-upload__preview { width: 100%; max-height: 220px; object-fit: cover; border-radius: 12px; margin: 8px 0; }
+.studio-cover-upload,
+.studio-cover-upload__panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.studio-cover-upload__preview-card {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 92px minmax(0, 1fr);
+  padding: 10px;
+}
+
+.studio-cover-upload__preview {
+  aspect-ratio: 1;
+  border-radius: 9px;
+  height: 92px;
+  object-fit: cover;
+  width: 92px;
+}
+
+.studio-cover-upload__preview-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.studio-cover-upload__preview-card strong { color: var(--text); font-size: 0.86rem; }
+.studio-cover-upload__preview-card p { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
+.studio-cover-upload .studio-media-upload__icon svg { height: 19px; width: 19px; }
 .creator-song-cover { width: 72px; height: 72px; flex: 0 0 72px; border-radius: 12px; object-fit: cover; }
 .creator-song-cover--fallback { display: grid; place-items: center; background: #27324a; color: #aab4c8; font-size: .72rem; }
 .song-art--image { object-fit: cover; }

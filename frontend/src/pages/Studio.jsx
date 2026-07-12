@@ -39,6 +39,7 @@ export default function Studio() {
   const [selectedMoods, setSelectedMoods] = useState([])
   const [lyrics, setLyrics] = useState('')
   const [coverImageUrl, setCoverImageUrl] = useState('')
+  const [coverFileName, setCoverFileName] = useState('')
   const [pendingCover, setPendingCover] = useState(null)
   const [selectedMediaFile, setSelectedMediaFile] = useState(null)
   const [audioFileName, setAudioFileName] = useState('')
@@ -72,6 +73,7 @@ export default function Studio() {
         setSelectedMoods(loadedSong.moodTags || [])
         setLyrics(loadedSong.rawLyrics || '')
         setCoverImageUrl(loadedSong.coverImageUrl || '')
+        setCoverFileName('')
         setAudioPreviewUrl(loadedSong.videoUrl || loadedSong.audioUrl || '')
         setMediaType(loadedSong.videoUrl ? 'video' : loadedSong.audioUrl ? 'audio' : '')
         setReadiness(loadedReadiness)
@@ -132,6 +134,7 @@ export default function Studio() {
         saved = coverResult.song
         setCoverImageUrl(coverResult.coverImageUrl)
         setPendingCover(null)
+        setCoverFileName('')
       }
       setSong(saved)
       setSongId(stableId)
@@ -198,7 +201,14 @@ export default function Studio() {
     const file = event.target.files?.[0]
     if (!file) return
     setPendingCover(file)
+    setCoverFileName(file.name)
     setCoverImageUrl(URL.createObjectURL(file))
+  }
+
+  function clearCoverSelection() {
+    setPendingCover(null)
+    setCoverFileName('')
+    setCoverImageUrl(song?.coverImageUrl || '')
   }
 
   if (isLoading) return <div className="studio-page"><p role="status">Loading saved draft…</p></div>
@@ -212,7 +222,7 @@ export default function Studio() {
       {!readiness.ready && <p className="studio-workflow-message is-error">Publishing requirements remaining: {readiness.missing.join(', ') || 'Save the draft to check readiness.'}</p>}
     </section> : <section className="studio-main-grid"><div className="studio-form-column">
       <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
-      {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.audioUrl || '') }} onCoverImageChange={handleCover} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
+      {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverFileName={coverFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.audioUrl || '') }} onCoverImageChange={handleCover} onCoverImageClear={clearCoverSelection} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
         : <LyricsCard canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())} extractionError={extractionError} extractionStatus={extractionStatus} lyrics={lyrics} onExtractLyrics={extractLyrics} onLyricsChange={setLyrics} transcriptionStatus={transcriptionStatus} youtubeLink={formData.youtubeLink} />}
       <RhythmBeatmapPanel songId={songId} token={token} />
     </div><LivePreviewCard artist={formData.artist} audioSrc={song?.audioUrl || audioPreviewUrl} description={formData.description} duration={audioDuration} languages={previewLanguages} mediaType={mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} /></section>}
