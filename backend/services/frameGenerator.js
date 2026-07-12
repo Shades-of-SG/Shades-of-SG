@@ -4,12 +4,9 @@
  * Orchestrates text-to-image generation for song segments using DALL-E 3 and Cloudinary.
  */
 
-const { OpenAI } = require('openai')
 const { GenerationJob, SceneSegment, GeneratedFrame } = require('../models')
 const aiStorageService = require('./aiStorageService')
-
-// Initialize OpenAI client (automatically picks up process.env.OPENAI_API_KEY)
-const openai = new OpenAI()
+const { getOpenAIClient } = require('./openaiClient')
 
 /**
  * Generates and stores frames for a specific job sequentially.
@@ -66,7 +63,7 @@ async function generateFrames(jobId, songId) {
         // 3. DALL-E Integration with Fallback
         let openAiImageUrl
         try {
-          const response = await openai.images.generate({
+          const response = await getOpenAIClient().images.generate({
             model: 'dall-e-3',
             prompt: segment.visualPrompt,
             size: '1024x1024',
@@ -78,7 +75,7 @@ async function generateFrames(jobId, songId) {
           try {
             if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
               console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
-              const fallbackResponse = await openai.images.generate({
+              const fallbackResponse = await getOpenAIClient().images.generate({
                 model: 'dall-e-2',
                 prompt: segment.visualPrompt,
                 size: '512x512',

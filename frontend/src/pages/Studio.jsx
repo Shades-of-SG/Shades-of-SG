@@ -7,6 +7,7 @@ import PreviewPublishPanel from '../components/studio/PreviewPublishPanel'
 import SongInformationCard from '../components/studio/SongInformationCard'
 import StudioFooter from '../components/studio/StudioFooter'
 import StudioHeader from '../components/studio/StudioHeader'
+import RhythmBeatmapPanel from '../components/studio/RhythmBeatmapPanel'
 import { useAuth } from '../context/AuthContext'
 import { API_URL } from '../services/apiConfig'
 import { createDraft, getCreatorSong, getPublishReadiness, publishSong, startGeneration, updateDraft, uploadAudio, uploadCover } from '../services/songService'
@@ -213,6 +214,7 @@ export default function Studio() {
       <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
       {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.audioUrl || '') }} onCoverImageChange={handleCover} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
         : <LyricsCard canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())} extractionError={extractionError} extractionStatus={extractionStatus} lyrics={lyrics} onExtractLyrics={extractLyrics} onLyricsChange={setLyrics} transcriptionStatus={transcriptionStatus} youtubeLink={formData.youtubeLink} />}
+      <RhythmBeatmapPanel songId={songId} token={token} />
     </div><LivePreviewCard artist={formData.artist} audioSrc={song?.audioUrl || audioPreviewUrl} description={formData.description} duration={audioDuration} languages={previewLanguages} mediaType={mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} /></section>}
     <StudioFooter activeStep={studioStep} disabled={isBusy || (studioStep === 3 && !readiness.ready)} lastSavedLabel={lastSavedLabel} onNext={() => setStudioStep((step) => Math.min(step + 1, 3))} onPublish={handlePublishSong} />
   </div>

@@ -1,12 +1,5 @@
-const { OpenAI } = require('openai')
 const { Song, GenerationJob, SceneSegment } = require('../models')
-
-// Initialize the OpenAI SDK.
-// It will automatically use the process.env.OPENAI_API_KEY if not explicitly passed,
-// but passing it explicitly is good practice for visibility.
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+const { getOpenAIClient } = require('./openaiClient')
 
 /**
  * Phase 2 Pipeline: Analyzes song lyrics and generates a chronological scene plan.
@@ -67,7 +60,7 @@ Lyrics:
 ${song.rawLyrics || 'No lyrics provided.'}`
 
     // 3. OpenAI API Call with Strict JSON Enforcement
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o', // using the flagship model for better prompt adherence
       response_format: { type: 'json_object' },
       temperature: 0.7, // 0.7 provides a good balance of creativity and structure

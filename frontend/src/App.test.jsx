@@ -102,6 +102,7 @@ describe('App', () => {
 
     expect(await screen.findByDisplayValue('Saved Studio Draft')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Studio Artist')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Rhythm Game' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
 
@@ -160,8 +161,8 @@ describe('App', () => {
 
   it('loads Song Experience metadata and activity links using the real Song id', async () => {
     window.history.pushState({}, '', '/songs/published-42')
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      json: async () => ({ song: {
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [{ difficulty: 'MEDIUM', status: 'PUBLISHED' }] } : ({ song: {
         artist: 'Experience Artist', coverImageUrl: '', description: 'Real cultural description',
         id: 'published-42', languages: ['English', 'Malay'], status: 'PUBLISHED',
         theme: 'Heritage', title: 'Experience Song', videoUrl: '',
@@ -173,14 +174,26 @@ describe('App', () => {
     expect(screen.getByText('Experience Artist')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Start Trivia' })).toHaveAttribute('href', '/songs/published-42/trivia')
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
-    expect(screen.getByRole('link', { name: 'Play Rhythm' })).toHaveAttribute('href', '/game/published-42')
+    expect(screen.getByRole('link', { name: 'Play Rhythm Game' })).toHaveAttribute('href', '/game/published-42?difficulty=MEDIUM')
     expect(screen.getByRole('link', { name: 'Share a Reflection' })).toHaveAttribute('href', '/reflections?song_id=published-42')
+  })
+
+  it('keeps a published song usable while disabling rhythm when no beatmap is published', async () => {
+    window.history.pushState({}, '', '/songs/published-no-rhythm')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [{ difficulty: 'MEDIUM', status: 'NOT_CREATED' }] } : { song: { id: 'published-no-rhythm', status: 'PUBLISHED', title: 'Song Without Rhythm' } },
+      ok: true, status: 200,
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByRole('heading', { name: 'Song Without Rhythm' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /play rhythm/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Rhythm game unavailable')).toHaveAttribute('title', 'This rhythm game is not available yet.')
   })
 
   it('lists only playable published Songs in Rhythm Hub using covers and real ids', async () => {
     window.history.pushState({}, '', '/rhythm-game')
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      json: async () => ({ songs: [
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [{ difficulty: 'EASY', status: 'PUBLISHED' }] } : ({ songs: [
         { artist: 'Playable Artist', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/rhythm.jpg', durationSecs: 60, id: 'playable-1', languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playable Published Song' },
         { artist: 'No Audio', audioUrl: '', coverImageUrl: '', durationSecs: 0, id: 'unplayable-1', languages: [], status: 'PUBLISHED', title: 'Unplayable Song' },
       ] }),
@@ -189,7 +202,7 @@ describe('App', () => {
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByRole('heading', { name: 'Playable Published Song' })).toBeInTheDocument()
     expect(screen.getByAltText('Playable Published Song cover')).toHaveAttribute('src', 'https://media.example/rhythm.jpg')
-    expect(screen.getByRole('link', { name: 'Play Song' })).toHaveAttribute('href', '/game/playable-1')
+    expect(screen.getByRole('link', { name: 'Play Song' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
     expect(screen.queryByText('Unplayable Song')).not.toBeInTheDocument()
   })
 

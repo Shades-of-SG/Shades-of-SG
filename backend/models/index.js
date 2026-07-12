@@ -13,6 +13,7 @@ const GenerationJob = require('./GenerationJob');
 const SceneSegment = require('./SceneSegment');
 const GeneratedFrame = require('./GeneratedFrame');
 const SongInstrument = require('./SongInstrument');
+const RhythmBeatmap = require('./RhythmBeatmap');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -27,6 +28,9 @@ Song.hasMany(GameScore, { foreignKey: 'songId', as: 'gameScores' });
 GameScore.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 User.hasMany(GameScore, { foreignKey: 'userId', as: 'gameScores' });
 GameScore.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Song.hasMany(RhythmBeatmap, { foreignKey: 'songId', as: 'rhythmBeatmaps' });
+RhythmBeatmap.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 
 Song.hasMany(Reflection, { foreignKey: 'songId', as: 'reflections' });
 Reflection.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
@@ -82,4 +86,5 @@ module.exports = {
     SceneSegment,
     GeneratedFrame,
     SongInstrument,
+    RhythmBeatmap,
 };

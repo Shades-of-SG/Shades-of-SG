@@ -7,7 +7,7 @@ process.env.DB_STORAGE = databasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { sequelize, GameScore, Song, User } = require('../models');
+const { sequelize, GameScore, RhythmBeatmap, Song, User } = require('../models');
 const { createToken, hashPassword } = require('../services/authService');
 
 let publishedSong;
@@ -29,6 +29,11 @@ beforeAll(async () => {
     otherPlayer = await User.create({ email: 'other-player@example.com', name: 'Other', passwordHash: hashPassword('password123'), role: 'REGISTERED' });
     publishedSong = await Song.create({ creatorId: creator.id, status: 'PUBLISHED', title: 'Playable Song' });
     draftSong = await Song.create({ creatorId: creator.id, status: 'DRAFT', title: 'Private Song' });
+    await RhythmBeatmap.create({
+        songId: publishedSong.id, difficulty: 'MEDIUM', durationMs: 30000,
+        generationSource: 'MANUAL', status: 'PUBLISHED', version: 1,
+        notes: Array.from({ length: 10 }, (_, index) => ({ id: `note-${index}`, lane: index % 4, startMs: 1000 + (index * 500), type: 'tap' })),
+    });
 });
 
 beforeEach(async () => GameScore.destroy({ where: {} }));

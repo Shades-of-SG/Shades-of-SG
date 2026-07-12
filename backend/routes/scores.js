@@ -1,6 +1,6 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { GameScore, Song, User } = require('../models');
+const { GameScore, RhythmBeatmap, Song, User } = require('../models');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -42,11 +42,15 @@ router.post('/', optionalAuth, async (req, res, next) => {
         if (!Number.isInteger(totalNotes) || totalNotes < 1 || totalNotes > 10000) return res.status(400).json({ message: 'totalNotes must be an integer between 1 and 10000' });
         if (!Number.isInteger(maxCombo) || maxCombo < 0 || maxCombo > totalNotes) return res.status(400).json({ message: 'maxCombo must be between 0 and totalNotes' });
         if (!DIFFICULTIES.has(normalizedDifficulty)) return res.status(400).json({ message: 'difficulty must be EASY, MEDIUM, or HARD' });
-        const theoreticalMaximum = (totalNotes * 1000) + (12 * totalNotes * (totalNotes + 1) / 2);
+        // Rhythm scoring caps the combo multiplier at 1.5x, including hold notes.
+        const theoreticalMaximum = totalNotes * 1500;
         if (score > theoreticalMaximum) return res.status(400).json({ message: 'score exceeds the maximum possible value for this chart' });
 
         const song = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] });
         if (!song) return res.status(404).json({ message: 'Published song not found.' });
+        const beatmap = await RhythmBeatmap.findOne({ where: { songId: song.id, difficulty: normalizedDifficulty, status: 'PUBLISHED' }, attributes: ['notes'] });
+        if (!beatmap) return res.status(404).json({ message: 'Published beatmap not found.' });
+        if (!Array.isArray(beatmap.notes) || beatmap.notes.length !== totalNotes) return res.status(400).json({ message: 'totalNotes does not match the published beatmap' });
 
         const suppliedAuthorization = Boolean(req.get('authorization'));
         if (suppliedAuthorization && !req.authUser?.id) return res.status(401).json({ message: 'Your session is invalid or expired.' });
