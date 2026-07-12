@@ -7,7 +7,7 @@ const ffmpegPath = require('ffmpeg-static')
 // Tell fluent-ffmpeg where the FFmpeg executable is
 ffmpeg.setFfmpegPath(ffmpegPath)
 
-const { GenerationJob, Song, SceneSegment } = require('../models')
+const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models')
 const aiStorageService = require('./aiStorageService')
 
 // --- Helper Functions ---
@@ -97,6 +97,7 @@ async function assembleVideo(jobId, songId) {
 
     const segments = await SceneSegment.findAll({
       where: { songId },
+      include: [{ model: GeneratedFrame, as: 'generatedFrames' }],
       order: [['startTime', 'ASC']],
     })
 
@@ -114,14 +115,20 @@ async function assembleVideo(jobId, songId) {
     const localImagePaths = []
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]
-      if (!segment.imageUrl) {
+      
+      let segmentImageUrl = segment.imageUrl
+      if (!segmentImageUrl && segment.generatedFrames && segment.generatedFrames.length > 0) {
+        segmentImageUrl = segment.generatedFrames[0].imageUrl
+      }
+
+      if (!segmentImageUrl) {
         console.warn(`[Warning] SceneSegment ${segment.id} is missing an imageUrl. Injecting fallback placeholder.`)
-        segment.imageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
+        segmentImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
       }
 
       const imgPath = path.join(tempDir, `img_${jobId}_${i}.jpg`)
       filesToCleanup.push(imgPath)
-      await downloadFile(segment.imageUrl, imgPath)
+      await downloadFile(segmentImageUrl, imgPath)
       localImagePaths.push(imgPath)
 
       // Calculate duration for this segment (default to 5 seconds for the last segment)
@@ -198,7 +205,7 @@ async function assembleVideo(jobId, songId) {
     job.progress = 100
     await job.save()
 
-    song.videoUrl = uploadResult.videoUrl
+    song.videoUrl = uploadResult
     await song.save()
 
     // 9. Phase 5: The Cleanup Crew
@@ -207,7 +214,7 @@ async function assembleVideo(jobId, songId) {
     return {
       success: true,
       jobId,
-      videoUrl: uploadResult.videoUrl,
+      videoUrl: uploadResult,
     }
   } catch (error) {
     // Graceful Failures (Error Boundary)

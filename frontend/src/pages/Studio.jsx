@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import LyricsCard from '../components/studio/LyricsCard'
 import LivePreviewCard from '../components/studio/LivePreviewCard'
 import MetadataStepper from '../components/studio/MetadataStepper'
@@ -47,6 +47,7 @@ function getMediaMimeType(file) {
 
 export default function Studio() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [formData, setFormData] = useState(initialFormData)
   const [selectedLanguages, setSelectedLanguages] = useState(initialLanguages)
   const [selectedMoods, setSelectedMoods] = useState(initialMoods)
@@ -72,6 +73,48 @@ export default function Studio() {
       }
     }
   }, [audioPreviewUrl])
+
+  useEffect(() => {
+    if (location.state?.songData) {
+      const s = location.state.songData;
+      setFormData(curr => ({
+        ...curr,
+        title: s.title || curr.title,
+        artist: s.artist || curr.artist,
+        theme: s.theme || curr.theme,
+      }));
+      if (s.moodTags) setSelectedMoods(s.moodTags);
+      if (s.lyrics) setLyrics(s.lyrics);
+      
+      const mediaUrl = s.videoUrl || s.audioUrl;
+      if (mediaUrl) {
+        fetch(mediaUrl)
+          .then(res => res.blob())
+          .then(blob => {
+            const fileName = s.title ? `${s.title.replace(/\s+/g, '_')}.${s.videoUrl ? 'mp4' : 'mp3'}` : `Exported_Media.${s.videoUrl ? 'mp4' : 'mp3'}`;
+            const fileType = s.videoUrl ? 'video/mp4' : 'audio/mpeg';
+            const file = new File([blob], fileName, { type: blob.type || fileType });
+            
+            setSelectedMediaFile(file);
+            setAudioPreviewUrl(URL.createObjectURL(file));
+            setAudioFileName(file.name);
+            setMediaType(file.type);
+            
+            const audio = new Audio(URL.createObjectURL(file));
+            audio.onloadedmetadata = () => {
+              setAudioDuration(Math.round(audio.duration).toString());
+            };
+          })
+          .catch(err => console.error("Failed to load media from URL:", err));
+      }
+      
+      // Clear the state so it doesn't re-trigger on refresh if they change it
+      window.history.replaceState({}, document.title);
+      
+      // Jump to step 3 (Preview & Publish) since all data is pre-filled
+      setStudioStep(3);
+    }
+  }, [location.state])
 
   useEffect(() => {
     if (studioStep !== 2 || transcriptionStatus.configured !== null) {
@@ -320,6 +363,7 @@ export default function Studio() {
             description={formData.description}
             duration={audioDuration}
             languages={previewLanguages}
+            lyrics={lyrics}
             mediaType={mediaType}
             moods={selectedMoods}
             theme={formData.theme}

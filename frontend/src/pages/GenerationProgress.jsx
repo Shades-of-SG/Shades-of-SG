@@ -154,7 +154,7 @@ export default function GenerationProgress() {
                 to={`/creator/editor/${jobData.id}`} 
                 className="w-full block text-center bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all"
               >
-                Proceed to KindMaster Editor
+                Proceed to Video Editor
               </Link>
             </div>
           ) : (

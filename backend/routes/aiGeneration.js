@@ -4,6 +4,8 @@ const {
   getAllJobs,
   getGenerationStatus,
   startGeneration,
+  exportVideo,
+  regenerateFrame
 } = require('../controllers/generationController')
 
 // Placeholder for future JWT authentication middleware
@@ -15,5 +17,11 @@ router.get('/:id/status', requireAuth, getGenerationStatus)
 
 // POST /start - Triggers the asynchronous generation pipeline (No auth yet for testing)
 router.post('/start', startGeneration)
+
+// Export Final Video
+router.post('/:jobId/export', requireAuth, exportVideo)
+
+// Regenerate single frame
+router.post('/frame/:frameId/regenerate', requireAuth, regenerateFrame)
 
 module.exports = router

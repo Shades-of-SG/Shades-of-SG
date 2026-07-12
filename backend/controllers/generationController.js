@@ -4,6 +4,9 @@ const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
+const { OpenAI } = require('openai')
+const cloudinary = require('../config/cloudinary')
+const aiStorageService = require('../services/aiStorageService')
 
 // ==========================================
 // Phase 5: The Cleanup Utility
@@ -189,8 +192,104 @@ const runGenerationPipeline = async (jobId) => {
   }
 }
 
+const exportVideo = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const job = await GenerationJob.findByPk(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    // Set job back to in progress so the frontend sees it compiling
+    await job.update({ status: 'IN_PROGRESS' });
+
+    // Wait for the video compilation to finish
+    const assembleResult = await assembleVideo(jobId, job.songId);
+    await job.reload();
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Export completed', 
+      data: job, 
+      videoUrl: assembleResult.videoUrl 
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const regenerateFrame = async (req, res, next) => {
+  try {
+    const { frameId } = req.params;
+    const { userFeedback } = req.body;
+
+    const frame = await GeneratedFrame.findByPk(frameId, {
+      include: [{ model: SceneSegment, as: 'sceneSegment' }]
+    });
+
+    if (!frame) return res.status(404).json({ success: false, message: 'Frame not found' });
+
+    const segment = frame.sceneSegment;
+    if (!segment) return res.status(404).json({ success: false, message: 'SceneSegment not found' });
+
+    let prompt = segment.visualPrompt || "Cinematic scene";
+    if (userFeedback && userFeedback.trim()) {
+      prompt = `${prompt}. User instructions to modify this scene: ${userFeedback}`;
+    }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    console.log(`[Regenerate] Calling GPT Image 2 for frame ${frameId}...`);
+    const response = await openai.images.generate({
+      model: 'gpt-image-2',
+      prompt: prompt.substring(0, 4000),
+      size: '1792x1024',
+      n: 1,
+    });
+
+    let openAiImageUrl;
+    if (response.data?.[0]?.b64_json) {
+      openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json;
+    } else {
+      openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
+      if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
+    }
+    
+    if (!openAiImageUrl) throw new Error('Missing image URL from OpenAI');
+
+    let finalImageUrl;
+    if (openAiImageUrl.startsWith('data:image/')) {
+      const uploadResult = await new Promise((resolve, reject) => {
+         cloudinary.uploader.upload(openAiImageUrl, {
+           folder: 'shades-of-sg/frames',
+           resource_type: 'image'
+         }, (error, result) => {
+           if (error) reject(new Error(`Cloudinary Data URI Upload Error: ${error.message}`));
+           else resolve(result);
+         });
+      });
+      finalImageUrl = uploadResult.secure_url;
+    } else {
+      finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl);
+    }
+
+    frame.imageUrl = finalImageUrl;
+    await frame.save();
+
+    segment.imageUrl = finalImageUrl;
+    await segment.save();
+
+    return res.json({ success: true, data: frame });
+  } catch (error) {
+    console.error(`[Regenerate Error]:`, error);
+    next(error);
+  }
+}
+
 module.exports = {
   startGeneration,
   getGenerationStatus,
   getAllJobs,
+  exportVideo,
+  regenerateFrame
 }

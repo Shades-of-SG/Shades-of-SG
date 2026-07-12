@@ -59,28 +59,39 @@ async function generateFrames(jobId, songId) {
         .trim()
     }
 
-    // Use a for...of loop to enforce synchronous execution and avoid OpenAI rate limits
-    for (const segment of segments) {
-      let finalImageUrl
+    // 2. Pre-process and deduplicate segments based on the chorus cache key
+    const uniqueGenerationTasks = new Map() // Map of cacheKey -> segment
+    const segmentToCacheKey = new Map()     // Map of segment.id -> cacheKey
 
-      // Key the cache by aggressively normalized lyrics to ensure repeating choruses always hit the cache
+    for (const segment of segments) {
       const cacheKey = segment.lyrics && segment.lyrics.trim() !== ''
         ? normalizeCacheKey(segment.lyrics)
         : segment.visualPrompt
-
-      // Check if we already generated an image for this exact lyric/prompt (e.g., a repeated chorus)
-      if (imagePromptCache.has(cacheKey)) {
-        // Cache HIT: Skip DALL-E and reuse the permanent Cloudinary URL
-        console.log(
-          `[Cache Hit] Reusing frame for segment: "${cacheKey.substring(0, 30)}..."`
-        )
-        finalImageUrl = imagePromptCache.get(cacheKey)
+      
+      segmentToCacheKey.set(segment.id, cacheKey)
+      
+      if (!uniqueGenerationTasks.has(cacheKey)) {
+        uniqueGenerationTasks.set(cacheKey, segment)
       } else {
-        // Cache MISS: Generate via GPT Image 2
-        console.log(`[Cache Miss] Generating new GPT Image 2 frame for segment ${segment.id}...`)
+        console.log(`[Cache Hit] Deduplicated segment for generation: "${cacheKey.substring(0, 30)}..."`)
+      }
+    }
 
-        // 3. GPT Image Integration with Fallback
+    console.log(`[Frame Generator] Optimization: Found ${uniqueGenerationTasks.size} unique scenes out of ${segments.length} segments.`)
+
+    // 3. Generate unique frames in parallel chunks (e.g. 5 at a time) to speed things up
+    const uniqueSegments = Array.from(uniqueGenerationTasks.values())
+    const chunkSize = 5
+    
+    for (let i = 0; i < uniqueSegments.length; i += chunkSize) {
+      const chunk = uniqueSegments.slice(i, i + chunkSize)
+      console.log(`[Frame Generator] Processing chunk ${Math.floor(i / chunkSize) + 1} of ${Math.ceil(uniqueSegments.length / chunkSize)}...`)
+      
+      await Promise.all(chunk.map(async (segment) => {
+        const cacheKey = segmentToCacheKey.get(segment.id)
         let openAiImageUrl
+        
+        console.log(`[Cache Miss] Generating new GPT Image 2 frame for segment ${segment.id}...`)
         try {
           console.log(`[OpenAI] Attempting GPT Image 2 generation with key starting with: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
           const response = await openai.images.generate({
@@ -126,8 +137,8 @@ async function generateFrames(jobId, songId) {
           }
         }
 
+        let finalImageUrl
         // 4. Cloudinary Handoff
-        // Immediately upload to persistent storage before the OpenAI URL expires (or upload Data URI directly)
         if (openAiImageUrl && openAiImageUrl.startsWith('data:image/')) {
           const uploadResult = await new Promise((resolve, reject) => {
              cloudinary.uploader.upload(openAiImageUrl, {
@@ -143,18 +154,21 @@ async function generateFrames(jobId, songId) {
           finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
         }
 
-        // Cache the newly acquired permanent URL for future segments
         imagePromptCache.set(cacheKey, finalImageUrl)
-      }
+      }))
+    }
 
-      // 5. Database Saving
-      // Record the generated frame mapping to the specific segment
+    // 5. Database Saving
+    console.log(`[Frame Generator] Saving ${segments.length} frames to database...`)
+    for (const segment of segments) {
+      const cacheKey = segmentToCacheKey.get(segment.id)
+      const finalImageUrl = imagePromptCache.get(cacheKey)
+      
       await GeneratedFrame.create({
         sceneSegmentId: segment.id,
         imageUrl: finalImageUrl,
       })
 
-      // Sync the Cloudinary final URL back to the segment's imageUrl column and save
       segment.imageUrl = finalImageUrl
       await segment.save()
     }
