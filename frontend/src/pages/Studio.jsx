@@ -95,10 +95,12 @@ export default function Studio() {
             const fileType = s.videoUrl ? 'video/mp4' : 'audio/mpeg';
             const file = new File([blob], fileName, { type: blob.type || fileType });
             
+            const isVideo = file.type.startsWith('video') || file.name.toLowerCase().endsWith('.mp4');
+            
             setSelectedMediaFile(file);
             setAudioPreviewUrl(URL.createObjectURL(file));
             setAudioFileName(file.name);
-            setMediaType(file.type);
+            setMediaType(isVideo ? 'video' : 'audio');
             
             const audio = new Audio(URL.createObjectURL(file));
             audio.onloadedmetadata = () => {
