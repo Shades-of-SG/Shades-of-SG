@@ -65,6 +65,12 @@ export default function Studio() {
   const [transcriptionStatus, setTranscriptionStatus] = useState({ configured: null, error: '' })
 
   useEffect(() => {
+    if (!message.text) return undefined
+    const timer = window.setTimeout(() => setMessage({ type: '', text: '' }), 5000)
+    return () => window.clearTimeout(timer)
+  }, [message.text])
+
+  useEffect(() => {
     if (!routeSongId) return undefined
     let active = true
     getCreatorSong(routeSongId, token)
@@ -96,12 +102,6 @@ export default function Studio() {
     if (audioPreviewUrl?.startsWith('blob:')) URL.revokeObjectURL(audioPreviewUrl)
     if (coverImageUrl?.startsWith('blob:')) URL.revokeObjectURL(coverImageUrl)
   }, [audioPreviewUrl, coverImageUrl])
-
-  useEffect(() => {
-    if (!message.text) return undefined
-    const timeout = window.setTimeout(() => setMessage({ type: '', text: '' }), 5000)
-    return () => window.clearTimeout(timeout)
-  }, [message])
 
   useEffect(() => {
     if (studioStep !== 2 || transcriptionStatus.configured !== null) return undefined
@@ -272,17 +272,17 @@ export default function Studio() {
   if (isLoading) return <div className="studio-page"><p role="status">Loading saved draft…</p></div>
 
   return <div className="studio-page">
-    <StudioHeader activeStep={studioStep} isBusy={isBusy} onBackToLyrics={() => setStudioStep(2)} onGenerateVideo={handleGenerateVideo} onPublishSong={handlePublishSong} onSaveDraft={() => saveDraft().catch(() => {})} />
+    <StudioHeader activeStep={studioStep} isBusy={isBusy} onBackToLyrics={() => setStudioStep(2)} onGenerateVideo={handleGenerateVideo} onSaveDraft={() => saveDraft().catch(() => {})} />
     {message.text && <div className={`studio-workflow-message studio-action-toast is-${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</div>}
     {studioStep === 3 ? <section className="studio-form-column">
       <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />
-      <PreviewPublishPanel audioSrc={song?.videoUrl || song?.audioUrl || audioPreviewUrl} artist={formData.artist} description={formData.description} duration={audioDuration} languages={previewLanguages} lastSavedLabel={lastSavedLabel} lyrics={lyrics} mediaType={song?.videoUrl ? 'video' : mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} />
+      <PreviewPublishPanel audioSrc={audioPreviewUrl || song?.videoUrl || song?.audioUrl} artist={formData.artist} description={formData.description} duration={audioDuration} languages={previewLanguages} lastSavedLabel={lastSavedLabel} lyrics={lyrics} mediaType={mediaType || (song?.videoUrl ? 'video' : 'audio')} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} />
     </section> : <section className="studio-main-grid"><div className="studio-form-column">
       <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
       {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverFileName={coverFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.audioUrl || '') }} onCoverImageChange={handleCover} onCoverImageClear={clearCoverSelection} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
         : <LyricsCard canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())} extractionError={extractionError} extractionStatus={extractionStatus} lyrics={lyrics} onExtractLyrics={extractLyrics} onLyricsChange={setLyrics} transcriptionStatus={transcriptionStatus} youtubeLink={formData.youtubeLink} />}
       <RhythmBeatmapPanel songId={songId} songStatus={song?.status} token={token} />
-    </div><LivePreviewCard artist={formData.artist} audioSrc={song?.audioUrl || audioPreviewUrl} description={formData.description} duration={audioDuration} languages={previewLanguages} mediaType={mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} /></section>}
+    </div><LivePreviewCard artist={formData.artist} audioSrc={audioPreviewUrl || song?.audioUrl} description={formData.description} duration={audioDuration} languages={previewLanguages} mediaType={mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} /></section>}
     <StudioFooter activeStep={studioStep} disabled={isBusy} lastSavedLabel={lastSavedLabel} onNext={() => setStudioStep((step) => Math.min(step + 1, 3))} onPublish={handlePublishSong} />
     {publishPrompt ? <PublishReadinessModal busy={isBusy} missing={publishPrompt.missing} onClose={() => setPublishPrompt(null)} onGenerateVideo={handleGenerateVideo} onGoToStep={goToIncompleteTask} onUploadVideo={handleUploadVideo} /> : null}
   </div>

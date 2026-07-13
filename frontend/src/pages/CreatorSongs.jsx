@@ -12,6 +12,14 @@ const filters = [
 ]
 const statuses = ['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']
 const activeJobStatuses = new Set(['QUEUED', 'PROCESSING'])
+const emptyStates = {
+  ALL: { title: 'Your song library is ready', description: 'Create your first song in Studio to start building a music video.' },
+  DRAFT: { title: 'No drafts yet', description: 'Drafts are songs you have saved but have not started generating yet. Create or save one in Studio.' },
+  GENERATING: { title: 'No videos are generating', description: 'Songs appear here while their video is being created. Start generation from a saved draft when you are ready.' },
+  READY: { title: 'Nothing is ready to publish yet', description: 'Completed videos that are ready for your final review and publishing will appear here.' },
+  PUBLISHED: { title: 'No published songs yet', description: 'Songs you publish to the Studio will appear here for you to manage and share.' },
+  ARCHIVED: { title: 'No archived songs', description: 'Archived songs are kept here when you want to hide them from your active library without deleting them.' },
+}
 
 function SongArtwork({ song }) {
   return song.coverImageUrl
@@ -52,6 +60,15 @@ export default function CreatorSongs() {
     return () => window.clearInterval(timer)
   }, [load, songs])
 
+  useEffect(() => {
+    if (!error && !success) return undefined
+    const timer = window.setTimeout(() => {
+      setError('')
+      setSuccess('')
+    }, 5000)
+    return () => window.clearTimeout(timer)
+  }, [error, success])
+
   const counts = useMemo(() => Object.fromEntries(statuses.map((status) => [status, songs.filter((song) => song.status === status).length])), [songs])
   const visibleSongs = filter === 'ALL' ? songs : songs.filter((song) => song.status === filter)
   const selected = songs.find((song) => song.id === selectedId) || null
@@ -86,7 +103,7 @@ export default function CreatorSongs() {
       {filters.map(([label, value]) => <button className={`dashboard-filter-pill ${filter === value ? 'is-selected' : ''}`} key={value} onClick={() => setFilter(value)} type="button">{label}</button>)}
     </div>
     {loading ? <p role="status">Loading your songs…</p> : null}
-    {!loading && visibleSongs.length === 0 ? <EmptyState description="Create or save a Song in Studio to see it here." title="No songs found" /> : null}
+    {!loading && visibleSongs.length === 0 ? <EmptyState {...emptyStates[filter]} /> : null}
     {!loading && visibleSongs.length > 0 ? <div className="creator-song-browser">
       <div className="creator-song-browser__list">
         {visibleSongs.map((song) => <button className={`dashboard-song-item creator-song-row ${song.id === selectedId ? 'is-selected' : ''}`} key={song.id} onClick={() => setSelectedId(song.id)} type="button">

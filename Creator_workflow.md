@@ -1516,3 +1516,34 @@ Focused Profile tests cover authenticated identity, real known badges, unknown b
 ### Lesson
 
 A personal Profile is an integration surface, not merely a visual page. Its counters and scrapbook artifacts must remain traceable to authenticated ownership and persisted activity. Visual richness is valuable only when empty states stay honest, unknown metadata degrades safely, and one unavailable service cannot erase the rest of a user's story.
+---
+
+## Phase 9 â€” Creator Experience Polish
+
+### Scope and outcome
+
+Phase 9 improved the creator-facing Studio, My Songs, and Generation Tasks experience without changing the core Song lifecycle. The focus was clear feedback, readable selection states, and removing unnecessary publishing controls.
+
+### Improvements made
+
+- Enabled immediate local MP3 preview in Studio before a draft is saved. A newly selected file takes priority over an existing saved-media URL, preloads for playback, and reports an understandable browser playback error when needed.
+- Restyled selected Song cards to use the readable Dashboard navy surface, white text, and a visible accent border instead of a low-contrast dark overlay.
+- Replaced internal publishing field names such as `videoUrl` and `status READY` with creator-facing guidance. For example, a pending generation now explains that the video is still being prepared before publishing can continue.
+- Added unique, actionable empty states for every My Songs filter: All, Drafts, Generating, Ready, Published, and Archived.
+- Made temporary success and error feedback auto-dismiss after five seconds in Studio, My Songs, and Generation Tasks. Ongoing generation failures and publishing-readiness guidance remain visible because they require action.
+- Removed the duplicate top-header Publish Song button on Preview & Publish. The footer remains the single publishing action.
+
+### Verification
+
+- `npm.cmd run lint` in `frontend`: passed.
+- `npm.cmd run build` in `frontend`: passed.
+
+### Files changed in Phase 9
+
+- `Creator_workflow.md`
+- `frontend/src/App.css`
+- `frontend/src/components/studio/AudioPreviewCard.jsx`
+- `frontend/src/components/studio/StudioHeader.jsx`
+- `frontend/src/pages/CreatorGenerationJobs.jsx`
+- `frontend/src/pages/CreatorSongs.jsx`
+- `frontend/src/pages/Studio.jsx`
