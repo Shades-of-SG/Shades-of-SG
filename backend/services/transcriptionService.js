@@ -1,4 +1,5 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
+const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
 const LYRIC_TRANSCRIPTION_PROMPT = [
     'Transcribe the complete song lyrics from the provided audio.',
@@ -42,9 +43,17 @@ function getTranscriptionConfigStatus() {
     return {
         configured: Boolean(process.env.OPENAI_API_KEY),
         maxFileSizeMb: MAX_TRANSCRIPTION_BYTES / (1024 * 1024),
-        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe',
+        model: getTranscriptionModel(),
         supportedMimeTypes: Array.from(SUPPORTED_MIME_TYPES).sort(),
     };
+}
+
+function getTranscriptionModel() {
+    return process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || DEFAULT_TRANSCRIPTION_MODEL;
+}
+
+function supportsTimestampedSegments(model) {
+    return model === 'whisper-1';
 }
 
 async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
@@ -100,10 +109,19 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
+    const transcriptionModel = getTranscriptionModel();
     const formData = new FormData();
-    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'whisper-1');
-    formData.append('response_format', 'verbose_json');
-    formData.append('timestamp_granularities[]', 'segment');
+    formData.append('model', transcriptionModel);
+
+    if (supportsTimestampedSegments(transcriptionModel)) {
+        formData.append('response_format', 'verbose_json');
+        formData.append('timestamp_granularities[]', 'segment');
+    } else {
+        // GPT-4o transcription models only accept JSON and do not return
+        // Whisper-style timestamped segments.
+        formData.append('response_format', 'json');
+    }
+
     formData.append('prompt', LYRIC_TRANSCRIPTION_PROMPT);
     formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
 
@@ -126,8 +144,8 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     return {
         lyrics: formatLyricsDraft(responseBody.text || ''),
         rawLyrics: responseBody.text || '',
-        segments: responseBody.segments || [], // Return the exact timed segments
-        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe',
+        segments: Array.isArray(responseBody.segments) ? responseBody.segments : [],
+        model: transcriptionModel,
     };
 }
 
@@ -241,6 +259,7 @@ function groupLinesIntoStanzas(lines) {
 }
 
 module.exports = {
+    DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
     getTranscriptionConfigStatus,
     MAX_TRANSCRIPTION_BYTES,

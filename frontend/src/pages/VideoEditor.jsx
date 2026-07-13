@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
+import { useAuth } from '../context/AuthContext'
+import { getGenerationJob } from '../services/songService'
+import { API_URL } from '../services/apiConfig'
 
 /**
  * Extracts and flattens all frames from sceneSegments,
@@ -213,9 +216,11 @@ function thumbnailStyle(isActive) {
 export default function VideoEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { token } = useAuth()
 
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [frames, setFrames] = useState([])
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [audioUrl, setAudioUrl] = useState('')
@@ -297,18 +302,25 @@ export default function VideoEditor() {
   }
 
   useEffect(() => {
-    fetch(`/api/generation/${id}/status`)
-      .then(res => res.json())
-      .then(result => {
-        if (result.success && result.data) {
-          setJobData(result.data)
-          setFrames(extractFrames(result.data.song))
-          setAudioUrl(result.data.song?.audioUrl || '')
-        }
+    let isMounted = true
+
+    getGenerationJob(id, token)
+      .then(job => {
+        if (!isMounted) return
+        setJobData(job)
+        setFrames(extractFrames(job.song))
+        setAudioUrl(job.song?.audioUrl || '')
       })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [id])
+      .catch(error => {
+        console.error(error)
+        if (isMounted) setLoadError(error.message)
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false)
+      })
+
+    return () => { isMounted = false }
+  }, [id, token])
 
   const syncFrameToTime = useCallback((time) => {
     if (frames.length === 0) return
@@ -398,9 +410,9 @@ export default function VideoEditor() {
     const currentFrame = frames[currentFrameIndex];
     setIsRegenerating(true);
     try {
-      const res = await fetch(`/api/generation/frame/${currentFrame.id}/regenerate`, {
+      const res = await fetch(`${API_URL}/generation/frame/${currentFrame.id}/regenerate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ userFeedback })
       });
       const result = await res.json();
@@ -424,7 +436,10 @@ export default function VideoEditor() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`/api/generation/${id}/export`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/generation/${id}/export`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const result = await res.json();
       if (result.success && result.videoUrl) {
         // Trigger download directly in the browser
@@ -464,6 +479,16 @@ export default function VideoEditor() {
       <CreatorPageShell breadcrumbs={['Video Editor']} title="Editor" description="Loading workspace...">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '16rem' }}>
           <Loader2 style={{ width: '2rem', height: '2rem', animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
+        </div>
+      </CreatorPageShell>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <CreatorPageShell breadcrumbs={['Video Editor']} title="Editor" description="Unable to load the generation job.">
+        <div style={{ padding: '3rem', textAlign: 'center', color: '#f87171' }}>
+          {loadError}
         </div>
       </CreatorPageShell>
     )
