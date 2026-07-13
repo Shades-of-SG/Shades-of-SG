@@ -23,7 +23,6 @@ const EMPTY_STATS = {
   newToday: 0,
   newYesterday: 0,
   pending: 0,
-  rejected: 0,
 }
 
 const EMPTY_PAGINATION = { limit: 8, page: 1, total: 0, totalPages: 1 }
@@ -157,7 +156,7 @@ export default function ReflectionModeration() {
       return
     }
 
-    const nextStatus = action === 'approve' ? 'APPROVED' : action === 'reject' ? 'REJECTED' : 'FLAGGED'
+    const nextStatus = action === 'approve' ? 'APPROVED' : 'FLAGGED'
     setBusyId(reflection.id)
     try {
       const updated = await moderateReflection(reflection.id, {
@@ -165,7 +164,7 @@ export default function ReflectionModeration() {
         status: nextStatus,
       }, token)
       moveOutOfCurrentTab(reflection.id, nextStatus, updated)
-      setToast({ message: nextStatus === 'APPROVED' ? 'Reflection approved and published.' : nextStatus === 'REJECTED' ? 'Reflection rejected and hidden.' : 'Reflection flagged for review.', type: 'success' })
+      setToast({ message: nextStatus === 'APPROVED' ? 'Reflection approved and published.' : 'Reflection flagged for review.', type: 'success' })
     } catch (nextError) {
       setToast({ message: nextError.message, type: 'error' })
     } finally {

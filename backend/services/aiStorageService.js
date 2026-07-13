@@ -21,7 +21,6 @@ const uploadAudioStream = (fileData) => {
         }
         resolve({
           audioUrl: result.secure_url,
-          audioPublicId: result.public_id,
           duration: Math.round(result.duration || 0),
         })
       }
@@ -81,15 +80,17 @@ const uploadImageFromUrl = async (imageSource) => {
 /**
  * (PHASE 4) Uploads a compiled MP4 video to Cloudinary from the local disk.
  * @param {string} localFilePath - The local path to the generated .mp4 file.
- * @returns {Promise<{videoUrl: string, videoPublicId: string}>} Stored video identifiers
+ * @param {number|string} jobId - The job ID to use in the file name.
+ * @returns {Promise<string>} The permanent Cloudinary secure_url
  */
-const uploadCompiledVideo = (localFilePath) => {
+const uploadCompiledVideo = (localFilePath, jobId) => {
   return new Promise((resolve, reject) => {
     cloudinary.uploader.upload(
       localFilePath,
       {
         resource_type: 'video',
         folder: 'shades-of-sg/compiled-videos',
+        public_id: `export_job_${jobId}_${Date.now()}`
       },
       (error, result) => {
         if (error) {
@@ -97,10 +98,7 @@ const uploadCompiledVideo = (localFilePath) => {
             new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error })
           )
         }
-        resolve({
-          videoUrl: result.secure_url,
-          videoPublicId: result.public_id,
-        })
+        resolve(result.secure_url)
       }
     )
   })

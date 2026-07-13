@@ -1,18 +1,9 @@
 const crypto = require('crypto');
+const User = require('../models/User');
+
 const HASH_ITERATIONS = 120000;
 const HASH_KEY_LENGTH = 64;
 const HASH_DIGEST = 'sha512';
-
-function getTokenSecret() {
-    const secret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET;
-    if (secret) return secret;
-
-    if (process.env.NODE_ENV === 'production') {
-        throw new Error('AUTH_TOKEN_SECRET or JWT_SECRET is required in production.');
-    }
-
-    return 'local-dev-auth-secret';
-}
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
     const hash = crypto
@@ -37,7 +28,7 @@ function verifyPassword(password, storedHash) {
 }
 
 function createToken(user) {
-    const secret = getTokenSecret();
+    const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
         id: user.id,
@@ -59,7 +50,7 @@ function verifyToken(token) {
         return null;
     }
 
-    const secret = getTokenSecret();
+    const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
     const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
     const actualBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expected);
@@ -84,9 +75,34 @@ function serializeUser(user) {
     };
 }
 
+async function seedCreatorAccount() {
+    const email = process.env.SEED_CREATOR_EMAIL;
+    const password = process.env.SEED_CREATOR_PASSWORD;
+
+    if (!email || !password) {
+        return;
+    }
+
+    const [user, created] = await User.findOrCreate({
+        defaults: {
+            email,
+            name: process.env.SEED_CREATOR_NAME || 'Violet',
+            passwordHash: hashPassword(password),
+            role: 'CREATOR',
+        },
+        where: { email },
+    });
+
+    if (!created && user.role !== 'CREATOR') {
+        user.role = 'CREATOR';
+        await user.save();
+    }
+}
+
 module.exports = {
     createToken,
     hashPassword,
+    seedCreatorAccount,
     serializeUser,
     verifyToken,
     verifyPassword,

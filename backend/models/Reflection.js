@@ -44,7 +44,7 @@ const Reflection = sequelize.define('Reflection', {
         defaultValue: [],
     },
     status: {
-        type: DataTypes.ENUM('PENDING', 'APPROVED', 'FLAGGED', 'REJECTED'),
+        type: DataTypes.ENUM('PENDING', 'APPROVED', 'FLAGGED'),
         allowNull: false,
         defaultValue: 'PENDING',
     },

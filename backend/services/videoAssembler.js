@@ -25,7 +25,7 @@ async function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     const writer = fs.createWriteStream(destPath)
     response.data.pipe(writer)
-    writer.on('finish', resolve)
+    writer.on('close', resolve)
     writer.on('error', reject)
   })
 }
@@ -55,12 +55,22 @@ function escapePathForFFmpeg(filePath) {
  */
 async function cleanupFiles(filePaths) {
   for (const filePath of filePaths) {
-    try {
-      if (fs.existsSync(filePath)) {
-        await fs.promises.unlink(filePath)
+    let retries = 3
+    while (retries > 0) {
+      try {
+        if (fs.existsSync(filePath)) {
+          await fs.promises.unlink(filePath)
+        }
+        break // success
+      } catch (err) {
+        if (err.code === 'EBUSY' && retries > 1) {
+          await new Promise(res => setTimeout(res, 500))
+          retries--
+        } else {
+          console.error(`Failed to delete temporary file ${filePath}:`, err.message)
+          break
+        }
       }
-    } catch (err) {
-      console.error(`Failed to delete temporary file ${filePath}:`, err.message)
     }
   }
 }
@@ -71,8 +81,9 @@ async function cleanupFiles(filePaths) {
  * Assembles a final MP4 video from generated scene images, audio, and lyrics.
  * * @param {number} jobId - The ID of the GenerationJob
  * @param {number} songId - The ID of the corresponding Song
+ * @param {boolean} burnCaptions - Whether to hard-burn subtitles into the MP4. Defaults to true.
  */
-async function assembleVideo(jobId, songId) {
+async function assembleVideo(jobId, songId, burnCaptions = true) {
   const tempDir = path.join(__dirname, '..', 'storage', 'temp')
   const filesToCleanup = []
 
@@ -87,8 +98,8 @@ async function assembleVideo(jobId, songId) {
     // 2. Database Fetching
     job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`GenerationJob ${jobId} not found`)
-    if (job.status !== 'PROCESSING') {
-      throw new Error(`GenerationJob ${jobId} is not in PROCESSING state`)
+    if (job.status !== 'IN_PROGRESS') {
+      throw new Error(`GenerationJob ${jobId} is not in IN_PROGRESS state`)
     }
 
     const song = await Song.findByPk(songId)
@@ -98,7 +109,11 @@ async function assembleVideo(jobId, songId) {
     const segments = await SceneSegment.findAll({
       where: { songId },
       include: [{ model: GeneratedFrame, as: 'generatedFrames' }],
-      order: [['startTime', 'ASC']],
+      // Guarantee strict chronological ordering so FFmpeg reads timestamps linearly
+      order: [
+        ['startTime', 'ASC'],
+        ['id', 'ASC']
+      ],
     })
 
     if (!segments || segments.length === 0) {
@@ -142,18 +157,31 @@ async function assembleVideo(jobId, songId) {
     const srtPath = path.join(tempDir, `${jobId}.srt`)
     filesToCleanup.push(srtPath)
     let srtContent = ''
+    let srtIndex = 1
 
     for (let i = 0; i < segments.length; i++) {
       const segment = segments[i]
-      const startTime = formatSrtTime(segment.startTime)
+      const lyrics = (segment.lyrics || '').trim()
+      if (!lyrics) continue // Skip empty subtitle blocks
+
+      let startSeconds = segment.startTime
+      if (i === 0 && startSeconds > 0) {
+        startSeconds = 0
+      }
+
+      const startTime = formatSrtTime(startSeconds)
       const endTime = formatSrtTime(segment.startTime + segment.duration)
 
       // SRT format:
       // Index \n Start --> End \n Text \n\n
-      srtContent += `${i + 1}\n`
+      srtContent += `${srtIndex}\n`
       srtContent += `${startTime} --> ${endTime}\n`
-      srtContent += `${segment.lyrics || ''}\n\n`
+      srtContent += `${lyrics}\n\n`
+      srtIndex++
     }
+
+    // CRITICAL: Strip any leading/trailing whitespace so the file starts exactly with '1'
+    srtContent = srtContent.trim()
     await fs.promises.writeFile(srtPath, srtContent, 'utf8')
 
     // 5. Create Concat Demuxer File for FFmpeg (To stitch images based on durations)
@@ -164,8 +192,14 @@ async function assembleVideo(jobId, songId) {
     for (let i = 0; i < segments.length; i++) {
       // FFmpeg concat demuxer expects forward slashes
       const safeImgPath = localImagePaths[i].replace(/\\/g, '/')
+      
+      let displayDuration = segments[i].duration
+      if (i === 0 && segments[i].startTime > 0) {
+        displayDuration += segments[i].startTime
+      }
+
       concatContent += `file '${safeImgPath}'\n`
-      concatContent += `duration ${segments[i].duration}\n`
+      concatContent += `duration ${displayDuration}\n`
     }
     // FFmpeg concat quirk: repeat the last file to ensure the final duration is respected
     concatContent += `file '${localImagePaths[localImagePaths.length - 1].replace(/\\/g, '/')}'\n`
@@ -176,21 +210,26 @@ async function assembleVideo(jobId, songId) {
     filesToCleanup.push(finalMp4Path)
     const escapedSrtPath = escapePathForFFmpeg(srtPath)
 
+    const outputOptions = [
+      '-c:v libx264',
+      '-r 30',
+      '-pix_fmt yuv420p',
+      '-c:a aac',
+      '-b:a 192k',
+      '-shortest', // End video when the shortest stream (usually audio) ends
+    ];
+
+    if (burnCaptions) {
+      outputOptions.push(`-vf subtitles='${escapedSrtPath}'`);
+    }
+
     await new Promise((resolve, reject) => {
       ffmpeg()
         .input(concatPath)
         .inputOptions(['-f concat', '-safe 0'])
         .input(localMp3Path)
-        // Video Codec, frame rate, pixel format, and burn subtitles
-        .outputOptions([
-          '-c:v libx264',
-          '-r 30',
-          '-pix_fmt yuv420p',
-          '-c:a aac',
-          '-b:a 192k',
-          '-shortest', // End video when the shortest stream (usually audio) ends
-          `-vf subtitles='${escapedSrtPath}'`,
-        ])
+        // Video Codec, frame rate, pixel format, and burn subtitles conditionally
+        .outputOptions(outputOptions)
         .output(finalMp4Path)
         .on('end', () => resolve())
         .on('error', (err) => reject(new Error(`FFmpeg processing failed: ${err.message}`)))
@@ -198,11 +237,14 @@ async function assembleVideo(jobId, songId) {
     })
 
     // 7. Storage Handoff (Upload to Cloudinary)
-    const uploadResult = await aiStorageService.uploadCompiledVideo(finalMp4Path)
+    const uploadResult = await aiStorageService.uploadCompiledVideo(finalMp4Path, jobId)
 
     // 8. Database Saving
-    song.videoUrl = uploadResult.videoUrl
-    song.videoPublicId = uploadResult.videoPublicId
+    job.status = 'COMPLETED'
+    job.progress = 100
+    await job.save()
+
+    song.videoUrl = uploadResult
     await song.save()
 
     // 9. Phase 5: The Cleanup Crew

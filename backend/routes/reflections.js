@@ -5,7 +5,7 @@ const { optionalAuth, requireAuth, requireCreator } = require('../middleware/aut
 
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MODERATION_STATUSES = new Set(['PENDING', 'APPROVED', 'FLAGGED', 'REJECTED']);
+const MODERATION_STATUSES = new Set(['PENDING', 'APPROVED', 'FLAGGED']);
 const KNOWN_TAGS = new Map([
     'Nostalgia',
     'Family',
@@ -72,13 +72,8 @@ function serializeModerationReflection(reflection, currentUserId) {
     };
 }
 
-function reflectionIncludes({ includeModerator = false, publishedOnly = false } = {}) {
-    const includes = [{
-        model: Song,
-        as: 'song',
-        attributes: ['id', 'title'],
-        ...(publishedOnly ? { required: true, where: { creatorId: { [Op.ne]: null }, status: 'PUBLISHED' } } : {}),
-    }];
+function reflectionIncludes({ includeModerator = false } = {}) {
+    const includes = [{ model: Song, as: 'song', attributes: ['id', 'title'] }];
 
     if (includeModerator) {
         includes.push({ model: User, as: 'moderator', attributes: ['id', 'name'], required: false });
@@ -107,12 +102,9 @@ async function validateInput(body) {
         return { error: 'Reflection must be 1000 characters or fewer.' };
     }
 
-    if (!UUID_PATTERN.test(songId)) return { error: 'Please choose a valid published song.' };
-    if (!(await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] }))) return { error: 'Please choose a valid published song.' };
-    if (Object.prototype.hasOwnProperty.call(body, 'isAnonymous') && typeof body.isAnonymous !== 'boolean') return { error: 'isAnonymous must be true or false.' };
-    if (Object.prototype.hasOwnProperty.call(body, 'displayMode') && !['PROFILE', 'ANONYMOUS'].includes(body.displayMode)) return { error: 'displayMode must be PROFILE or ANONYMOUS.' };
-    const submittedTags = getSubmittedTags(body);
-    if (submittedTags !== undefined && !Array.isArray(submittedTags)) return { error: 'tags must be an array.' };
+    if (!UUID_PATTERN.test(songId) || !(await Song.findByPk(songId))) {
+        return { error: 'Please choose a valid song.' };
+    }
 
     return { content, songId };
 }
@@ -134,11 +126,10 @@ function singaporeDayBoundaries(now = new Date()) {
 
 async function getModerationStats() {
     const { startYesterday, startToday, startTomorrow } = singaporeDayBoundaries();
-    const [pending, approved, flagged, rejected, newToday, newYesterday] = await Promise.all([
+    const [pending, approved, flagged, newToday, newYesterday] = await Promise.all([
         Reflection.count({ where: { status: 'PENDING' } }),
         Reflection.count({ where: { status: 'APPROVED' } }),
         Reflection.count({ where: { status: 'FLAGGED' } }),
-        Reflection.count({ where: { status: 'REJECTED' } }),
         Reflection.count({
             where: { createdAt: { [Op.gte]: startToday, [Op.lt]: startTomorrow } },
         }),
@@ -147,7 +138,7 @@ async function getModerationStats() {
         }),
     ]);
 
-    return { pending, approved, flagged, rejected, newToday, newYesterday };
+    return { pending, approved, flagged, newToday, newYesterday };
 }
 
 function parsePositiveInteger(value, fallback) {
@@ -167,7 +158,7 @@ router.get('/moderation', requireCreator, async (req, res, next) => {
     try {
         const status = String(req.query.status || 'PENDING').toUpperCase();
         if (!MODERATION_STATUSES.has(status)) {
-            return res.status(400).json({ message: 'Status must be PENDING, APPROVED, FLAGGED, or REJECTED.' });
+            return res.status(400).json({ message: 'Status must be PENDING, APPROVED, or FLAGGED.' });
         }
 
         const songId = req.query.songId?.trim();
@@ -240,17 +231,12 @@ router.get('/', optionalAuth, async (req, res, next) => {
         const search = req.query.search?.trim();
         const songId = req.query.songId?.trim();
 
-        if (songId) {
-            if (!UUID_PATTERN.test(songId)) return res.status(400).json({ message: 'songId must be a valid published song id.' });
-            const publishedSong = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] });
-            if (!publishedSong) return res.status(404).json({ message: 'Published song not found.' });
-            where.songId = songId;
-        }
+        if (songId && UUID_PATTERN.test(songId)) where.songId = songId;
         if (search) where.content = { [Op.like]: `%${search}%` };
 
         const reflections = await Reflection.findAll({
             where,
-            include: reflectionIncludes({ publishedOnly: true }),
+            include: reflectionIncludes(),
             order: [['createdAt', req.query.sort === 'oldest' ? 'ASC' : 'DESC']],
         });
 
@@ -267,7 +253,6 @@ router.post('/', optionalAuth, async (req, res, next) => {
         const input = await validateInput(req.body);
         if (input.error) return res.status(400).json({ message: input.error });
 
-        if (req.get('authorization') && !req.authUser?.id) return res.status(401).json({ message: 'Your session is invalid or expired.' });
         const user = req.authUser?.id ? await User.findByPk(req.authUser.id) : null;
         if (req.authUser?.id && !user) return res.status(401).json({ message: 'Your account could not be found.' });
         const guestSubmission = !user;
@@ -281,7 +266,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
             displayName: displayMode === 'PROFILE' ? user.name : null,
             guestSubmission,
             songId: input.songId,
-            status: 'PENDING',
+            status: guestSubmission ? 'PENDING' : 'APPROVED',
             tags: normalizeTags(getSubmittedTags(req.body)),
             userId: user?.id || null,
         });
@@ -314,7 +299,7 @@ router.put('/:id/moderation', requireCreator, async (req, res, next) => {
         if (hasStatus) {
             const status = String(req.body.status).toUpperCase();
             if (!MODERATION_STATUSES.has(status)) {
-                return res.status(400).json({ message: 'Status must be PENDING, APPROVED, FLAGGED, or REJECTED.' });
+                return res.status(400).json({ message: 'Status must be PENDING, APPROVED, or FLAGGED.' });
             }
             updates.status = status;
         }

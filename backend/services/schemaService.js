@@ -1,50 +1,5 @@
 const { DataTypes, QueryTypes } = require('sequelize');
 
-async function ensureSongSchema(sequelize) {
-    const queryInterface = sequelize.getQueryInterface();
-    const columns = await queryInterface.describeTable('songs');
-
-    const newColumns = {
-        languages: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-        other_languages: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-        mood_tags: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
-        raw_lyrics: { type: DataTypes.TEXT, allowNull: true },
-        cover_image_url: { type: DataTypes.TEXT, allowNull: true },
-        cover_image_public_id: { type: DataTypes.STRING, allowNull: true },
-        audio_url: { type: DataTypes.TEXT, allowNull: true },
-        audio_public_id: { type: DataTypes.STRING, allowNull: true },
-        source_youtube_url: { type: DataTypes.TEXT, allowNull: true },
-        video_url: { type: DataTypes.TEXT, allowNull: true },
-        video_public_id: { type: DataTypes.STRING, allowNull: true },
-        duration_secs: { type: DataTypes.INTEGER, allowNull: true }
-    };
-
-    for (const [colName, colDef] of Object.entries(newColumns)) {
-        if (!columns[colName]) {
-            await queryInterface.addColumn('songs', colName, colDef);
-        }
-    }
-}
-
-async function ensureGenerationJobSchema(sequelize) {
-    const queryInterface = sequelize.getQueryInterface();
-    const columns = await queryInterface.describeTable('generation_jobs');
-
-    if (!columns.started_at) {
-        await queryInterface.addColumn('generation_jobs', 'started_at', {
-            type: DataTypes.DATE,
-            allowNull: true
-        });
-    }
-
-    if (!columns.completed_at) {
-        await queryInterface.addColumn('generation_jobs', 'completed_at', {
-            type: DataTypes.DATE,
-            allowNull: true
-        });
-    }
-}
-
 async function ensureGuestReflectionSchema(sequelize) {
     const queryInterface = sequelize.getQueryInterface();
     const columns = await queryInterface.describeTable('reflections');
@@ -114,4 +69,32 @@ async function ensureReflectionModerationSchema(sequelize) {
     }
 }
 
-module.exports = { ensureGuestReflectionSchema, ensureReflectionModerationSchema, ensureSongSchema, ensureGenerationJobSchema };
+async function ensureSongSchema(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('songs');
+
+    if (!columns.raw_lyrics) {
+        await queryInterface.addColumn('songs', 'raw_lyrics', {
+            allowNull: true,
+            type: DataTypes.TEXT,
+        });
+    }
+
+    if (!columns.transcription_segments) {
+        await queryInterface.addColumn('songs', 'transcription_segments', {
+            allowNull: true,
+            type: DataTypes.JSON,
+        });
+    }
+}
+
+async function ensureGenerationJobSchema(sequelize) {
+    // Empty schema updater to satisfy server.js import requirements
+}
+
+module.exports = { 
+    ensureGuestReflectionSchema, 
+    ensureReflectionModerationSchema,
+    ensureSongSchema,
+    ensureGenerationJobSchema
+};
