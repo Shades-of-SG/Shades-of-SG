@@ -154,7 +154,12 @@ async function assembleVideo(jobId, songId, burnCaptions = true) {
       const lyrics = (segment.lyrics || '').trim()
       if (!lyrics) continue // Skip empty subtitle blocks
 
-      const startTime = formatSrtTime(segment.startTime)
+      let startSeconds = segment.startTime
+      if (i === 0 && startSeconds > 0) {
+        startSeconds = 0
+      }
+
+      const startTime = formatSrtTime(startSeconds)
       const endTime = formatSrtTime(segment.startTime + segment.duration)
 
       // SRT format:
@@ -164,6 +169,9 @@ async function assembleVideo(jobId, songId, burnCaptions = true) {
       srtContent += `${lyrics}\n\n`
       srtIndex++
     }
+
+    // CRITICAL: Strip any leading/trailing whitespace so the file starts exactly with '1'
+    srtContent = srtContent.trim()
 
     console.log('[DEBUG] Generated SRT Content:\n', srtContent)
     await fs.promises.writeFile(srtPath, srtContent, 'utf8')
@@ -176,8 +184,14 @@ async function assembleVideo(jobId, songId, burnCaptions = true) {
     for (let i = 0; i < segments.length; i++) {
       // FFmpeg concat demuxer expects forward slashes
       const safeImgPath = localImagePaths[i].replace(/\\/g, '/')
+      
+      let displayDuration = segments[i].duration
+      if (i === 0 && segments[i].startTime > 0) {
+        displayDuration += segments[i].startTime
+      }
+
       concatContent += `file '${safeImgPath}'\n`
-      concatContent += `duration ${segments[i].duration}\n`
+      concatContent += `duration ${displayDuration}\n`
     }
     // FFmpeg concat quirk: repeat the last file to ensure the final duration is respected
     concatContent += `file '${localImagePaths[localImagePaths.length - 1].replace(/\\/g, '/')}'\n`
