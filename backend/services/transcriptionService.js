@@ -1,7 +1,5 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
-const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
-
 const LYRIC_TRANSCRIPTION_PROMPT = [
     'Transcribe the complete song lyrics from the provided audio.',
     'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.',
@@ -31,20 +29,12 @@ const MIME_TYPES_BY_EXTENSION = {
     webm: 'audio/webm',
 };
 
-function getTranscriptionModel() {
-    return process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL;
-}
-
 function normalizeMimeType(fileName, mimeType) {
     if (mimeType && SUPPORTED_MIME_TYPES.has(mimeType)) {
         return mimeType;
     }
 
-    const extension = String(fileName || '')
-        .toLowerCase()
-        .split('.')
-        .pop();
-
+    const extension = String(fileName || '').toLowerCase().split('.').pop();
     return MIME_TYPES_BY_EXTENSION[extension] || mimeType;
 }
 
@@ -52,7 +42,7 @@ function getTranscriptionConfigStatus() {
     return {
         configured: Boolean(process.env.OPENAI_API_KEY),
         maxFileSizeMb: MAX_TRANSCRIPTION_BYTES / (1024 * 1024),
-        model: getTranscriptionModel(),
+        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe',
         supportedMimeTypes: Array.from(SUPPORTED_MIME_TYPES).sort(),
     };
 }
@@ -65,9 +55,7 @@ async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
     }
 
     if (!mediaBase64 || !fileName || !mimeType) {
-        const error = new Error(
-            'A media file, file name, and MIME type are required.'
-        );
+        const error = new Error('A media file, file name, and MIME type are required.');
         error.status = 400;
         throw error;
     }
@@ -75,20 +63,14 @@ async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
     const normalizedMimeType = normalizeMimeType(fileName, mimeType);
 
     if (!SUPPORTED_MIME_TYPES.has(normalizedMimeType)) {
-        const error = new Error(
-            'Unsupported media type. Upload MP3, WAV, M4A, WEBM, or MP4 media.'
-        );
+        const error = new Error('Unsupported media type. Upload MP3, WAV, M4A, WEBM, or MP4 media.');
         error.status = 400;
         throw error;
     }
 
     const mediaBuffer = Buffer.from(mediaBase64, 'base64');
 
-    return transcribeMediaBuffer({
-        fileName,
-        mediaBuffer,
-        mimeType: normalizedMimeType,
-    });
+    return transcribeMediaBuffer({ fileName, mediaBuffer, mimeType });
 }
 
 async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
@@ -99,9 +81,7 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     }
 
     if (!mediaBuffer || !fileName || !mimeType) {
-        const error = new Error(
-            'A media file, file name, and MIME type are required.'
-        );
+        const error = new Error('A media file, file name, and MIME type are required.');
         error.status = 400;
         throw error;
     }
@@ -109,9 +89,7 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     const normalizedMimeType = normalizeMimeType(fileName, mimeType);
 
     if (!SUPPORTED_MIME_TYPES.has(normalizedMimeType)) {
-        const error = new Error(
-            'Unsupported media type. Upload MP3, WAV, M4A, WEBM, or MP4 media.'
-        );
+        const error = new Error('Unsupported media type. Upload MP3, WAV, M4A, WEBM, or MP4 media.');
         error.status = 400;
         throw error;
     }
@@ -122,18 +100,12 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
-    const model = getTranscriptionModel();
-
     const formData = new FormData();
-    formData.append('model', model);
+    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'whisper-1');
     formData.append('response_format', 'verbose_json');
     formData.append('timestamp_granularities[]', 'segment');
     formData.append('prompt', LYRIC_TRANSCRIPTION_PROMPT);
-    formData.append(
-        'file',
-        new Blob([mediaBuffer], { type: normalizedMimeType }),
-        fileName
-    );
+    formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
 
     const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
         method: 'POST',
@@ -146,22 +118,16 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     const responseBody = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        const error = new Error(
-            responseBody?.error?.message || 'Unable to transcribe media.'
-        );
+        const error = new Error(responseBody?.error?.message || 'Unable to transcribe media.');
         error.status = response.status;
         throw error;
     }
 
-    const rawLyrics = responseBody.text || '';
-
     return {
-        lyrics: formatLyricsDraft(rawLyrics),
-        rawLyrics,
-        segments: Array.isArray(responseBody.segments)
-            ? responseBody.segments
-            : [],
-        model,
+        lyrics: formatLyricsDraft(responseBody.text || ''),
+        rawLyrics: responseBody.text || '',
+        segments: responseBody.segments || [], // Return the exact timed segments
+        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe',
     };
 }
 
@@ -176,9 +142,7 @@ function formatLyricsDraft(text) {
         return '';
     }
 
-    const existingLines = normalizedText
-        .split('\n')
-        .filter(Boolean);
+    const existingLines = normalizedText.split('\n').filter(Boolean);
 
     if (existingLines.length > 4) {
         return normalizedText;
@@ -212,10 +176,7 @@ function shouldStartNewLine(word, currentLine) {
         return false;
     }
 
-    const normalizedWord = word
-        .toLowerCase()
-        .replace(/^[^a-z']+|[^a-z']+$/g, '');
-
+    const normalizedWord = word.toLowerCase().replace(/^[^a-z']+|[^a-z']+$/g, '');
     const phraseStarters = new Set([
         'and',
         'baby',
@@ -270,10 +231,7 @@ function groupLinesIntoStanzas(lines) {
         .reduce((stanzas, line, index) => {
             stanzas.push(line);
 
-            if (
-                (index + 1) % 4 === 0 &&
-                index !== lines.length - 1
-            ) {
+            if ((index + 1) % 4 === 0 && index !== lines.length - 1) {
                 stanzas.push('');
             }
 
@@ -290,4 +248,3 @@ module.exports = {
     transcribeMedia,
     transcribeMediaBuffer,
 };
-
