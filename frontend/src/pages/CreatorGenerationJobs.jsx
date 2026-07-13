@@ -45,6 +45,15 @@ export default function CreatorGenerationJobs() {
     return () => window.clearInterval(timer)
   }, [jobs, load])
 
+  useEffect(() => {
+    if (!error && !success) return undefined
+    const timer = window.setTimeout(() => {
+      setError('')
+      setSuccess('')
+    }, 5000)
+    return () => window.clearTimeout(timer)
+  }, [error, success])
+
   const filteredJobs = filter === 'ALL' ? jobs : jobs.filter((job) => job.status === filter)
   const activeCount = jobs.filter((job) => activeStatuses.has(job.status)).length
   const completeCount = jobs.filter((job) => job.status === 'COMPLETED').length
