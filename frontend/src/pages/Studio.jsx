@@ -76,8 +76,10 @@ export default function Studio() {
   }, [audioPreviewUrl])
 
   useEffect(() => {
-    if (location.state?.songData) {
-      const s = location.state.songData;
+    if (location.state) {
+      const { songData, videoUrl, lyrics: passedLyrics, transcriptionSegments: passedSegments } = location.state;
+      const s = songData || {};
+      
       setFormData(curr => ({
         ...curr,
         title: s.title || curr.title,
@@ -85,9 +87,11 @@ export default function Studio() {
         theme: s.theme || curr.theme,
       }));
       if (s.moodTags) setSelectedMoods(s.moodTags);
-      if (s.lyrics) setLyrics(s.lyrics);
       
-      const mediaUrl = s.videoUrl || s.audioUrl;
+      if (passedLyrics || s.lyrics) setLyrics(passedLyrics || s.lyrics);
+      if (passedSegments) setTranscriptionSegments(passedSegments);
+      
+      const mediaUrl = videoUrl || s.videoUrl || s.audioUrl;
       if (mediaUrl) {
         fetch(mediaUrl)
           .then(res => res.blob())

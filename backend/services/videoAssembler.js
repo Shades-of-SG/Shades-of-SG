@@ -172,8 +172,6 @@ async function assembleVideo(jobId, songId, burnCaptions = true) {
 
     // CRITICAL: Strip any leading/trailing whitespace so the file starts exactly with '1'
     srtContent = srtContent.trim()
-
-    console.log('[DEBUG] Generated SRT Content:\n', srtContent)
     await fs.promises.writeFile(srtPath, srtContent, 'utf8')
 
     // 5. Create Concat Demuxer File for FFmpeg (To stitch images based on durations)
