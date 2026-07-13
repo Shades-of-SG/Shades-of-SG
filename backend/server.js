@@ -71,7 +71,7 @@ app.use(errorHandler);
 async function startServer() {
     try {
         await sequelize.authenticate();
-        await sequelize.sync();
+        await sequelize.sync({ alter: true });
         await ensureGuestReflectionSchema(sequelize);
         await ensureReflectionModerationSchema(sequelize);
         await seedCreatorAccount();

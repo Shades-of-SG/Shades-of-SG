@@ -64,17 +64,18 @@ For each scene block, your visualPrompt must specify:
 - Camera angle or cinematic style.
 - Integration of the song's theme: ${song.theme || 'Singaporean Heritage'}.
 
-You must return ONLY a JSON object with a "scenes" array following this exact schema:
-{
-  "scenes": [
+    You must return ONLY a JSON object with a "scenes" array following this exact schema:
     {
-      "startTime": <number, the exact start time of the first segment in the group>,
-      "endTime": <number, the exact end time of the last segment in the group>,
-      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. DO NOT USE NEWLINES IN THIS STRING>"
+      "scenes": [
+        {
+          "startTime": <number, the exact start time of the first segment in the group>,
+          "endTime": <number, the exact end time of the last segment in the group>,
+          "lyrics": "<string, the EXACT corresponding lyrics from True Lyrics>",
+          "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. DO NOT USE NEWLINES IN THIS STRING>"
+        }
+      ]
     }
-  ]
-}
-CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
+    CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
 
       let segmentsStr = rawSegments.map((s, i) => 
         `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`
@@ -83,8 +84,10 @@ CRITICAL: The entire output must be valid, parseable JSON. Do not include unesca
       userMessage = `Title: ${song.title}
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
+True Lyrics:
+${song.lyrics || 'No lyrics provided.'}
 
-Raw Whisper Transcription Segments to Group and Prompt:
+Raw Whisper Transcription Segments (USE THESE ONLY FOR TIMING, THEY MAY CONTAIN ERRORS):
 ${segmentsStr}`
     } else {
       // Legacy prompt fallback
@@ -109,6 +112,7 @@ The JSON schema must strictly follow this structure:
     {
       "startTime": <number, starting second of the scene>,
       "endTime": <number, ending second of the scene>,
+      "lyrics": "<string, the EXACT corresponding lyrics for this scene>",
       "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. DO NOT USE NEWLINES IN THIS STRING>"
     }
   ]
@@ -155,17 +159,7 @@ ${(song.lyrics || 'No lyrics provided.').replace(/bathroom/gi, 'living room')}`
       throw new Error('OpenAI response did not contain a valid "scenes" array.')
     }
 
-    // Reconstruct lyrics for each scene to avoid OpenAI copyright filters on generation
-    if (rawSegments && rawSegments.length > 0) {
-      parsedData.scenes = parsedData.scenes.map(scene => {
-        const match = rawSegments.filter(s => s.start >= scene.startTime - 0.2 && s.end <= scene.endTime + 0.2)
-        const sceneLyrics = match.map(s => s.text.trim()).join(' ')
-        return {
-          ...scene,
-          lyrics: sceneLyrics || ''
-        }
-      })
-    }
+    // The LLM will now provide the true lyrics directly based on the True Lyrics passed in the prompt.
 
     const sanitizeLyrics = (raw) => {
       if (!raw || typeof raw !== 'string') return null
