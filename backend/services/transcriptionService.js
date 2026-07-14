@@ -1,5 +1,6 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
+const LYRIC_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
 const LYRIC_TRANSCRIPTION_PROMPT = [
     'Transcribe the complete song lyrics from the provided audio.',
@@ -43,7 +44,8 @@ function getTranscriptionConfigStatus() {
     return {
         configured: Boolean(process.env.OPENAI_API_KEY),
         maxFileSizeMb: MAX_TRANSCRIPTION_BYTES / (1024 * 1024),
-        model: getTranscriptionModel(),
+        model: LYRIC_TRANSCRIPTION_MODEL,
+        timingModel: getTranscriptionModel(),
         supportedMimeTypes: Array.from(SUPPORTED_MIME_TYPES).sort(),
     };
 }
@@ -56,7 +58,7 @@ function supportsTimestampedSegments(model) {
     return model === 'whisper-1';
 }
 
-async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
+async function transcribeMedia({ fileName, mediaBase64, mimeType, model }) {
     if (!process.env.OPENAI_API_KEY) {
         const error = new Error('OpenAI transcription is not configured.');
         error.status = 503;
@@ -79,10 +81,10 @@ async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
 
     const mediaBuffer = Buffer.from(mediaBase64, 'base64');
 
-    return transcribeMediaBuffer({ fileName, mediaBuffer, mimeType });
+    return transcribeMediaBuffer({ fileName, mediaBuffer, mimeType, model });
 }
 
-async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
+async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType, model }) {
     if (!process.env.OPENAI_API_KEY) {
         const error = new Error('OpenAI transcription is not configured.');
         error.status = 503;
@@ -109,7 +111,7 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
-    const transcriptionModel = getTranscriptionModel();
+    const transcriptionModel = model || getTranscriptionModel();
     const formData = new FormData();
     formData.append('model', transcriptionModel);
 
@@ -260,6 +262,7 @@ function groupLinesIntoStanzas(lines) {
 
 module.exports = {
     DEFAULT_TRANSCRIPTION_MODEL,
+    LYRIC_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
     getTranscriptionConfigStatus,
     MAX_TRANSCRIPTION_BYTES,

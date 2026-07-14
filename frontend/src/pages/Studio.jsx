@@ -27,6 +27,29 @@ function mimeType(file) {
   return file.name.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'audio/mpeg'
 }
 
+function getPublishGuidance(missing) {
+  if (!missing?.length) return 'Save your draft to check what is needed before publishing.'
+
+  if (missing.some((item) => ['videoUrl', 'status READY', 'completed generation job'].includes(item))) {
+    return 'Your video is still being prepared. Once generation is complete, you can publish your song.'
+  }
+
+  const labels = {
+    artist: 'an artist name',
+    audioUrl: 'an audio file',
+    coverImageUrl: 'a cover image',
+    description: 'a description',
+    languages: 'at least one language',
+    rawLyrics: 'lyrics',
+    theme: 'a theme',
+    title: 'a title',
+  }
+  const items = missing.map((item) => labels[item]).filter(Boolean)
+  return items.length
+    ? `Before publishing, please add ${items.join(', ')}.`
+    : 'Complete the remaining song details before publishing.'
+}
+
 export default function Studio() {
   const { songId: routeSongId } = useParams()
   const navigate = useNavigate()
@@ -262,22 +285,22 @@ export default function Studio() {
         <section className="studio-form-column">
           <MetadataStepper activeStep={studioStep} compact onStepChange={setStudioStep} />
           <PreviewPublishPanel
-            audioSrc={song?.videoUrl || song?.audioUrl || audioPreviewUrl}
+            audioSrc={audioPreviewUrl || song?.videoUrl || song?.audioUrl}
             artist={formData.artist}
             description={formData.description}
             duration={audioDuration}
             languages={previewLanguages}
             lastSavedLabel={lastSavedLabel}
             lyrics={lyrics}
-            mediaType={song?.videoUrl ? 'video' : mediaType}
+            mediaType={mediaType || (song?.videoUrl ? 'video' : 'audio')}
             moods={selectedMoods}
             theme={formData.theme}
             title={formData.title}
             youtubeLink={formData.youtubeLink}
           />
           {!readiness.ready && (
-            <p className="studio-workflow-message is-error">
-              Publishing requirements remaining: {readiness.missing.join(', ') || 'Save the draft to check readiness.'}
+            <p className="studio-workflow-message is-error" role="status">
+              {getPublishGuidance(readiness.missing)}
             </p>
           )}
         </section>
@@ -334,7 +357,7 @@ export default function Studio() {
           </div>
           <LivePreviewCard
             artist={formData.artist}
-            audioSrc={song?.audioUrl || audioPreviewUrl}
+            audioSrc={audioPreviewUrl || song?.audioUrl}
             description={formData.description}
             duration={audioDuration}
             languages={previewLanguages}

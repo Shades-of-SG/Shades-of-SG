@@ -12,6 +12,32 @@ const filters = [
 ]
 const statuses = ['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']
 const activeJobStatuses = new Set(['QUEUED', 'PROCESSING'])
+const emptyStates = {
+  ALL: {
+    description: 'Create your first song in Studio to start building a music video.',
+    title: 'Your song library is ready',
+  },
+  DRAFT: {
+    description: 'Drafts are songs you have saved but have not started generating yet. Create or save one in Studio.',
+    title: 'No drafts yet',
+  },
+  GENERATING: {
+    description: 'Songs appear here while their video is being created. Start generation from a saved draft when you are ready.',
+    title: 'No videos are generating',
+  },
+  READY: {
+    description: 'Completed videos that are ready for your final review and publishing will appear here.',
+    title: 'Nothing is ready to publish yet',
+  },
+  PUBLISHED: {
+    description: 'Songs you publish to the Studio will appear here for you to manage and share.',
+    title: 'No published songs yet',
+  },
+  ARCHIVED: {
+    description: 'Archived songs are kept here when you want to hide them from your active library without deleting them.',
+    title: 'No archived songs',
+  },
+}
 
 function SongArtwork({ song }) {
   return song.coverImageUrl
@@ -86,7 +112,7 @@ export default function CreatorSongs() {
       {filters.map(([label, value]) => <button className={`dashboard-filter-pill ${filter === value ? 'is-selected' : ''}`} key={value} onClick={() => setFilter(value)} type="button">{label}</button>)}
     </div>
     {loading ? <p role="status">Loading your songs…</p> : null}
-    {!loading && visibleSongs.length === 0 ? <EmptyState description="Create or save a Song in Studio to see it here." title="No songs found" /> : null}
+    {!loading && visibleSongs.length === 0 ? <EmptyState {...emptyStates[filter]} /> : null}
     {!loading && visibleSongs.length > 0 ? <div className="creator-song-browser">
       <div className="creator-song-browser__list">
         {visibleSongs.map((song) => <button className={`dashboard-song-item creator-song-row ${song.id === selectedId ? 'is-selected' : ''}`} key={song.id} onClick={() => setSelectedId(song.id)} type="button">

@@ -6,6 +6,7 @@ const {
 } = require('../services/audioExtractionService');
 const {
     getTranscriptionConfigStatus,
+    LYRIC_TRANSCRIPTION_MODEL,
     transcribeMedia,
     transcribeMediaBuffer,
 } = require('../services/transcriptionService');
@@ -32,6 +33,7 @@ router.post('/lyrics', async (req, res, next) => {
                     fileName: extractedAudio.fileName,
                     mediaBuffer,
                     mimeType: extractedAudio.mimeType,
+                    model: LYRIC_TRANSCRIPTION_MODEL,
                 });
 
                 return res.json({
@@ -43,7 +45,7 @@ router.post('/lyrics', async (req, res, next) => {
             }
         }
 
-        const result = await transcribeMedia({ fileName, mediaBase64, mimeType });
+        const result = await transcribeMedia({ fileName, mediaBase64, mimeType, model: LYRIC_TRANSCRIPTION_MODEL });
         return res.json(result);
     } catch (error) {
         return next(error);

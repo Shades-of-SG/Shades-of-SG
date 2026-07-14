@@ -554,8 +554,15 @@ export default function SongExperience() {
       </div>
 
       {/* ─── Learning Hub CTA ─── */}
+      <nav aria-label="Song activities" className="button-row">
+        <Link className="primary-link" to={`/songs/${id}/trivia`}>Start Trivia</Link>
+        <Link className="secondary-link" to={`/songs/${id}/playground`}>Open Playground</Link>
+        <Link className="secondary-link" to={`/game/${id}`}>Play Rhythm</Link>
+        <Link className="secondary-link" to={`/reflections?song_id=${encodeURIComponent(id)}`}>Share a Reflection</Link>
+      </nav>
+
       <Link
-        to={`/learning`}
+        to="/learning"
         style={{
           display: 'flex',
           flexDirection: 'column',

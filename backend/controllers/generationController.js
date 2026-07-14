@@ -8,6 +8,12 @@ const { OpenAI } = require('openai')
 const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
 
+const buildVideoDownloadUrl = (videoUrl, jobId) => {
+  if (!videoUrl) return null
+  const fileName = `KindMaster_Export_${jobId}`
+  return videoUrl.replace('/upload/', `/upload/fl_attachment:${fileName}/`)
+}
+
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
   if (!job) throw new Error(`Job ${jobId} not found in database.`)
@@ -257,23 +263,34 @@ const runGenerationPipeline = async (jobId) => {
 const exportVideo = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    const job = await GenerationJob.findByPk(jobId);
+    const job = await GenerationJob.findOne({
+      where: { id: jobId },
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id'],
+        where: { creatorId: req.authUserRecord.id },
+        required: true,
+      }],
+    });
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    // Set job back to in progress so the frontend sees it compiling
-    await job.update({ status: 'IN_PROGRESS' });
+    // The job model and video assembler both use PROCESSING for active work.
+    await job.update({ status: 'PROCESSING', errorMessage: null });
 
     // Wait for the video compilation to finish
     const assembleResult = await assembleVideo(jobId, job.songId);
+    await completeGeneration(job.id);
     await job.reload();
 
     return res.status(200).json({ 
       success: true, 
       message: 'Export completed', 
       data: job, 
-      videoUrl: assembleResult.videoUrl 
+      videoUrl: assembleResult.videoUrl,
+      downloadUrl: buildVideoDownloadUrl(assembleResult.videoUrl, jobId),
     });
   } catch (error) {
     next(error);
@@ -285,8 +302,20 @@ const regenerateFrame = async (req, res, next) => {
     const { frameId } = req.params;
     const { userFeedback } = req.body;
 
-    const frame = await GeneratedFrame.findByPk(frameId, {
-      include: [{ model: SceneSegment, as: 'sceneSegment' }]
+    const frame = await GeneratedFrame.findOne({
+      where: { id: frameId },
+      include: [{
+        model: SceneSegment,
+        as: 'sceneSegment',
+        required: true,
+        include: [{
+          model: Song,
+          as: 'song',
+          attributes: ['id'],
+          where: { creatorId: req.authUserRecord.id },
+          required: true,
+        }],
+      }],
     });
 
     if (!frame) return res.status(404).json({ success: false, message: 'Frame not found' });

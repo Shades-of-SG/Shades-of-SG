@@ -1335,3 +1335,68 @@ Intentional placeholders:
 ### Lesson
 
 Deployment readiness is not just a green build. It requires fail-closed production secrets, explicit seed behavior, honest unavailable states, ownership at both write and read boundaries, and documentation that distinguishes verified local behavior from checks that still require real infrastructure.
+
+---
+
+## Phase 9 - AI Media Pipeline Reliability and Creator Export Fixes
+
+### Scope and outcome
+
+Phase 9 addressed creator-facing failures discovered while running the AI music-video workflow locally: incompatible transcription options, delayed/generated-frame display behaviour, an empty Timeline Editor, and video export failures. The work kept GPT-4o scene planning separate from Whisper timestamped transcription and repaired the authenticated creator workflow through to MP4 download.
+
+### Fixes made
+
+- Centralized transcription-model selection and made the Audio Transcriptions request model-aware.
+- Set `whisper-1` as the timestamped-transcription default. Whisper receives `verbose_json` with segment timestamps; GPT-4o transcription models receive their supported JSON response format without Whisper-only timestamp options.
+- Added regression coverage for both Whisper and GPT-4o transcription request shapes.
+- Updated the creator Timeline Editor to use the shared authenticated generation-job API request instead of an unauthenticated direct fetch. The editor now reports an actual load failure rather than silently rendering zero scenes.
+- Added creator-token headers to frame regeneration and video export requests from the editor.
+- Enforced creator-role and song ownership checks on video export and frame regeneration, with regression coverage for anonymous and cross-creator requests.
+- Fixed export status handling: export now uses the valid `PROCESSING` lifecycle state required by the job model and video assembler, then marks a successful assembled video `COMPLETED`.
+- Changed video export to return a Cloudinary attachment URL. The browser now downloads an actual MP4 copy to the creator's device instead of relying on a cross-origin `download` hint that may open a preview tab.
+- Restored the published Song Experience links for trivia, instrument play, rhythm play, and reflections after the full frontend suite exposed their absence.
+
+### Investigation findings
+
+- Frame generation intentionally runs in batches of five concurrent image requests. This aligns with lower-tier image-generation request limits and explains why later batches can be slower.
+- Each generated frame for the investigated job had a saved Cloudinary URL, and all eighteen URLs later returned valid PNG responses. Broken preview icons were therefore a transient image-delivery/browser retry issue, not missing frame records.
+- The Timeline Editor showed `0 Scenes` because its unauthenticated request was rejected by the creator-protected generation-status route.
+- The original export route attempted to write the nonexistent `IN_PROGRESS` job status, causing a server-side validation failure before FFmpeg assembly began.
+
+### Verification performed
+
+- Targeted transcription and lifecycle tests: 2 suites and 24 tests passed.
+- Backend Jest suite: 5 suites and 52 tests passed.
+- Frontend Vitest suite: 2 files and 17 tests passed.
+- Backend ESLint passed.
+- Frontend ESLint passed.
+- Frontend Vite production build passed.
+- `git diff --check` passed.
+
+### Files changed in Phase 9
+
+- `backend/.env.example`
+- `backend/controllers/generationController.js`
+- `backend/routes/aiGeneration.js`
+- `backend/routes/transcriptions.js`
+- `backend/services/aiScenePlanner.js`
+- `backend/services/transcriptionService.js`
+- `backend/tests/songLifecycle.test.js`
+- `backend/tests/transcriptionService.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/studio/AudioPreviewCard.jsx`
+- `frontend/src/pages/CreatorSongs.jsx`
+- `frontend/src/pages/SongExperience.jsx`
+- `frontend/src/pages/Studio.jsx`
+- `frontend/src/pages/VideoEditor.jsx`
+- `Creator_workflow.md`
+
+### Remaining validation
+
+- Run one full export through FFmpeg and Cloudinary in the active environment, then confirm Chrome saves the generated MP4 in the user's Downloads folder.
+- Add retry/cache-busting UI behaviour for transient Cloudinary image-preview failures, especially when many large PNG frames are first displayed.
+
+### Lesson
+
+In an AI media pipeline, model compatibility, API authorization, lifecycle state names, CDN delivery, and browser download behaviour are all part of one creator experience. A successful record in the database is not enough: each handoff must use the contract expected by the next layer.

@@ -50,7 +50,8 @@ test('Whisper requests timestamped segments by default', async () => {
     expect(requestBody.getAll('timestamp_granularities[]')).toEqual(['segment']);
     expect(result.model).toBe('whisper-1');
     expect(result.segments).toHaveLength(1);
-    expect(getTranscriptionConfigStatus().model).toBe('whisper-1');
+    expect(getTranscriptionConfigStatus().model).toBe('gpt-4o-transcribe');
+    expect(getTranscriptionConfigStatus().timingModel).toBe('whisper-1');
 });
 
 test('GPT-4o transcription uses its supported JSON format without Whisper timestamps', async () => {
@@ -67,4 +68,23 @@ test('GPT-4o transcription uses its supported JSON format without Whisper timest
     expect(result.model).toBe('gpt-4o-transcribe');
     expect(result.segments).toEqual([]);
     expect(getTranscriptionConfigStatus().model).toBe('gpt-4o-transcribe');
+    expect(getTranscriptionConfigStatus().timingModel).toBe('gpt-4o-transcribe');
+});
+
+test('a caller can use GPT-4o transcription without changing the Whisper timing default', async () => {
+    process.env.OPENAI_API_KEY = 'test-key';
+    delete process.env.OPENAI_TRANSCRIPTION_MODEL;
+    mockSuccessfulTranscription({ text: 'A lyric line' });
+
+    const result = await transcribeMediaBuffer({
+        fileName: 'song.mp3',
+        mediaBuffer: Buffer.from('test audio'),
+        mimeType: 'audio/mpeg',
+        model: 'gpt-4o-transcribe',
+    });
+
+    const requestBody = global.fetch.mock.calls[0][1].body;
+    expect(requestBody.get('model')).toBe('gpt-4o-transcribe');
+    expect(requestBody.get('response_format')).toBe('json');
+    expect(result.segments).toEqual([]);
 });

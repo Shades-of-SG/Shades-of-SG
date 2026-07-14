@@ -7,7 +7,7 @@ process.env.DB_STORAGE = testDatabasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { sequelize, GenerationJob, Song, User } = require('../models');
+const { sequelize, GeneratedFrame, GenerationJob, SceneSegment, Song, User } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -127,6 +127,29 @@ test('another creator cannot edit or publish a song they do not own', async () =
     await song.reload();
     expect(song.title).toBe('Complete Song');
     expect(song.status).toBe('READY');
+});
+
+test('generation export and frame regeneration enforce creator ownership', async () => {
+    const song = await Song.create({ ...completeSong, creatorId: creator.id, status: 'READY' });
+    const job = await GenerationJob.create({ songId: song.id, status: 'COMPLETED' });
+    const segment = await SceneSegment.create({
+        songId: song.id, startTime: 0, endTime: 5, visualPrompt: 'A protected scene',
+    });
+    const frame = await GeneratedFrame.create({
+        sceneSegmentId: segment.id, imageUrl: 'https://media.example/protected-frame.jpg',
+    });
+
+    const anonymousExport = await request(app).post(`/api/generation/${job.id}/export`);
+    const forbiddenExport = await request(app)
+        .post(`/api/generation/${job.id}/export`).set(auth(otherToken));
+    const forbiddenRegeneration = await request(app)
+        .post(`/api/generation/frame/${frame.id}/regenerate`)
+        .set(auth(otherToken))
+        .send({ userFeedback: 'Change this frame' });
+
+    expect(anonymousExport.status).toBe(401);
+    expect(forbiddenExport.status).toBe(404);
+    expect(forbiddenRegeneration.status).toBe(404);
 });
 
 test('unpublish returns a song to READY and removes it from public responses', async () => {

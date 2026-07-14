@@ -159,7 +159,7 @@ describe('App', () => {
     })))
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByRole('heading', { level: 1, name: 'Experience Song' })).toBeInTheDocument()
-    expect(screen.getByText('Experience Artist')).toBeInTheDocument()
+    expect(screen.getAllByText(/Experience Artist/)).toHaveLength(2)
     expect(screen.getByRole('link', { name: 'Start Trivia' })).toHaveAttribute('href', '/songs/published-42/trivia')
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
     expect(screen.getByRole('link', { name: 'Play Rhythm' })).toHaveAttribute('href', '/game/published-42')

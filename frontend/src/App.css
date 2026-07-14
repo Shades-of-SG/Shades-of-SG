@@ -5018,9 +5018,26 @@ textarea {
 }
 
 .creator-page--hero .creator-song-row.is-selected {
-  background: rgba(236, 72, 153, 0.1);
+  /* Match the dashboard card surface while retaining a clear selected accent. */
+  background: linear-gradient(135deg, rgba(31, 41, 85, 0.98), rgba(24, 32, 70, 0.98));
   border-color: rgba(249, 168, 212, 0.6);
-  box-shadow: 0 12px 26px rgba(236, 72, 153, 0.2);
+  box-shadow: 0 12px 26px rgba(124, 58, 237, 0.2);
+  color: #ffffff;
+}
+
+.creator-page--hero .creator-song-row {
+  color: #ffffff;
+  text-align: left;
+}
+
+.creator-page--hero .creator-song-row .dashboard-song-copy h3,
+.creator-page--hero .creator-song-row .dashboard-song-copy p,
+.creator-page--hero .creator-song-row .dashboard-song-copy small {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.creator-page--hero .creator-song-row .dashboard-song-copy p {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .creator-page--hero .creator-select-circle.is-checked {

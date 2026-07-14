@@ -32,7 +32,8 @@ async function generateScenePlan(jobId, songId) {
           const transcription = await transcribeMediaBuffer({
             fileName: 'audio.mp4',
             mediaBuffer,
-            mimeType: 'audio/mp4'
+            mimeType: 'audio/mp4',
+            model: 'whisper-1',
           });
           if (transcription && transcription.segments && transcription.segments.length > 0) {
             rawSegments = transcription.segments;

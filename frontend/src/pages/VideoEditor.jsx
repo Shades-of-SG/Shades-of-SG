@@ -441,12 +441,12 @@ export default function VideoEditor() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const result = await res.json();
-      if (result.success && result.videoUrl) {
-        // Trigger download directly in the browser
+      if (result.success && result.downloadUrl) {
+        // Cloudinary's attachment URL sends Content-Disposition: attachment,
+        // so the browser saves a real MP4 copy instead of opening a preview tab.
         const a = document.createElement('a');
-        a.href = result.videoUrl;
+        a.href = result.downloadUrl;
         a.download = `KindMaster_Export_${id}.mp4`;
-        a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
