@@ -12,9 +12,11 @@ const generationRouter = require('./routes/aiGeneration');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
 const {
+    ensureGameScoreSchema,
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
     ensureRhythmBeatmapSchema,
+    ensureSongMediaSchema,
 } = require('./services/schemaService');
 
 const app = express();
@@ -84,9 +86,11 @@ async function startServer() {
     try {
         await sequelize.authenticate();
         await sequelize.sync();
+        await ensureGameScoreSchema(sequelize);
         await ensureGuestReflectionSchema(sequelize);
         await ensureReflectionModerationSchema(sequelize);
         await ensureRhythmBeatmapSchema(sequelize);
+        await ensureSongMediaSchema(sequelize);
         console.log('Database connected successfully');
 
         app.listen(PORT, () => {

@@ -32,7 +32,7 @@ export default function ReflectionCard({ reflection, onEdit, onDelete }) {
   }, [isMenuOpen])
 
   return (
-    <article className={`rw-card rw-note-${style.color}${reflection.isPending ? ' is-pending' : ''}`} style={{ '--note-rotation': style.rotation }}>
+    <article className={`rw-card reflection-card rw-note-${style.color}${reflection.isPending ? ' is-pending' : ''}`} style={{ '--note-rotation': style.rotation }}>
       {style.decoration === 'pin' && <span aria-hidden="true" className={`rw-pin rw-pin-${style.pin}`} />}
       {style.decoration === 'tape' && <span aria-hidden="true" className="rw-note-tape" />}
       {style.decoration === 'clip' && <span aria-hidden="true" className="rw-note-clip" />}

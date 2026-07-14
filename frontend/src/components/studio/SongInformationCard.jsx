@@ -29,6 +29,8 @@ export default function SongInformationCard({
   onMoodToggle,
   onOtherLanguageChange,
   onYouTubeLinkChange,
+  savedAudioFileName,
+  savedAudioUrl,
   selectedLanguages,
   selectedMoods,
 }) {
@@ -108,6 +110,8 @@ export default function SongInformationCard({
             onAudioFileChange={onAudioFileChange}
             onAudioFileClear={onAudioFileClear}
             onYoutubeLinkChange={onYouTubeLinkChange}
+            savedAudioFileName={savedAudioFileName}
+            savedAudioUrl={savedAudioUrl}
             youtubeLink={formData.youtubeLink}
           />
         </div>

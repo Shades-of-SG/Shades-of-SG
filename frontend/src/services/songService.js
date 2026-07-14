@@ -96,6 +96,10 @@ export function archiveSong(songId, token) {
   return request(`/songs/${encodeURIComponent(songId)}/archive`, { method: 'PUT', token }).then((data) => data.song)
 }
 
+export function unarchiveSong(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/unarchive`, { method: 'PUT', token }).then((data) => data.song)
+}
+
 export function deleteSong(songId, token) {
   return request(`/songs/${encodeURIComponent(songId)}`, { method: 'DELETE', token })
 }

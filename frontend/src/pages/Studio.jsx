@@ -29,6 +29,30 @@ function mimeType(file) {
   return file.name.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'audio/mpeg'
 }
 
+function isVideoFile(file) {
+  if (!file) return false
+  return ['video/mp4', 'video/webm'].includes(file.type)
+    || /\.(mp4|webm)$/i.test(file.name || '')
+}
+
+function isUploadedVideoMedia(song) {
+  if (song?.videoUrl) return true
+  return [song?.audioFileName, song?.audioUrl]
+    .filter(Boolean)
+    .some((value) => /\.(mp4|webm)(?:[?#].*)?$/i.test(String(value)))
+}
+
+function savedMediaName(audioFileName, audioUrl) {
+  if (audioFileName) return audioFileName
+  if (!audioUrl) return ''
+
+  try {
+    return decodeURIComponent(new URL(audioUrl).pathname.split('/').pop()) || 'Uploaded song media'
+  } catch {
+    return 'Uploaded song media'
+  }
+}
+
 function friendlyActionError(error, action = 'save your draft') {
   const message = String(error?.message || '')
   if (/title before saving|song title is required/i.test(message)) return 'Add a song title before saving your draft.'
@@ -52,6 +76,7 @@ export default function Studio() {
   const [pendingCover, setPendingCover] = useState(null)
   const [selectedMediaFile, setSelectedMediaFile] = useState(null)
   const [audioFileName, setAudioFileName] = useState('')
+  const [savedAudioFileName, setSavedAudioFileName] = useState('')
   const [audioPreviewUrl, setAudioPreviewUrl] = useState('')
   const [mediaType, setMediaType] = useState('')
   const [studioStep, setStudioStep] = useState(1)
@@ -89,8 +114,9 @@ export default function Studio() {
         setLyrics(loadedSong.rawLyrics || '')
         setCoverImageUrl(loadedSong.coverImageUrl || '')
         setCoverFileName('')
+        setSavedAudioFileName(savedMediaName(loadedSong.audioFileName, loadedSong.videoUrl || loadedSong.audioUrl))
         setAudioPreviewUrl(loadedSong.videoUrl || loadedSong.audioUrl || '')
-        setMediaType(loadedSong.videoUrl ? 'video' : loadedSong.audioUrl ? 'audio' : '')
+        setMediaType(isUploadedVideoMedia(loadedSong) ? 'video' : loadedSong.audioUrl ? 'audio' : '')
         setLastSavedAt(new Date(loadedSong.updatedAt))
       })
       .catch((error) => active && setMessage({ type: 'error', text: error.message }))
@@ -140,7 +166,7 @@ export default function Studio() {
     if (!lyrics.trim()) missing.push('rawLyrics')
     if (!coverImageUrl && !pendingCover) missing.push('coverImageUrl')
     if (!song?.audioUrl && !selectedMediaFile) missing.push('audioUrl')
-    if (!song?.videoUrl) missing.push('videoUrl', 'status READY')
+    if (!isUploadedVideoMedia(song) && !isVideoFile(selectedMediaFile)) missing.push('videoUrl', 'status READY')
     return missing
   }
 
@@ -151,10 +177,14 @@ export default function Studio() {
       if (!formData.title.trim()) throw new Error('Add a title before saving the draft.')
       let saved = songId
         ? await updateDraft(songId, values(), token)
-        : await createDraft(values(), token, selectedMediaFile)
+        : await createDraft(values(), token)
       const stableId = saved.id
-      if (songId && selectedMediaFile) {
-        saved = await uploadAudio(stableId, selectedMediaFile, token)
+      if (selectedMediaFile) {
+        const uploadedFile = selectedMediaFile
+        saved = isVideoFile(uploadedFile)
+          ? await uploadVideo(stableId, uploadedFile, token)
+          : await uploadAudio(stableId, uploadedFile, token)
+        setSavedAudioFileName(uploadedFile.name)
         setSelectedMediaFile(null)
       }
       if (pendingCover) {
@@ -165,6 +195,8 @@ export default function Studio() {
         setCoverFileName('')
       }
       setSong(saved)
+      setSavedAudioFileName((current) => current || savedMediaName(saved.audioFileName, saved.videoUrl || saved.audioUrl))
+      setAudioFileName('')
       setSongId(stableId)
       setLastSavedAt(new Date(saved.updatedAt || Date.now()))
       if (!routeSongId) navigate(`/creator/studio/${stableId}`, { replace: true })
@@ -220,8 +252,15 @@ export default function Studio() {
       setAudioPreviewUrl(uploaded.videoUrl || uploaded.audioUrl || '')
       setMediaType('video')
       const refreshed = await getPublishReadiness(uploaded.id, token)
-      setPublishPrompt(refreshed.ready ? null : refreshed)
-      setMessage({ type: 'success', text: 'Video uploaded. Your draft is ready for another review.' })
+      if (refreshed.ready) {
+        const published = await publishSong(uploaded.id, token)
+        setSong(published)
+        setPublishPrompt(null)
+        setMessage({ type: 'success', text: 'Video uploaded and song published successfully.' })
+      } else {
+        setPublishPrompt(refreshed)
+        setMessage({ type: 'success', text: 'Video uploaded. Complete the remaining song details to publish.' })
+      }
     } catch (error) {
       if (!error.userMessageShown) setMessage({ type: 'error', text: friendlyActionError(error, 'upload your video') })
     } finally { setIsBusy(false) }
@@ -239,8 +278,12 @@ export default function Studio() {
       if (transcriptionStatus.configured === false) throw new Error(transcriptionStatus.error)
       const payload = selectedMediaFile
         ? { fileName: selectedMediaFile.name, mediaBase64: await readFileAsBase64(selectedMediaFile), mimeType: mimeType(selectedMediaFile) }
-        : { youtubeUrl: formData.youtubeLink }
-      const response = await fetch(`${API_URL}/transcriptions/lyrics`, { body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' }, method: 'POST' })
+        : formData.youtubeLink.trim()
+          ? { youtubeUrl: formData.youtubeLink }
+          : { songId }
+      const headers = { 'Content-Type': 'application/json' }
+      if (token) headers.Authorization = `Bearer ${token}`
+      const response = await fetch(`${API_URL}/transcriptions/lyrics`, { body: JSON.stringify(payload), headers, method: 'POST' })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.message || 'Unable to extract lyrics.')
       setLyrics(data.lyrics || ''); setExtractionStatus('success')
@@ -249,9 +292,21 @@ export default function Studio() {
 
   function handleMedia(event) {
     const file = event.target.files?.[0] || null
+    const maxBytes = isVideoFile(file) ? 100 * 1024 * 1024 : 50 * 1024 * 1024
+    if (file && file.size > maxBytes) {
+      event.target.value = ''
+      setSelectedMediaFile(null); setAudioFileName('')
+      setMessage({
+        type: 'error',
+        text: isVideoFile(file)
+          ? 'The video is too large. Upload an MP4 or WebM file up to 100MB.'
+          : 'The audio file is too large. Upload a file up to 50MB.',
+      })
+      return
+    }
     setSelectedMediaFile(file); setAudioFileName(file?.name || '')
     if (!file) return setAudioPreviewUrl(song?.videoUrl || song?.audioUrl || '')
-    setMediaType(file.type === 'video/mp4' ? 'video' : 'audio')
+    setMediaType(isVideoFile(file) ? 'video' : 'audio')
     setAudioPreviewUrl(URL.createObjectURL(file))
   }
 
@@ -279,8 +334,8 @@ export default function Studio() {
       <PreviewPublishPanel audioSrc={audioPreviewUrl || song?.videoUrl || song?.audioUrl} artist={formData.artist} description={formData.description} duration={audioDuration} languages={previewLanguages} lastSavedLabel={lastSavedLabel} lyrics={lyrics} mediaType={mediaType || (song?.videoUrl ? 'video' : 'audio')} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} />
     </section> : <section className="studio-main-grid"><div className="studio-form-column">
       <MetadataStepper activeStep={studioStep} onStepChange={setStudioStep} />
-      {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverFileName={coverFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.audioUrl || '') }} onCoverImageChange={handleCover} onCoverImageClear={clearCoverSelection} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
-        : <LyricsCard canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim())} extractionError={extractionError} extractionStatus={extractionStatus} lyrics={lyrics} onExtractLyrics={extractLyrics} onLyricsChange={setLyrics} transcriptionStatus={transcriptionStatus} youtubeLink={formData.youtubeLink} />}
+      {studioStep === 1 ? <SongInformationCard audioFileName={audioFileName} coverFileName={coverFileName} coverImageUrl={coverImageUrl} descriptionLength={formData.description.length} formData={formData} onAudioFileChange={handleMedia} onAudioFileClear={() => { setSelectedMediaFile(null); setAudioFileName(''); setAudioPreviewUrl(song?.videoUrl || song?.audioUrl || '') }} onCoverImageChange={handleCover} onCoverImageClear={clearCoverSelection} onFieldChange={(field, value) => setFormData((current) => ({ ...current, [field]: value }))} onLanguageToggle={(language) => setSelectedLanguages((current) => current.includes(language) ? current.filter((item) => item !== language) : [...current, language])} onMoodToggle={(mood) => setSelectedMoods((current) => current.includes(mood) ? current.filter((item) => item !== mood) : [...current, mood].slice(0, 5))} onOtherLanguageChange={(value) => { setFormData((current) => ({ ...current, otherLanguage: value })); if (value.trim()) setSelectedLanguages((current) => current.includes('Others') ? current : [...current, 'Others']) }} onYouTubeLinkChange={(value) => setFormData((current) => ({ ...current, youtubeLink: value }))} savedAudioFileName={savedAudioFileName} savedAudioUrl={song?.videoUrl || song?.audioUrl || ''} selectedLanguages={selectedLanguages} selectedMoods={selectedMoods} />
+        : <LyricsCard canExtractLyrics={Boolean(selectedMediaFile || formData.youtubeLink.trim() || song?.videoUrl || song?.audioUrl)} extractionError={extractionError} extractionStatus={extractionStatus} lyrics={lyrics} onExtractLyrics={extractLyrics} onLyricsChange={setLyrics} transcriptionStatus={transcriptionStatus} youtubeLink={formData.youtubeLink} />}
       <RhythmBeatmapPanel songId={songId} songStatus={song?.status} token={token} />
     </div><LivePreviewCard artist={formData.artist} audioSrc={audioPreviewUrl || song?.audioUrl} description={formData.description} duration={audioDuration} languages={previewLanguages} mediaType={mediaType} moods={selectedMoods} theme={formData.theme} title={formData.title} youtubeLink={formData.youtubeLink} /></section>}
     <StudioFooter activeStep={studioStep} disabled={isBusy} lastSavedLabel={lastSavedLabel} onNext={() => setStudioStep((step) => Math.min(step + 1, 3))} onPublish={handlePublishSong} />

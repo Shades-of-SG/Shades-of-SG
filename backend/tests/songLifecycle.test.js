@@ -11,6 +11,7 @@ const { sequelize, GenerationJob, Song, User } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
 const aiStorageService = require('../services/aiStorageService');
+const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
 
 let creator;
@@ -105,7 +106,7 @@ test('publish fails and reports missing required data', async () => {
     expect(song.status).toBe('READY');
 });
 
-test('publish succeeds only for an owned READY song with complete media and generation', async () => {
+test('publish succeeds for an owned READY song with complete media', async () => {
     const song = await Song.create({ ...completeSong, creatorId: creator.id, status: 'READY' });
     await GenerationJob.create({ songId: song.id, status: 'COMPLETED' });
     const response = await request(app)
@@ -114,6 +115,19 @@ test('publish succeeds only for an owned READY song with complete media and gene
     expect(response.body.song.status).toBe('PUBLISHED');
     expect(response.body.song.publishedDate).toBeTruthy();
     expect((await request(app).get('/api/songs')).body.songs.map((item) => item.id)).toContain(song.id);
+});
+
+test('a complete archived song with an uploaded video can be published directly', async () => {
+    const song = await Song.create({
+        ...completeSong, creatorId: creator.id, publishedDate: null, status: 'ARCHIVED',
+    });
+
+    const response = await request(app)
+        .put(`/api/songs/${song.id}/publish`).set(auth(creatorToken));
+
+    expect(response.status).toBe(200);
+    expect(response.body.song.status).toBe('PUBLISHED');
+    expect(response.body.song.publishedDate).toBeTruthy();
 });
 
 test('another creator cannot edit or publish a song they do not own', async () => {
@@ -128,6 +142,24 @@ test('another creator cannot edit or publish a song they do not own', async () =
     await song.reload();
     expect(song.title).toBe('Complete Song');
     expect(song.status).toBe('READY');
+});
+
+test('creator language selections remain editable and persisted while a song is generating', async () => {
+    const song = await Song.create({
+        ...completeSong, creatorId: creator.id, languages: [], status: 'GENERATING', videoUrl: null,
+    });
+
+    const response = await request(app)
+        .put(`/api/songs/${song.id}/metadata`).set(auth(creatorToken))
+        .send({ languages: ['English', 'Malay'], otherLanguages: ['Hokkien'] });
+
+    expect(response.status).toBe(200);
+    expect(response.body.song).toMatchObject({
+        languages: ['English', 'Malay'], otherLanguages: ['Hokkien'], status: 'GENERATING',
+    });
+    await song.reload();
+    expect(song.languages).toEqual(['English', 'Malay']);
+    expect(song.otherLanguages).toEqual(['Hokkien']);
 });
 
 test('unpublish returns a song to READY and removes it from public responses', async () => {
@@ -155,6 +187,32 @@ test('creator song endpoints return only that creator\'s songs across all lifecy
         new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED'])
     );
     expect(response.body.songs.every((song) => song.creatorId === creator.id)).toBe(true);
+});
+
+test('saving a draft with a YouTube link does not extract or upload audio', async () => {
+    const extract = jest.spyOn(audioExtractionService, 'extractAudioFromYouTube');
+    const upload = jest.spyOn(aiStorageService, 'uploadAudioStream');
+
+    const response = await request(app)
+        .post('/api/songs')
+        .set(auth(creatorToken))
+        .send({
+            sourceYoutubeUrl: 'https://www.youtube.com/watch?v=GaMS0F0_xMI',
+            title: 'YouTube Draft',
+        });
+
+    expect(response.status).toBe(201);
+    expect(response.body.song).toMatchObject({
+        sourceYoutubeUrl: 'https://www.youtube.com/watch?v=GaMS0F0_xMI',
+        status: 'DRAFT',
+        title: 'YouTube Draft',
+    });
+    expect(response.body.song.audioUrl).toBeFalsy();
+    expect(extract).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+
+    extract.mockRestore();
+    upload.mockRestore();
 });
 
 test('creator can upload and replace an owned cover image while another creator cannot', async () => {
@@ -188,8 +246,11 @@ test('creator can upload and replace an owned cover image while another creator 
     remove.mockRestore();
 });
 
-test('creator can upload an MP4 as song media', async () => {
-    const song = await Song.create({ creatorId: creator.id, status: 'DRAFT', title: 'MP4 Test' });
+test('creator can use an MP4 song-media upload as the finished video and publish it', async () => {
+    const { videoUrl, ...songWithoutVideo } = completeSong;
+    expect(videoUrl).toBeTruthy();
+    const song = await Song.create({ ...songWithoutVideo, creatorId: creator.id, status: 'GENERATING' });
+    const job = await GenerationJob.create({ songId: song.id, status: 'PROCESSING' });
     const upload = jest.spyOn(aiStorageService, 'uploadAudioStream').mockResolvedValue({
         audioPublicId: 'audio/source-video',
         audioUrl: 'https://media.example/source-video.mp4',
@@ -203,11 +264,40 @@ test('creator can upload an MP4 as song media', async () => {
     expect(response.status).toBe(200);
     expect(upload).toHaveBeenCalledWith(expect.any(Buffer));
     expect(response.body.song).toMatchObject({
+        audioFileName: 'source.mp4',
         audioPublicId: 'audio/source-video',
         audioUrl: 'https://media.example/source-video.mp4',
         durationSecs: 42,
+        status: 'READY',
+        videoPublicId: 'audio/source-video',
+        videoUrl: 'https://media.example/source-video.mp4',
     });
+    await job.reload();
+    expect(job.status).toBe('FAILED');
+    const readiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
+    expect(readiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'READY' });
+    expect((await request(app).put(`/api/songs/${song.id}/publish`).set(auth(creatorToken))).status).toBe(200);
     upload.mockRestore();
+});
+
+test('publish readiness recognizes a previously saved MP4 song-media upload', async () => {
+    const song = await Song.create({
+        ...completeSong,
+        audioFileName: 'previous-upload.mp4',
+        audioPublicId: 'audio/previous-upload',
+        audioUrl: 'https://media.example/previous-upload.mp4',
+        creatorId: creator.id,
+        status: 'GENERATING',
+        videoUrl: null,
+    });
+    const job = await GenerationJob.create({ songId: song.id, status: 'PROCESSING' });
+
+    const readiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
+
+    expect(readiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'READY' });
+    await Promise.all([song.reload(), job.reload()]);
+    expect(song.videoUrl).toBe(song.audioUrl);
+    expect(job.status).toBe('FAILED');
 });
 
 test('creator can upload a final MP4 video and publish without an AI generation job', async () => {
@@ -342,6 +432,22 @@ test('archive enforces ownership, removes public visibility, and appears in crea
     expect((await request(app).get(`/api/songs/${song.id}`)).status).toBe(404);
     const list = await request(app).get('/api/songs/creator').set(auth(creatorToken));
     expect(list.body.songs.find((item) => item.id === song.id).status).toBe('ARCHIVED');
+
+    const forbiddenRestore = await request(app).put(`/api/songs/${song.id}/unarchive`).set(auth(otherToken));
+    expect(forbiddenRestore.status).toBe(404);
+    const restored = await request(app).put(`/api/songs/${song.id}/unarchive`).set(auth(creatorToken));
+    expect(restored.status).toBe(200);
+    expect(restored.body.song).toMatchObject({ status: 'READY', publishedDate: null });
+});
+
+test('unarchiving a song without a video restores it as a draft', async () => {
+    const song = await Song.create({ creatorId: creator.id, status: 'ARCHIVED', title: 'Archived Draft' });
+
+    const response = await request(app)
+        .put(`/api/songs/${song.id}/unarchive`).set(auth(creatorToken));
+
+    expect(response.status).toBe(200);
+    expect(response.body.song.status).toBe('DRAFT');
 });
 
 test('delete enforces ownership, deletes the Song, and attempts all Cloudinary cleanup', async () => {

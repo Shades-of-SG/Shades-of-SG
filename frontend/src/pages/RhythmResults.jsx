@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { readStoredResult } from '../game/results'
 import { fetchSongDetails } from '../game/songDetailsApi'
-import { queuePendingScore, saveScore } from '../game/scoresApi'
+import { queuePendingScore, removePendingScore, saveScore } from '../game/scoresApi'
 import { canSubmitScore, createSubmissionGuard } from '../game/scoreSubmission'
 import { useAuth } from '../context/AuthContext'
 
@@ -32,6 +32,7 @@ export default function RhythmResults() {
     setSaveError('')
     try {
       await saveScore(result, token)
+      removePendingScore(result)
       setSaveState('saved')
     } catch (error) {
       queuePendingScore(result)

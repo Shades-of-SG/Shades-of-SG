@@ -89,7 +89,7 @@ describe('App', () => {
         ? { generationStatus: null, missing: ['coverImageUrl'], ready: false, songStatus: 'DRAFT' }
         : {
             song: {
-              artist: 'Studio Artist', description: 'Saved description', id: 'song-123',
+              artist: 'Studio Artist', audioUrl: 'https://media.example/saved-track.mp3', description: 'Saved description', id: 'song-123',
               languages: ['English'], moodTags: ['hopeful'], otherLanguages: [],
               rawLyrics: 'Saved lyrics', status: 'DRAFT', theme: 'Community',
               title: 'Saved Studio Draft', updatedAt: new Date().toISOString(),
@@ -103,6 +103,8 @@ describe('App', () => {
 
     expect(await screen.findByDisplayValue('Saved Studio Draft')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Studio Artist')).toBeInTheDocument()
+    expect(screen.getByText('Saved media: saved-track.mp3')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://media.example/saved-track.mp3')
     expect(screen.getByRole('heading', { name: 'Rhythm Game' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
@@ -137,6 +139,71 @@ describe('App', () => {
     expect(screen.queryByText(/videoUrl|status READY/)).not.toBeInTheDocument()
   })
 
+  it('publishes with a saved MP4 song-media upload without asking for another video', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/song-mp4')
+    const savedSong = {
+      artist: 'Violet', audioFileName: 'finished-song.mp4', audioUrl: 'https://media.example/finished-song.mp4',
+      coverImageUrl: 'https://media.example/cover.jpg', description: 'Description', durationSecs: 120,
+      id: 'song-mp4', languages: ['English'], moodTags: [], otherLanguages: [], rawLyrics: 'Lyrics',
+      status: 'GENERATING', theme: 'Community', title: 'Uploaded Video Song', updatedAt: new Date().toISOString(),
+    }
+    const fetchMock = vi.fn(async (url) => {
+      const path = String(url)
+      if (path.includes('/beatmaps')) return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
+      if (path.includes('/readiness')) return { json: async () => ({ missing: [], ready: true, songStatus: 'READY' }), ok: true, status: 200 }
+      if (path.includes('/publish')) return { json: async () => ({ song: { ...savedSong, status: 'PUBLISHED', videoUrl: savedSong.audioUrl } }), ok: true, status: 200 }
+      return { json: async () => ({ song: savedSong }), ok: true, status: 200 }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByDisplayValue('Uploaded Video Song')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'English' })).toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
+
+    expect(await screen.findByText('Song published successfully.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Complete these tasks before publishing' })).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/songs/song-mp4/publish'), expect.objectContaining({ method: 'PUT' }))
+  })
+
+  it('uploads the MP4 selected in the publish prompt and publishes immediately', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/song-upload-final')
+    const draft = {
+      artist: 'Violet', audioUrl: 'https://media.example/source.mp3', coverImageUrl: 'https://media.example/cover.jpg',
+      description: 'Description', durationSecs: 120, id: 'song-upload-final', languages: ['English'], moodTags: [],
+      otherLanguages: [], rawLyrics: 'Lyrics', status: 'DRAFT', theme: 'Community', title: 'Final Upload Song',
+      updatedAt: new Date().toISOString(),
+    }
+    const readySong = { ...draft, status: 'READY', videoUrl: 'https://media.example/final.mp4' }
+    const fetchMock = vi.fn(async (url) => {
+      const path = String(url)
+      if (path.includes('/beatmaps')) return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
+      if (path.endsWith('/video')) return { json: async () => ({ song: readySong }), ok: true, status: 200 }
+      if (path.includes('/readiness')) return { json: async () => ({ missing: [], ready: true, songStatus: 'READY' }), ok: true, status: 200 }
+      if (path.includes('/publish')) return { json: async () => ({ song: { ...readySong, status: 'PUBLISHED' } }), ok: true, status: 200 }
+      return { json: async () => ({ song: draft }), ok: true, status: 200 }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByDisplayValue('Final Upload Song')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
+    const file = new File(['video'], 'final.mp4', { type: 'video/mp4' })
+    fireEvent.change(await screen.findByLabelText('Upload finished video'), { target: { files: [file] } })
+
+    expect(await screen.findByText('Video uploaded and song published successfully.')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/songs/song-upload-final/video'), expect.objectContaining({ method: 'POST' }))
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/songs/song-upload-final/publish'), expect.objectContaining({ method: 'PUT' }))
+  })
+
   it('shows save errors only after Save Draft and dismisses them after five seconds', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
@@ -154,6 +221,39 @@ describe('App', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('creates metadata first and uploads a new MP4 through the video endpoint', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/studio/new')
+    const draft = { id: 'mp4-draft', status: 'DRAFT', title: 'MP4 Draft', updatedAt: new Date().toISOString() }
+    const ready = { ...draft, status: 'READY', videoUrl: 'https://media.example/uploaded.mp4' }
+    const fetchMock = vi.fn(async (url) => {
+      const path = String(url)
+      if (path.includes('/transcriptions/status')) return { json: async () => ({ configured: true }), ok: true, status: 200 }
+      if (path.endsWith('/songs')) return { json: async () => ({ song: draft }), ok: true, status: 201 }
+      if (path.endsWith('/songs/mp4-draft/video')) return { json: async () => ({ song: ready }), ok: true, status: 200 }
+      return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AuthProvider><App /></AuthProvider>)
+    fireEvent.change(screen.getByPlaceholderText('Song Title'), { target: { value: 'MP4 Draft' } })
+    const file = new File(['video'], 'finished.mp4', { type: 'video/mp4' })
+    fireEvent.change(screen.getByLabelText('Upload song media'), { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }))
+
+    expect(await screen.findByText('Draft saved.')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/creator/studio/mp4-draft')
+    const createCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/songs'))
+    const videoCall = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/songs/mp4-draft/video'))
+    expect(createCall[1]).toMatchObject({ method: 'POST' })
+    expect(createCall[1].body).toBeTypeOf('string')
+    expect(videoCall[1]).toMatchObject({ method: 'POST' })
+    expect(videoCall[1].body).toBeInstanceOf(FormData)
+    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
+    expect(await screen.findByRole('button', { name: 'Extract Lyrics' })).toBeEnabled()
+  })
+
   it('renders creator-scoped My Songs data instead of mock songs', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
@@ -161,8 +261,8 @@ describe('App', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({
       json: async () => ({ songs: [{
         artist: 'Database Artist', coverImageUrl: '', creatorId: 'creator-1', id: 'real-song-1',
-        latestGenerationJob: null, publishMissing: [], publishReady: false, rawLyrics: 'Lyrics',
-        status: 'DRAFT', title: 'Database Draft', updatedAt: new Date().toISOString(),
+        latestGenerationJob: { id: 'job-1', status: 'PROCESSING' }, publishMissing: [], publishReady: false, rawLyrics: 'Lyrics',
+        status: 'GENERATING', title: 'Database Draft', updatedAt: new Date().toISOString(),
       }] }),
       ok: true, status: 200,
     })))
@@ -170,6 +270,41 @@ describe('App', () => {
     expect(await screen.findAllByText('Database Draft')).not.toHaveLength(0)
     expect(screen.queryByText('Song #1')).not.toBeInTheDocument()
     expect(screen.getAllByText('Database Artist')).not.toHaveLength(0)
+    const editButton = screen.getByRole('button', { name: 'Edit song' })
+    expect(editButton).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Archive song' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Delete song' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'View Generation' })).toBeEnabled()
+    fireEvent.click(editButton)
+    expect(window.location.pathname).toBe('/creator/studio/real-song-1')
+  })
+
+  it('uses the archive icon as an archive and unarchive toggle', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/songs')
+    let status = 'ARCHIVED'
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      const path = String(url)
+      if (path.endsWith('/unarchive')) status = 'READY'
+      const song = {
+        artist: 'Archive Artist', audioUrl: 'https://media.example/archive.mp3', creatorId: 'creator-1',
+        id: 'archive-song-1', latestGenerationJob: null, rawLyrics: 'Lyrics', status,
+        title: 'Archived Song', updatedAt: new Date().toISOString(),
+      }
+      return {
+        json: async () => path.endsWith('/unarchive') ? { song } : { songs: [song] },
+        ok: true,
+        status: 200,
+      }
+    }))
+
+    render(<AuthProvider><App /></AuthProvider>)
+    const restoreButton = await screen.findByRole('button', { name: 'Unarchive song' })
+    fireEvent.click(restoreButton)
+
+    expect(await screen.findByText('Song restored.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archive song' })).toBeEnabled()
   })
 
   it('renders real dashboard summary counts without fake play totals', async () => {

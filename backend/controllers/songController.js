@@ -6,6 +6,7 @@ const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
+const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
 const EDITABLE_FIELDS = [
     'title', 'artist', 'description', 'theme', 'languages', 'otherLanguages', 'moodTags',
     'rawLyrics', 'coverImageUrl', 'coverImagePublicId', 'audioUrl', 'audioPublicId',
@@ -60,8 +61,31 @@ function publishValidation(song) {
     if (!song.coverImageUrl?.trim()) missing.push('coverImageUrl');
     if (!song.audioUrl?.trim()) missing.push('audioUrl');
     if (!song.videoUrl?.trim()) missing.push('videoUrl');
-    if (!['READY', 'PUBLISHED'].includes(song.status)) missing.push('status READY');
     return missing;
+}
+
+function isUploadedVideoMedia(song) {
+    const candidates = [song.audioFileName, song.audioUrl]
+        .filter(Boolean)
+        .map((value) => String(value).split(/[?#]/, 1)[0].toLowerCase());
+    return candidates.some((value) => value.endsWith('.mp4') || value.endsWith('.webm'));
+}
+
+async function useUploadedMediaAsVideo(song) {
+    if (!song.audioUrl?.trim() || !isUploadedVideoMedia(song)) return false;
+    if (song.videoUrl?.trim() && song.videoUrl !== song.audioUrl) return false;
+
+    await GenerationJob.update({
+        status: 'FAILED',
+        errorMessage: 'AI generation stopped because the creator chose the uploaded video.',
+    }, { where: { songId: song.id, status: ACTIVE_GENERATION_STATUSES } });
+    const values = {
+        videoPublicId: song.audioPublicId || song.videoPublicId || null,
+        videoUrl: song.audioUrl,
+    };
+    if (song.status === 'GENERATING') values.status = 'READY';
+    await song.update(values);
+    return true;
 }
 
 async function reconcileCompletedGeneration(song, latestJob) {
@@ -168,23 +192,23 @@ async function createSong(req, res, next) {
         const parsed = buildSongValues(req.body);
         if (parsed.error) return res.status(400).json({ message: parsed.error });
         let { audioUrl, audioPublicId, durationSecs } = parsed.values;
+        let audioFileName = null;
+        let uploadedMediaIsVideo = false;
         if (req.file) {
             const uploaded = await aiStorageService.uploadAudioStream(req.file.buffer);
             audioUrl = uploaded.audioUrl;
+            audioFileName = req.file.originalname;
             audioPublicId = uploaded.audioPublicId;
             durationSecs = uploaded.duration;
-        } else if (parsed.values.sourceYoutubeUrl && !audioUrl) {
-            const extracted = await audioExtractionService.extractAudioFromYouTube(parsed.values.sourceYoutubeUrl);
-            try {
-                const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
-                audioUrl = uploaded.audioUrl;
-                audioPublicId = uploaded.audioPublicId;
-                durationSecs = uploaded.duration;
-            } finally { await extracted.cleanup(); }
+            uploadedMediaIsVideo = ['video/mp4', 'video/webm'].includes(req.file.mimetype);
         }
         const song = await Song.create({
-            ...parsed.values, audioUrl, audioPublicId, durationSecs,
-            creatorId: req.authUserRecord.id, status: 'DRAFT', publishedDate: null,
+            ...parsed.values, audioFileName, audioUrl, audioPublicId, durationSecs,
+            creatorId: req.authUserRecord.id,
+            publishedDate: null,
+            status: uploadedMediaIsVideo ? 'READY' : 'DRAFT',
+            videoPublicId: uploadedMediaIsVideo ? audioPublicId : parsed.values.videoPublicId,
+            videoUrl: uploadedMediaIsVideo ? audioUrl : parsed.values.videoUrl,
         });
         return res.status(201).json({ success: true, data: song, song });
     } catch (error) { return next(error); }
@@ -194,7 +218,6 @@ async function updateSong(req, res, next) {
     try {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be edited.' });
         const parsed = buildSongValues(req.body, { partial: true });
         if (parsed.error) return res.status(400).json({ message: parsed.error });
         await song.update(parsed.values);
@@ -207,6 +230,8 @@ async function publishSong(req, res, next) {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
+        const usedUploadedMedia = await useUploadedMediaAsVideo(song);
+        if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
@@ -220,6 +245,8 @@ async function getPublishReadiness(req, res, next) {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         const latestJob = await GenerationJob.findOne({ where: { songId: song.id }, order: [['createdAt', 'DESC']] });
+        const usedUploadedMedia = await useUploadedMediaAsVideo(song);
+        if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
         return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });
@@ -249,10 +276,23 @@ async function uploadSongAudio(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (!req.file) return res.status(400).json({ message: 'Audio file is required.' });
         const uploaded = await aiStorageService.uploadAudioStream(req.file.buffer);
+        const uploadedMediaIsVideo = ['video/mp4', 'video/webm'].includes(req.file.mimetype);
+        if (uploadedMediaIsVideo) {
+            await GenerationJob.update({
+                status: 'FAILED',
+                errorMessage: 'AI generation stopped because the creator uploaded a finished video.',
+            }, { where: { songId: song.id, status: ACTIVE_GENERATION_STATUSES } });
+        }
         await song.update({
+            audioFileName: req.file.originalname,
             audioUrl: uploaded.audioUrl,
             audioPublicId: uploaded.audioPublicId,
             durationSecs: uploaded.duration,
+            ...(uploadedMediaIsVideo ? {
+                status: song.status === 'PUBLISHED' ? 'PUBLISHED' : 'READY',
+                videoPublicId: uploaded.audioPublicId,
+                videoUrl: uploaded.audioUrl,
+            } : {}),
         });
         return res.json({ song });
     } catch (error) { return next(error); }
@@ -263,15 +303,18 @@ async function uploadSongVideo(req, res, next) {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (!req.file) return res.status(400).json({ message: 'Choose an MP4 or WebM video to upload.' });
-        if (song.status === 'GENERATING') return res.status(409).json({ message: 'Please wait for the current video generation to finish before uploading another video.' });
         const previousPublicId = song.videoPublicId;
         const uploaded = await aiStorageService.uploadVideoStream(req.file.buffer);
+        await GenerationJob.update({
+            status: 'FAILED',
+            errorMessage: 'AI generation stopped because the creator uploaded a finished video.',
+        }, { where: { songId: song.id, status: ACTIVE_GENERATION_STATUSES } });
         await song.update({
             status: song.status === 'PUBLISHED' ? 'PUBLISHED' : 'READY',
             videoPublicId: uploaded.videoPublicId,
             videoUrl: uploaded.videoUrl,
         });
-        if (previousPublicId && previousPublicId !== uploaded.videoPublicId) {
+        if (previousPublicId && previousPublicId !== uploaded.videoPublicId && previousPublicId !== song.audioPublicId) {
             await cloudinaryService.deleteAsset(previousPublicId, 'video').catch((error) => {
                 console.error(`Unable to delete replaced video ${previousPublicId}:`, error.message);
             });
@@ -296,6 +339,19 @@ async function archiveSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be archived.' });
         await song.update({ status: 'ARCHIVED', publishedDate: null });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+}
+
+async function unarchiveSong(req, res, next) {
+    try {
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (song.status !== 'ARCHIVED') return res.status(409).json({ message: 'Only an archived song can be restored.' });
+        await song.update({
+            status: song.videoUrl?.trim() ? 'READY' : 'DRAFT',
+            publishedDate: null,
+        });
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -333,4 +389,4 @@ async function extractAudio(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

@@ -46,7 +46,7 @@ export default function Dashboard() {
     breadcrumbs={['Dashboard']} className="creator-page--hero"
     description="A live creator overview sourced from your songs and generation jobs."
     title="Dashboard"
-    actions={<><Link className="studio-button studio-button--secondary" to="/creator/songs">Open Songs</Link><Link className="studio-button studio-button--primary" to="/creator/reflections">Review Queue</Link></>}
+    actions={<><Link className="studio-button studio-button--secondary" to="/creator/songs">Open Songs</Link><Link className="studio-button studio-button--primary" to="/creator/generation">Review Queue</Link></>}
   >
     {error && <div className="studio-workflow-message is-error" role="alert">{error}<button onClick={() => load()} type="button">Retry</button></div>}
     {loading ? <p role="status">Loading creator dashboard…</p> : null}

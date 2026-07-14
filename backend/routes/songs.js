@@ -58,6 +58,7 @@ router.get('/:id/readiness', requireCreator, songController.getPublishReadiness)
 router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);
+router.put('/:id/unarchive', requireCreator, songController.unarchiveSong);
 router.delete('/:id', requireCreator, songController.deleteSong);
 router.get('/', songController.listPublicSongs);
 router.get('/:id', songController.getPublicSong);

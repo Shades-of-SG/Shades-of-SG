@@ -1,10 +1,6 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
-const LYRIC_TRANSCRIPTION_PROMPT = [
-    'Transcribe the complete song lyrics from the provided audio.',
-    'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.',
-    'Do not summarize the song, do not skip repeated lines, and do not add lyrics that are not audible.',
-].join(' ');
+const PROMPT_ECHO_TEXT = 'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.';
 
 const SUPPORTED_MIME_TYPES = new Set([
     'audio/m4a',
@@ -103,7 +99,6 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     const formData = new FormData();
     formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe');
     formData.append('response_format', 'json');
-    formData.append('prompt', LYRIC_TRANSCRIPTION_PROMPT);
     formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
 
     const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
@@ -122,11 +117,27 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
+    const rawLyrics = String(responseBody.text || '').trim();
+    if (!rawLyrics || isPromptEcho(rawLyrics)) {
+        const error = new Error('No usable vocals were detected. Try a clearer audio track with less silence or instrumental-only content.');
+        error.status = 422;
+        throw error;
+    }
+
     return {
-        lyrics: formatLyricsDraft(responseBody.text || ''),
-        rawLyrics: responseBody.text || '',
+        lyrics: formatLyricsDraft(rawLyrics),
+        rawLyrics,
         model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe',
     };
+}
+
+function isPromptEcho(text) {
+    const normalizedText = String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const normalizedPrompt = PROMPT_ECHO_TEXT.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!normalizedText || !normalizedPrompt) return false;
+    const withoutPrompt = normalizedText.split(normalizedPrompt).join('').trim();
+    const occurrences = normalizedText.split(normalizedPrompt).length - 1;
+    return occurrences >= 1 && !withoutPrompt;
 }
 
 function formatLyricsDraft(text) {
@@ -242,6 +253,7 @@ module.exports = {
     formatLyricsDraft,
     getTranscriptionConfigStatus,
     MAX_TRANSCRIPTION_BYTES,
+    isPromptEcho,
     normalizeMimeType,
     transcribeMedia,
     transcribeMediaBuffer,

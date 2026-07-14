@@ -10,10 +10,21 @@ const completeGeneration = async (jobId) => {
   if (!job) throw new Error(`Job ${jobId} not found in database.`)
   const song = await Song.findByPk(job.songId)
   if (!song) throw new Error(`Song ${job.songId} not found in database.`)
+  if (job.status !== 'PROCESSING' || song.status !== 'GENERATING') {
+    throw new Error('Generation was stopped because the creator selected a finished uploaded video.')
+  }
   if (!song.videoUrl) throw new Error('Generation cannot complete without a video URL.')
   await job.update({ status: 'COMPLETED', errorMessage: null, completedAt: new Date() })
   await song.update({ status: 'READY' })
   return { job, song }
+}
+
+const assertGenerationIsActive = async (jobId) => {
+  const job = await GenerationJob.findByPk(jobId)
+  const song = job ? await Song.findByPk(job.songId) : null
+  if (!job || !song || job.status !== 'PROCESSING' || song.status !== 'GENERATING') {
+    throw new Error('Generation was stopped because the creator selected a finished uploaded video.')
+  }
 }
 
 const failGeneration = async (jobId, error) => {
@@ -218,9 +229,11 @@ const runGenerationPipeline = async (jobId) => {
     await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
     console.log(`[Phase 2] Generating Scene Plan...`)
     await generateScenePlan(jobId, job.songId)
+    await assertGenerationIsActive(jobId)
 
     console.log(`[Phase 3] Generating Image Frames...`)
     await generateFrames(jobId, job.songId)
+    await assertGenerationIsActive(jobId)
 
     const placeholderApplied = await usePlaceholderVideo(job.songId)
     if (placeholderApplied) {
@@ -229,6 +242,7 @@ const runGenerationPipeline = async (jobId) => {
       console.log(`[Phase 4] Assembling Video with FFmpeg...`)
       await assembleVideo(jobId, job.songId)
     }
+    await assertGenerationIsActive(jobId)
 
     // Update DB on Success
     await completeGeneration(job.id)

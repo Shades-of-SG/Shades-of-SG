@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Archive, ArchiveRestore, Pencil, Trash2, Video } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
 import EmptyState from '../components/EmptyState'
 import SectionCard from '../components/SectionCard'
 import { useAuth } from '../context/AuthContext'
-import { archiveSong, deleteSong, getCreatorSongs, publishSong, startGeneration, unpublishSong } from '../services/songService'
+import { archiveSong, deleteSong, getCreatorSongs, startGeneration, unarchiveSong } from '../services/songService'
 
 const filters = [
   ['All', 'ALL'], ['Drafts', 'DRAFT'], ['Generating', 'GENERATING'],
@@ -85,8 +86,25 @@ export default function CreatorSongs() {
     mutate(song, () => deleteSong(song.id, token), 'Song deleted.')
   }
 
+  function toggleArchive(song) {
+    if (song.status === 'ARCHIVED') {
+      mutate(song, () => unarchiveSong(song.id, token), 'Song restored.')
+      return
+    }
+    mutate(song, () => archiveSong(song.id, token), 'Song archived.')
+  }
+
   const latestStatus = selected?.latestGenerationJob?.status
+  const hasActiveGeneration = selected && activeJobStatuses.has(latestStatus)
   const canGenerate = selected && ['DRAFT', 'READY'].includes(selected.status) && selected.audioUrl && selected.rawLyrics?.trim() && !activeJobStatuses.has(latestStatus)
+
+  function handleGenerationAction() {
+    if (hasActiveGeneration && selected.latestGenerationJob?.id) {
+      navigate(`/creator/generation/${selected.latestGenerationJob.id}`)
+      return
+    }
+    mutate(selected, () => startGeneration(selected.id, token), latestStatus === 'FAILED' ? 'Generation retry queued.' : 'Generation queued.')
+  }
 
   return <CreatorPageShell
     breadcrumbs={['My Songs']} className="creator-page--hero"
@@ -119,14 +137,12 @@ export default function CreatorSongs() {
       {selected ? <SectionCard className="creator-song-detail">
         <div className="creator-song-detail__header"><SongArtwork song={selected} /><div className="dashboard-song-copy"><h3>{selected.title}</h3><p>{selected.artist || 'Artist not set'}</p><span className={`dashboard-song-badge is-${selected.status.toLowerCase()}`}>{selected.status}</span></div></div>
         <div className="creator-song-actions">
-          {selected.status === 'PUBLISHED' ? <button onClick={() => navigate(`/songs/${selected.id}`)} type="button">View</button> : null}
-          <button disabled={selected.status === 'GENERATING'} onClick={() => navigate(`/creator/studio/${selected.id}`)} type="button">Edit</button>
-          {canGenerate ? <button disabled={busyId === selected.id} onClick={() => mutate(selected, () => startGeneration(selected.id, token), latestStatus === 'FAILED' ? 'Generation retry queued.' : 'Generation queued.')} type="button">{latestStatus === 'FAILED' ? 'Retry' : 'Generate'}</button> : null}
-          {selected.latestGenerationJob ? <button onClick={() => navigate(`/creator/generation/${selected.latestGenerationJob.id}`)} type="button">View Generation</button> : null}
-          {selected.status === 'READY' ? <button disabled={!selected.publishReady || busyId === selected.id} onClick={() => mutate(selected, () => publishSong(selected.id, token), 'Song published.')} title={selected.publishReady ? '' : `Missing: ${selected.publishMissing.join(', ')}`} type="button">Publish</button> : null}
-          {selected.status === 'PUBLISHED' ? <button disabled={busyId === selected.id} onClick={() => mutate(selected, () => unpublishSong(selected.id, token), 'Song unpublished and returned to Ready.')} type="button">Unpublish</button> : null}
-          {!['GENERATING', 'ARCHIVED'].includes(selected.status) ? <button disabled={busyId === selected.id} onClick={() => mutate(selected, () => archiveSong(selected.id, token), 'Song archived.')} type="button">Archive</button> : null}
-          {selected.status !== 'GENERATING' ? <button disabled={busyId === selected.id} onClick={() => confirmDelete(selected)} type="button">Delete</button> : null}
+          <div className="creator-song-actions__icons">
+            <button aria-label="Edit song" className="creator-song-icon-button" disabled={busyId === selected.id} onClick={() => navigate(`/creator/studio/${selected.id}`)} title="Edit song" type="button"><Pencil aria-hidden="true" /></button>
+            <button aria-label={selected.status === 'ARCHIVED' ? 'Unarchive song' : 'Archive song'} className="creator-song-icon-button" disabled={busyId === selected.id || selected.status === 'GENERATING'} onClick={() => toggleArchive(selected)} title={selected.status === 'ARCHIVED' ? 'Unarchive song' : 'Archive song'} type="button">{selected.status === 'ARCHIVED' ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}</button>
+            <button aria-label="Delete song" className="creator-song-icon-button is-danger" disabled={busyId === selected.id || selected.status === 'GENERATING'} onClick={() => confirmDelete(selected)} title="Delete song" type="button"><Trash2 aria-hidden="true" /></button>
+          </div>
+          <button className="creator-song-generate-button" disabled={busyId === selected.id || (!hasActiveGeneration && !canGenerate)} onClick={handleGenerationAction} title={!hasActiveGeneration && !canGenerate ? 'Add saved audio and lyrics to generate a video.' : ''} type="button"><Video aria-hidden="true" />{hasActiveGeneration ? 'View Generation' : latestStatus === 'FAILED' ? 'Retry Video' : 'Generate Video'}</button>
         </div>
         <div className="creator-song-detail__lyrics"><h4>Lyrics</h4>{selected.rawLyrics ? <pre>{selected.rawLyrics}</pre> : <p>No lyrics saved.</p>}</div>
       </SectionCard> : null}
