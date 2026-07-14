@@ -9,12 +9,15 @@ const songsRouter = require('./routes/songs');
 const reflectionsRouter = require('./routes/reflections');
 const transcriptionsRouter = require('./routes/transcriptions');
 const generationRouter = require('./routes/aiGeneration');
+const badgesRouter = require('./routes/badges');
+const beatmapsRouter = require('./routes/beatmaps');
 const { seedCreatorAccount } = require('./services/authService');
 const {
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
     ensureSongSchema,
-    ensureGenerationJobSchema
+    ensureGenerationJobSchema,
+    ensureRhythmBeatmapSchema
 } = require('./services/schemaService');
 
 const app = express();
@@ -37,7 +40,9 @@ app.use(
                 return callback(null, true);
             }
 
-            return callback(new Error('Not allowed by CORS'));
+            const err = new Error('Not allowed by CORS');
+            err.status = 403;
+            return callback(err);
         },
         credentials: true,
     })
@@ -57,11 +62,13 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/songs', songsRouter);
+app.use('/api/songs/:songId/beatmaps', beatmapsRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/reflections', reflectionsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
+app.use('/api/badges', badgesRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {
@@ -78,6 +85,7 @@ async function startServer() {
         await ensureReflectionModerationSchema(sequelize);
         await ensureSongSchema(sequelize);
         await ensureGenerationJobSchema(sequelize);
+        await ensureRhythmBeatmapSchema(sequelize);
         await seedCreatorAccount();
 
         console.log('Database connected successfully');

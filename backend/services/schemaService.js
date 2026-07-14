@@ -92,9 +92,24 @@ async function ensureGenerationJobSchema(sequelize) {
     // Empty schema updater to satisfy server.js import requirements
 }
 
+async function ensureRhythmBeatmapSchema(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('rhythm_beatmaps');
+
+    // Some databases received the initial rhythm table before published_at
+    // was added to the model. Keep startup additive and safe for existing maps.
+    if (!columns.published_at) {
+        await queryInterface.addColumn('rhythm_beatmaps', 'published_at', {
+            allowNull: true,
+            type: DataTypes.DATE,
+        });
+    }
+}
+
 module.exports = { 
     ensureGuestReflectionSchema, 
     ensureReflectionModerationSchema,
     ensureSongSchema,
-    ensureGenerationJobSchema
+    ensureGenerationJobSchema,
+    ensureRhythmBeatmapSchema
 };

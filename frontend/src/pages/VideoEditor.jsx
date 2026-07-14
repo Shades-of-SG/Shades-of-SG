@@ -527,7 +527,7 @@ export default function VideoEditor() {
             onClick={handlePublishToStudio}
             disabled={isPublishing || isExporting}
           >
-            {isPublishing ? 'Preparing Studio...' : 'Publish to Studio'}
+            {isPublishing ? 'Exporting Clean Video...' : 'Publish to Studio'}
           </button>
           <button
             className="studio-button studio-button--primary"
