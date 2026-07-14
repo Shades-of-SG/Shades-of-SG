@@ -25,7 +25,7 @@ async function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
     const writer = fs.createWriteStream(destPath)
     response.data.pipe(writer)
-    writer.on('close', resolve)
+    writer.on('finish', resolve)
     writer.on('error', reject)
   })
 }
@@ -55,22 +55,12 @@ function escapePathForFFmpeg(filePath) {
  */
 async function cleanupFiles(filePaths) {
   for (const filePath of filePaths) {
-    let retries = 3
-    while (retries > 0) {
-      try {
-        if (fs.existsSync(filePath)) {
-          await fs.promises.unlink(filePath)
-        }
-        break // success
-      } catch (err) {
-        if (err.code === 'EBUSY' && retries > 1) {
-          await new Promise(res => setTimeout(res, 500))
-          retries--
-        } else {
-          console.error(`Failed to delete temporary file ${filePath}:`, err.message)
-          break
-        }
+    try {
+      if (fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath)
       }
+    } catch (err) {
+      console.error(`Failed to delete temporary file ${filePath}:`, err.message)
     }
   }
 }
