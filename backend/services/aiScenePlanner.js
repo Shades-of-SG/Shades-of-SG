@@ -1,135 +1,385 @@
-const { Song, GenerationJob, SceneSegment } = require('../models')
+const {
+  Song,
+  GenerationJob,
+  SceneSegment,
+} = require('../models')
 const { getOpenAIClient } = require('./openaiClient')
 
-/**
- * Phase 2 Pipeline: Analyzes song lyrics and generates a chronological scene plan.
- * * @param {number|string} jobId - The primary key of the GenerationJob
- * @param {number|string} songId - The primary key of the Song
- * @returns {Promise<Array>} The array of generated scenes
- */
-async function generateScenePlan(jobId, songId) {
-  try {
-    // 1. Database Fetching & State Validation
-    const job = await GenerationJob.findByPk(jobId)
-    if (!job) {
-      throw new Error(`GenerationJob with ID ${jobId} not found.`)
+const MAX_SCENE_DURATION_SECONDS = 15
+
+function stripCodeFence(value) {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  return value
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+}
+
+function sanitizeLyrics(raw) {
+  if (!raw || typeof raw !== 'string') {
+    return null
+  }
+
+  const cleaned = raw
+    .replace(/\[.*?\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return cleaned || null
+}
+
+function normalizeTranscriptionSegments(value) {
+  if (!value) {
+    return []
+  }
+
+  let parsed = value
+
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value)
+    } catch {
+      return []
     }
-    if (job.status !== 'PROCESSING') {
-      throw new Error(`GenerationJob is in state '${job.status}', expected 'PROCESSING'.`)
+  }
+
+  if (!Array.isArray(parsed)) {
+    return []
+  }
+
+  return parsed
+    .map((segment) => {
+      const start = Number(
+        segment.start
+        ?? segment.startTime
+        ?? segment.start_time,
+      )
+
+      const end = Number(
+        segment.end
+        ?? segment.endTime
+        ?? segment.end_time,
+      )
+
+      const text = String(
+        segment.text
+        ?? segment.lyrics
+        ?? '',
+      ).trim()
+
+      if (
+        !Number.isFinite(start)
+        || !Number.isFinite(end)
+        || end <= start
+      ) {
+        return null
+      }
+
+      return {
+        start,
+        end,
+        text,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start)
+}
+
+function validateScenes(scenes) {
+  if (!Array.isArray(scenes) || scenes.length === 0) {
+    throw new Error(
+      'OpenAI response did not contain a valid, non-empty "scenes" array.',
+    )
+  }
+
+  return scenes.map((scene, index) => {
+    const startTime = Number(scene.startTime)
+    const endTime = Number(scene.endTime)
+
+    if (
+      !Number.isFinite(startTime)
+      || !Number.isFinite(endTime)
+      || endTime <= startTime
+    ) {
+      throw new Error(
+        `Scene ${index + 1} contains invalid timing.`,
+      )
     }
 
-    const song = await Song.findByPk(songId)
-    if (!song) {
-      throw new Error(`Song with ID ${songId} not found.`)
+    if (
+      endTime - startTime
+      > MAX_SCENE_DURATION_SECONDS + 0.5
+    ) {
+      throw new Error(
+        `Scene ${index + 1} exceeds the ${MAX_SCENE_DURATION_SECONDS}-second maximum.`,
+      )
     }
 
-    // 2. The System Prompt (Music Video Director)
-    const systemPrompt = `You are an expert cinematic music video director and visual storyteller. 
-Your task is to analyze the provided song's lyrics, theme, title, and artist, and break the song down into a chronological sequence of highly visual scenes.
+    const visualPrompt = String(
+      scene.visualPrompt || '',
+    ).trim()
 
-This project, "Shades of SG", is focused on Singapore's rich heritage and community history. Please keep local context in mind if the theme calls for it.
+    if (!visualPrompt) {
+      throw new Error(
+        `Scene ${index + 1} is missing visualPrompt.`,
+      )
+    }
 
-For each scene, you must generate a rich, highly detailed imagePrompt optimized for DALL-E 3. 
-Each imagePrompt must specify:
-- Subject matter and key elements.
-- Lighting, atmosphere, and mood.
-- Camera angle or cinematic style.
-- Integration of the song's theme: ${song.theme || 'Singaporean Heritage'}.
+    return {
+      startTime,
+      endTime,
+      lyrics: sanitizeLyrics(
+        scene.lyrics || scene.text,
+      ),
+      visualPrompt: visualPrompt
+        .replace(/\s+/g, ' ')
+        .trim(),
+    }
+  })
+}
 
-You must return ONLY a JSON object. Do NOT return an array as the root element.
-The root of the JSON object must have a single property "scenes" which is an array of objects.
+function buildTimestampedPrompt(song, rawSegments) {
+  const systemPrompt = `You are an expert cinematic music video director and visual storyteller.
 
-The JSON schema must strictly follow this structure:
+Analyze the provided chronological transcription segments and group them into coherent lyrical blocks for a cinematic music video.
+
+The project, "Shades of SG", focuses on Singapore's heritage, culture, and community history. Reflect this local context where appropriate.
+
+Rules:
+1. Group segments into complete lyrical phrases, sentences, or coherent chorus sections.
+2. Do not omit any provided transcription segment.
+3. Keep all scenes chronological.
+4. Each scene startTime must match the first included segment's start time.
+5. Each scene endTime must match the last included segment's end time.
+6. Repeated chorus sections should be grouped consistently.
+7. Scenes should ideally last 5 to 10 seconds.
+8. No scene may exceed 15 seconds. Split long sections when necessary.
+9. Lyrics must use the supplied true lyrics where possible.
+10. visualPrompt must be a single-line cinematic image-generation prompt.
+
+Each visualPrompt must specify:
+- subject and key visual elements
+- lighting, atmosphere, and mood
+- camera angle or cinematic style
+- integration of the song theme: ${song.theme || 'Singaporean Heritage'}
+
+Return only valid JSON in this exact structure:
+
 {
   "scenes": [
     {
-      "startTime": <number, starting second of the scene>,
-      "endTime": <number, ending second of the scene>,
-      "lyrics": "<string, the exact lyrics spoken/sung during this scene, or '[Instrumental]' if none>",
-      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt>"
+      "startTime": 0,
+      "endTime": 8,
+      "lyrics": "Exact corresponding lyrics",
+      "visualPrompt": "Detailed single-line cinematic image prompt"
     }
   ]
+}`
+
+  const segmentsText = rawSegments
+    .map(
+      (segment, index) =>
+        `${index + 1}. [${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s] ${segment.text}`,
+    )
+    .join('\n')
+
+  const userMessage = `Title: ${song.title}
+Artist: ${song.artist || 'Unknown'}
+Theme: ${song.theme || 'N/A'}
+
+True Lyrics:
+${song.rawLyrics || 'No verified lyrics provided.'}
+
+Timestamped Transcription Segments:
+${segmentsText}`
+
+  return {
+    systemPrompt,
+    userMessage,
+  }
 }
 
-Ensure the generated scenes logically cover the progression of the song.`
+function buildFallbackPrompt(song) {
+  const systemPrompt = `You are an expert cinematic music video director and visual storyteller.
 
-    const userMessage = `Title: ${song.title}
-Artist: ${song.artist}
+Break the supplied song lyrics into a chronological sequence of short cinematic scenes.
+
+The project, "Shades of SG", focuses on Singapore's heritage, culture, and community history. Reflect this local context where appropriate.
+
+Rules:
+1. Scenes should ideally last 5 to 10 seconds.
+2. No scene may exceed 15 seconds.
+3. Keep scenes chronological.
+4. Do not omit major lyrical sections.
+5. visualPrompt must be a single-line cinematic image-generation prompt.
+
+Each visualPrompt must specify:
+- subject and key visual elements
+- lighting, atmosphere, and mood
+- camera angle or cinematic style
+- integration of the song theme: ${song.theme || 'Singaporean Heritage'}
+
+Return only valid JSON in this exact structure:
+
+{
+  "scenes": [
+    {
+      "startTime": 0,
+      "endTime": 8,
+      "lyrics": "Exact corresponding lyrics",
+      "visualPrompt": "Detailed single-line cinematic image prompt"
+    }
+  ]
+}`
+
+  const userMessage = `Title: ${song.title}
+Artist: ${song.artist || 'Unknown'}
 Theme: ${song.theme || 'N/A'}
+
 Lyrics:
-${song.rawLyrics || 'No lyrics provided.'}`
+${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
 
-    // 3. OpenAI API Call with Strict JSON Enforcement
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o', // using the flagship model for better prompt adherence
-      response_format: { type: 'json_object' },
-      temperature: 0.7, // 0.7 provides a good balance of creativity and structure
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-    })
+  return {
+    systemPrompt,
+    userMessage,
+  }
+}
 
-    // 4. Safely Parse the Returned JSON
-    const responseText = response.choices[0].message.content
+/**
+ * Generates and stores the chronological scene plan for a generation job.
+ *
+ * @param {string|number} jobId
+ * @param {string|number} songId
+ * @returns {Promise<Array>}
+ */
+async function generateScenePlan(jobId, songId) {
+  const job = await GenerationJob.findByPk(jobId)
+
+  if (!job) {
+    throw new Error(
+      `GenerationJob with ID ${jobId} not found.`,
+    )
+  }
+
+  if (job.status !== 'PROCESSING') {
+    throw new Error(
+      `GenerationJob is in state '${job.status}', expected 'PROCESSING'.`,
+    )
+  }
+
+  const song = await Song.findByPk(songId)
+
+  if (!song) {
+    throw new Error(
+      `Song with ID ${songId} not found.`,
+    )
+  }
+
+  try {
+    const rawSegments =
+      normalizeTranscriptionSegments(
+        song.transcriptionSegments,
+      )
+
+    const {
+      systemPrompt,
+      userMessage,
+    } = rawSegments.length > 0
+      ? buildTimestampedPrompt(
+          song,
+          rawSegments,
+        )
+      : buildFallbackPrompt(song)
+
+    const response =
+      await getOpenAIClient()
+        .chat.completions.create({
+          model:
+            process.env.OPENAI_SCENE_MODEL
+            || 'gpt-4o',
+          response_format: {
+            type: 'json_object',
+          },
+          temperature: 0.7,
+          max_tokens: 4096,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: userMessage,
+            },
+          ],
+        })
+
+    const responseText = stripCodeFence(
+      response.choices?.[0]?.message?.content,
+    )
+
+    if (!responseText) {
+      throw new Error(
+        'OpenAI returned an empty scene-plan response.',
+      )
+    }
+
     let parsedData
 
     try {
       parsedData = JSON.parse(responseText)
     } catch (parseError) {
       throw new Error(
-        `Failed to parse OpenAI JSON response: ${parseError.message}\nRaw Output: ${responseText}`,
-        { cause: parseError }
+        `Failed to parse OpenAI scene-plan JSON: ${parseError.message}`,
+        {
+          cause: parseError,
+        },
       )
     }
 
-    // Validate that the root object contains the expected "scenes" array
-    if (!parsedData.scenes || !Array.isArray(parsedData.scenes)) {
-      throw new Error(
-        'OpenAI response did not contain a valid "scenes" array at the root object level.'
-      )
-    }
-
-    // 5. Database Saving (The DB Handoff via bulkCreate)
-    // Map the scenes to match your Sequelize schema, injecting foreign keys for relations.
-    const sceneRecords = parsedData.scenes.map((scene) => ({
-      jobId: jobId,
-      songId: songId,
-      startTime: scene.startTime,
-      endTime: scene.endTime,
-      lyrics: scene.lyrics,
-      visualPrompt: scene.visualPrompt,
-    }))
-
-    await SceneSegment.bulkCreate(sceneRecords)
-
-    return parsedData.scenes
-  } catch (error) {
-    // 7. Error Boundaries & Failsafes
-    console.error(
-      `[aiScenePlanner] Critical error during scene generation for Job ${jobId}:`,
-      error
+    const scenes = validateScenes(
+      parsedData.scenes,
     )
 
-    try {
-      // Attempt to fetch the job again to ensure we have the latest instance before updating to FAILED
-      const failedJob = await GenerationJob.findByPk(jobId)
-      if (failedJob) {
-        failedJob.status = 'FAILED'
-        // Substring the error message just in case it exceeds string column limits in Postgres
-        failedJob.errorMessage = error.message.substring(0, 1000)
-        await failedJob.save()
-      }
-    } catch (dbFailsafeError) {
-      console.error(
-        `[aiScenePlanner] Failsafe: Could not update job ${jobId} to FAILED status.`,
-        dbFailsafeError
-      )
-    }
+    const sceneRecords = scenes.map(
+      (scene) => ({
+        songId,
+        startTime: scene.startTime,
+        endTime: scene.endTime,
+        lyrics: scene.lyrics,
+        visualPrompt:
+          scene.visualPrompt,
+      }),
+    )
 
-    // Throw the error upstream so the orchestrator/caller is aware of the failure
+    // Prevent duplicate scenes when retrying the same job.
+    await SceneSegment.destroy({
+      where: {
+        songId,
+      },
+    })
+
+    await SceneSegment.bulkCreate(
+      sceneRecords,
+    )
+
+    return sceneRecords
+  } catch (error) {
+    console.error(
+      `[aiScenePlanner] Scene generation failed for job ${jobId}:`,
+      error,
+    )
+
+    // Do not update the job here. The generation controller owns
+    // FAILED/COMPLETED lifecycle transitions for the whole pipeline.
     throw error
   }
 }
 
-module.exports = { generateScenePlan }
+module.exports = {
+  generateScenePlan,
+}

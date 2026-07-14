@@ -4,6 +4,11 @@ const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
+const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
+const { transcribeMediaBuffer } = require('../services/transcriptionService')
+const { OpenAI } = require('openai')
+const cloudinary = require('../config/cloudinary')
+const aiStorageService = require('../services/aiStorageService')
 
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
@@ -83,52 +88,23 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    const song = await Song.findOne({ where: { id: songId, creatorId: req.authUserRecord.id } })
+    const song = await Song.findByPk(songId)
     if (!song) {
       const error = new Error('Song not found.')
       error.statusCode = 404
       throw error
     }
-
-    if (!['DRAFT', 'READY'].includes(song.status)) {
-      const error = new Error('Only DRAFT or READY songs can start generation.')
-      error.statusCode = 409
-      throw error
-    }
-
-    const missing = []
-    if (!song.audioUrl) missing.push('audioUrl')
-    if (!song.rawLyrics?.trim()) missing.push('rawLyrics')
-    if (missing.length) {
-      const error = new Error(`Song is missing generation requirements: ${missing.join(', ')}.`)
-      error.statusCode = 400
-      throw error
-    }
-
-    const activeJob = await GenerationJob.findOne({
-      where: { songId, status: ['QUEUED', 'PROCESSING'] },
-    })
-    if (activeJob) {
-      const error = new Error('This song already has an active generation job.')
-      error.statusCode = 409
-      throw error
-    }
-
+    
     // 1. Create the tracking ticket
-    let job
-    try {
-      job = await GenerationJob.create({ songId, status: 'QUEUED' })
-    } catch (error) {
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        error.statusCode = 409
-        error.message = 'This song already has an active generation job.'
-      }
-      throw error
-    }
+    const job = await GenerationJob.create({
+      songId,
+      status: 'IN_PROGRESS',
+    })
+
+    await song.update({ status: 'GENERATING' })
 
     // 2. Fire the background worker WITHOUT awaiting it
-    await song.update({ status: 'GENERATING' })
-    if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
+    runGenerationPipeline(job.id).catch(console.error)
 
     // 3. Immediately return the ticket ID to the frontend
     return res.status(202).json({
@@ -145,14 +121,11 @@ const getGenerationStatus = async (req, res, next) => {
     // Route param is :id (see aiGeneration.js), not :jobId
     const { id } = req.params
 
-    const job = await GenerationJob.findOne({
-      where: { id },
+    const job = await GenerationJob.findByPk(id, {
       include: [
-        {
+        { 
           model: Song, 
           as: 'song', 
-          where: { creatorId: req.authUserRecord.id },
-          attributes: ['id', 'title', 'artist', 'audioUrl', 'videoUrl', 'videoPublicId', 'status'],
           include: [
             {
               model: SceneSegment,
@@ -176,12 +149,9 @@ const getGenerationStatus = async (req, res, next) => {
       throw error
     }
 
-    const data = job.get({ plain: true })
-    const placeholderVideoUrl = process.env.PLACEHOLDER_VIDEO_URL?.trim()
-    data.videoIsTemporary = Boolean(placeholderVideoUrl && data.song?.videoUrl === placeholderVideoUrl)
     return res.json({
       success: true,
-      data,
+      data: job,
     })
   } catch (error) {
     next(error)
@@ -191,7 +161,7 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'artist', 'status', 'videoUrl'], where: { creatorId: req.authUserRecord.id } }],
+      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
       order: [['createdAt', 'DESC']],
     })
 
@@ -215,39 +185,173 @@ const runGenerationPipeline = async (jobId) => {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
 
-    await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
-    console.log(`[Phase 2] Generating Scene Plan...`)
-    await generateScenePlan(jobId, job.songId)
+    const song = await Song.findByPk(job.songId)
+    if (!song) throw new Error(`Song ${job.songId} not found.`)
 
-    console.log(`[Phase 3] Generating Image Frames...`)
-    await generateFrames(jobId, job.songId)
+    console.log(`[Phase 1] Audio Extraction & Whisper Transcription...`)
+    if (!song.transcriptionSegments || song.transcriptionSegments.length === 0) {
+      const targetUrl = song.audioUrl || song.youtubeUrl || song.videoUrl
 
-    const placeholderApplied = await usePlaceholderVideo(job.songId)
-    if (placeholderApplied) {
-      console.warn(`[Temporary Video] Job ${jobId} is using configured PLACEHOLDER_VIDEO_URL.`)
+      if (!targetUrl) {
+        throw new Error(
+          `Song ${song.id} has no audio, YouTube, or video URL available for transcription.`
+        )
+      }
+      
+      let extractedInfo;
+      if (/(youtube\.com|youtu\.be)/i.test(targetUrl)) {
+        console.log(`[Phase 1] Extracting YouTube audio from ${targetUrl}...`)
+        extractedInfo = await extractAudioFromYouTube(targetUrl)
+      } else {
+        console.log(`[Phase 1] Downloading direct media from ${targetUrl}...`)
+        extractedInfo = await downloadMediaFromUrl(targetUrl, jobId)
+      }
+      
+      try {
+        const mediaBuffer = await fs.readFile(extractedInfo.filePath)
+        console.log(`[Phase 1] Transcribing audio via Whisper API...`)
+        const transcription = await transcribeMediaBuffer({
+          fileName: extractedInfo.fileName,
+          mediaBuffer,
+          mimeType: extractedInfo.mimeType
+        })
+        
+        await song.update({ transcriptionSegments: transcription.segments })
+        console.log(`[Phase 1] Saved ${transcription.segments.length} segments to database.`)
+      } finally {
+        await extractedInfo.cleanup()
+      }
     } else {
-      console.log(`[Phase 4] Assembling Video with FFmpeg...`)
-      await assembleVideo(jobId, job.songId)
+      console.log(`[Phase 1] Skipped. transcriptionSegments already exist.`)
     }
 
-    // Update DB on Success
-    await completeGeneration(job.id)
+    console.log('[Phase 2] Generating Scene Plan...')
+    await generateScenePlan(jobId, job.songId)
 
-    // Run Cleanup on successful completion
+    console.log('[Phase 3] Generating Image Frames...')
+    await generateFrames(jobId, job.songId)
+
+    console.log('[Phase 4] Assembling Video with FFmpeg...')
+    await assembleVideo(jobId, job.songId)
+
+    await completeGeneration(jobId)
     await cleanupJobFiles(jobId)
-    console.log(`[Background Worker] Pipeline COMPLETED successfully for Job ID: ${jobId}`)
+
+    console.log(
+      `[Background Worker] Pipeline COMPLETED successfully for Job ID: ${jobId}`
+    )
   } catch (error) {
     console.error(`[Generation Pipeline Error] Job ${jobId}:`, error)
 
-    // ERROR BOUNDARY
     try {
-      if (jobId) {
-        await failGeneration(jobId, error)
-        await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
-      }
-    } catch (fallbackError) {
-      console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
+      await failGeneration(jobId, error)
+    } catch (statusError) {
+      console.error(
+        `[Fallback Failure] Could not mark Job ${jobId} as failed:`,
+        statusError
+      )
     }
+
+    try {
+      await cleanupJobFiles(jobId)
+    } catch (cleanupError) {
+      console.error(`[Cleanup Failure] Job ${jobId}:`, cleanupError)
+    }
+  }
+}
+
+const exportVideo = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const { burnCaptions = true } = req.body || {};
+    const job = await GenerationJob.findByPk(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    // Set job back to in progress so the frontend sees it compiling
+    await job.update({ status: 'IN_PROGRESS' });
+
+    // Wait for the video compilation to finish
+    const assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);
+    await job.reload();
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Export completed', 
+      data: job, 
+      videoUrl: assembleResult.videoUrl 
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+const regenerateFrame = async (req, res, next) => {
+  try {
+    const { frameId } = req.params;
+    const { userFeedback } = req.body;
+
+    const frame = await GeneratedFrame.findByPk(frameId, {
+      include: [{ model: SceneSegment, as: 'sceneSegment' }]
+    });
+
+    if (!frame) return res.status(404).json({ success: false, message: 'Frame not found' });
+
+    const segment = frame.sceneSegment;
+    if (!segment) return res.status(404).json({ success: false, message: 'SceneSegment not found' });
+
+    let prompt = segment.visualPrompt || "Cinematic scene";
+    if (userFeedback && userFeedback.trim()) {
+      prompt = `${prompt}. User instructions to modify this scene: ${userFeedback}`;
+    }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    console.log(`[Regenerate] Calling GPT Image 2 for frame ${frameId}...`);
+    const response = await openai.images.generate({
+      model: 'gpt-image-2',
+      prompt: prompt.substring(0, 4000),
+      size: '1792x1024',
+      n: 1,
+    });
+
+    let openAiImageUrl;
+    if (response.data?.[0]?.b64_json) {
+      openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json;
+    } else {
+      openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
+      if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
+    }
+    
+    if (!openAiImageUrl) throw new Error('Missing image URL from OpenAI');
+
+    let finalImageUrl;
+    if (openAiImageUrl.startsWith('data:image/')) {
+      const uploadResult = await new Promise((resolve, reject) => {
+         cloudinary.uploader.upload(openAiImageUrl, {
+           folder: 'shades-of-sg/frames',
+           resource_type: 'image'
+         }, (error, result) => {
+           if (error) reject(new Error(`Cloudinary Data URI Upload Error: ${error.message}`));
+           else resolve(result);
+         });
+      });
+      finalImageUrl = uploadResult.secure_url;
+    } else {
+      finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl);
+    }
+
+    frame.imageUrl = finalImageUrl;
+    await frame.save();
+
+    segment.imageUrl = finalImageUrl;
+    await segment.save();
+
+    return res.json({ success: true, data: frame });
+  } catch (error) {
+    console.error(`[Regenerate Error]:`, error);
+    next(error);
   }
 }
 
@@ -259,4 +363,6 @@ module.exports = {
   completeGeneration,
   failGeneration,
   usePlaceholderVideo,
+  exportVideo,
+  regenerateFrame,
 }

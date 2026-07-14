@@ -66,6 +66,42 @@ async function extractAudioFromYouTube(youtubeUrl) {
     };
 }
 
+async function downloadMediaFromUrl(url, jobId) {
+    await fs.mkdir(TEMP_DIR, { recursive: true });
+    
+    // Default to .mp3, but check URL for common extensions
+    let ext = 'mp3';
+    if (url.toLowerCase().includes('.mp4')) ext = 'mp4';
+    else if (url.toLowerCase().includes('.m4a')) ext = 'm4a';
+    else if (url.toLowerCase().includes('.webm')) ext = 'webm';
+    else if (url.toLowerCase().includes('.wav')) ext = 'wav';
+
+    const outputFileName = `${jobId}_audio.${ext}`;
+    const outputPath = path.join(TEMP_DIR, outputFileName);
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch media from ${url}: ${response.status} ${response.statusText}`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        await fs.writeFile(outputPath, Buffer.from(arrayBuffer));
+
+        return {
+            cleanup: () => removeFileQuietly(outputPath),
+            fileName: outputFileName,
+            filePath: outputPath,
+            mimeType: getMimeType(outputPath),
+        };
+    } catch (err) {
+        await removeFileQuietly(outputPath);
+        const error = new Error(`Direct media download failed: ${err.message}`);
+        error.status = 502;
+        throw error;
+    }
+}
+
 function validateYoutubeUrl(youtubeUrl) {
     if (!youtubeUrl || !YOUTUBE_URL_PATTERN.test(youtubeUrl)) {
         const error = new Error('A valid YouTube URL is required for server-side audio extraction.');
@@ -148,5 +184,6 @@ async function removeFileQuietly(filePath) {
 
 module.exports = {
     extractAudioFromYouTube,
+    downloadMediaFromUrl,
     getAudioExtractionConfigStatus,
 };

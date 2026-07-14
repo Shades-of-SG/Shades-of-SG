@@ -66,7 +66,7 @@ Backend:
 - `AUTH_TOKEN_SECRET` or `JWT_SECRET`: strong signing secret; mandatory in production.
 - `FRONTEND_URL`: exact deployed Vercel origin allowed by CORS.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: media credentials.
-- `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: lyric transcription.
+- `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: lyric transcription. Use `whisper-1` for the segment timestamps required by precise scene timing; GPT-4o transcription models return untimed lyrics and use the planner's fallback timing path.
 - `YT_DLP_PATH`: optional yt-dlp executable path.
 - `PLACEHOLDER_VIDEO_URL`: optional publicly reachable temporary MP4.
 - `SEED_CREATOR_EMAIL`, `SEED_CREATOR_PASSWORD`, `SEED_CREATOR_NAME`: explicit seed command only.

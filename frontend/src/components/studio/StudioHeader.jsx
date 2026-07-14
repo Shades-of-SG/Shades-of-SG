@@ -29,12 +29,15 @@ export default function StudioHeader({
   onBackToLyrics,
   onGenerateVideo,
   onMenuToggle,
+  onPublishSong,
   onSaveDraft,
   showMenuButton = false,
   isBusy = false,
 }) {
+
   const content = stepContent[activeStep] || stepContent[1]
   const handleSecondaryAction = activeStep === 3 ? onSaveDraft : onGenerateVideo
+  const handlePrimaryAction = activeStep === 3 ? onPublishSong : onSaveDraft
 
   return (
     <header className="studio-header">
@@ -65,14 +68,12 @@ export default function StudioHeader({
               Back to Lyrics
             </button>
           )}
-          <button className="studio-button studio-button--secondary" disabled={isBusy} onClick={handleSecondaryAction} type="button">
+          <button className="studio-button studio-button--secondary" onClick={handleSecondaryAction} type="button">
             {content.secondaryAction}
           </button>
-          {activeStep !== 3 && (
-            <button className="studio-button studio-button--primary" disabled={isBusy} onClick={onSaveDraft} type="button">
+            <button className="studio-button studio-button--primary" disabled={isBusy} onClick={handlePrimaryAction} type="button">
               {content.primaryAction}
             </button>
-          )}
         </div>
       </div>
     </header>

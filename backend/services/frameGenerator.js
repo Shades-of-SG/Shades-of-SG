@@ -23,8 +23,8 @@ async function generateFrames(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'PROCESSING') {
-      throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
+    if (job.status !== 'IN_PROGRESS') {
+      throw new Error(`GenerationJob is not in IN_PROGRESS state. Current state: ${job.status}`)
     }
 
     // Fetch scene segments ordered chronologically
@@ -85,6 +85,7 @@ async function generateFrames(jobId, songId) {
             } else {
               throw openaiError
             }
+            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`, { cause: openaiError });
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
             openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
