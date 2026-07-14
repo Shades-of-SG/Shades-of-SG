@@ -3,8 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
-import { useAuth } from '../context/AuthContext'
-import { getGenerationJob } from '../services/songService'
+import { API_URL } from '../services/apiConfig'
 
 /*
 TODO - Htet
@@ -16,7 +15,6 @@ Implement logs view.
 export default function GenerationProgress() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { token } = useAuth()
   
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -32,11 +30,19 @@ export default function GenerationProgress() {
 
     const fetchStatus = async () => {
       try {
-        const data = await getGenerationJob(id, token)
+        const response = await fetch(`${API_URL}/generation/${id}/status`)
+        if (!response.ok) throw new Error(`Failed to fetch status: ${response.statusText}`)
+
+        const json = await response.json()
         if (!isMounted) return
-        setJobData(data)
-        if (data.status === 'COMPLETED' || data.status === 'FAILED') {
-          clearInterval(intervalId)
+
+        if (json.success) {
+          setJobData(json.data)
+          if (json.data.status === 'COMPLETED' || json.data.status === 'FAILED') {
+            clearInterval(intervalId)
+          }
+        } else {
+          throw new Error(json.message || 'Error parsing job status')
         }
       } catch (err) {
         if (!isMounted) return
@@ -54,7 +60,7 @@ export default function GenerationProgress() {
       isMounted = false
       clearInterval(intervalId)
     }
-  }, [id, token])
+  }, [id])
 
   if (loading) {
     return (
@@ -86,7 +92,7 @@ export default function GenerationProgress() {
     )
   }
 
-  const status = jobData?.status || 'QUEUED'
+  const status = jobData?.status || 'NOT_STARTED'
   const sceneSegments = jobData?.song?.sceneSegments || []
 
   return (
@@ -142,9 +148,7 @@ export default function GenerationProgress() {
           {status === 'COMPLETED' ? (
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
               <p style={{ color: '#34d399', fontWeight: 500, fontSize: '1.1rem', marginBottom: '1.5rem' }}>
-                {jobData.videoIsTemporary
-                  ? 'Generation completed using the configured temporary placeholder video. Review it before publishing.'
-                  : 'Your generated video has been assembled successfully and the song is ready for review.'}
+                ✨ Your cinematic video has been assembled successfully!
               </p>
               <Link 
                 to={`/creator/editor/${jobData.id}`} 
@@ -154,9 +158,7 @@ export default function GenerationProgress() {
               </Link>
             </div>
           ) : (
-            <p style={{ color: '#94a3b8' }}>
-              {status === 'QUEUED' ? 'Generation is queued and waiting to start.' : 'Video generation is processing…'}
-            </p>
+            <p style={{ color: '#94a3b8' }}>Video is currently processing...</p>
           )}
         </div>
       </section>

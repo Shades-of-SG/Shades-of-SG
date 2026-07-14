@@ -1,137 +1,417 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
+import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
-import SectionCard from '../components/SectionCard'
-import { useAuth } from '../context/AuthContext'
-import { getCreatorSongs, getGenerationJobs, startGeneration } from '../services/songService'
+import { API_URL } from '../services/apiConfig'
 
-const filters = ['ALL', 'QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED']
-const activeStatuses = new Set(['QUEUED', 'PROCESSING'])
+const jobFilters = ['All', 'Processing', 'Completed', 'Failed']
+const MAX_TITLE_LENGTH = 120
+const MAX_ARTIST_LENGTH = 120
 
 export default function CreatorGenerationJobs() {
   const navigate = useNavigate()
-  const { token } = useAuth()
+
+  // Dashboard State
   const [jobs, setJobs] = useState([])
-  const [songs, setSongs] = useState([])
-  const [selectedSongId, setSelectedSongId] = useState('')
-  const [filter, setFilter] = useState('ALL')
   const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [error, setError] = useState(null)
+  const [activeFilter, setActiveFilter] = useState('All')
 
-  const load = useCallback(async ({ quiet = false } = {}) => {
-    if (!quiet) setLoading(true)
-    try {
-      const [nextJobs, ownedSongs] = await Promise.all([
-        getGenerationJobs(token), getCreatorSongs(token),
-      ])
-      setJobs(nextJobs)
-      setSongs(ownedSongs.filter((song) => ['DRAFT', 'READY'].includes(song.status) && song.audioUrl && song.rawLyrics?.trim()))
-      setError('')
-    } catch (nextError) { setError(nextError.message) }
-    finally { if (!quiet) setLoading(false) }
-  }, [token])
+  // Generation Form State
+  const [isCreating, setIsCreating] = useState(false)
+  const [isStartingJob, setIsStartingJob] = useState(false)
 
+  // Form Choices
+  const [mediaSource, setMediaSource] = useState('youtube') // 'youtube' or 'upload'
+  const [youtubeLink, setYoutubeLink] = useState('')
+  const [audioFile, setAudioFile] = useState(null)
+
+  // Track Details
+  const [formData, setFormData] = useState({ title: '', artist: '', lyrics: '' })
+
+  // Extraction States
+  const [isExtractingAudio, setIsExtractingAudio] = useState(false)
+  const [extractedAudioUrl, setExtractedAudioUrl] = useState('')
+  const [isExtractingLyrics, setIsExtractingLyrics] = useState(false)
+
+  // --- INITIAL FETCH (ESLint Safe) ---
   useEffect(() => {
-    const timer = window.setTimeout(() => load(), 0)
-    return () => window.clearTimeout(timer)
-  }, [load])
+    let isMounted = true
+    const loadInitialJobs = async () => {
+      try {
+        const response = await fetch(`${API_URL}/generation`)
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("Server returned an invalid response");
+        }
+        const json = await response.json()
+        if (!response.ok) throw new Error(json.message || `Failed to fetch: ${response.status}`)
+        if (json.success && isMounted) setJobs(json.data)
+      } catch (err) {
+        if (isMounted) setError(err.message)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+    loadInitialJobs()
+    return () => { isMounted = false }
+  }, [])
 
-  useEffect(() => {
-    if (!jobs.some((job) => activeStatuses.has(job.status))) return undefined
-    const timer = window.setInterval(() => load({ quiet: true }), 3000)
-    return () => window.clearInterval(timer)
-  }, [jobs, load])
-
-  const filteredJobs = filter === 'ALL' ? jobs : jobs.filter((job) => job.status === filter)
-  const activeCount = jobs.filter((job) => activeStatuses.has(job.status)).length
-  const completeCount = jobs.filter((job) => job.status === 'COMPLETED').length
-  const selectedSong = songs.find((song) => song.id === selectedSongId)
-  const hasActiveJob = selectedSong && jobs.some((job) => job.songId === selectedSong.id && activeStatuses.has(job.status))
-
-  async function handleStart() {
-    if (!selectedSongId) return setError('Choose an existing Studio draft first.')
-    setStarting(true); setError(''); setSuccess('')
+  // --- MANUAL REFRESH (Triggered after a new job starts) ---
+  const refreshJobs = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const job = await startGeneration(selectedSongId, token)
-      setSuccess(`Generation queued for ${selectedSong?.title || 'the selected song'}.`)
-      setSelectedSongId('')
-      await load({ quiet: true })
-      navigate(`/creator/generation/${job.id}`)
-    } catch (nextError) { setError(nextError.message) }
-    finally { setStarting(false) }
+      const response = await fetch(`${API_URL}/generation`)
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response");
+      }
+      const json = await response.json()
+      if (!response.ok) throw new Error(json.message || `Failed to fetch: ${response.status}`)
+      if (json.success) setJobs(json.data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  return <CreatorPageShell
-    breadcrumbs={['Generation Tasks']}
-    description="Start and monitor AI video generation for songs already saved in Studio."
-    title="Generation Tasks"
-    actions={<Link className="studio-button studio-button--primary" to="/creator/studio/new">Create in Studio</Link>}
-  >
-    <SectionCard title="Start generation for an existing song">
-      <p>Song metadata, audio, and lyrics are managed in Studio. This page never creates a Song.</p>
-      <div className="studio-form-grid" style={{ alignItems: 'end', marginTop: '1rem' }}>
-        <label className="studio-field">
-          <span>Eligible Studio Song</span>
-          <select onChange={(event) => setSelectedSongId(event.target.value)} value={selectedSongId}>
-            <option value="">Select a DRAFT or READY song</option>
-            {songs.map((song) => <option key={song.id} value={song.id}>{song.title} — {song.status}</option>)}
-          </select>
-        </label>
-        <button className="studio-button studio-button--primary" disabled={starting || !selectedSongId || hasActiveJob} onClick={handleStart} type="button">
-          {starting ? 'Queuing…' : hasActiveJob ? 'Generation already active' : 'Generate Video'}
+  // --- MP3 EXTRACTION LOGIC ---
+  const handleExtractAudio = async () => {
+    if (!youtubeLink) return alert('Please enter a YouTube link to extract.')
+    setIsExtractingAudio(true)
+    try {
+      const response = await fetch(`${API_URL}/songs/extract-audio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ youtubeUrl: youtubeLink })
+      })
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response");
+      }
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Failed to extract audio')
+
+      setExtractedAudioUrl(data.audioUrl)
+      alert('MP3 Extracted and saved successfully!')
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setIsExtractingAudio(false)
+    }
+  }
+
+  // --- LYRICS EXTRACTION LOGIC ---
+  const handleExtractLyrics = async () => {
+    if (mediaSource === 'youtube' && !youtubeLink) return alert('Please enter a YouTube link.')
+    if (mediaSource === 'upload' && !audioFile) return alert('Please upload an audio file.')
+
+    setIsExtractingLyrics(true)
+    try {
+      const payload = mediaSource === 'youtube'
+        ? JSON.stringify({ youtubeUrl: youtubeLink })
+        : JSON.stringify({ fileName: audioFile.name })
+
+      const response = await fetch(`${API_URL}/transcriptions/lyrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      })
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response");
+      }
+
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Failed to extract lyrics')
+
+      // Auto-fills the text box beautifully
+      setFormData(prev => ({ ...prev, lyrics: data.lyrics }))
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setIsExtractingLyrics(false)
+    }
+  }
+
+  // --- SUBMIT & GENERATE ---
+  const handleStartGeneration = async (e) => {
+    e.preventDefault()
+    if (!formData.title) return alert("Please provide a Title.")
+
+    setIsStartingJob(true)
+    try {
+      const songRes = await fetch(`${API_URL}/songs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          artist: formData.artist || 'Unknown Artist',
+          lyrics: formData.lyrics,
+          theme: 'Standard',
+          description: 'AI Generated', // Dummy data for constraints
+          ...(extractedAudioUrl ? { audioUrl: extractedAudioUrl } : { youtubeUrl: youtubeLink })
+        })
+      })
+      const songContentType = songRes.headers.get("content-type");
+      if (!songContentType || !songContentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response when creating song");
+      }
+      const songData = await songRes.json()
+      if (!songRes.ok) throw new Error(songData.message || 'Failed to create song record')
+
+      const genRes = await fetch(`${API_URL}/generation/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songId: songData.data.id })
+      })
+      const genContentType = genRes.headers.get("content-type");
+      if (!genContentType || !genContentType.includes("application/json")) {
+        throw new Error("Server returned an invalid response when starting generation");
+      }
+      const genData = await genRes.json()
+      if (!genRes.ok) throw new Error(genData.message || 'Failed to start generation pipeline')
+
+      setIsCreating(false)
+      setFormData({ title: '', artist: '', lyrics: '' })
+      setYoutubeLink('')
+      setAudioFile(null)
+      setExtractedAudioUrl('')
+
+      await refreshJobs()
+
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setIsStartingJob(false)
+    }
+  }
+
+  const filteredJobs = activeFilter === 'All' ? jobs : jobs.filter((job) => job.status.toLowerCase() === activeFilter.toLowerCase())
+  const activeJobsCount = jobs.filter((job) => job.status.toLowerCase() === 'processing').length
+  const completedJobsCount = jobs.filter((job) => job.status.toLowerCase() === 'completed').length
+
+  return (
+    <CreatorPageShell
+      breadcrumbs={['Generation Tasks']}
+      description="Monitor and manage your AI video compilation tasks."
+      title="Generation Tasks"
+      actions={
+        <button
+          className={`studio-button ${isCreating ? 'studio-button--secondary' : 'studio-button--primary'}`}
+          onClick={() => setIsCreating(!isCreating)}
+        >
+          {isCreating ? 'Cancel' : 'Compile New Video'}
         </button>
-      </div>
-      {songs.length === 0 && !loading ? <p>No eligible songs. Save audio and lyrics to a DRAFT or READY song in Studio first.</p> : null}
-    </SectionCard>
+      }
+    >
 
-    {error && <div className="studio-workflow-message is-error" role="alert">{error}</div>}
-    {success && <div className="studio-workflow-message is-success" role="status">{success}</div>}
+      {/* --- PREMIUM STUDIO-STYLED FORM --- */}
+      {isCreating && (
+        <section className="studio-card studio-form-card" style={{ marginBottom: '2rem' }}>
+          <header className="studio-card__header studio-card__header--spread">
+            <div className="studio-card__title">
+              <span aria-hidden="true">♫</span>
+              <h2>Start New AI Generation</h2>
+            </div>
+            <p style={{ margin: 0 }}>Configure your track and extract lyrics to trigger the AI pipeline.</p>
+          </header>
 
-    <section className="stats-grid stats-grid--two-col">
-      <SectionCard title="Active Jobs"><strong>{loading ? '-' : activeCount}</strong><p>Queued or processing.</p></SectionCard>
-      <SectionCard title="Completed"><strong>{loading ? '-' : completeCount}</strong><p>Finished and ready for creator review.</p></SectionCard>
-    </section>
+          <div className="studio-form-column">
 
-    <div className="dashboard-filter-bar" aria-label="Job filters">
-      {filters.map((value) => <button className={`dashboard-filter-pill ${value === filter ? 'is-selected' : ''}`} key={value} onClick={() => setFilter(value)} type="button">{value === 'ALL' ? 'All' : value}</button>)}
-    </div>
-
-    {loading ? <p role="status">Loading generation tasks…</p> : null}
-    {!loading && !error && filteredJobs.length === 0 ? (
-      <EmptyState description={`No ${filter.toLowerCase()} tasks found.`} title="No tasks found" />
-    ) : (
-      <div className="creator-song-browser">
-        <div className="creator-song-browser__list">
-          {!loading && !error && filteredJobs.map((job) => (
-            <article key={job.id} className="dashboard-song-item creator-song-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div className="dashboard-song-art" aria-hidden="true">🎵</div>
-                <div className="dashboard-song-copy">
-                  <h3>{job.song?.title || job.Song?.title || 'Unknown Song'}</h3>
-                  <p className="text-xs text-slate-500 mb-1">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
-                  <GenerationStatusBadge status={job.status} />
-                  {job.status === 'FAILED' && job.errorMessage ? <p className="studio-workflow-message is-error">{job.errorMessage}</p> : null}
-                  {job.status.toLowerCase() === 'processing' && (
-                    <div className="dashboard-song-progress" style={{ marginTop: '0.5rem' }}>
-                      <div className="progress-track"><span style={{ width: `${job.progress || 0}%` }} /></div>
-                      <small>{job.progress || 0}%</small>
-                    </div>
-                  )}
-                </div>
+            {/* 1. Media Source Chips */}
+            <label className="studio-field">
+              <span>Audio Source</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <label className={`studio-option-chip ${mediaSource === 'youtube' ? 'is-selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="source"
+                    checked={mediaSource === 'youtube'}
+                    onChange={() => setMediaSource('youtube')}
+                    style={{ display: 'none' }}
+                  />
+                  YouTube URL
+                </label>
+                <label className={`studio-option-chip ${mediaSource === 'upload' ? 'is-selected' : ''}`}>
+                  <input
+                    type="radio"
+                    name="source"
+                    checked={mediaSource === 'upload'}
+                    onChange={() => setMediaSource('upload')}
+                    style={{ display: 'none' }}
+                  />
+                  Upload MP3/WAV
+                </label>
               </div>
-              <div className="creator-song-actions">
-                <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">
-                  View Status
+            </label>
+
+            {/* 2. Media Inputs & Extraction */}
+            {mediaSource === 'youtube' ? (
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                <label className="studio-field" style={{ flex: 1 }}>
+                  <span>YouTube Link <strong>*</strong></span>
+                  <input
+                    type="url"
+                    value={youtubeLink}
+                    onChange={(e) => setYoutubeLink(e.target.value)}
+                    placeholder="Paste YouTube link here..."
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleExtractAudio}
+                  disabled={isExtractingAudio || !youtubeLink}
+                  className="studio-button studio-button--secondary"
+                  style={{ marginTop: '26px' }}
+                >
+                  {isExtractingAudio ? 'Extracting...' : extractedAudioUrl ? 'Audio Saved ✓' : 'Extract MP3'}
                 </button>
               </div>
-            </article>
-          ))}
-        </div>
+            ) : (
+              <label className="studio-field">
+                <span>Upload Audio File <strong>*</strong></span>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => setAudioFile(e.target.files[0])}
+                  style={{ padding: '8px' }}
+                />
+              </label>
+            )}
+
+            {/* 3. Title and Artist Grid */}
+            <div className="studio-form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '10px' }}>
+              <label className="studio-field">
+                <span>
+                  Title <strong>*</strong>
+                </span>
+                <div className="studio-input-shell">
+                  <input
+                    maxLength={MAX_TITLE_LENGTH}
+                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    placeholder="Song Title"
+                    value={formData.title}
+                  />
+                  <small>{formData.title.length} / {MAX_TITLE_LENGTH}</small>
+                </div>
+              </label>
+
+              <label className="studio-field">
+                <span>Artist</span>
+                <div className="studio-input-shell">
+                  <input
+                    maxLength={MAX_ARTIST_LENGTH}
+                    onChange={(e) => setFormData({...formData, artist: e.target.value})}
+                    placeholder="Artist Name"
+                    value={formData.artist}
+                  />
+                  <small>{formData.artist.length} / {MAX_ARTIST_LENGTH}</small>
+                </div>
+              </label>
+            </div>
+
+            {/* 4. Lyrics Editor */}
+            <label className="studio-field studio-description-field" style={{ marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '10px' }}>
+                <span>Lyrics (Required for Scenes) <strong>*</strong></span>
+                <button
+                  type="button"
+                  onClick={handleExtractLyrics}
+                  disabled={isExtractingLyrics}
+                  className="studio-button studio-button--secondary"
+                  style={{ minHeight: '32px', padding: '6px 12px', fontSize: '0.8rem' }}
+                >
+                  {isExtractingLyrics ? 'Generating...' : '✨ Auto-Extract Lyrics via AI'}
+                </button>
+              </div>
+              <textarea
+                onChange={(e) => setFormData({...formData, lyrics: e.target.value})}
+                placeholder="Paste lyrics manually here, or click the AI Extract button above to auto-fill..."
+                rows={9}
+                value={formData.lyrics}
+              />
+            </label>
+
+            {/* 5. Generation Trigger */}
+            <button
+              onClick={handleStartGeneration}
+              disabled={isStartingJob}
+              className="studio-button studio-button--primary"
+              style={{ width: '100%', minHeight: '48px', fontSize: '1rem', marginTop: '14px' }}
+            >
+              {isStartingJob ? 'Compiling Video Pipeline...' : 'Generate AI Video Now'}
+            </button>
+
+          </div>
+        </section>
+      )}
+
+
+      {/* --- DASHBOARD JOBS LIST (Unchanged) --- */}
+      <section className="stats-grid stats-grid--two-col">
+        <SectionCard title="Active Jobs">
+          <strong>{loading ? '-' : activeJobsCount}</strong>
+          <p>Tasks currently compiling.</p>
+        </SectionCard>
+        <SectionCard title="Completed">
+          <strong>{loading ? '-' : completedJobsCount}</strong>
+          <p>Ready for publication.</p>
+        </SectionCard>
+      </section>
+
+      <div className="dashboard-filter-bar" aria-label="Job filters">
+        {jobFilters.map((filter) => (
+          <button
+            key={filter}
+            className={`dashboard-filter-pill ${filter === activeFilter ? 'is-selected' : ''}`}
+            onClick={() => setActiveFilter(filter)}
+            type="button"
+          >
+            {filter}
+          </button>
+        ))}
       </div>
-    )}
-  </CreatorPageShell>
+
+      {loading && <div className="p-8 text-center text-slate-500 font-medium">Loading generation tasks...</div>}
+      {error && <div className="p-4 bg-red-50 text-red-700 rounded-md border border-red-200">Error: {error}</div>}
+
+      {!loading && !error && filteredJobs.length === 0 ? (
+        <EmptyState description={`No ${activeFilter.toLowerCase()} tasks found.`} title="No tasks found" />
+      ) : (
+        <div className="creator-song-browser">
+          <div className="creator-song-browser__list">
+            {!loading && !error && filteredJobs.map((job) => (
+              <div key={job.id} className="dashboard-song-item creator-song-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div className="dashboard-song-art" aria-hidden="true">🎵</div>
+                  <div className="dashboard-song-copy">
+                    <h3>{job.song?.title || job.Song?.title || 'Unknown Song'}</h3>
+                    <p className="text-xs text-slate-500 mb-1">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
+                    <GenerationStatusBadge status={job.status} />
+                    {job.status.toLowerCase() === 'processing' && (
+                      <div className="dashboard-song-progress" style={{ marginTop: '0.5rem' }}>
+                        <div className="progress-track"><span style={{ width: `${job.progress || 0}%` }} /></div>
+                        <small>{job.progress || 0}%</small>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="creator-song-actions">
+                  <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">
+                    View Status
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </CreatorPageShell>
+  )
 }

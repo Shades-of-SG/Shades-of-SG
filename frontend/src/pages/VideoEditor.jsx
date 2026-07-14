@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw } from 'lucide-react'
+import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
-import { useAuth } from '../context/AuthContext'
-import { getGenerationJob } from '../services/songService'
-import { API_URL } from '../services/apiConfig'
 
 /**
  * Extracts and flattens all frames from sceneSegments,
@@ -216,11 +213,9 @@ function thumbnailStyle(isActive) {
 export default function VideoEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { token } = useAuth()
 
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(null)
   const [frames, setFrames] = useState([])
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [audioUrl, setAudioUrl] = useState('')
@@ -240,7 +235,9 @@ export default function VideoEditor() {
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [showRegenerateInput, setShowRegenerateInput] = useState(false)
   const [userFeedback, setUserFeedback] = useState('')
+  const [showCaptions, setShowCaptions] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
 
   // Fullscreen UI State
   const [showControls, setShowControls] = useState(true)
@@ -258,10 +255,10 @@ export default function VideoEditor() {
 
   useEffect(() => {
     if (!isPlaying) {
-      setTimeout(() => setShowControls(true), 0)
+      setShowControls(true)
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
     } else {
-      setTimeout(handleMouseMove, 0)
+      handleMouseMove()
     }
   }, [isPlaying, handleMouseMove])
 
@@ -302,25 +299,18 @@ export default function VideoEditor() {
   }
 
   useEffect(() => {
-    let isMounted = true
-
-    getGenerationJob(id, token)
-      .then(job => {
-        if (!isMounted) return
-        setJobData(job)
-        setFrames(extractFrames(job.song))
-        setAudioUrl(job.song?.audioUrl || '')
+    fetch(`/api/generation/${id}/status`)
+      .then(res => res.json())
+      .then(result => {
+        if (result.success && result.data) {
+          setJobData(result.data)
+          setFrames(extractFrames(result.data.song))
+          setAudioUrl(result.data.song?.audioUrl || '')
+        }
       })
-      .catch(error => {
-        console.error(error)
-        if (isMounted) setLoadError(error.message)
-      })
-      .finally(() => {
-        if (isMounted) setLoading(false)
-      })
-
-    return () => { isMounted = false }
-  }, [id, token])
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [id])
 
   const syncFrameToTime = useCallback((time) => {
     if (frames.length === 0) return
@@ -410,9 +400,9 @@ export default function VideoEditor() {
     const currentFrame = frames[currentFrameIndex];
     setIsRegenerating(true);
     try {
-      const res = await fetch(`${API_URL}/generation/frame/${currentFrame.id}/regenerate`, {
+      const res = await fetch(`/api/generation/frame/${currentFrame.id}/regenerate`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userFeedback })
       });
       const result = await res.json();
@@ -433,12 +423,47 @@ export default function VideoEditor() {
     }
   }
 
+  const handlePublishToStudio = async () => {
+    setIsPublishing(true);
+    try {
+      const res = await fetch(`/api/generation/${id}/export`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ burnCaptions: false }) // Clean export for platform
+      });
+      const result = await res.json();
+      if (result.success && result.videoUrl) {
+        // Map raw lyrics from segments or fallback to raw lyrics field
+        const rawLyrics = jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
+        
+        navigate('/creator/studio', { 
+          state: { 
+            videoUrl: result.videoUrl,
+            lyrics: rawLyrics,
+            transcriptionSegments: jobData?.song?.transcriptionSegments || [],
+            jobId: id,
+            originalSongId: jobData?.song?.id,
+            songData: jobData?.song
+          } 
+        });
+      } else {
+        alert('Failed to prepare clean video: ' + (result.message || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error preparing clean video for Studio');
+    } finally {
+      setIsPublishing(false);
+    }
+  }
+
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const res = await fetch(`${API_URL}/generation/${id}/export`, {
+      const res = await fetch(`/api/generation/${id}/export`, { 
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ burnCaptions: showCaptions })
       });
       const result = await res.json();
       if (result.success && result.videoUrl) {
@@ -484,16 +509,6 @@ export default function VideoEditor() {
     )
   }
 
-  if (loadError) {
-    return (
-      <CreatorPageShell breadcrumbs={['Video Editor']} title="Editor" description="Unable to load the generation job.">
-        <div style={{ padding: '3rem', textAlign: 'center', color: '#f87171' }}>
-          {loadError}
-        </div>
-      </CreatorPageShell>
-    )
-  }
-
   return (
     <CreatorPageShell
       breadcrumbs={['Generation Tasks', 'Video Editor']}
@@ -509,14 +524,15 @@ export default function VideoEditor() {
           </button>
           <button
             className="studio-button studio-button--secondary"
-            onClick={() => navigate('/creator/studio', { state: { songData: jobData?.song } })}
+            onClick={handlePublishToStudio}
+            disabled={isPublishing || isExporting}
           >
-            Publish to Studio
+            {isPublishing ? 'Preparing Studio...' : 'Publish to Studio'}
           </button>
           <button
             className="studio-button studio-button--primary"
             onClick={handleExport}
-            disabled={isExporting}
+            disabled={isExporting || isPublishing}
           >
             {isExporting ? 'Exporting...' : 'Export Final Video'}
           </button>
@@ -635,6 +651,13 @@ export default function VideoEditor() {
                 <button onClick={handleSkipForward} style={styles.controlBtn} title="Next Frame">
                   <SkipForward size={20} />
                 </button>
+                <button 
+                  onClick={() => setShowCaptions(!showCaptions)} 
+                  style={{...styles.controlBtn, color: showCaptions ? '#e2e8f0' : '#64748b'}} 
+                  title={showCaptions ? 'Hide Captions' : 'Show Captions'}
+                >
+                  <Subtitles size={20} />
+                </button>
                 <span style={{ ...styles.timeDisplay, color: '#fff' }}>
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </span>
@@ -646,7 +669,7 @@ export default function VideoEditor() {
           </div>
 
           {/* Lyrics overlay */}
-          {frames[currentFrameIndex]?.lyrics && (
+          {showCaptions && frames[currentFrameIndex]?.lyrics && (
             <div style={{ 
               ...styles.lyricsOverlay, 
               bottom: (isFullscreen && showControls) ? '70px' : '0px',
@@ -673,6 +696,13 @@ export default function VideoEditor() {
             </button>
             <button onClick={handleSkipForward} style={styles.controlBtn} title="Next Frame">
               <SkipForward size={16} />
+            </button>
+            <button 
+              onClick={() => setShowCaptions(!showCaptions)} 
+              style={{...styles.controlBtn, color: showCaptions ? '#e2e8f0' : '#64748b'}} 
+              title={showCaptions ? 'Hide Captions' : 'Show Captions'}
+            >
+              <Subtitles size={16} />
             </button>
             <span style={styles.timeDisplay}>
               {formatTime(currentTime)} / {formatTime(duration)}
