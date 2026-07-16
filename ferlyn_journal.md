@@ -2634,7 +2634,7 @@ The Add Reflection composer was then rebuilt into a compact journal-style modal.
 4. identity choice;
 5. Cancel and Save Reflection.
 
-The redesigned modal uses a warm cream background, 20-pixel rounded corners, purple accents, softer shadows, tighter vertical rhythm, a scrollable form body, and an always-visible footer. The textarea includes a helper message and live character counter. Choosing a song moves focus to the textarea. Memory Type is implemented as a multi-select chip group containing Nostalgia, Family, National Day, Friendship, School, and Home.
+The redesigned modal uses a warm cream background, 20-pixel rounded corners, purple accents, softer shadows, tighter vertical rhythm, a scrollable form body, and an always-visible footer. The textarea includes a helper message and live character counter. Choosing a song moves focus to the textarea. Memory Type is implemented as a multi-select chip group containing Nostalgia, Family, National Identity, Friendship, School, and Home.
 
 For signed-in users, My Profile and Anonymous are now compact selectable cards rather than stretched labels. Clicking anywhere on a card selects it. The active card receives a purple border, pale purple fill, and subtle glow. The profile card shows the user's display name and ownership benefits; the anonymous card explains that public identity is hidden while account editing remains available. On mobile the two cards stack, the footer actions become full width, and the textarea remains constrained to the viewport.
 

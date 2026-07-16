@@ -106,10 +106,52 @@ async function ensureRhythmBeatmapSchema(sequelize) {
     }
 }
 
-module.exports = { 
-    ensureGuestReflectionSchema, 
+async function ensureSongMediaSchema(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('songs');
+
+    if (!columns.audio_file_name) {
+        await queryInterface.addColumn('songs', 'audio_file_name', {
+            allowNull: true,
+            type: DataTypes.STRING,
+        });
+    }
+}
+
+async function ensureGameScoreSchema(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('game_scores');
+
+    if (!columns.max_combo) {
+        await queryInterface.addColumn('game_scores', 'max_combo', {
+            allowNull: false,
+            defaultValue: 0,
+            type: DataTypes.INTEGER,
+        });
+    }
+
+    if (!columns.rank) {
+        await queryInterface.addColumn('game_scores', 'rank', {
+            allowNull: false,
+            defaultValue: 'C',
+            type: DataTypes.STRING(8),
+        });
+    }
+
+    const indexes = await queryInterface.showIndex('game_scores');
+    if (!indexes.some((index) => index.name === 'game_scores_user_created_at_idx')) {
+        await queryInterface.addIndex('game_scores', ['user_id', 'created_at'], {
+            name: 'game_scores_user_created_at_idx',
+        });
+    }
+}
+
+module.exports = {
+    ensureGameScoreSchema,
+    ensureGenerationJobSchema,
+    ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
     ensureSongSchema,
-    ensureGenerationJobSchema,
-    ensureRhythmBeatmapSchema
+    ensureRhythmBeatmapSchema,
+    ensureSongMediaSchema,
 };

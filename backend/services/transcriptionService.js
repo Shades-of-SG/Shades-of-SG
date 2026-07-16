@@ -1,10 +1,7 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
-const LYRIC_TRANSCRIPTION_PROMPT = [
-    'Transcribe the complete song lyrics from the provided audio.',
-    'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.',
-    'Do not summarize the song, do not skip repeated lines, and do not add lyrics that are not audible.',
-].join(' ');
+const DEFAULT_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
+const PROMPT_ECHO_TEXT = 'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.';
 
 const SUPPORTED_MIME_TYPES = new Set([
     'audio/m4a',
@@ -42,7 +39,7 @@ function getTranscriptionConfigStatus() {
     return {
         configured: Boolean(process.env.OPENAI_API_KEY),
         maxFileSizeMb: MAX_TRANSCRIPTION_BYTES / (1024 * 1024),
-        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe',
+        model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,
         supportedMimeTypes: Array.from(SUPPORTED_MIME_TYPES).sort(),
     };
 }
@@ -101,10 +98,9 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     }
 
     const formData = new FormData();
-    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'whisper-1');
+    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL);
     formData.append('response_format', 'verbose_json');
     formData.append('timestamp_granularities[]', 'segment');
-    formData.append('prompt', LYRIC_TRANSCRIPTION_PROMPT);
     formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
 
     const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
@@ -123,12 +119,28 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
+    const rawLyrics = String(responseBody.text || '').trim();
+    if (!rawLyrics || isPromptEcho(rawLyrics)) {
+        const error = new Error('No usable vocals were detected. Try a clearer audio track with less silence or instrumental-only content.');
+        error.status = 422;
+        throw error;
+    }
+
     return {
-        lyrics: formatLyricsDraft(responseBody.text || ''),
-        rawLyrics: responseBody.text || '',
-        segments: responseBody.segments || [], // Return the exact timed segments
-        model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe',
+        lyrics: formatLyricsDraft(rawLyrics),
+        rawLyrics,
+        segments: responseBody.segments || [],
+        model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,
     };
+}
+
+function isPromptEcho(text) {
+    const normalizedText = String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const normalizedPrompt = PROMPT_ECHO_TEXT.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    if (!normalizedText || !normalizedPrompt) return false;
+    const withoutPrompt = normalizedText.split(normalizedPrompt).join('').trim();
+    const occurrences = normalizedText.split(normalizedPrompt).length - 1;
+    return occurrences >= 1 && !withoutPrompt;
 }
 
 function formatLyricsDraft(text) {
@@ -241,9 +253,11 @@ function groupLinesIntoStanzas(lines) {
 }
 
 module.exports = {
+    DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
     getTranscriptionConfigStatus,
     MAX_TRANSCRIPTION_BYTES,
+    isPromptEcho,
     normalizeMimeType,
     transcribeMedia,
     transcribeMediaBuffer,

@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { LogOut, Pencil, Settings, UserRound } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BrandLogo from './BrandLogo'
+import '../Navbar.css'
 
 const navigationByRole = {
   creator: [
@@ -27,28 +29,54 @@ const navigationByRole = {
     { label: 'Learning Hub', to: '/learning' },
     { label: 'Rhythm Game', to: '/rhythm-game' },
     { label: 'Reflection Wall', to: '/reflections' },
-    { label: 'Profile', to: '/profile' },
-    { label: 'Settings', to: '/settings' },
   ],
 }
 
 export default function Navbar({ role = 'guest', variant = 'public' }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const accountRef = useRef(null)
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { signOut, user } = useAuth()
   const links = navigationByRole[role] || navigationByRole.guest
+  const displayName = user?.name || 'Account'
+  const avatarUrl = user?.avatarUrl || user?.avatar_url || '/images/Default_pfp.jpg'
+
+  useEffect(() => {
+    function closeAccountMenu(event) {
+      if (accountRef.current && !accountRef.current.contains(event.target)) {
+        setIsAccountOpen(false)
+      }
+    }
+
+    function closeMenusOnEscape(event) {
+      if (event.key === 'Escape') {
+        setIsAccountOpen(false)
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', closeAccountMenu)
+    document.addEventListener('keydown', closeMenusOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeAccountMenu)
+      document.removeEventListener('keydown', closeMenusOnEscape)
+    }
+  }, [])
 
   function handleLogout() {
     signOut()
     setIsOpen(false)
+    setIsAccountOpen(false)
     navigate('/login', { replace: true })
   }
 
-  if (role === 'guest' && variant === 'public') {
+  if (['guest', 'user'].includes(role) && variant === 'public') {
     const primaryLinks = links.filter((item) => !['Login', 'Register'].includes(item.label))
+    const isRegistered = role === 'user'
 
     return (
-      <header className="site-header site-header-public site-header-public--guest">
+      <header className={`site-header site-header-public site-header-public--guest${isRegistered ? ' site-header-public--registered' : ''}`}>
         <nav className="navbar guest-navbar" aria-label="Primary navigation">
           <Link className="brand-mark guest-navbar__brand" to="/">
             <BrandLogo className="brand-logo--navbar" />
@@ -69,14 +97,51 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
               ))}
             </div>
 
-            <div className="guest-navbar__auth">
-              <NavLink className="guest-navbar__login" onClick={() => setIsOpen(false)} to="/login">
-                Login
-              </NavLink>
-              <NavLink className="guest-navbar__register" onClick={() => setIsOpen(false)} to="/register">
-                Register
-              </NavLink>
-            </div>
+            {isRegistered ? (
+              <div className="public-navbar__utilities">
+                <div className="registered-navbar__account" ref={accountRef}>
+                  <button
+                    aria-expanded={isAccountOpen}
+                    aria-haspopup="menu"
+                    aria-label={`Open user menu for ${displayName}`}
+                    className="registered-navbar__account-button"
+                    onClick={() => setIsAccountOpen((current) => !current)}
+                    type="button"
+                  >
+                    <span className="registered-navbar__avatar" aria-hidden="true">
+                      <img alt="" src={avatarUrl} />
+                    </span>
+                  </button>
+
+                  {isAccountOpen ? (
+                    <div className="registered-navbar__dropdown" role="menu">
+                      <strong className="registered-navbar__menu-title">USER MENU</strong>
+                      <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/profile">
+                        <UserRound aria-hidden="true" size={18} /> View Profile
+                      </Link>
+                      <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/settings#profile">
+                        <Pencil aria-hidden="true" size={18} /> Edit Profile
+                      </Link>
+                      <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/settings">
+                        <Settings aria-hidden="true" size={18} /> Settings
+                      </Link>
+                      <button onClick={handleLogout} role="menuitem" type="button">
+                        <LogOut aria-hidden="true" size={18} /> Logout
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div className="guest-navbar__auth">
+                <NavLink className="guest-navbar__login" onClick={() => setIsOpen(false)} to="/login">
+                  Login
+                </NavLink>
+                <NavLink className="guest-navbar__register" onClick={() => setIsOpen(false)} to="/register">
+                  Register
+                </NavLink>
+              </div>
+            )}
           </div>
 
           <button

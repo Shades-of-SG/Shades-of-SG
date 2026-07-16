@@ -26,15 +26,27 @@ export async function saveScore(result, token) {
   return response.json()
 }
 
-export function queuePendingScore(result) {
-  let existing = []
+function scoreKey(result) {
+  return `${result?.songId}:${result?.playedAt}`
+}
+
+function readPendingScores() {
   try {
     const stored = JSON.parse(localStorage.getItem('pendingRhythmScores') || '[]')
-    if (Array.isArray(stored)) existing = stored
+    return Array.isArray(stored) ? stored : []
   } catch {
-    // Replace malformed local data with a clean queue.
+    return []
   }
-  const key = `${result.songId}:${result.playedAt}`
-  const unique = existing.filter((item) => `${item?.songId}:${item?.playedAt}` !== key)
+}
+
+export function queuePendingScore(result) {
+  const key = scoreKey(result)
+  const unique = readPendingScores().filter((item) => scoreKey(item) !== key)
   localStorage.setItem('pendingRhythmScores', JSON.stringify([result, ...unique].slice(0, 20)))
+}
+
+export function removePendingScore(result) {
+  const remaining = readPendingScores().filter((item) => scoreKey(item) !== scoreKey(result))
+  if (remaining.length) localStorage.setItem('pendingRhythmScores', JSON.stringify(remaining))
+  else localStorage.removeItem('pendingRhythmScores')
 }

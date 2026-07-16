@@ -21,7 +21,37 @@ const uploadAudioStream = (fileData) => {
         }
         resolve({
           audioUrl: result.secure_url,
+          audioPublicId: result.public_id,
           duration: Math.round(result.duration || 0),
+        })
+      }
+    )
+
+    if (Buffer.isBuffer(fileData)) {
+      Readable.from(fileData).pipe(uploadStream)
+    } else if (fileData && typeof fileData.pipe === 'function') {
+      fileData.pipe(uploadStream)
+    } else {
+      reject(new Error('Invalid file data provided.'))
+    }
+  })
+}
+
+/** Uploads a creator-provided final video to Cloudinary. */
+const uploadVideoStream = (fileData) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { resource_type: 'video', folder: 'shades-of-sg/uploaded-videos' },
+      (error, result) => {
+        if (error) {
+          return reject(
+            new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error })
+          )
+        }
+        return resolve({
+          duration: Math.round(result.duration || 0),
+          videoPublicId: result.public_id,
+          videoUrl: result.secure_url,
         })
       }
     )
@@ -106,6 +136,7 @@ const uploadCompiledVideo = (localFilePath, jobId) => {
 
 module.exports = {
   uploadAudioStream,
+  uploadVideoStream,
   uploadImageFromUrl,
   uploadCompiledVideo, // Added Phase 4 export
 }

@@ -436,7 +436,7 @@ export default function VideoEditor() {
         // Map raw lyrics from segments or fallback to raw lyrics field
         const rawLyrics = jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
         
-        navigate('/creator/studio', { 
+        navigate(`/creator/studio/${encodeURIComponent(jobData?.song?.id || '')}`, {
           state: { 
             videoUrl: result.videoUrl,
             lyrics: rawLyrics,

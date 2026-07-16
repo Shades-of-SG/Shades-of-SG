@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
-import { API_URL } from '../services/apiConfig'
+import { useAuth } from '../context/AuthContext'
+import { getGenerationJob } from '../services/songService'
 
 /*
 TODO - Htet
@@ -15,6 +16,7 @@ Implement logs view.
 export default function GenerationProgress() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { token } = useAuth()
   
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -25,42 +27,34 @@ export default function GenerationProgress() {
   const [isPhase4Expanded, setIsPhase4Expanded] = useState(true)
 
   useEffect(() => {
-    let intervalId
+    let timeoutId
     let isMounted = true
 
     const fetchStatus = async () => {
       try {
-        const response = await fetch(`${API_URL}/generation/${id}/status`)
-        if (!response.ok) throw new Error(`Failed to fetch status: ${response.statusText}`)
-
-        const json = await response.json()
+        const data = await getGenerationJob(id, token)
         if (!isMounted) return
 
-        if (json.success) {
-          setJobData(json.data)
-          if (json.data.status === 'COMPLETED' || json.data.status === 'FAILED') {
-            clearInterval(intervalId)
-          }
-        } else {
-          throw new Error(json.message || 'Error parsing job status')
+        setJobData(data)
+        setError(null)
+        if (data.status !== 'COMPLETED' && data.status !== 'FAILED') {
+          timeoutId = window.setTimeout(fetchStatus, 3000)
         }
       } catch (err) {
         if (!isMounted) return
         setError(err.message)
-        clearInterval(intervalId)
       } finally {
         if (isMounted) setLoading(false)
       }
     }
 
     fetchStatus()
-    intervalId = setInterval(fetchStatus, 3000)
 
     return () => {
       isMounted = false
-      clearInterval(intervalId)
+      window.clearTimeout(timeoutId)
     }
-  }, [id])
+  }, [id, token])
 
   if (loading) {
     return (
@@ -92,7 +86,7 @@ export default function GenerationProgress() {
     )
   }
 
-  const status = jobData?.status || 'NOT_STARTED'
+  const status = jobData?.status || 'QUEUED'
   const sceneSegments = jobData?.song?.sceneSegments || []
 
   return (

@@ -23,8 +23,9 @@ import {
 
 export default function ReflectionWall() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const requestedSongId = searchParams.get('song_id') || ''
+  const shouldOpenComposer = searchParams.get('compose') === '1'
   const { token, user } = useAuth()
   const [reflections, setReflections] = useState([])
   const [songs, setSongs] = useState([])
@@ -87,6 +88,38 @@ export default function ReflectionWall() {
     }
     return undefined
   }, [token, user])
+
+  useEffect(() => {
+    if (!shouldOpenComposer || isLoading) return undefined
+
+    const timer = window.setTimeout(() => {
+      const nextSearchParams = new URLSearchParams(searchParams)
+      nextSearchParams.delete('compose')
+      setSearchParams(nextSearchParams, { replace: true })
+
+      if (!user || !token) {
+        savePostLoginIntent({
+          action: 'create-reflection',
+          draftReflection: { content: '', isAnonymous: false, songId },
+          openReflectionModal: true,
+          returnTo: '/reflections',
+        })
+        setIsAuthModalOpen(true)
+        return
+      }
+
+      if (songs.length === 0) {
+        setError('No songs are available yet. Publish a song before adding a reflection.')
+        return
+      }
+
+      setModalReflection(null)
+      setReflectionDraft({ content: '', isAnonymous: false, songId })
+      setIsModalOpen(true)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [isLoading, searchParams, setSearchParams, shouldOpenComposer, songId, songs, token, user])
 
   const visibleReflections = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()

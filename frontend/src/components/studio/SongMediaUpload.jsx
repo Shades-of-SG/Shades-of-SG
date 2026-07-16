@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 
-export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAudioFileClear, youtubeLink, onYoutubeLinkChange }) {
+export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAudioFileClear, savedAudioFileName, savedAudioUrl, youtubeLink, onYoutubeLinkChange }) {
   const audioInputRef = useRef(null)
 
   function clearAudioFile() {
@@ -26,19 +26,25 @@ export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAu
           </div>
           <div>
             <strong>Upload Media</strong>
-            <p>MP3, WAV, M4A, WEBM, or MP4, max 25MB</p>
+            <p>MP3, WAV, or M4A up to 50MB; WebM or MP4 up to 100MB</p>
           </div>
           <label className="studio-button studio-button--secondary studio-media-upload__choose">
             Choose File
-            <input accept=".mp3,.wav,.m4a,.mpeg,.mpga,.webm,.mp4,audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/webm,video/webm,video/mp4" onChange={onAudioFileChange} ref={audioInputRef} type="file" />
+            <input accept=".mp3,.wav,.m4a,.mpeg,.mpga,.webm,.mp4,audio/mpeg,audio/mp4,audio/wav,audio/x-wav,audio/webm,video/webm,video/mp4" aria-label="Upload song media" onChange={onAudioFileChange} ref={audioInputRef} type="file" />
           </label>
         </div>
         {audioFileName && (
           <div className="studio-media-upload__filename">
-            <span>{audioFileName}</span>
+            <span>Selected replacement: {audioFileName}</span>
             <button aria-label="Remove uploaded media file" className="studio-media-upload__remove" onClick={clearAudioFile} type="button">
               x
             </button>
+          </div>
+        )}
+        {!audioFileName && savedAudioUrl && (
+          <div className="studio-media-upload__filename">
+            <span>Saved media: {savedAudioFileName || 'Uploaded song media'}</span>
+            <a href={savedAudioUrl} rel="noreferrer" target="_blank">Open</a>
           </div>
         )}
 

@@ -59,11 +59,6 @@ const Song = sequelize.define('Song', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
-    audioUrl: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        field: 'audio_url',
-    },
     videoUrl: {
         type: DataTypes.TEXT,
         allowNull: true,
@@ -71,6 +66,8 @@ const Song = sequelize.define('Song', {
     },
     coverImageUrl: { type: DataTypes.TEXT, allowNull: true, field: 'cover_image_url' },
     coverImagePublicId: { type: DataTypes.STRING, allowNull: true, field: 'cover_image_public_id' },
+    audioUrl: { type: DataTypes.TEXT, allowNull: true, field: 'audio_url' },
+    audioFileName: { type: DataTypes.STRING, allowNull: true, field: 'audio_file_name' },
     audioPublicId: { type: DataTypes.STRING, allowNull: true, field: 'audio_public_id' },
     sourceYoutubeUrl: { type: DataTypes.TEXT, allowNull: true, field: 'source_youtube_url' },
     videoPublicId: { type: DataTypes.STRING, allowNull: true, field: 'video_public_id' },

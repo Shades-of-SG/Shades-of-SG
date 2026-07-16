@@ -5,6 +5,15 @@ const HASH_ITERATIONS = 120000;
 const HASH_KEY_LENGTH = 64;
 const HASH_DIGEST = 'sha512';
 
+function getTokenSecret() {
+    const secret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET;
+    if (secret) return secret;
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('AUTH_TOKEN_SECRET or JWT_SECRET is required in production.');
+    }
+    return 'local-dev-auth-secret';
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
     const hash = crypto
         .pbkdf2Sync(password, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST)
@@ -28,10 +37,7 @@ function verifyPassword(password, storedHash) {
 }
 
 function createToken(user) {
-    if (process.env.NODE_ENV === 'production' && !process.env.AUTH_TOKEN_SECRET && !process.env.JWT_SECRET) {
-        throw new Error('AUTH_TOKEN_SECRET or JWT_SECRET is required in production.');
-    }
-    const secret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET || 'local-dev-auth-secret';
+    const secret = getTokenSecret();
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
         id: user.id,
@@ -53,7 +59,7 @@ function verifyToken(token) {
         return null;
     }
 
-    const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
+    const secret = getTokenSecret();
     const expected = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
     const actualBuffer = Buffer.from(signature);
     const expectedBuffer = Buffer.from(expected);

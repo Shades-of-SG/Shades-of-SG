@@ -88,8 +88,8 @@ async function assembleVideo(jobId, songId, burnCaptions = true) {
     // 2. Database Fetching
     job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`GenerationJob ${jobId} not found`)
-    if (job.status !== 'IN_PROGRESS') {
-      throw new Error(`GenerationJob ${jobId} is not in IN_PROGRESS state`)
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob ${jobId} is not in PROCESSING state`)
     }
 
     const song = await Song.findByPk(songId)
@@ -229,11 +229,7 @@ async function assembleVideo(jobId, songId, burnCaptions = true) {
     // 7. Storage Handoff (Upload to Cloudinary)
     const uploadResult = await aiStorageService.uploadCompiledVideo(finalMp4Path, jobId)
 
-    // 8. Database Saving
-    job.status = 'COMPLETED'
-    job.progress = 100
-    await job.save()
-
+    // 8. Database Saving. The controller owns the job lifecycle transition.
     song.videoUrl = uploadResult
     await song.save()
 

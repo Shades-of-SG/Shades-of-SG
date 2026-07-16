@@ -4,6 +4,7 @@ import { PlayCircle, Square } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import { getPublishedSong } from '../services/publicSongService'
+import { getBeatmapSummary } from '../services/beatmapService'
 import './SongExperience.css'
 
 const MOCK_SONG_DATA = {
@@ -175,10 +176,11 @@ function formatTime(seconds) {
 
 export default function SongExperience() {
   const { id = 'demo-song' } = useParams()
-  
+
   const [dbSong, setDbSong] = useState(null)
   const [loadingDbSong, setLoadingDbSong] = useState(id !== 'demo-song')
   const [dbError, setDbError] = useState('')
+  const [rhythmDifficulties, setRhythmDifficulties] = useState([])
 
   useEffect(() => {
     if (id === 'demo-song') {
@@ -189,6 +191,22 @@ export default function SongExperience() {
       .then((data) => active && setDbSong(data))
       .catch((err) => active && setDbError(err.message))
       .finally(() => active && setLoadingDbSong(false))
+    return () => { active = false }
+  }, [id])
+
+  useEffect(() => {
+    if (id === 'demo-song') return
+    let active = true
+    getBeatmapSummary(id)
+      .then((beatmaps) => {
+        if (!active) return
+        setRhythmDifficulties(
+          beatmaps
+            .filter((beatmap) => beatmap.status === 'PUBLISHED')
+            .map((beatmap) => beatmap.difficulty)
+        )
+      })
+      .catch(() => active && setRhythmDifficulties([]))
     return () => { active = false }
   }, [id])
 
@@ -235,7 +253,7 @@ export default function SongExperience() {
       stopSyntheticMelody()
       return
     }
-    
+
     stopSyntheticMelody()
 
     // pause main video if it's playing
@@ -243,16 +261,16 @@ export default function SongExperience() {
       videoRef.current?.pause()
       setIsPlaying(false)
     }
-    
+
     setPlayingInstrumentId(instrument.id)
     // Mimic the sequence logic from InstrumentPlayer
     instrument.melody.forEach((noteLabel, index) => {
       const note = instrument.notes.find((candidate) => candidate.label === noteLabel)
       if (!note) return
-      
+
       const timeoutId = setTimeout(() => {
         playNote(instrument, note)
-        
+
         // Clear active state when the melody finishes
         if (index === instrument.melody.length - 1) {
           const resetTimeout = setTimeout(() => {
@@ -261,7 +279,7 @@ export default function SongExperience() {
           melodyTimeouts.current.push(resetTimeout)
         }
       }, index * 260)
-      
+
       melodyTimeouts.current.push(timeoutId)
     })
   }
@@ -420,7 +438,7 @@ export default function SongExperience() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{songData.title}</h2>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-              {songData.artist} · {songData.year} · {songData.location}
+              <span>{songData.artist}</span> · {songData.year} · {songData.location}
             </p>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
               {songData.tags.map((tag, i) => (
@@ -554,6 +572,21 @@ export default function SongExperience() {
       </div>
 
       {/* ─── Learning Hub CTA ─── */}
+      <section className="section-card">
+        <h2>Explore This Song</h2>
+        <div className="button-row">
+          <Link className="inline-link" to={`/songs/${id}/playground`}>Open Playground</Link>
+          <Link className="inline-link" to={`/songs/${id}/trivia`}>Start Trivia</Link>
+          {rhythmDifficulties.length
+            ? rhythmDifficulties.map((difficulty) => {
+                const label = difficulty[0] + difficulty.slice(1).toLowerCase()
+                return <Link className="inline-link" key={difficulty} to={`/game/${id}?difficulty=${difficulty}`}>Play {label} Rhythm</Link>
+              })
+            : <span className="inline-link is-disabled" title="This rhythm game is not available yet.">Rhythm game unavailable</span>}
+          <Link className="inline-link" to={`/reflections?song_id=${encodeURIComponent(id)}`}>Share a Reflection</Link>
+        </div>
+      </section>
+
       <Link
         to={`/learning`}
         style={{

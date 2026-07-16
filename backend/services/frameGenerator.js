@@ -27,8 +27,8 @@ async function generateFrames(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'IN_PROGRESS') {
-      throw new Error(`GenerationJob is not in IN_PROGRESS state. Current state: ${job.status}`)
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
     }
 
     // Fetch scene segments ordered chronologically
