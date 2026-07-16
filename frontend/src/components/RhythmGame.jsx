@@ -464,7 +464,7 @@ export default function RhythmGame() {
         <div className="game-layout">
           <aside className="side-panel stats-panel" aria-label="Game stats">
             <p className="panel-kicker">Live performance</p>
-            <div><span>Accuracy</span><strong>{accuracy.toFixed(2)}%</strong></div>
+            <div><span>Hit Rate</span><strong>{accuracy.toFixed(2)}%</strong></div>
             <div><span>Combo</span><strong>{stats.combo}<small>x</small></strong></div>
             <div><span>Score</span><strong>{stats.score.toLocaleString()}</strong></div>
             <div className="mini-stat"><span>Max combo</span><b>{stats.maxCombo}</b></div>
