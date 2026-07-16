@@ -3795,6 +3795,68 @@ h1 {
   width: 0;
 }
 
+.background-control {
+  border: 0;
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.background-control legend {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin-bottom: 7px;
+  padding: 0;
+}
+
+.background-options {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.background-options button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  min-height: 40px;
+  padding: 7px 8px;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.background-options button:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.18);
+  color: #ffffff;
+}
+
+.background-options button.is-active {
+  background: rgba(139, 92, 246, 0.72);
+  border-color: rgba(216, 180, 254, 0.65);
+  color: #ffffff;
+}
+
+.background-options button:focus-visible {
+  outline: 3px solid #d8b4fe;
+  outline-offset: 2px;
+}
+
+.background-options button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.background-control small {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
 .side-panel {
   align-self: center;
   background: rgba(0, 0, 0, 0.46);
