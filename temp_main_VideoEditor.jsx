@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
@@ -29,7 +29,7 @@ function extractFrames(songData) {
   return allFrames
 }
 
-/* ── inline style objects ── */
+/* ΓöÇΓöÇ inline style objects ΓöÇΓöÇ */
 const styles = {
   editorShell: {
     display: 'grid',
@@ -527,7 +527,7 @@ export default function VideoEditor() {
             onClick={handlePublishToStudio}
             disabled={isPublishing || isExporting}
           >
-            {isPublishing ? 'Exporting Clean Video...' : 'Publish to Studio'}
+            {isPublishing ? 'Preparing Studio...' : 'Publish to Studio'}
           </button>
           <button
             className="studio-button studio-button--primary"
@@ -539,10 +539,10 @@ export default function VideoEditor() {
         </div>
       }
     >
-      {/* ═══════ EDITOR SHELL — CSS Grid, 3 rows ═══════ */}
+      {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ EDITOR SHELL ΓÇö CSS Grid, 3 rows ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
       <div style={styles.editorShell}>
 
-        {/* ═══════ ROW 1: Video Preview Canvas ═══════ */}
+        {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ ROW 1: Video Preview Canvas ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
         <div 
           style={{
             ...styles.canvasRow,
@@ -682,7 +682,7 @@ export default function VideoEditor() {
           )}
         </div>
 
-        {/* ═══════ ROW 2: Playback Controls ═══════ */}
+        {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ ROW 2: Playback Controls ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
         {!isFullscreen && (
           <div style={styles.controlsBar}>
             <button onClick={handleSkipBack} style={styles.controlBtn} title="Previous Frame">
@@ -713,7 +713,7 @@ export default function VideoEditor() {
           </div>
         )}
 
-        {/* ═══════ ROW 3: Filmstrip + Waveform ═══════ */}
+        {/* ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ ROW 3: Filmstrip + Waveform ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ */}
         <div style={styles.bottomStrip}>
 
           {/* Filmstrip Header */}
@@ -722,7 +722,7 @@ export default function VideoEditor() {
             <span style={styles.sceneBadge}>{jobData?.song?.sceneSegments?.length || 0} Scenes</span>
           </div>
 
-          {/* Horizontal Filmstrip — strict single row, horizontal scroll only */}
+          {/* Horizontal Filmstrip ΓÇö strict single row, horizontal scroll only */}
           <div 
             style={styles.filmstrip} 
             ref={filmstripRef} 

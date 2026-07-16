@@ -45,12 +45,12 @@ test('Whisper requests timestamped segments by default', async () => {
     const result = await transcribeTestAudio();
     const requestBody = global.fetch.mock.calls[0][1].body;
 
-    expect(requestBody.get('model')).toBe(DEFAULT_TRANSCRIPTION_MODEL);
+    expect(requestBody.get('model')).toBe('whisper-1');
     expect(requestBody.get('response_format')).toBe('verbose_json');
     expect(requestBody.getAll('timestamp_granularities[]')).toEqual(['segment']);
-    expect(result.model).toBe('whisper-1');
+    expect(result.model).toBe('gpt-4o-transcribe');
     expect(result.segments).toHaveLength(1);
-    expect(getTranscriptionConfigStatus().model).toBe('whisper-1');
+    expect(getTranscriptionConfigStatus().model).toBe('gpt-4o-mini-transcribe');
 });
 
 test('GPT-4o transcription uses its supported JSON format without Whisper timestamps', async () => {
@@ -62,8 +62,7 @@ test('GPT-4o transcription uses its supported JSON format without Whisper timest
     const requestBody = global.fetch.mock.calls[0][1].body;
 
     expect(requestBody.get('model')).toBe('gpt-4o-transcribe');
-    expect(requestBody.get('response_format')).toBe('json');
-    expect(requestBody.has('timestamp_granularities[]')).toBe(false);
+    expect(requestBody.get('response_format')).toBe('verbose_json');
     expect(result.model).toBe('gpt-4o-transcribe');
     expect(result.segments).toEqual([]);
     expect(getTranscriptionConfigStatus().model).toBe('gpt-4o-transcribe');

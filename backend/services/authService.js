@@ -28,7 +28,10 @@ function verifyPassword(password, storedHash) {
 }
 
 function createToken(user) {
-    const secret = process.env.AUTH_TOKEN_SECRET || 'local-dev-auth-secret';
+    if (process.env.NODE_ENV === 'production' && !process.env.AUTH_TOKEN_SECRET && !process.env.JWT_SECRET) {
+        throw new Error('AUTH_TOKEN_SECRET or JWT_SECRET is required in production.');
+    }
+    const secret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET || 'local-dev-auth-secret';
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
         createdAt: user.createdAt,

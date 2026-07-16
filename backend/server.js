@@ -9,6 +9,8 @@ const songsRouter = require('./routes/songs');
 const reflectionsRouter = require('./routes/reflections');
 const transcriptionsRouter = require('./routes/transcriptions');
 const generationRouter = require('./routes/aiGeneration');
+const badgesRouter = require('./routes/badges');
+const beatmapsRouter = require('./routes/beatmaps');
 const { seedCreatorAccount } = require('./services/authService');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
@@ -17,7 +19,8 @@ const {
     ensureReflectionModerationSchema,
     ensureRhythmBeatmapSchema,
     ensureSongSchema,
-    ensureGenerationJobSchema
+    ensureGenerationJobSchema,
+    ensureRhythmBeatmapSchema
 } = require('./services/schemaService');
 
 const app = express();
@@ -40,7 +43,9 @@ app.use(
                 return callback(null, true);
             }
 
-            return callback(new Error('Not allowed by CORS'));
+            const err = new Error('Not allowed by CORS');
+            err.status = 403;
+            return callback(err);
         },
         credentials: true,
     })

@@ -2,6 +2,7 @@ const TABS = [
   { label: 'Pending', status: 'PENDING' },
   { label: 'Approved', status: 'APPROVED' },
   { label: 'Flagged', status: 'FLAGGED' },
+  { label: 'Rejected', status: 'REJECTED' },
 ]
 
 export default function ModerationTabs({ activeStatus, counts, onChange }) {
