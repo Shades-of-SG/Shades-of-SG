@@ -5440,6 +5440,22 @@ textarea {
   box-shadow: 0 12px 26px rgba(236, 72, 153, 0.2);
 }
 
+.creator-page--hero .creator-song-row {
+  color: #ffffff;
+  text-align: left;
+}
+
+.creator-page--hero .creator-song-row .dashboard-song-copy h3,
+.creator-page--hero .creator-song-row .dashboard-song-copy p,
+.creator-page--hero .creator-song-row .dashboard-song-copy small,
+.creator-page--hero .creator-song-detail .dashboard-song-copy h3,
+.creator-page--hero .creator-song-detail .dashboard-song-copy p,
+.creator-page--hero .creator-song-detail__lyrics h4,
+.creator-page--hero .creator-song-detail__lyrics pre,
+.creator-page--hero .creator-song-detail__lyrics > p {
+  color: #ffffff;
+}
+
 .creator-page--hero .creator-select-circle.is-checked {
   background: linear-gradient(135deg, #f9a8d4 0%, #c4b5fd 55%, #8b5cf6 100%);
 }
