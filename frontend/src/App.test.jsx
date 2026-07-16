@@ -80,6 +80,34 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/creator/reflections')
   })
 
+  it('sends the creator token when loading generation progress', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/generation/job-123')
+    const fetchMock = vi.fn(async () => ({
+      json: async () => ({
+        data: {
+          id: 'job-123',
+          song: { artist: 'Violet', sceneSegments: [], title: 'Generation Test' },
+          status: 'COMPLETED',
+        },
+        success: true,
+      }),
+      ok: true,
+      status: 200,
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByText('Generation Test')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/generation/job-123/status'),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer creator-token' }) }),
+    )
+    expect(screen.queryByText(/unauthorized/i)).not.toBeInTheDocument()
+  })
+
   it('loads an existing creator draft into Studio by song id', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
