@@ -3,6 +3,7 @@ import { LogOut, Pencil, Settings, UserRound } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BrandLogo from './BrandLogo'
+import '../Navbar.css'
 
 const navigationByRole = {
   creator: [
