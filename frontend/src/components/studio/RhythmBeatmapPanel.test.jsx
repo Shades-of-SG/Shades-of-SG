@@ -71,4 +71,27 @@ describe('Studio Rhythm Beatmap panel', () => {
     resolveGeneration({})
     await waitFor(() => expect(screen.getByRole('button', { name: 'Generate All' })).toBeEnabled())
   })
+
+  it('saves pending Studio changes before generating beatmaps', async () => {
+    const onBeforeGenerate = vi.fn().mockResolvedValue({ durationSecs: 210 })
+    mocks.getBeatmapSummary.mockResolvedValue(rows())
+    mocks.generateAllBeatmaps.mockResolvedValue({})
+
+    render(
+      <MemoryRouter>
+        <RhythmBeatmapPanel
+          onBeforeGenerate={onBeforeGenerate}
+          songId="song-1"
+          token="creator-token"
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Generate All' }))
+    await waitFor(() => expect(mocks.generateAllBeatmaps).toHaveBeenCalledTimes(1))
+    expect(onBeforeGenerate).toHaveBeenCalledTimes(1)
+    expect(onBeforeGenerate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.generateAllBeatmaps.mock.invocationCallOrder[0],
+    )
+  })
 })

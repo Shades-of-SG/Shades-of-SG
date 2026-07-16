@@ -26,7 +26,7 @@ export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAu
           </div>
           <div>
             <strong>Upload Media</strong>
-            <p>MP3, WAV, M4A, WEBM, or MP4, max 25MB</p>
+            <p>MP3, WAV, M4A, WebM, or MP4, max 50MB</p>
           </div>
           <label className="studio-button studio-button--secondary studio-media-upload__choose">
             Choose File

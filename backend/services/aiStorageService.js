@@ -20,6 +20,7 @@ const uploadAudioStream = (fileData) => {
           )
         }
         resolve({
+          audioPublicId: result.public_id,
           audioUrl: result.secure_url,
           duration: Math.round(result.duration || 0),
         })
@@ -36,25 +37,40 @@ const uploadAudioStream = (fileData) => {
   })
 }
 
+/** Uploads a creator-provided final video to Cloudinary. */
+const uploadVideoStream = (fileData) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { resource_type: 'video', folder: 'shades-of-sg/uploaded-videos' },
+      (error, result) => {
+        if (error) return reject(new Error(`Cloudinary Video Upload Error: ${error.message}`, { cause: error }))
+        return resolve({
+          duration: Math.round(result.duration || 0),
+          videoPublicId: result.public_id,
+          videoUrl: result.secure_url,
+        })
+      }
+    )
+
+    if (Buffer.isBuffer(fileData)) Readable.from(fileData).pipe(uploadStream)
+    else if (fileData && typeof fileData.pipe === 'function') fileData.pipe(uploadStream)
+    else reject(new Error('Invalid file data provided.'))
+  })
+}
+
 /**
  * (PHASE 3) Fetches an image from a temporary URL and uploads it to Cloudinary as a Buffer stream.
  */
-const uploadImageFromUrl = async (imageSource) => {
+const uploadImageFromUrl = async (imageUrl) => {
   // ... (Your existing code untouched)
   try {
-    let buffer;
-    if (imageSource.startsWith('http://') || imageSource.startsWith('https://')) {
-      const response = await fetch(imageSource)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image from URL: ${response.statusText}`)
-      }
-      const arrayBuffer = await response.arrayBuffer()
-      buffer = Buffer.from(arrayBuffer)
-    } else {
-      // Handle raw base64 string (strip data URI prefix if accidentally included)
-      const base64Data = imageSource.replace(/^data:image\/\w+;base64,/, '')
-      buffer = Buffer.from(base64Data, 'base64')
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image from DALL-E URL: ${response.statusText}`)
     }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
     return await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -106,6 +122,7 @@ const uploadCompiledVideo = (localFilePath, jobId) => {
 
 module.exports = {
   uploadAudioStream,
+  uploadVideoStream,
   uploadImageFromUrl,
   uploadCompiledVideo, // Added Phase 4 export
 }

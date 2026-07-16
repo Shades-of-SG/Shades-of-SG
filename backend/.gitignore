@@ -2,4 +2,3 @@
 database.sqlite
 database.sqlite-journal
 *.db
-storage

@@ -12,9 +12,12 @@ const generationRouter = require('./routes/aiGeneration');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
 const { seedCreatorAccount } = require('./services/authService');
+const badgesRouter = require('./routes/badges');
+const beatmapsRouter = require('./routes/beatmaps');
 const {
     ensureGuestReflectionSchema,
     ensureReflectionModerationSchema,
+    ensureRhythmBeatmapSchema,
     ensureSongSchema,
     ensureGenerationJobSchema,
     ensureRhythmBeatmapSchema
@@ -87,7 +90,6 @@ async function startServer() {
         await ensureGenerationJobSchema(sequelize);
         await ensureRhythmBeatmapSchema(sequelize);
         await seedCreatorAccount();
-
         console.log('Database connected successfully');
 
         app.listen(PORT, () => {

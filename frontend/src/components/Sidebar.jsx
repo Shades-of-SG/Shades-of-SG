@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import LanguageSwitcher from './LanguageSwitcher'
 
 const creatorLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/creator/dashboard' },
@@ -134,6 +135,7 @@ export default function Sidebar() {
       />
 
       <div className="creator-sidebar__footer">
+        <LanguageSwitcher className="language-switcher--creator" />
         <button
           className="creator-sidebar__utility"
           type="button"

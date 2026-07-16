@@ -2800,3 +2800,1163 @@ Guest contribution and moderation are one workflow, not two independent features
 The strongest implementation reused the existing status model and creator shell, added only the metadata required for real operations, and kept public and moderation serializers separate. This reduced schema risk and protected anonymous-account privacy while still giving creators the context they need.
 
 Form hierarchy also changes how welcoming a feature feels. Asking users to pick a song and write their memory before deciding how to publish follows their natural mental sequence. Clickable identity cards, a visible action footer, compact spacing, and post-contribution account prompts made authentication feel like an optional benefit rather than a barrier.
+
+## 2026-07-12 — Registered Navbar, Account Menu, and Website Translation
+
+### Scope
+
+Standardise the registered-user navigation with the public guest experience, move account actions into one profile-picture menu, remove duplicate in-page user widgets, and add a website-wide language selector.
+
+### Navbar and Account Menu
+
+The registered-user navbar now uses the same public navigation structure as the guest navbar: Home, Songs, Learning Hub, Rhythm Game, and Reflection Wall remain centred between the brand and account utilities. Profile and Settings no longer compete with the primary experiences as full navigation links.
+
+The right side now contains the language control and a profile-picture button. The supplied `Default_pfp.jpg` asset is used when an authenticated user does not have an uploaded avatar; a real `avatarUrl` or `avatar_url` still takes precedence. The final profile trigger intentionally contains no Account label and no dropdown chevron, leaving a clean circular image as requested.
+
+Clicking the image opens a `USER MENU` dropdown containing:
+
+- View Profile;
+- Edit Profile;
+- Settings;
+- Logout.
+
+The menu closes after navigation, after logout, when clicking outside it, or when pressing Escape. Logout continues to clear the authenticated session and return the user to Login. Responsive rules place the same account utilities inside the mobile navigation panel without creating a second mobile-specific menu.
+
+The old creator-style identity widget could also appear inside registered pages such as Settings, producing a duplicate Bellen/User block below the navbar. `CreatorPageShell` now renders that widget only for an authenticated `CREATOR`. Registered-user pages therefore use the top-navbar profile menu as their single standard account control, while genuine creator screens retain their creator account interface.
+
+### Website Translation
+
+A shared translation provider now wraps the application. Its selector offers Singapore's four official languages:
+
+- English;
+- Simplified Chinese;
+- Bahasa Melayu;
+- Tamil.
+
+The selector is available in the public navbar, authentication layout, and creator sidebar. The chosen language is saved in local storage, reflected in the document language, and restored across routes and later visits. Non-English page translation is loaded lazily through the Google Translate website runtime so English-only visits do not pay the external-script cost. Returning to English clears the translation cookie and reloads the original page text. A visible attribution is retained in the language menu, and a failure message is shown if the external translation service cannot load.
+
+### Accessibility and Interaction
+
+- The avatar trigger exposes an explicit accessible name containing the signed-in user's name.
+- Account and language triggers expose `aria-expanded` and `aria-haspopup` state.
+- Account actions use menu-item semantics.
+- Language choices use single-selection menu-item-radio semantics and identify the current language.
+- Both menus support outside-click and Escape dismissal.
+- Decorative icons and the avatar image inside the already-labelled button are hidden from assistive technology.
+- Focus and hover states remain visible on the dark navbar and dropdown surfaces.
+
+### Files Created
+
+- `frontend/public/images/Default_pfp.jpg`
+- `frontend/src/Navbar.css`
+- `frontend/src/components/LanguageSwitcher.jsx`
+- `frontend/src/components/LanguageSwitcher.test.jsx`
+- `frontend/src/components/Navbar.test.jsx`
+- `frontend/src/context/TranslationContext.jsx`
+
+### Files Modified
+
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/CreatorPageShell.jsx`
+- `frontend/src/components/LanguageSwitcher.jsx`
+- `frontend/src/components/Navbar.jsx`
+- `frontend/src/components/Sidebar.jsx`
+- `frontend/src/layouts/AuthLayout.jsx`
+- `frontend/src/main.jsx`
+
+### Verification Performed
+
+- Ran the full frontend Vitest suite after the integrated changes; eight test files and forty-one tests passed.
+- Added navbar tests covering the five shared public links, default profile image, dropdown destinations, and logout session clearing.
+- Added translation tests covering all four language choices, persisted selection, document-language updates, and handoff to the translation selector.
+- Added an App regression test confirming registered Settings uses the top-navbar account menu without rendering the duplicate creator account widget.
+- Ran focused ESLint checks for all changed JavaScript and JSX files; they passed.
+- Ran the Vite production build successfully with 1,902 modules transformed.
+- Ran `git diff --check` before publication and kept unrelated rhythm-game work outside this navigation commit.
+
+### Final Outcome
+
+Registered pages now have one consistent public-facing navbar and one account entry point. The profile image is visually minimal, the dropdown contains all account actions, and duplicate user identity controls no longer appear in page headers. The same application also has a persistent language entry point across public, authentication, and creator surfaces, allowing the interface to be translated without maintaining separate page implementations.
+
+## 2026-07-12 — Four-Lane Rhythm Game and Stored AI Beatmaps
+
+### Scope and Existing Flow Discovered
+
+Complete the partially implemented rhythm-game upgrade and turn the earlier procedural tap-only experience into a polished four-lane game with tap notes, hold notes, stored AI-assisted charts, deterministic fallback charts, accurate score persistence, and focused regression coverage.
+
+The original public flow already listed published songs with playable audio, opened `/game/:songId`, used D/F/J/K controls, stored the latest visible result in local storage, and exposed a JWT-aware score endpoint. The game generated a fresh evenly spaced tap chart in the browser from song duration. It did not have a beatmap model, stored difficulty charts, hold-note scoring, AI chart validation, or a complete result-page score submission lifecycle.
+
+The existing score API already derived the player from the JWT and ignored client-supplied user identity and rank. That security model was retained. The existing OpenAI usage was consolidated behind one lazy shared client so a missing API key no longer prevents the backend from loading and both scene planning and image generation continue using the same configuration.
+
+### Architecture Chosen
+
+Beatmaps are now generated once per song and difficulty and stored in `rhythm_beatmaps`. Public gameplay only requests the stored `READY` chart. If none exists, the API returns a clear unavailable response and does not create data. Deterministic fallback generation is only entered from a creator-controlled generation request when AI is unavailable or invalid; starting a public game never invokes AI or fallback generation.
+
+Creator-only generation uses `POST /api/songs/:songId/beatmaps/generate`. The service builds a structured prompt from title, artist, duration, lyrics, optional scene-segment timestamps, difficulty, lane count, density, chord, and hold constraints. The AI must return JSON containing difficulty, BPM, offset, and integer-millisecond notes. The backend validates the response, attempts one corrected response after malformed or unsafe output, and then falls back deterministically if AI remains unavailable or invalid.
+
+Validation covers difficulty mismatch, lane range, timestamps, song bounds, note type, duplicate IDs, BPM, offset, note count, minimum spacing, simultaneous-note limits, same-lane overlap, and difficulty-specific hold duration. Raw AI text is never stored as a playable map. Provider error details are retained internally on the beatmap row and are not included in the public response.
+
+Fallback charts use seeded randomness based on song ID and difficulty. Easy, Medium, and Hard use central configuration for density, BPM defaults, minimum gaps, hold chance, hold duration, and simultaneous-note limits. Repeated requests produce the same notes, and concurrent first requests recover from a unique-version race by loading the chart created by the other request.
+
+### Gameplay and Scoring
+
+The game now renders four central lanes on a canvas with distinct D, F, J, and K receptors, tap-note heads, hold bodies and tails, lane accents, pressed-lane feedback, a clear hit line, progress, countdown, and transient judgements. Audio `currentTime` is the authoritative clock; animation frames only redraw positions calculated from that time.
+
+Timing windows are centralised at Perfect 45 ms, Great 90 ms, Good 140 ms, Bad 190 ms, and Miss beyond that. Difficulty-specific approach times are 2,200 ms, 1,800 ms, and 1,400 ms. A local calibration offset is persisted, browser seeking during an active run is corrected, background video drift is reconciled to audio, and tab visibility or window blur pauses an active run.
+
+Hold notes require a valid starting press, sustained input, and a release near the tail. Early release and missed release do not receive full credit. Scoring tracks Perfect, Great, Good, Bad, Miss, score, combo, maximum combo, weighted accuracy, completed holds, and early releases. The combo multiplier increases in controlled steps and caps at 1.5x, matching backend maximum-score validation.
+
+Start now unlocks the audio element from the direct user gesture before the 3, 2, 1, Go countdown, avoiding delayed autoplay failures. Pause freezes audio-based timing, resume re-synchronises video, restart clears notes, holds, score, clock, and media position while retaining difficulty, and active restart or exit asks for confirmation. Touch lanes remain available and now safely handle pointer cancellation. The unclear square control was replaced with explicit Lucide exit and fullscreen controls, visible labels, native tooltips, accessible names, focus styling, and touch-sized targets.
+
+### Results and Score Persistence
+
+Completed results include score, weighted accuracy, grade, difficulty, song ID, maximum combo, every judgement count, hold completions, early releases, processed notes, and total notes. The result page displays the expanded breakdown without losing the local result when song metadata or saving fails.
+
+Registered players submit through the existing score API and see saving, saved, queued, and retry states. A run-level guard prevents duplicate submissions across rerenders and component remounts. Only complete, internally consistent runs with valid difficulty, score, accuracy, combo, and note counts can enter the save flow. Failed submissions are queued locally without duplicate retry entries. Guests keep the result locally, receive a non-blocking sign-in message, and never call the protected score endpoint.
+
+Backend score validation still derives the user ID from the JWT, verifies the published song and registered-player role, validates finite values and supported difficulty, and rejects scores above the 1.5x theoretical maximum.
+
+### Database and API Changes
+
+- Added migration `008_rhythm_beatmaps.sql` with UUID primary key, song foreign key, difficulty/version uniqueness, JSONB notes, generation source, lifecycle status, error metadata, timestamps, and a latest-ready lookup index.
+- Added the `RhythmBeatmap` Sequelize model and Song associations.
+- Added read-only public stored-chart retrieval and a public-safe availability summary endpoint.
+- Added creator-only generation with versioning, AI validation, deterministic fallback, internal failure details, and safe retry behaviour.
+- Added `OPENAI_BEATMAP_MODEL`, defaulting to `gpt-4o-mini`.
+- Kept public chart responses free of internal provider errors.
+- Ran Sequelize schema synchronisation against the local database and confirmed `rhythm_beatmaps` is ready.
+
+### Files Created
+
+- `backend/config/rhythm.js`
+- `backend/controllers/beatmapController.js`
+- `backend/migrations/008_rhythm_beatmaps.sql`
+- `backend/models/RhythmBeatmap.js`
+- `backend/routes/beatmaps.js`
+- `backend/services/beatmapGenerator.js`
+- `backend/services/beatmapValidator.js`
+- `backend/services/fallbackBeatmapGenerator.js`
+- `backend/services/openaiClient.js`
+- `backend/tests/beatmapServices.test.js`
+- `backend/tests/beatmaps.test.js`
+- `frontend/src/components/RhythmGame.test.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.test.jsx`
+- `frontend/src/game/scoreSubmission.js`
+- `frontend/src/game/scoreSubmission.test.js`
+- `frontend/src/game/scoresApi.test.js`
+- `frontend/src/pages/RhythmResults.test.jsx`
+- `frontend/src/services/beatmapService.js`
+- `frontend/src/services/beatmapService.test.js`
+- `frontend/src/utils/beatmapNormalizer.js`
+- `frontend/src/utils/beatmapNormalizer.test.js`
+- `frontend/src/utils/rhythmScoring.js`
+- `frontend/src/utils/rhythmScoring.test.js`
+- `frontend/src/utils/rhythmTiming.js`
+- `frontend/src/utils/rhythmTiming.test.js`
+
+### Files Modified
+
+- `backend/.env.example`
+- `backend/models/index.js`
+- `backend/routes/scores.js`
+- `backend/server.js`
+- `backend/services/aiScenePlanner.js`
+- `backend/services/frameGenerator.js`
+- `frontend/src/App.css`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/game/beatmapLoader.js`
+- `frontend/src/game/results.js`
+- `frontend/src/game/scoresApi.js`
+- `frontend/src/game/songDetailsApi.js`
+- `frontend/src/pages/RhythmResults.jsx`
+- `frontend/src/pages/Studio.jsx`
+
+### Verification Performed
+
+- Ran the complete backend Jest suite: six suites and seventy tests passed.
+- Ran the complete frontend Vitest suite: fourteen files and sixty-two tests passed.
+- Backend coverage includes unsafe AI JSON, lane and timestamp bounds, difficulty/BPM/offset metadata, hold duration, same-lane overlap, deterministic fallback, malformed-AI retry and fallback, public retrieval, creator-only generation, latest-version listing, JWT-derived score ownership, guest behaviour, published-song checks, and manipulated-score rejection.
+- Frontend coverage includes timing judgements, missed-note detection, audio-derived clock offsets, tap and hold scoring, successful and early hold completion, score and accuracy bounds, unsafe beatmap rejection, accessible gameplay controls, difficulty reset, countdown, automatic blur pause, duplicate score guards, local queue deduplication, guest non-submission, and registered save confirmation.
+- Ran full frontend ESLint and full backend ESLint; both passed without errors.
+- Ran the Vite production build successfully with 1,903 modules transformed.
+- Ran `git diff --check`; no whitespace errors were reported.
+- Applied Sequelize schema synchronisation to the current local database and confirmed the new beatmap table exists.
+
+### Creator Studio Beatmap Controls
+
+The existing creator Studio song page now includes a separate `Rhythm Beatmap` panel below the active metadata or lyrics card. It does not live inside the lyrics editor and does not alter draft saving, publishing, transcription, or AI-video generation.
+
+The panel provides:
+
+- Easy, Medium, and Hard selectors with Not generated, Generating, Ready, and Failed states;
+- selected-difficulty generation and regeneration;
+- one-click Generate All;
+- note count, hold-note count, version, source, and last-generated time;
+- disabled controls and local Generating state while a request is active;
+- useful failure feedback and retry behaviour;
+- automatic summary refresh after every attempt;
+- a Preview / Test link to `/game/:songId?difficulty=DIFFICULTY&preview=1` for each READY map.
+
+Creator preview is authenticated and can load an owned unpublished draft through the existing game route. Normal public gameplay can only load published songs and stored READY maps. A missing difficulty displays a clear message directing the creator to Studio.
+
+The storage rule was tightened to one current row per `song_id + difficulty`. Generation and validation complete before a row is replaced. Successful regeneration updates the existing row atomically and increments its version. Failed regeneration leaves the prior READY notes, source, status, and version untouched. A first-ever hard failure may create a FAILED status row for Studio retry. AI failure normally resolves to a valid deterministic FALLBACK map and records `generation_source` accordingly.
+
+The backend now also exposes creator-only `POST /api/songs/:songId/beatmaps/generate-all`. Summary responses always contain all three difficulties and include counts without exposing raw notes or provider errors. Public chart GET requests are read-only and were tested to leave the beatmap table unchanged.
+
+Additional tests cover current-row uniqueness, safe regeneration, preserving an old READY chart after failure, first-generation FAILED state, Generate All, authenticated unpublished preview, Studio loading/ready/failed/generating/retry states, duplicate-click prevention, preview links, and the separation between public GET and creator POST operations.
+
+### Final Outcome and Remaining Limitations
+
+The rhythm feature is now a complete creator-managed stored-chart system rather than a browser-only note loop. Gameplay remains available without OpenAI once a creator has generated fallback or AI charts, generation is Studio controlled, public starts are strictly read-only, hold notes require real sustained input, timing stays tied to audio, and completed registered scores use the real protected persistence flow.
+
+Automated interaction, API, lint, build, and local schema checks are complete. A live OpenAI request was intentionally not made because successful operation does not require spending an API call and the failure path is covered with deterministic mocks. Production PostgreSQL migration execution and final physical-device playtesting at the target 1280-pixel desktop, tablet, and mobile sizes still need the team's deployed database credentials, real media, browser audio latency, and devices. Those checks should include long holds, early release, pause during a hold, touch lanes, fullscreen, and background video readability.
+
+## 2026-07-13 — Optional Rhythm Games, Draft Publishing, and Creator-Only Timing
+
+### Product Flow Revision
+
+The rhythm-game lifecycle was revised after reviewing the first creator-managed MVP. This entry supersedes the earlier READY-only and one-row-per-difficulty description.
+
+Rhythm games are now optional. A creator can save, generate video for, and publish a song without creating any rhythm beatmap. Public song pages and all other song activities remain available when no rhythm game exists. The song experience displays the Play Rhythm Game action only when at least one difficulty has a PUBLISHED beatmap; otherwise it presents a disabled availability message. The Rhythm Hub likewise lists only songs with a published rhythm difficulty and links directly to an available difficulty.
+
+### Draft and Published Versions
+
+Beatmaps now use version rows with `DRAFT`, `PUBLISHED`, and `FAILED` database states. `NOT_CREATED` and `GENERATING` are presentation states used by Studio. The migration and Sequelize model include `published_at`, unique song/difficulty/version values, and partial unique indexes allowing at most one DRAFT and one PUBLISHED version per song and difficulty.
+
+Generation completes and validates before touching existing creator data. A successful generation replaces only the prior DRAFT or FAILED attempt and creates a new DRAFT version. If a PUBLISHED version exists, it remains public while the new DRAFT is previewed and calibrated. Failed regeneration records a FAILED attempt for Studio while leaving the PUBLISHED row unchanged and playable.
+
+Publishing explicitly promotes the selected DRAFT and replaces the old live version in one transaction. Unpublishing removes public availability and retains creator access as a DRAFT. When a newer DRAFT already exists, unpublishing preserves that newer work while removing the older public row. Safe draft deletion never deletes the PUBLISHED version.
+
+AI generation still performs one repair attempt and falls back deterministically when the provider is unavailable or invalid. Studio now also offers Generate Basic Beatmap, which deliberately uses the deterministic generator without calling AI. Both paths save DRAFT maps and identify the final generation source.
+
+### Creator Studio and Preview
+
+The separate Rhythm Game Studio panel now explains that the feature is optional and provides:
+
+- Easy, Medium, and Hard lifecycle states;
+- Generate with AI and Generate Basic Beatmap;
+- Generate All and regeneration;
+- note, hold-note, BPM, source, and generated-date details;
+- Preview, Publish, Unpublish, and safe Delete draft actions;
+- DRAFT timing offset from -500ms to +500ms;
+- Reset offset and explicit Save draft settings controls;
+- persisted failure feedback and retry behavior;
+- a visible indication when a PUBLISHED version remains live behind a DRAFT or FAILED attempt.
+
+Timing offset is no longer a player preference. It is editable only for a creator-owned DRAFT in Studio or authenticated preview. Resetting changes the unsaved form value; persistence occurs only through Save draft settings. Preview applies temporary changes immediately, labels the session Draft Preview, links back to Studio, and offers Save Offset and Publish.
+
+The preview API is creator-only and may return a DRAFT. Ordinary registered users receive `403` from preview and settings routes. Public beatmap GET requests return only PUBLISHED rows and use the message “This rhythm game is not available yet.” when none exists.
+
+### Player Settings and Scores
+
+Normal players can adjust visual note speed and audio volume. Both preferences are stored locally. Note speed changes approach rendering only; the audio clock, timestamps, judgement windows, scoring, accuracy, and persisted map remain unchanged. Player controls do not expose timing offset, BPM, note timestamps, or map content.
+
+Creator preview results carry an explicit preview flag, are not written to local public-result history, never call the protected score endpoint, and do not affect player statistics. Backend score submission now additionally requires a PUBLISHED beatmap matching the submitted difficulty and note count.
+
+### API Changes
+
+- `POST /api/songs/:songId/beatmaps/generate` creates a DRAFT using AI or explicit BASIC mode.
+- `POST /api/songs/:songId/beatmaps/generate-all` creates DRAFT versions for all difficulties.
+- `GET /api/songs/:songId/beatmaps` returns public-safe PUBLISHED availability or the creator's detailed draft/published/failed summary.
+- `GET /api/songs/:songId/beatmaps/:difficulty` returns PUBLISHED only.
+- `GET /api/songs/:songId/beatmaps/:difficulty/preview` is creator-only and permits DRAFT preview.
+- `PUT /api/songs/:songId/beatmaps/:difficulty/settings` updates only a DRAFT offset within the safe range.
+- `PUT /api/songs/:songId/beatmaps/:difficulty/publish` promotes a DRAFT.
+- `PUT /api/songs/:songId/beatmaps/:difficulty/unpublish` removes public availability while retaining creator access.
+- `DELETE /api/songs/:songId/beatmaps/:difficulty/draft` safely removes DRAFT or FAILED work.
+
+### Verification
+
+- The full backend Jest suite passed: six suites and seventy tests.
+- The full frontend Vitest suite passed: fourteen files and sixty-eight tests.
+- Backend and frontend ESLint passed without errors.
+- The production Vite build passed with 1,903 modules transformed.
+- Both staged and unstaged `git diff --check` passed.
+- Backend tests cover DRAFT generation, public draft denial, creator preview, offset authorization and bounds, publishing, public retrieval, unpublishing, live-version preservation during regeneration, failed regeneration, partial uniqueness, BASIC fallback, optional song behavior, and PUBLISHED-map score validation.
+- Frontend tests cover optional Studio states, DRAFT offset editing, publish/unpublish/retry controls, public CTA gating, Rhythm Hub availability, creator preview controls, preview score suppression, player-only note speed and volume, and the absence of player timing offset.
+
+### Remaining External Checks
+
+The revised PostgreSQL/Supabase migration is ready but has not been applied to a remote project because production credentials were not provided. A live OpenAI request was intentionally not spent during verification. Final device testing should confirm temporary offset feel with real audio latency, draft-to-published switching, note-speed readability, mobile preview controls, and cross-instance generation locking in the deployed environment.
+
+## 2026-07-13 — Consolidated Rhythm-Game Implementation Log
+
+### Purpose of This Entry
+
+This is the consolidated record of the complete rhythm-game development process. It covers the initial audit of twenty-nine unfinished files, completion of the four-lane game, storage and AI architecture, creator Studio integration, score security, and the later product-flow revision that made rhythm games optional and introduced explicit DRAFT and PUBLISHED versions.
+
+The earlier journal entries remain useful because they show how the implementation evolved. Where they describe a READY-only lifecycle or a single current beatmap row, this consolidated entry records the final design that replaced those intermediate decisions.
+
+### Starting Point and Initial Audit
+
+The work began with twenty-nine uncommitted files split into two groups:
+
+- nineteen newly created files were already staged;
+- ten edits to existing files were unstaged.
+
+Those files were not unrelated changes. Together they formed a partially completed rhythm-game upgrade. The staged additions contained a first beatmap model, migration, generator, validator, fallback generator, OpenAI helper, timing and scoring utilities, client beatmap service, score-submission guard, and focused tests. The unstaged edits connected those additions to the server, model registry, score route, game component, results page, styles, and existing AI services.
+
+The audit established the original runtime flow:
+
+- Rhythm Hub listed published songs with audio and duration;
+- `/game/:songId` loaded song metadata;
+- the browser generated evenly spaced tap notes procedurally from song duration;
+- D, F, J, and K controlled four lanes;
+- the audio element existed, but gameplay and result behavior did not yet meet the full synchronization and hold-note requirements;
+- the latest visible result was stored in local storage;
+- the backend score endpoint already derived user identity from the JWT and ignored a client-supplied user ID and rank;
+- registered score saving was available at the API level but was not fully connected to the revised results lifecycle;
+- no persistent rhythm beatmap table existed in the established application schema;
+- AI video generation already used OpenAI, scene segments, and song metadata, but OpenAI client initialization was duplicated.
+
+The first focused verification of the partial work passed, confirming that the unfinished implementation had a viable base. The remaining effort therefore continued the existing direction rather than discarding it.
+
+### Four-Lane Gameplay Engine
+
+The browser-only procedural chart was replaced by a stored-beatmap loader. The game now renders four central lanes mapped to:
+
+- lane 0: D;
+- lane 1: F;
+- lane 2: J;
+- lane 3: K.
+
+The playfield uses canvas rendering for incoming notes, hold bodies, hold tails, receptors, lane separators, key labels, pressed-lane feedback, and controlled glow effects. Touch lanes remain available for mobile and handle pointer cancellation safely.
+
+The audio element's `currentTime` is the authoritative game clock. Rendering uses `requestAnimationFrame`, but note position is recalculated from audio time instead of accumulated frame delta. This prevents the chart from drifting when frame rate changes. Background video is synchronized back to audio when drift exceeds a small threshold.
+
+The timing helper centralizes the judgement windows:
+
+- Perfect: up to 45ms;
+- Great: up to 90ms;
+- Good: up to 140ms;
+- Bad: up to 190ms;
+- Miss: beyond 190ms.
+
+Difficulty-specific base approach times are:
+
+- Easy: 2,200ms;
+- Medium: 1,800ms;
+- Hard: 1,400ms.
+
+Public note-speed preference changes only the visual approach duration. It does not change timestamps, hit windows, score, accuracy, audio time, or saved beatmap data. The preference is bounded, stored in local storage, and restored on later visits.
+
+The game now includes:
+
+- a 3, 2, 1, Go countdown;
+- direct user-gesture audio unlocking before delayed playback;
+- pause and resume through controls, Space, or Escape;
+- automatic pause on blur or hidden-tab visibility change;
+- restart with confirmation during an active run;
+- exit confirmation during an active run;
+- audio-position protection during play;
+- video resynchronization after resume;
+- selectable difficulty before play;
+- loading and unavailable-chart states;
+- progress display;
+- transient judgement feedback;
+- touch input with sufficiently large lane targets;
+- accessible exit, fullscreen, pause, restart, settings, and preview controls.
+
+### Hold Notes
+
+Hold notes are first-class beatmap objects with lane, start time, end time, duration, head, body, and tail. The player must press near the start, continue holding, and release near the end.
+
+The engine tracks:
+
+- hold start judgement;
+- active hold by lane;
+- sustained duration ratio;
+- release judgement;
+- successful hold completion;
+- early release;
+- missed release.
+
+Repeated keydown events cannot score the same note repeatedly. A hold does not receive full credit from the initial press alone. Its result combines start accuracy, sustain, release accuracy, and completion success. Early release and missed release can retain partial earned value without receiving full completion credit.
+
+Pause, focus loss, restart, and game completion clear unsafe input state. Pending notes at audio completion are converted into misses before results are finalized.
+
+### Scoring and Results
+
+Scoring was extracted into pure helpers with these base values:
+
+- Perfect: 1,000;
+- Great: 750;
+- Good: 450;
+- Bad: 150;
+- Miss: 0.
+
+The combo multiplier rises in controlled steps and caps at 1.5x. Weighted accuracy uses earned judgement value divided by the maximum available value and is clamped between zero and one hundred.
+
+Each result records:
+
+- song ID;
+- difficulty;
+- score;
+- rank;
+- accuracy;
+- current and maximum combo data;
+- Perfect, Great, Good, Bad, and Miss counts;
+- total and processed note counts;
+- successful hold completions;
+- early releases;
+- played-at timestamp;
+- whether the run was a creator preview.
+
+The results page shows the complete breakdown and preserves the visible result even when song metadata or score saving fails.
+
+Registered public players submit through the real score API. Guests retain local result behavior and never call the protected score endpoint. Failed registered submissions are queued locally with duplicate run entries removed, and the player can retry without losing the result.
+
+A run-level guard prevents duplicate submission from effect rerenders or component remounts. Local validation rejects incomplete or internally inconsistent runs before a request is made. Backend validation derives identity from the JWT, verifies the registered-player role, validates score, accuracy, combo, difficulty, total notes, theoretical maximum, published song, PUBLISHED beatmap, and the published map's actual note count.
+
+Creator preview runs are explicitly marked as preview results. They are not written to the normal stored-result history, never call the score endpoint, never enter the pending-score queue, and display a message confirming that they do not affect player statistics.
+
+### Beatmap Generation Inputs and Contract
+
+Creator generation uses the best structured timing information currently available without pretending that a text model heard the raw waveform. Input may include:
+
+- song title;
+- artist;
+- duration in milliseconds;
+- BPM metadata when present;
+- raw lyrics;
+- scene-segment start and end timestamps;
+- segment lyrics;
+- selected difficulty;
+- four-lane requirement;
+- density, chord, spacing, and hold constraints.
+
+The AI must return strict JSON containing difficulty, BPM, offset, and note objects. Every note uses an integer millisecond timestamp and lane from zero to three. Holds also include an end timestamp.
+
+The backend validates:
+
+- requested and returned difficulty agreement;
+- supported difficulty;
+- lane range;
+- finite integer timestamps;
+- timestamps within song duration;
+- note type;
+- duplicate IDs;
+- maximum note count;
+- BPM range;
+- offset range;
+- difficulty-specific minimum spacing;
+- simultaneous-note limit;
+- same-lane overlap;
+- hold minimum and maximum duration;
+- hold end after hold start.
+
+Malformed or unsafe AI output triggers one corrected generation attempt. If AI is unavailable or still invalid, deterministic fallback generation creates a playable DRAFT and records `generation_source` as FALLBACK. Raw AI text is never stored as a chart.
+
+### Deterministic Basic Beatmaps
+
+The fallback generator is seeded from song ID and difficulty. It does not use unseeded `Math.random`, so the same inputs produce the same chart.
+
+Easy, Medium, and Hard use centralized configuration for:
+
+- default BPM;
+- minimum note gap;
+- hold chance;
+- hold minimum and maximum duration;
+- simultaneous-note count;
+- relative density.
+
+The generator avoids overlapping notes in the same lane, supports taps while another lane is held, introduces controlled two-note chords at higher difficulties, and produces valid hold notes.
+
+Studio exposes this path directly as Generate Basic Beatmap. This lets a creator intentionally create a deterministic chart without spending or depending on an AI request.
+
+### Shared OpenAI Client
+
+OpenAI initialization was consolidated into a lazy shared client. Beatmap generation, scene planning, and image generation now reuse the same environment configuration instead of maintaining separate client construction.
+
+Lazy initialization also allows the backend and its tests to load without an API key. A missing key becomes a generation-time condition that can use fallback behavior instead of a server-startup failure.
+
+The environment example now includes `OPENAI_BEATMAP_MODEL`, with `gpt-4o-mini` as the default beatmap model.
+
+### Final Beatmap Storage Design
+
+The first intermediate design used one current beatmap row per song and difficulty. That was sufficient for stored public charts, but it could not satisfy the later requirement to test a regenerated draft without replacing the live version.
+
+The final design therefore uses version rows. The Sequelize model and Supabase migration include:
+
+- UUID beatmap ID;
+- song foreign key with cascade deletion;
+- Easy, Medium, or Hard difficulty;
+- version number;
+- nullable BPM;
+- integer offset in milliseconds;
+- duration in milliseconds;
+- JSON/JSONB note array;
+- AI, FALLBACK, or MANUAL source;
+- DRAFT, PUBLISHED, or FAILED status;
+- internal error message;
+- generated timestamp;
+- published timestamp;
+- created and updated timestamps.
+
+Database constraints include:
+
+- unique song, difficulty, and version;
+- partial unique index allowing one DRAFT per song and difficulty;
+- partial unique index allowing one PUBLISHED version per song and difficulty;
+- song, difficulty, and status lookup index.
+
+This permits one draft and one live version to coexist safely.
+
+### Safe Generation and Publication Transactions
+
+Generation and validation finish before stored creator work is changed. After a valid proposal exists, the backend transaction removes the previous DRAFT or FAILED attempt and creates a new DRAFT with an incremented version.
+
+If a PUBLISHED row exists, it is untouched during generation. Public players continue receiving that version while the creator previews the new draft.
+
+If regeneration fails:
+
+- the PUBLISHED version remains live;
+- an existing DRAFT remains intact;
+- a FAILED attempt records safe retry information;
+- provider details are not exposed publicly.
+
+Publishing runs in a transaction. It promotes the selected DRAFT to PUBLISHED and replaces the previous public row only after the creator explicitly chooses Publish.
+
+Unpublishing removes public availability while retaining creator access. If no newer DRAFT exists, the published version becomes a DRAFT. If a newer DRAFT already exists, that newer work is preserved and the older public row is removed.
+
+Deleting a draft removes only DRAFT or FAILED work. It cannot delete the PUBLISHED version through the draft-deletion endpoint.
+
+### Creator Studio Panel
+
+The Creator Studio song page contains a separate panel below the active metadata or lyrics card. It does not live inside the lyrics editor and does not change metadata saving, transcription, publishing requirements, or AI-video generation behavior.
+
+The final panel is titled Rhythm Game and explains: “Create an optional interactive beatmap for this song.”
+
+It includes:
+
+- Easy, Medium, and Hard selection;
+- Not created, Generating, Draft, Published, and Failed states;
+- Generate with AI;
+- Generate Basic Beatmap;
+- Generate All;
+- regeneration;
+- note count;
+- hold-note count;
+- BPM;
+- generation source;
+- last-generated date;
+- Preview;
+- Publish beatmap;
+- Unpublish beatmap;
+- Delete draft;
+- retry after failure;
+- visible indication when a published version remains live;
+- timing offset from -500ms to +500ms;
+- Reset offset;
+- Save draft settings.
+
+Generation controls are disabled during an active request. This prevents duplicate clicks. The panel updates immediately to Generating, refreshes the server summary after completion, and preserves useful error feedback after a failed request.
+
+Offset changes in Studio are local form state until the creator explicitly chooses Save draft settings. Reset offset returns the unsaved value to zero. Offset controls are disabled unless the selected version is a DRAFT.
+
+### Creator Preview
+
+Preview uses the existing game route with authenticated preview parameters. The client requests the creator-only preview endpoint rather than the public endpoint.
+
+Preview mode:
+
+- requires a creator JWT;
+- verifies song ownership on the backend;
+- may load a DRAFT;
+- prefers the draft when draft and published versions coexist;
+- displays Draft Preview prominently;
+- replaces the normal exit destination with Back to Studio;
+- allows temporary offset adjustment;
+- applies temporary offset changes immediately to the audio-based clock;
+- provides Save Offset;
+- provides Publish;
+- disables offset editing for a PUBLISHED-only preview;
+- never saves scores.
+
+Ordinary registered users cannot access preview, settings, publish, unpublish, generation, or draft-deletion routes.
+
+### Public Player Product Flow
+
+Public gameplay is read-only. It never invokes AI and never invokes fallback generation. The public difficulty endpoint returns only a PUBLISHED row.
+
+If the requested difficulty has no published map, the game displays: “This rhythm game is not available yet.” It does not reveal draft notes, draft offset, internal errors, or creator settings.
+
+The rhythm feature is optional at the song level:
+
+- song creation does not require a beatmap;
+- song draft saving does not require a beatmap;
+- AI-video generation does not require a beatmap;
+- song publishing does not require a beatmap;
+- music, learning, trivia, playground, and reflection features remain usable without a beatmap.
+
+The public song page requests a safe beatmap summary. Play Rhythm Game appears only when at least one PUBLISHED difficulty exists. The link includes an available difficulty so the game does not default to a missing Medium chart.
+
+Rhythm Hub similarly filters published songs to those with at least one PUBLISHED beatmap and links to an available difficulty. If none exist, the hub presents a dedicated no-rhythm-games state instead of listing songs that cannot start.
+
+### Player Presentation Settings
+
+Timing offset was removed from normal player controls. Public players cannot change:
+
+- beatmap offset;
+- note timestamps;
+- BPM;
+- difficulty data;
+- published notes;
+- judgement windows.
+
+Players can change:
+
+- visual note speed;
+- game volume.
+
+Both preferences are stored in local storage. System reduced-motion preferences continue to disable or reduce rhythm animation and background video presentation where supported by the existing CSS.
+
+### API Surface
+
+The final API includes:
+
+- `GET /api/songs/:songId/beatmaps` — public-safe published availability or detailed owner summary;
+- `GET /api/songs/:songId/beatmaps/:difficulty` — public PUBLISHED beatmap only;
+- `GET /api/songs/:songId/beatmaps/:difficulty/preview` — creator-only DRAFT/PUBLISHED preview;
+- `POST /api/songs/:songId/beatmaps/generate` — creator-only AI or BASIC DRAFT generation;
+- `POST /api/songs/:songId/beatmaps/generate-all` — creator-only all-difficulty DRAFT generation;
+- `PUT /api/songs/:songId/beatmaps/:difficulty/settings` — creator-only DRAFT offset update;
+- `PUT /api/songs/:songId/beatmaps/:difficulty/publish` — creator-only DRAFT publication;
+- `PUT /api/songs/:songId/beatmaps/:difficulty/unpublish` — creator-only removal from public availability;
+- `DELETE /api/songs/:songId/beatmaps/:difficulty/draft` — creator-only safe DRAFT/FAILED deletion.
+
+The public summary never includes notes or internal provider errors. The owner summary includes separate draft, published, and failed information so Studio can accurately represent a live version alongside work in progress.
+
+### Tests Added and Extended
+
+Backend coverage includes:
+
+- valid hold normalization;
+- invalid lanes;
+- negative and out-of-range timestamps;
+- invalid hold lengths;
+- same-lane overlap;
+- malformed JSON;
+- difficulty mismatch;
+- invalid BPM and offset metadata;
+- deterministic fallback output;
+- malformed AI retry then fallback;
+- creator-only generation;
+- AI and BASIC generation creating DRAFT;
+- public denial of DRAFT;
+- creator preview access;
+- ordinary-player preview denial;
+- creator offset editing;
+- offset bounds;
+- ordinary-player settings denial;
+- DRAFT publication;
+- public PUBLISHED retrieval;
+- unpublishing;
+- draft access after unpublishing;
+- published-version preservation during regeneration;
+- failed-regeneration preservation;
+- FAILED summary with published version still live;
+- one-draft and one-published partial uniqueness;
+- optional song behavior without rhythm;
+- JWT-derived score ownership;
+- guest score behavior;
+- creator score denial;
+- draft-song score denial;
+- score bounds;
+- published-beatmap requirement;
+- published-note-count agreement.
+
+Frontend coverage includes:
+
+- timing judgement boundaries;
+- missed-note processing;
+- visual note-speed behavior;
+- audio-derived clock offsets;
+- tap scoring;
+- hold completion;
+- early hold release;
+- combo cap;
+- weighted accuracy;
+- unsafe client beatmap rejection;
+- duplicate note rejection;
+- duplicate score guard;
+- pending-score queue deduplication;
+- accessible exit and fullscreen controls;
+- difficulty reset;
+- countdown;
+- blur pause;
+- public missing-map error;
+- player note-speed and volume controls;
+- absence of public timing offset;
+- authenticated draft preview;
+- Back to Studio;
+- temporary preview offset;
+- Save Offset;
+- Studio loading and empty states;
+- Draft metrics;
+- published-live indication;
+- Publish and Unpublish actions;
+- Failed and retry states;
+- duplicate generation-click prevention;
+- public GET versus creator POST separation;
+- guest result behavior;
+- registered result saving;
+- preview result score suppression;
+- song CTA visibility;
+- optional song behavior;
+- Rhythm Hub published availability.
+
+### Files Created During the Rhythm Work
+
+- `backend/config/rhythm.js`
+- `backend/controllers/beatmapController.js`
+- `backend/migrations/008_rhythm_beatmaps.sql`
+- `backend/models/RhythmBeatmap.js`
+- `backend/routes/beatmaps.js`
+- `backend/services/beatmapGenerator.js`
+- `backend/services/beatmapValidator.js`
+- `backend/services/fallbackBeatmapGenerator.js`
+- `backend/services/openaiClient.js`
+- `backend/tests/beatmapServices.test.js`
+- `backend/tests/beatmaps.test.js`
+- `frontend/src/components/RhythmGame.test.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.test.jsx`
+- `frontend/src/game/scoreSubmission.js`
+- `frontend/src/game/scoreSubmission.test.js`
+- `frontend/src/game/scoresApi.test.js`
+- `frontend/src/pages/RhythmResults.test.jsx`
+- `frontend/src/services/beatmapService.js`
+- `frontend/src/services/beatmapService.test.js`
+- `frontend/src/utils/beatmapNormalizer.js`
+- `frontend/src/utils/beatmapNormalizer.test.js`
+- `frontend/src/utils/rhythmScoring.js`
+- `frontend/src/utils/rhythmScoring.test.js`
+- `frontend/src/utils/rhythmTiming.js`
+- `frontend/src/utils/rhythmTiming.test.js`
+
+### Existing Files Modified During the Rhythm Work
+
+- `backend/.env.example`
+- `backend/models/index.js`
+- `backend/routes/scores.js`
+- `backend/server.js`
+- `backend/services/aiScenePlanner.js`
+- `backend/services/frameGenerator.js`
+- `backend/tests/scores.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/game/beatmapLoader.js`
+- `frontend/src/game/results.js`
+- `frontend/src/game/scoresApi.js`
+- `frontend/src/game/songDetailsApi.js`
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/pages/RhythmResults.jsx`
+- `frontend/src/pages/SongExperience.jsx`
+- `frontend/src/pages/Studio.jsx`
+- `ferlyn_journal.md`
+
+### Verification Record
+
+The final verified state is:
+
+- backend Jest: six suites passed, seventy tests passed;
+- frontend Vitest: fourteen files passed, sixty-eight tests passed;
+- backend ESLint: passed;
+- frontend ESLint: passed;
+- Vite production build: passed with 1,903 modules transformed;
+- staged `git diff --check`: passed;
+- unstaged `git diff --check`: passed;
+- Sequelize test schema creation: passed with version and partial uniqueness behavior exercised.
+
+No live OpenAI request was required for verification. AI success, malformed response, provider failure, repair, deterministic fallback, and explicit BASIC generation are covered using controlled tests.
+
+### Development Decisions and Lessons
+
+The most important architecture lesson was that “stored beatmaps” and “creator-approved beatmaps” are different requirements. A one-row READY model prevents generation during public play, but it does not let a creator test a replacement safely. Versioned DRAFT and PUBLISHED rows are necessary when public continuity and creator review must coexist.
+
+Timing offset also belongs to content production, not player difficulty. Allowing every player to move the chart clock would make scores incomparable and obscure whether a published chart was actually synchronized. Moving offset into creator-only draft calibration preserves one authoritative map while still allowing correction for notes that appear early or late.
+
+Note speed is different because it changes only presentation. Separating note speed from timing makes it a safe accessibility and comfort preference without altering competitive results.
+
+The optional-feature decision affected more than Studio. It required revisiting song publication, song-page actions, Rhythm Hub filtering, direct game routes, public API behavior, and score validation. Treating optionality as an end-to-end product rule prevented dead links and stopped unpublished charts from leaking into normal play.
+
+The final workflow is therefore:
+
+1. Save and manage the song normally.
+2. Optionally open Rhythm Game in Studio.
+3. Select a difficulty.
+4. Generate with AI or create a Basic deterministic chart.
+5. Store the valid result as DRAFT.
+6. Preview with creator authentication.
+7. Adjust temporary timing offset if needed.
+8. Save draft settings explicitly.
+9. Regenerate or keep the draft.
+10. Publish the selected draft.
+11. Allow public players to fetch only the PUBLISHED version.
+12. Continue serving the old PUBLISHED version while a replacement DRAFT is tested.
+
+### Current Limitations and Next Steps
+
+- Apply `008_rhythm_beatmaps.sql` to the real Supabase/PostgreSQL project after reviewing the target database's existing migration state.
+- If an older intermediate rhythm table was manually created outside the migration history, write a one-time production reconciliation migration instead of applying destructive schema synchronization.
+- Perform real-device playtesting with uploaded media at desktop, tablet, and phone sizes.
+- Calibrate representative songs with Bluetooth, wired, and device speakers to evaluate browser and hardware latency.
+- Confirm the draft offset sign convention with creators during real preview sessions.
+- Test draft publication and rollback against the deployed Supabase transaction behavior.
+- Add a distributed generation lock or job queue if the backend will run on multiple instances; the current in-process duplicate guard is appropriate for the present MVP but is not a cross-instance lock.
+- Consider retaining archived published versions if creators later require rollback history rather than only one live and one draft version.
+- Consider creator-facing generation progress polling if real AI requests become long enough that synchronous request feedback is insufficient.
+- Do not expose provider errors, draft notes, or creator settings through public serializers.
+
+### Consolidated Outcome
+
+The rhythm game is now a polished four-lane activity backed by creator-managed persistent charts. It supports taps, holds, timing judgements, weighted accuracy, controlled combo scoring, pause/resume/restart, touch and keyboard input, registered score persistence, guest local behavior, AI-assisted generation, deterministic basic generation, creator preview, safe timing adjustment, explicit publication, and published-only public play.
+
+The feature remains optional for every song. Public gameplay never generates data, never sees draft calibration, and never changes chart timing. Creators can develop a replacement draft without interrupting the live rhythm game, and preview sessions remain separate from player statistics.
+
+---
+
+## 2026-07-13 — Creator Profile, Full-Song Beatmaps, Media Uploads, and Publishing Guidance
+
+### AI Tool Used
+
+OpenAI Codex was used for repository inspection, implementation support, debugging, test updates, and database-state diagnosis. Ferlyn supplied the screenshots, console output, product requirements, and iterative UX decisions.
+
+### Objective
+
+Refine Violet's creator profile and resolve several connected Creator Studio and public rhythm-game issues: failed beatmap generation, charts ending before the song, publication visibility, MP4 uploads, desktop preview sizing, and unclear publishing errors.
+
+### Prompt Summary and Ferlyn's Decisions
+
+Ferlyn directed the following changes:
+
+- reuse the public-profile visual language for Violet's creator profile while making it feel creator-specific;
+- strengthen creator statistics, fix stretched song artwork, improve the community empty state, and add a memorable creator quote;
+- keep one clear `Generate All` action and remove the two redundant beatmap generation buttons;
+- generate Easy, Medium, and Hard charts separately and make note counts depend on song duration and difficulty;
+- ensure rhythm charts continue through the full song instead of stopping after a fixed small number of notes;
+- show rhythm content publicly only after the parent song is fully published;
+- expose each published difficulty as its own playable choice on public and registered-user pages;
+- allow MP4 media uploads in addition to MP3 and WAV files;
+- make the creator rhythm preview fit normal desktop screens more reliably;
+- replace raw backend publishing errors with human-readable, short-lived feedback;
+- show missing publishing requirements in a modal and guide the creator to the relevant Studio step;
+- when no final video exists, let the creator choose between generating a video and uploading one.
+
+### AI Contribution
+
+Codex inspected the frontend, backend, database models, API routes, and tests, then implemented and refined:
+
+- a dedicated Violet creator-profile component and accompanying profile styling and tests;
+- schema repair support for the rhythm beatmap table and published-state fields;
+- sequential all-difficulty beatmap generation with clearer partial-failure handling;
+- duration-aware AI beatmap requirements, including difficulty-based note density and coverage near the end of each song;
+- responsive rhythm-game layout and creator-preview controls;
+- public rhythm listings that require a published parent song and present published difficulties separately;
+- backend and frontend MP4 acceptance for song media;
+- a dedicated final-video upload service and route;
+- a publishing-readiness modal with generate-video, upload-video, and redirect actions;
+- transient draft-save error handling and clearer creator-facing messages.
+
+### My Review and Decisions
+
+I reviewed the changes through repeated browser screenshots and console output. I clarified that publishing a beatmap alone must not make it public, because the parent song remains the authoritative publication gate. I also confirmed that each song needs a different number of notes based on its duration and chosen difficulty, rather than using one fixed chart size for every song.
+
+I chose to keep rhythm gameplay optional while requiring any public rhythm entry to have both a published song and at least one published difficulty. I also requested a choice between AI generation and manual MP4 upload instead of forcing creators through only one final-video workflow.
+
+### Files Created
+
+- `backend/migrations/009_rhythm_beatmap_published_at.sql`
+- `frontend/src/components/profile/CreatorProfile.jsx`
+- `frontend/src/components/studio/PublishReadinessModal.jsx`
+- `frontend/src/components/studio/PublishReadinessModal.test.jsx`
+
+### Files Modified
+
+- `backend/controllers/beatmapController.js`
+- `backend/controllers/songController.js`
+- `backend/routes/songs.js`
+- `backend/server.js`
+- `backend/services/aiStorageService.js`
+- `backend/services/beatmapGenerator.js`
+- `backend/services/schemaService.js`
+- `backend/tests/beatmapServices.test.js`
+- `backend/tests/beatmaps.test.js`
+- `backend/tests/songLifecycle.test.js`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/Profile.css`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/components/RhythmGame.test.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.jsx`
+- `frontend/src/components/studio/RhythmBeatmapPanel.test.jsx`
+- `frontend/src/components/studio/SongMediaUpload.jsx`
+- `frontend/src/components/studio/StudioHeader.jsx`
+- `frontend/src/pages/Profile.jsx`
+- `frontend/src/pages/Profile.test.jsx`
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/pages/SongExperience.jsx`
+- `frontend/src/pages/Studio.jsx`
+- `frontend/src/services/songService.js`
+- `ferlyn_journal.md`
+
+### Verification Performed
+
+The implemented changes were checked with the backend Jest suite, frontend Vitest suite, backend and frontend ESLint, the Vite production build, and `git diff --check`. The last complete verification run passed seventy-five backend tests and eighty-five frontend tests, with both lint commands and the production build also passing.
+
+A read-only database diagnostic was also performed for the affected `Sailor Song` record. It confirmed that the newly uploaded MP4 was saved under `audioUrl`, while `videoUrl` still pointed to the older placeholder video. No credentials or secret values were recorded.
+
+### Final Outcome
+
+The branch now contains a more polished Violet creator profile, stronger rhythm chart generation and validation, safer public publication rules, separate public difficulty choices, MP4-compatible media handling, a responsive creator rhythm preview, and a guided publishing-readiness flow.
+
+### Remaining Work
+
+- Correct the final Preview & Publish media-source priority so a newly uploaded MP4 replaces the stale placeholder preview instead of being hidden by the older `videoUrl`.
+- Ensure the HTML video element reloads whenever its source changes.
+- Re-run the focused Studio preview tests after that media-source correction.
+- Apply migration `009_rhythm_beatmap_published_at.sql` to the intended deployed database after confirming its migration state.
+- Complete real-browser testing for upload, generation, publication, and public playback using representative full-length songs.
+
+### Lesson
+
+Audio upload, final-video upload, AI generation, and public publication are separate lifecycle states even when they use the same MP4 file type. The UI must identify which state a file updates and must always preview the newest intended media source; otherwise a successful upload can appear to have failed because an older URL still has precedence.
+
+---
+
+## 2026-07-14 — Public Rhythm Hub Song Rows, Selection Polish, and Gameplay Background Choice
+
+### AI Tool Used
+
+OpenAI Codex was used to inspect the public Rhythm Game hub, trace public beatmap and media data, implement the requested interface changes, update regression coverage, diagnose the live Sailor Song video source, and run frontend verification. Ferlyn supplied the desired row layout, the iterative design feedback, and the gameplay screenshot used for the media-background investigation.
+
+### Objective
+
+Replace the public Rhythm Game hub's repeated one-card-per-difficulty presentation with a compact one-row-per-song selection screen, then polish the layout and interactions without copying Rhythm Plus branding or changing Shades of SG's backend behavior. The follow-up objective was to confirm which media source public rhythm gameplay uses and let players choose between the normal purple gameplay background and the Song's MP4 background.
+
+### Rhythm Hub Audit and Data Flow
+
+The original hub loaded published Songs and requested a beatmap summary for each playable Song. It then flattened every published difficulty into a separate card, which repeated the same cover, title, artist, community, and language information up to three times.
+
+The existing public gameplay route was already correct:
+
+- the hub navigates to `/game/:songId?difficulty=EASY|MEDIUM|HARD`;
+- `RhythmGame` reads the difficulty query parameter and normalizes it;
+- the public beatmap service requests only the selected stored PUBLISHED chart;
+- draft preview remains creator-authenticated and separate from public play;
+- guest and registered-player score behavior is handled after gameplay and did not need to change.
+
+The public beatmap summary provides one row for Easy, Medium, and Hard. A published summary contains the public beatmap metadata, including its note count. This allowed the frontend to group safely without introducing a new backend route.
+
+### One-Row-Per-Song Refactor
+
+The hub now groups loaded beatmap summaries with a `Map` keyed by `song.id`. Only rows whose status is `PUBLISHED` are added to a Song's `difficulties` array. Duplicate difficulty entries are ignored, and the final controls are ordered Easy, Medium, then Hard.
+
+This grouping produces the following public rules:
+
+- every Song appears at most once;
+- a Song with no PUBLISHED beatmap is omitted;
+- DRAFT, FAILED, and NOT_CREATED difficulties produce no public action;
+- each available difficulty is an explicit semantic link;
+- every link retains the correct Song ID and difficulty query parameter;
+- note counts come from the published beatmap summary rather than hardcoded data.
+
+Each row contains one meaningful cover image, a semantic Song heading, artist, community/theme, languages, formatted duration, an available-difficulty summary, and compact Easy, Medium, and Hard play actions. Easy retains a green treatment, Medium uses purple, and Hard uses pink/red. The play action includes the difficulty name, note count, and a play icon, with an accessible label such as `Play Sailor Song on Easy difficulty`.
+
+### Visual and Interaction Refinement
+
+The initial row conversion was followed by a dedicated polish pass. The final hub includes:
+
+- a centred content area aligned with the existing site maximum width;
+- dark navy and purple surfaces using the existing design tokens;
+- square cover artwork with `object-fit: cover`, clipped rounded corners, and a subtle scale effect;
+- a deliberate desktop grid for artwork, Song information, and grouped difficulty controls;
+- a smaller supporting `DIFFICULTIES AVAILABLE` label with correct singular and plural grammar;
+- real Song duration formatted as `m:ss`, omitted cleanly when unavailable;
+- metadata ordered as community/theme, language, and duration;
+- a two-pixel row lift, brighter surface, purple border glow, and subtle shadow on hover;
+- the same clear row treatment through `:focus-within` for keyboard users;
+- difficulty-button hover, pressed, and visible focus states;
+- default row cursors so the row itself does not imply an action;
+- reduced-motion handling that removes lift and image-scale motion;
+- tablet wrapping that moves difficulty actions beneath the metadata;
+- a single-column mobile layout with full-width difficulty actions and touch targets above forty-four pixels.
+
+No advertisement, favorite control, mapper metadata, fake difficulty rating, placeholder Song, or Rhythm Plus branding was added.
+
+### Client-Side Sorting
+
+Sorting was implemented because the existing public Song payload already contains `publishedDate`, title, and artist. The hub provides Newest, Title, and Artist choices and sorts only the already loaded, grouped Songs. Newest remains the default and uses `publishedDate`; Title and Artist use locale-aware comparisons, with title used as the artist-sort tiebreaker.
+
+The first sort control inherited the project's global `select { width: 100% }` rule and appeared much wider than intended. A follow-up CSS correction made it a compact, left-aligned `Sort by [Newest]` control with a two-hundred-pixel select and a responsive maximum width. No search field, filter system, backend sorting parameter, or difficulty sorting was introduced.
+
+### Rhythm Gameplay Video Investigation
+
+The gameplay media audit confirmed that a beatmap does not own or embed a video. Public gameplay loads two separate resources:
+
+1. the selected PUBLISHED beatmap supplies note timing and chart metadata;
+2. the public Song supplies `audioUrl` and the optional `videoUrl`.
+
+`RhythmGame` uses the audio element as the authoritative clock. When a Song has `videoUrl`, a muted, looping video element is rendered behind the gameplay and kept synchronized with the audio position.
+
+The same Song `videoUrl` field can represent either supported final-video workflow:
+
+- creator uploads are stored by `uploadVideoStream` under the Cloudinary `shades-of-sg/uploaded-videos` folder;
+- AI-assembled videos are uploaded by `uploadCompiledVideo` under `shades-of-sg/compiled-videos` and persisted by the video assembler.
+
+Gameplay intentionally does not branch on provenance. It consumes the Song's selected final `videoUrl` in the same safe way for either source.
+
+A read-only lookup against the local SQLite state could not classify the screenshot Song because that local schema did not contain `video_public_id`, and the screenshot's Song ID was not present in that local database. The active local API at port 5000 was therefore checked directly. During the first background audit, Sailor Song `ab589907-3903-43e9-83d4-cf3b461a9059` returned:
+
+- status `PUBLISHED`;
+- `videoUrl` set to `https://shades-of-sg.vercel.app//videos/placeholder-generation.mp4`;
+- `videoPublicId` set to `null`.
+
+At that point, the gameplay background was the configured temporary generation placeholder rather than final media. After Ferlyn uploaded the completed MP4 through the final-video workflow, a second live API check confirmed that the record had changed to:
+
+- status `PUBLISHED`;
+- `audioUrl` set to a Cloudinary MP4 under `shades-of-sg/audio`;
+- `videoUrl` set to a Cloudinary MP4 under `shades-of-sg/uploaded-videos`;
+- `videoPublicId` set to the matching `shades-of-sg/uploaded-videos` public identifier;
+- duration set to 210 seconds.
+
+This proved that the final-video upload itself had succeeded and the remaining publishing prompt was a readiness-validation bug rather than a failed Cloudinary upload.
+
+### Purple and Music-Video Background Toggle
+
+Public gameplay now displays a compact Background control in the Run Controls panel with two explicit choices:
+
+- `Purple` uses the normal dark-purple Shades of SG gameplay surface;
+- `Music video` uses the Song's `videoUrl` as a muted background.
+
+The implementation preserves the previous video-first behavior for Songs that have a video and no saved player preference. The selected choice is stored locally under `rhythmBackgroundMode`, so it persists for later sessions on the same browser.
+
+When the player enables the video during a run, the video is mounted, moved to the audio element's current time, and resumed only when gameplay is playing. The audio remains the authoritative timing and sound source. Turning the video off unmounts it and reveals the purple surface without changing note timing, phase, score, accuracy, beatmap state, or audio playback.
+
+If a Song has no `videoUrl`, gameplay automatically uses purple, disables the Music video choice, and presents a short availability explanation. The controls use semantic buttons, `aria-pressed`, visible focus rings, distinct text labels, and more than color alone to communicate the current selection.
+
+### Published-Song Readiness Follow-Up Fix
+
+The publishing assistant continued to show “Add a finished video before publishing” even after the final MP4 appeared in both `videoUrl` and `videoPublicId`. The root cause was the backend `publishValidation` status check. It accepted only `READY`, so an already `PUBLISHED` Song was reported as missing `status READY`. The frontend grouped `status READY` with video-related requirements and therefore displayed the misleading Generate AI Video and Upload Video choices.
+
+The backend readiness rule now accepts both `READY` and `PUBLISHED` as valid completed publication states. Existing DRAFT, GENERATING, and ARCHIVED safeguards remain unchanged. A regression assertion uploads a final MP4, publishes the Song, requests readiness again, and verifies that the response remains ready with an empty missing-task list and `songStatus: PUBLISHED`.
+
+### Files Modified
+
+- `frontend/src/pages/RhythmHub.jsx`
+- `frontend/src/components/RhythmGame.jsx`
+- `frontend/src/App.css`
+- `frontend/src/App.test.jsx`
+- `frontend/src/components/RhythmGame.test.jsx`
+- `backend/controllers/songController.js`
+- `backend/tests/songLifecycle.test.js`
+- `ferlyn_journal.md`
+
+No API route, model, migration, authentication rule, beatmap lifecycle, or score-persistence behavior was changed. The only backend implementation change was the completed-status readiness correction from READY-only to READY-or-PUBLISHED.
+
+### Test Coverage Added or Updated
+
+The public hub regression coverage now verifies:
+
+- one rendered row per Song;
+- one cover and heading rather than repeated difficulty cards;
+- PUBLISHED-only difficulty actions;
+- Songs without published beatmaps remain hidden;
+- unplayable Songs remain hidden;
+- correct Song and difficulty route parameters;
+- published note counts;
+- singular and plural availability labels;
+- `m:ss` duration formatting;
+- Newest, Title, and Artist sorting.
+
+The gameplay regression coverage now verifies:
+
+- the music-video background is rendered from `song.videoUrl`;
+- switching to Purple removes the video and applies the fallback surface;
+- switching back restores the video;
+- the background choice is persisted;
+- Purple is selected automatically when no video exists;
+- the Music video choice is disabled and explained when unavailable.
+
+The backend lifecycle regression coverage now also verifies that a creator-uploaded final MP4 remains publish-ready after the Song transitions from `READY` to `PUBLISHED`.
+
+### Verification Performed
+
+The final verified frontend state after the background-toggle work was:
+
+- focused Rhythm Hub application tests: one file passed, sixteen tests passed;
+- focused RhythmGame tests: one file passed, nine tests passed;
+- complete frontend Vitest suite: sixteen files passed, eighty-eight tests passed;
+- frontend ESLint: passed;
+- focused backend Song lifecycle suite: one suite passed, twenty-two tests passed;
+- complete backend Jest suite: six suites passed, seventy-five tests passed;
+- backend ESLint: passed;
+- Vite production build: passed with 1,906 modules transformed;
+- `git diff --check`: passed.
+
+The production build retained the existing advisory that the primary JavaScript chunk is larger than five hundred kilobytes after minification. The warning did not fail the build and was not introduced as a separate optimization task.
+
+### Final Outcome
+
+The public Rhythm Game hub now reads as a real Song-selection interface rather than a repeated card gallery. It scales cleanly from desktop to mobile, keeps every difficulty action explicit, exposes only published rhythm content, and provides compact client-side sorting without expanding the API surface.
+
+Gameplay now makes its background source an explicit player choice. Users can retain the readable purple surface or view the Song's stored MP4 without affecting the audio clock, chart, scoring, guest behavior, registered score submission, creator preview restrictions, loading state, error state, or result flow.
+
+The publishing assistant now recognizes an already published Song with a valid final MP4 as complete instead of incorrectly asking the creator to generate or upload the video again.
+
+### Remaining Work
+
+- Reconcile the older local SQLite schema with the active application schema before using it for future provenance diagnostics; do not apply destructive synchronization to a deployed database.
+- Refresh the open Studio page after the backend reload and confirm the stale video prompt no longer appears for the already published Sailor Song.
+- Perform real-browser and real-device playtesting of the background toggle during countdown, active play, pause, restart, fullscreen, and reduced-motion configurations.
+- Consider JavaScript chunk splitting as a separate performance task if the production bundle advisory becomes a deployment concern.
+
+### Lesson
+
+Beatmap content and visual media are related at the Song experience level but are separate data contracts. Keeping audio as the authoritative clock and treating video as an optional presentation layer makes the background safely user-selectable without compromising chart timing or score integrity. A stored URL also does not prove that media is final: provenance fields and the actual URL path must be checked before describing a video as uploaded or AI-generated. Readiness validation must additionally recognize terminal lifecycle states correctly; requiring a published record to return to READY can turn a successful upload into a misleading missing-media warning.
+
+---
+
+## 2026-07-14 — Published Final-Video Readiness Correction
+
+### Problem
+
+After a completed MP4 was uploaded successfully, Preview & Publish continued to display “Add a finished video before publishing” and offered Generate AI Video and Upload Video again. A live read-only API check confirmed that Sailor Song already had a Cloudinary `videoUrl`, a matching `videoPublicId`, a 210-second duration, and `PUBLISHED` status.
+
+### Root Cause
+
+The upload and Cloudinary persistence were working. The false prompt came from `publishValidation`, which considered only `READY` a valid completed state. When Studio checked an already `PUBLISHED` Song, readiness returned `status READY` as missing. The publishing modal grouped that missing status with video requirements and incorrectly presented the missing-video workflow.
+
+### Fix
+
+Publication readiness now accepts both `READY` and `PUBLISHED`. DRAFT, GENERATING, and ARCHIVED Songs still fail the completed-state check. No media URL, upload route, generation process, authentication rule, or public Song behavior was changed.
+
+### Regression Coverage
+
+The final-video lifecycle test now uploads an MP4, verifies readiness in READY, publishes the Song, checks readiness again, and confirms:
+
+- `ready` remains `true`;
+- `missing` remains empty;
+- `songStatus` is `PUBLISHED`.
+
+### Files Modified
+
+- `backend/controllers/songController.js`
+- `backend/tests/songLifecycle.test.js`
+- `ferlyn_journal.md`
+
+### Verification
+
+- focused Song lifecycle suite: twenty-two tests passed;
+- complete backend Jest suite: six suites and seventy-five tests passed;
+- backend ESLint: passed;
+- focused frontend App suite: sixteen tests passed;
+- Vite production build: passed with 1,906 modules transformed;
+- `git diff --check`: passed.
+
+### Outcome
+
+An already published Song with a valid uploaded or generated final video is now reported as publish-ready. Studio no longer mistakes the PUBLISHED lifecycle state for a missing video and should stop prompting the creator to generate or upload the same MP4 again.

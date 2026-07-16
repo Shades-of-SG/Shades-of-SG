@@ -28,6 +28,11 @@ export async function getMyReflections(token) {
   return data.reflections
 }
 
+export async function getMyReflections(token) {
+  const data = await request('/reflections/mine', { headers: authHeaders(token) })
+  return data.reflections
+}
+
 export async function getModerationReflections(filters, token) {
   const params = new URLSearchParams()
   const values = {

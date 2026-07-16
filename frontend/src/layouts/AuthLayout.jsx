@@ -1,9 +1,11 @@
 import { Link, Outlet } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 
 export default function AuthLayout() {
   return (
     <main className="auth-shell">
+      <LanguageSwitcher className="language-switcher--auth" />
       <section className="auth-card" aria-label="Authentication">
         <Link className="brand-mark auth-brand" to="/">
           <BrandLogo className="brand-logo--auth" />

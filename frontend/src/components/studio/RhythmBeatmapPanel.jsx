@@ -13,7 +13,7 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-export default function RhythmBeatmapPanel({ songId, songStatus = 'DRAFT', token }) {
+export default function RhythmBeatmapPanel({ onBeforeGenerate, songId, songStatus = 'DRAFT', token }) {
   const [beatmaps, setBeatmaps] = useState(EMPTY)
   const [selectedDifficulty, setSelectedDifficulty] = useState('MEDIUM')
   const [offsets, setOffsets] = useState({})
@@ -57,11 +57,16 @@ export default function RhythmBeatmapPanel({ songId, songStatus = 'DRAFT', token
     return perform(`${selectedDifficulty}:SETTINGS`, () => saveBeatmapSettings(songId, selectedDifficulty, offsetMs, token))
   }
 
+  async function generateAll() {
+    if (onBeforeGenerate) await onBeforeGenerate()
+    return generateAllBeatmaps(songId, token, 'AI')
+  }
+
   return (
     <section className="studio-card studio-beatmap-panel" aria-labelledby="rhythm-beatmap-title">
       <header className="studio-card__header studio-card__header--spread">
         <div className="studio-card__title"><Music4 aria-hidden="true" /><div><h2 id="rhythm-beatmap-title">Rhythm Game</h2><p>Create an optional interactive beatmap for this song.</p></div></div>
-        <button className="studio-button studio-button--secondary" disabled={!songId || busy} onClick={() => perform('ALL', () => generateAllBeatmaps(songId, token, 'AI'))} type="button"><Sparkles aria-hidden="true" /> {activeRequest === 'ALL' ? 'Generating all…' : 'Generate All'}</button>
+        <button className="studio-button studio-button--secondary" disabled={!songId || busy} onClick={() => perform('ALL', generateAll)} type="button"><Sparkles aria-hidden="true" /> {activeRequest === 'ALL' ? 'Generating all…' : 'Start Generating'}</button>
       </header>
 
       {!songId ? <p className="studio-beatmap-panel__notice">Save this song draft before creating its optional rhythm game.</p> : null}

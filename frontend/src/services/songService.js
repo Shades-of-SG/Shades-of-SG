@@ -55,6 +55,12 @@ export function uploadAudio(songId, file, token) {
   return request(`/songs/${encodeURIComponent(songId)}/audio`, { body, method: 'POST', token }).then((data) => data.song)
 }
 
+export function uploadVideo(songId, file, token) {
+  const body = new FormData()
+  body.append('videoFile', file)
+  return request(`/songs/${encodeURIComponent(songId)}/video`, { body, method: 'POST', token }).then((data) => data.song)
+}
+
 export function getPublishReadiness(songId, token) {
   return request(`/songs/${encodeURIComponent(songId)}/readiness`, { token })
 }

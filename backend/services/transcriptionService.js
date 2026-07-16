@@ -101,9 +101,8 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     }
 
     const formData = new FormData();
-    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'whisper-1');
-    formData.append('response_format', 'verbose_json');
-    formData.append('timestamp_granularities[]', 'segment');
+    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe');
+    formData.append('response_format', 'json');
     formData.append('prompt', LYRIC_TRANSCRIPTION_PROMPT);
     formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
 
@@ -126,7 +125,6 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
     return {
         lyrics: formatLyricsDraft(responseBody.text || ''),
         rawLyrics: responseBody.text || '',
-        segments: responseBody.segments || [], // Return the exact timed segments
         model: process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-transcribe',
     };
 }

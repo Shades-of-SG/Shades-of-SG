@@ -1,6 +1,7 @@
 import LanguageSelector from './LanguageSelector'
 import MoodTagSelector from './MoodTagSelector'
 import SongMediaUpload from './SongMediaUpload'
+import CoverImageUpload from './CoverImageUpload'
 
 const themeOptions = ['Select a theme', 'National Identity', 'Unity & Harmony', 'Home & Belonging', 'History & Journey', 'Community']
 const htmlTagPattern = /<[^>]*>/
@@ -15,10 +16,14 @@ function getDescriptionValidationMessage(description) {
 
 export default function SongInformationCard({
   audioFileName,
+  coverImageUrl,
+  coverFileName,
   descriptionLength,
   formData,
   onAudioFileChange,
   onAudioFileClear,
+  onCoverImageChange,
+  onCoverImageClear,
   onFieldChange,
   onLanguageToggle,
   onMoodToggle,
@@ -88,6 +93,7 @@ export default function SongInformationCard({
         </div>
 
         <div className="studio-form-column studio-form-column--right">
+          <CoverImageUpload coverFileName={coverFileName} coverImageUrl={coverImageUrl} onChange={onCoverImageChange} onClear={onCoverImageClear} />
           <LanguageSelector
             onOtherLanguageChange={onOtherLanguageChange}
             onToggleLanguage={onLanguageToggle}

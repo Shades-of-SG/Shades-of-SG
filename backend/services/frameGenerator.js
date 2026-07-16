@@ -1,16 +1,12 @@
 /**
  * backend/services/frameGenerator.js
  * * Phase 3 of AI Video Generation Pipeline: Image Generation & Chorus Caching.
- * Orchestrates text-to-image generation for song segments using GPT Image 2 and Cloudinary.
+ * Orchestrates text-to-image generation for song segments using DALL-E 3 and Cloudinary.
  */
 
-const { OpenAI } = require('openai')
 const { GenerationJob, SceneSegment, GeneratedFrame } = require('../models')
 const aiStorageService = require('./aiStorageService')
-const cloudinary = require('../config/cloudinary')
-
-// Initialize OpenAI client with explicit API key passing
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const { getOpenAIClient } = require('./openaiClient')
 
 /**
  * Generates and stores frames for a specific job sequentially.
@@ -27,8 +23,8 @@ async function generateFrames(jobId, songId) {
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
     }
-    if (job.status !== 'IN_PROGRESS') {
-      throw new Error(`GenerationJob is not in IN_PROGRESS state. Current state: ${job.status}`)
+    if (job.status !== 'PROCESSING') {
+      throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
     }
 
     // Fetch scene segments ordered chronologically
@@ -46,129 +42,77 @@ async function generateFrames(jobId, songId) {
     // Used to store generated Cloudinary URLs keyed by their exact image prompt.
     const imagePromptCache = new Map()
 
-    /**
-     * Aggressively normalizes a lyrics string for cache key comparison.
-     * Strips timestamps, section markers like [Chorus], punctuation, and collapses whitespace.
-     */
-    const normalizeCacheKey = (str) => {
-      return str
-        .toLowerCase()
-        .replace(/\[.*?\]/g, '')        // Strip [Chorus], [0:30], [Instrumental], etc.
-        .replace(/[^a-z0-9\s]/g, '')    // Strip all punctuation
-        .replace(/\s+/g, ' ')           // Collapse multiple spaces into one
-        .trim()
-    }
-
-    // 2. Pre-process and deduplicate segments based on the chorus cache key
-    const uniqueGenerationTasks = new Map() // Map of cacheKey -> segment
-    const segmentToCacheKey = new Map()     // Map of segment.id -> cacheKey
-
+    // Use a for...of loop to enforce synchronous execution and avoid OpenAI rate limits
     for (const segment of segments) {
-      const cacheKey = segment.lyrics && segment.lyrics.trim() !== ''
-        ? normalizeCacheKey(segment.lyrics)
-        : segment.visualPrompt
-      
-      segmentToCacheKey.set(segment.id, cacheKey)
-      
-      if (!uniqueGenerationTasks.has(cacheKey)) {
-        uniqueGenerationTasks.set(cacheKey, segment)
+      let finalImageUrl
+
+      // Key the cache by the normalized lyrics (if available) to ensure repeating choruses hit the cache
+      const cacheKey = segment.lyrics ? segment.lyrics.trim().toLowerCase() : segment.visualPrompt
+
+      // Check if we already generated an image for this exact lyric/prompt (e.g., a repeated chorus)
+      if (imagePromptCache.has(cacheKey)) {
+        // Cache HIT: Skip DALL-E and reuse the permanent Cloudinary URL
+        console.log(
+          `[Cache Hit] Reusing frame for segment: "${cacheKey.substring(0, 30)}..."`
+        )
+        finalImageUrl = imagePromptCache.get(cacheKey)
       } else {
-        console.log(`[Cache Hit] Deduplicated segment for generation: "${cacheKey.substring(0, 30)}..."`)
-      }
-    }
+        // Cache MISS: Generate via DALL-E 3
+        console.log(`[Cache Miss] Generating new DALL-E frame for segment ${segment.id}...`)
 
-    console.log(`[Frame Generator] Optimization: Found ${uniqueGenerationTasks.size} unique scenes out of ${segments.length} segments.`)
-
-    // 3. Generate unique frames in parallel chunks (e.g. 5 at a time) to speed things up
-    const uniqueSegments = Array.from(uniqueGenerationTasks.values())
-    const chunkSize = 5
-    
-    for (let i = 0; i < uniqueSegments.length; i += chunkSize) {
-      const chunk = uniqueSegments.slice(i, i + chunkSize)
-      console.log(`[Frame Generator] Processing chunk ${Math.floor(i / chunkSize) + 1} of ${Math.ceil(uniqueSegments.length / chunkSize)}...`)
-      
-      await Promise.all(chunk.map(async (segment) => {
-        const cacheKey = segmentToCacheKey.get(segment.id)
+        // 3. DALL-E Integration with Fallback
         let openAiImageUrl
-        
-        console.log(`[Cache Miss] Generating new GPT Image 2 frame for segment ${segment.id}...`)
         try {
-          console.log(`[OpenAI] Attempting GPT Image 2 generation with key starting with: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`);
-          const response = await openai.images.generate({
-            model: 'gpt-image-2',
-            prompt: segment.visualPrompt ? segment.visualPrompt.substring(0, 4000) : "Cinematic scene",
-            size: '1792x1024',
+          const response = await getOpenAIClient().images.generate({
+            model: 'dall-e-3',
+            prompt: segment.visualPrompt,
+            size: '1024x1024',
             n: 1,
           })
-          if (response.data?.[0]?.b64_json) {
-            openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json;
-          } else {
-            openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link;
-            if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0];
-          }
-          if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI response: ${JSON.stringify(response.data)}`);
+          openAiImageUrl = response.data[0].url
         } catch (openaiError) {
-          // Fallback to GPT Image 1 Mini on any failure
-          console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini for segment ${segment.id}.`)
-          
-          let safePrompt = segment.visualPrompt ? segment.visualPrompt.substring(0, 1000) : "Cinematic scene";
-          if (openaiError.message.toLowerCase().includes('safety') || openaiError.message.toLowerCase().includes('rejected')) {
-              console.warn(`[Safety Filter] Triggered! Replacing prompt with safe override.`);
-              safePrompt = "A beautiful, peaceful, abstract cinematic visualization of music and glowing light, safe for all audiences, vibrant colors";
-          }
-
+          // Fallback to DALL-E 2 if DALL-E 3 is unavailable (Tier 0) or hits a 400 error
+          let fallbackResponse
           try {
-            const fallbackResponse = await openai.images.generate({
-              model: 'gpt-image-1-mini',
-              prompt: safePrompt,
-              size: '1536x1024',
-              n: 1,
-            })
-            if (fallbackResponse.data?.[0]?.b64_json) {
-              openAiImageUrl = 'data:image/png;base64,' + fallbackResponse.data[0].b64_json;
+            if (openaiError.status === 400 || openaiError.status === 404 || openaiError.code === 'model_not_found') {
+              console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2 for segment ${segment.id}.`)
+              fallbackResponse = await getOpenAIClient().images.generate({
+                model: 'dall-e-2',
+                prompt: segment.visualPrompt,
+                size: '512x512',
+                n: 1,
+              })
+              openAiImageUrl = fallbackResponse.data[0].url
             } else {
-              openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link;
-              if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0];
+              throw openaiError
             }
-            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`);
+            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`, { cause: openaiError });
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
             openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
+            
+            // Explicitly assign the fallback URL and persist to DB as requested
+            segment.imageUrl = openAiImageUrl
+            await segment.save()
           }
         }
 
-        let finalImageUrl
         // 4. Cloudinary Handoff
-        if (openAiImageUrl && openAiImageUrl.startsWith('data:image/')) {
-          const uploadResult = await new Promise((resolve, reject) => {
-             cloudinary.uploader.upload(openAiImageUrl, {
-               folder: 'shades-of-sg/frames',
-               resource_type: 'image'
-             }, (error, result) => {
-               if (error) reject(new Error(`Cloudinary Data URI Upload Error: ${error.message}`));
-               else resolve(result);
-             });
-          });
-          finalImageUrl = uploadResult.secure_url;
-        } else {
-          finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
-        }
+        // Immediately upload to persistent storage before the OpenAI URL expires
+        finalImageUrl = await aiStorageService.uploadImageFromUrl(openAiImageUrl)
 
+        // Cache the newly acquired permanent URL for future segments
         imagePromptCache.set(cacheKey, finalImageUrl)
-      }))
-    }
+      }
 
-    // 5. Database Saving
-    console.log(`[Frame Generator] Saving ${segments.length} frames to database...`)
-    for (const segment of segments) {
-      const cacheKey = segmentToCacheKey.get(segment.id)
-      const finalImageUrl = imagePromptCache.get(cacheKey)
-      
+      // 5. Database Saving
+      // Record the generated frame mapping to the specific segment
       await GeneratedFrame.create({
         sceneSegmentId: segment.id,
         imageUrl: finalImageUrl,
       })
 
+      // Sync the Cloudinary final URL back to the segment's imageUrl column and save
       segment.imageUrl = finalImageUrl
       await segment.save()
     }

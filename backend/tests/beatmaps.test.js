@@ -23,21 +23,6 @@ beforeAll(async () => {
   song = await Song.create({ creatorId: creator.id, durationSecs: 30, status: 'PUBLISHED', title: 'Beatmap Song' })
 })
 
-
-const { getOpenAIClient } = require('../services/openaiClient')
-
-jest.mock('../services/openaiClient', () => ({
-  getOpenAIClient: jest.fn().mockReturnValue({
-    chat: {
-      completions: {
-        create: jest.fn().mockResolvedValue({
-          choices: [{ message: { content: JSON.stringify({ bpm: 120, offsetMs: 10, notes: [{ startMs: 1000, lane: 1, type: 'tap' }] }) } }]
-        })
-      }
-    }
-  })
-}))
-
 beforeEach(async () => { jest.restoreAllMocks(); await RhythmBeatmap.destroy({ where: {} }) })
 afterAll(async () => { await sequelize.close(); if (fs.existsSync(databasePath)) fs.unlinkSync(databasePath) })
 

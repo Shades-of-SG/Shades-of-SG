@@ -1,14 +1,44 @@
 const fs = require('fs').promises
 const path = require('path')
+const { Op } = require('sequelize')
 const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models')
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
+const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
+const { transcribeMediaBuffer } = require('../services/transcriptionService')
 const { OpenAI } = require('openai')
 const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
-const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
-const { transcribeMediaBuffer } = require('../services/transcriptionService')
+
+const completeGeneration = async (jobId) => {
+  const job = await GenerationJob.findByPk(jobId)
+  if (!job) throw new Error(`Job ${jobId} not found in database.`)
+  const song = await Song.findByPk(job.songId)
+  if (!song) throw new Error(`Song ${job.songId} not found in database.`)
+  if (!song.videoUrl) throw new Error('Generation cannot complete without a video URL.')
+  await job.update({ status: 'COMPLETED', errorMessage: null, completedAt: new Date() })
+  await song.update({ status: 'READY' })
+  return { job, song }
+}
+
+const failGeneration = async (jobId, error) => {
+  const job = await GenerationJob.findByPk(jobId)
+  if (!job) return null
+  await job.update({ status: 'FAILED', errorMessage: error?.message || String(error || 'Generation failed.') })
+  const song = await Song.findByPk(job.songId)
+  if (song?.status === 'GENERATING') await song.update({ status: song.videoUrl ? 'READY' : 'DRAFT' })
+  return { job, song }
+}
+
+const usePlaceholderVideo = async (songId) => {
+  const placeholderVideoUrl = process.env.PLACEHOLDER_VIDEO_URL?.trim()
+  if (!placeholderVideoUrl) return false
+  const song = await Song.findByPk(songId)
+  if (!song) throw new Error(`Song ${songId} not found in database.`)
+  await song.update({ videoUrl: placeholderVideoUrl, videoPublicId: null })
+  return true
+}
 
 // ==========================================
 // Phase 5: The Cleanup Utility
@@ -59,18 +89,39 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    const song = await Song.findByPk(songId)
+    const song = await Song.findOne({
+      where: {
+        creatorId: req.authUserRecord.id,
+        id: songId,
+      },
+    })
     if (!song) {
       const error = new Error('Song not found.')
       error.statusCode = 404
       throw error
     }
+    
+    const activeJob = await GenerationJob.findOne({
+      where: {
+        songId,
+        status: { [Op.in]: ['QUEUED', 'PROCESSING'] },
+      },
+    })
+
+    if (activeJob) {
+      return res.status(409).json({
+        success: false,
+        message: 'Video generation is already active for this song.',
+      })
+    }
 
     // 1. Create the tracking ticket
     const job = await GenerationJob.create({
       songId,
-      status: 'IN_PROGRESS',
+      status: 'QUEUED',
     })
+
+    await song.update({ status: 'GENERATING' })
 
     // 2. Fire the background worker WITHOUT awaiting it
     runGenerationPipeline(job.id).catch(console.error)
@@ -81,7 +132,13 @@ const startGeneration = async (req, res, next) => {
       data: job,
     })
   } catch (error) {
-    next(error)
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Video generation is already active for this song.',
+      })
+    }
+    return next(error)
   }
 }
 
@@ -118,6 +175,13 @@ const getGenerationStatus = async (req, res, next) => {
       throw error
     }
 
+    if (job.song?.creatorId !== req.authUserRecord.id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Generation job not found.',
+      })
+    }
+
     return res.json({
       success: true,
       data: job,
@@ -130,7 +194,13 @@ const getGenerationStatus = async (req, res, next) => {
 const getAllJobs = async (req, res, next) => {
   try {
     const jobs = await GenerationJob.findAll({
-      include: [{ model: Song, as: 'song', attributes: ['title', 'artist'] }],
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'title', 'artist'],
+        required: true,
+        where: { creatorId: req.authUserRecord.id },
+      }],
       order: [['createdAt', 'DESC']],
     })
 
@@ -154,12 +224,24 @@ const runGenerationPipeline = async (jobId) => {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
 
+    await job.update({
+      errorMessage: null,
+      startedAt: job.startedAt || new Date(),
+      status: 'PROCESSING',
+    })
+
     const song = await Song.findByPk(job.songId)
     if (!song) throw new Error(`Song ${job.songId} not found.`)
 
     console.log(`[Phase 1] Audio Extraction & Whisper Transcription...`)
     if (!song.transcriptionSegments || song.transcriptionSegments.length === 0) {
-      const targetUrl = song.videoUrl || song.audioUrl || 'https://youtu.be/hYIOC3y0tmg'
+      const targetUrl = song.audioUrl || song.youtubeUrl || song.videoUrl
+
+      if (!targetUrl) {
+        throw new Error(
+          `Song ${song.id} has no audio, YouTube, or video URL available for transcription.`
+        )
+      }
       
       let extractedInfo;
       if (/(youtube\.com|youtu\.be)/i.test(targetUrl)) {
@@ -188,41 +270,37 @@ const runGenerationPipeline = async (jobId) => {
       console.log(`[Phase 1] Skipped. transcriptionSegments already exist.`)
     }
 
-    console.log(`[Phase 2] Generating Scene Plan...`)
+    console.log('[Phase 2] Generating Scene Plan...')
     await generateScenePlan(jobId, job.songId)
 
-    console.log(`[Phase 3] Generating Image Frames...`)
+    console.log('[Phase 3] Generating Image Frames...')
     await generateFrames(jobId, job.songId)
 
-    console.log(`[Phase 4] Assembling Video with FFmpeg...`)
+    console.log('[Phase 4] Assembling Video with FFmpeg...')
     await assembleVideo(jobId, job.songId)
 
-    // Update DB on Success
-    await job.update({
-      status: 'COMPLETED',
-      errorMessage: null,
-    })
-
-    // Run Cleanup on successful completion
+    await completeGeneration(jobId)
     await cleanupJobFiles(jobId)
-    console.log(`[Background Worker] Pipeline COMPLETED successfully for Job ID: ${jobId}`)
+
+    console.log(
+      `[Background Worker] Pipeline COMPLETED successfully for Job ID: ${jobId}`
+    )
   } catch (error) {
     console.error(`[Generation Pipeline Error] Job ${jobId}:`, error)
 
-    // ERROR BOUNDARY
     try {
-      if (jobId) {
-        await GenerationJob.update(
-          {
-            status: 'FAILED',
-            errorMessage: error.message || 'An unknown error occurred during generation.',
-          },
-          { where: { id: jobId } }
-        )
-        await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
-      }
-    } catch (fallbackError) {
-      console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
+      await failGeneration(jobId, error)
+    } catch (statusError) {
+      console.error(
+        `[Fallback Failure] Could not mark Job ${jobId} as failed:`,
+        statusError
+      )
+    }
+
+    try {
+      await cleanupJobFiles(jobId)
+    } catch (cleanupError) {
+      console.error(`[Cleanup Failure] Job ${jobId}:`, cleanupError)
     }
   }
 }
@@ -237,7 +315,7 @@ const exportVideo = async (req, res, next) => {
     }
 
     // Set job back to in progress so the frontend sees it compiling
-    await job.update({ status: 'IN_PROGRESS' });
+    await job.update({ status: 'PROCESSING' });
 
     // Wait for the video compilation to finish
     const assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);
@@ -326,6 +404,10 @@ module.exports = {
   startGeneration,
   getGenerationStatus,
   getAllJobs,
+  runGenerationPipeline,
+  completeGeneration,
+  failGeneration,
+  usePlaceholderVideo,
   exportVideo,
-  regenerateFrame
+  regenerateFrame,
 }

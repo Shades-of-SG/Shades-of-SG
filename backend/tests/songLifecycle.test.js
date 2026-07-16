@@ -10,6 +10,7 @@ const app = require('../server');
 const { sequelize, GenerationJob, Song, User } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
+const aiStorageService = require('../services/aiStorageService');
 const cloudinaryService = require('../services/cloudinaryService');
 
 let creator;
@@ -185,6 +186,56 @@ test('creator can upload and replace an owned cover image while another creator 
     expect(remove).toHaveBeenCalledWith('covers/first');
     upload.mockRestore();
     remove.mockRestore();
+});
+
+test('creator can upload an MP4 as song media', async () => {
+    const song = await Song.create({ creatorId: creator.id, status: 'DRAFT', title: 'MP4 Test' });
+    const upload = jest.spyOn(aiStorageService, 'uploadAudioStream').mockResolvedValue({
+        audioPublicId: 'audio/source-video',
+        audioUrl: 'https://media.example/source-video.mp4',
+        duration: 42,
+    });
+
+    const response = await request(app)
+        .post(`/api/songs/${song.id}/audio`).set(auth(creatorToken))
+        .attach('audioFile', Buffer.from('mock mp4 content'), { contentType: 'video/mp4', filename: 'source.mp4' });
+
+    expect(response.status).toBe(200);
+    expect(upload).toHaveBeenCalledWith(expect.any(Buffer));
+    await song.reload();
+    expect(song.toJSON()).toMatchObject({
+        audioPublicId: 'audio/source-video',
+        audioUrl: 'https://media.example/source-video.mp4',
+        durationSecs: 42,
+    });
+    upload.mockRestore();
+});
+
+test('creator can upload a final MP4 video and publish without an AI generation job', async () => {
+    const { videoUrl, ...songWithoutVideo } = completeSong;
+    expect(videoUrl).toBeTruthy();
+    const song = await Song.create({ ...songWithoutVideo, creatorId: creator.id, status: 'DRAFT' });
+    const upload = jest.spyOn(aiStorageService, 'uploadVideoStream').mockResolvedValue({
+        duration: 42,
+        videoPublicId: 'uploaded-videos/final',
+        videoUrl: 'https://media.example/final.mp4',
+    });
+
+    const response = await request(app)
+        .post(`/api/songs/${song.id}/video`).set(auth(creatorToken))
+        .attach('videoFile', Buffer.from('mock final video'), { contentType: 'video/mp4', filename: 'final.mp4' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.song).toMatchObject({
+        status: 'READY', videoPublicId: 'uploaded-videos/final', videoUrl: 'https://media.example/final.mp4',
+    });
+    expect(await GenerationJob.count({ where: { songId: song.id } })).toBe(0);
+    const readiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
+    expect(readiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'READY' });
+    expect((await request(app).put(`/api/songs/${song.id}/publish`).set(auth(creatorToken))).status).toBe(200);
+    const publishedReadiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
+    expect(publishedReadiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'PUBLISHED' });
+    upload.mockRestore();
 });
 
 test('generation start uses an existing Song id and creates no duplicate Song row', async () => {

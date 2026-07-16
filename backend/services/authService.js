@@ -34,6 +34,7 @@ function createToken(user) {
     const secret = process.env.AUTH_TOKEN_SECRET || process.env.JWT_SECRET || 'local-dev-auth-secret';
     const payload = Buffer.from(JSON.stringify({
         email: user.email,
+        createdAt: user.createdAt,
         id: user.id,
         role: user.role,
     })).toString('base64url');

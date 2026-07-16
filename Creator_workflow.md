@@ -1335,3 +1335,215 @@ Intentional placeholders:
 ### Lesson
 
 Deployment readiness is not just a green build. It requires fail-closed production secrets, explicit seed behavior, honest unavailable states, ownership at both write and read boundaries, and documentation that distinguishes verified local behavior from checks that still require real infrastructure.
+
+---
+
+## Post–Phase 8 Update — Registered Profile, Deployment Repairs, and Lifecycle Reconciliation
+
+### Purpose
+
+After the creator-to-public workflow phases were completed, the registered-user Profile was rebuilt as a real memory archive and music journey. This update also records several deployment and legacy-database defects discovered during live integration testing.
+
+No mock Profile statistics, fake badges, sample reflections, or local-only score history were introduced. Profile content comes from authenticated backend endpoints and existing persisted models.
+
+### Registered Profile Data Integration
+
+The old Profile page was a creator-styled placeholder with hardcoded descriptions. It was replaced with a registered-user page at `/profile` that requires a valid `REGISTERED` session and preserves the public-user navigation.
+
+The Profile now loads its sections independently so one failed API does not blank the entire page:
+
+- `GET /api/reflections/mine` returns reflections owned by the JWT user, including pending and anonymous submissions required for private ownership history.
+- `GET /api/badges/:userId` returns badges only when the requested ID matches the authenticated registered user.
+- `GET /api/scores/mine` returns recent persisted GameScores belonging to the JWT user and includes Song title and cover context.
+
+Profile statistics are derived from real data:
+
+- Memories shared uses the owned reflection count.
+- Songs played uses the number of distinct Song IDs in persisted score history.
+- Achievements earned uses the number of returned Badge records.
+
+The authenticated user serialization now includes `createdAt`, allowing the member-since date to use real account data.
+
+### Reflection Ownership on Profile
+
+The Profile lists up to four recent owned memories with Song title, tags, date, and anonymous status. Edit and delete controls render only when the backend marks the reflection as owned.
+
+Editing uses the existing owner-authorized reflection endpoint and preserves the original Song ID, display mode, and tags. Deletion requires confirmation and uses the existing owner-authorized delete endpoint. The memory section refetches after either action.
+
+No moderation actions are exposed on the registered Profile.
+
+### Badge Presentation
+
+Only persisted badges returned by the backend are rendered. Known badge names use a frontend presentation map for accessible icons, descriptions, and categories without adding database fields. Unknown names use a neutral Award presentation and retain the real backend badge name.
+
+No locked or unearned badge is displayed as earned. The empty state uses decorative empty hooks and silhouettes only.
+
+### Music Journey and Score Schema Repair
+
+The Profile displays recent registered-user rhythm attempts with Song artwork, title, score, accuracy, difficulty, played date, derived grade, and accuracy progress.
+
+Grade presentation follows:
+
+- S at 95% or higher;
+- A at 90% or higher;
+- B at 80% or higher;
+- C at 70% or higher;
+- D below 70%.
+
+Live PostgreSQL testing exposed that the deployed legacy `game_scores` table did not contain the model's `max_combo` and `rank` columns. This caused the initial `/api/scores/mine` query to return HTTP 500.
+
+The history endpoint now selects the stable fields needed by Profile, which makes existing history readable during rollout. A safe additive migration was added:
+
+- `backend/migrations/007_game_score_model_alignment.sql`
+
+Migration 007 adds and backfills `max_combo` and `rank`, restores rank validation, and adds `game_scores_user_created_at_idx` for user history. It must be applied to legacy Supabase environments so future score creation fully matches the Sequelize model.
+
+### Profile Visual Design
+
+The Profile presentation was refined to follow the supplied Figma direction while preserving all working data behavior.
+
+The final layout includes:
+
+- a wide responsive container using most of a 1280px content area;
+- a large layered-paper hero with taped avatar, biography, member date, edit link, Singapore skyline line art, and Memory Post stamp;
+- keepsake-style statistic counters with distinct paper colours and stamp-like icons;
+- prominent pinned memory notes with varied muted paper tones, subtle rotation, folded corners, tags, and discreet owner actions;
+- a souvenir-shelf treatment for earned badges;
+- a music-diary treatment for rhythm history with compact rows and accuracy progress;
+- distinct illustrated empty states for memories, keepsakes, and music history;
+- warm parchment, peach, lavender, rose, and sage surfaces in light mode;
+- layered navy, plum, indigo, dusty rose, teal, olive, and warm brown surfaces in dark mode.
+
+At tablet width, memories reduce to two columns and the lower sections stack. At 390px and 360px, all content stacks, decorations reduce, score details simplify, and the badge shelf remains horizontally scrollable.
+
+The shared `site-main` width constraint is intentionally removed only for `/profile`; other public pages retain their existing layout.
+
+### Profile Backend Gaps
+
+The existing User model has no biography or avatar fields and no supported profile-update endpoint. Therefore:
+
+- the avatar falls back to the user's initial;
+- the biography uses a neutral account fallback when no field exists;
+- Edit Profile links to the existing Settings route;
+- no fake editable biography/avatar save action was created;
+- no User migration was introduced solely for the visual design.
+
+### Deployment Repairs Recorded During This Work
+
+Several live deployment problems were identified and repaired:
+
+- Login still called the removed `seedCreatorAccount` function. That obsolete call and import were removed; login now only authenticates the normalized requested email.
+- Render CORS parsing now normalizes trailing slashes and supports `FRONTEND_URL` plus optional comma-separated `FRONTEND_URLS`.
+- Unknown browser origins return HTTP 403 without being silently accepted.
+- `frontend/vercel.json` adds the SPA rewrite required for direct routes such as `/login` and `/profile`.
+- A direct application entry at `/` starts at the logged-out public landing experience, while authenticated route loading remains supported elsewhere.
+
+### Publish Readiness Reconciliation
+
+Live Studio testing found a completed generation record whose Song remained `GENERATING`, leaving Publish Song disabled with `status READY` missing.
+
+The readiness and publish handlers now safely reconcile this legacy inconsistent state only when:
+
+- the latest GenerationJob is `COMPLETED`;
+- the Song has a video URL; and
+- the Song is still `DRAFT` or `GENERATING`.
+
+The reconciliation changes the Song to `READY`; it never publishes automatically. The owning creator must still click Publish Song explicitly.
+
+### Files Added or Updated
+
+Backend additions and relevant updates:
+
+- `backend/routes/badges.js`
+- `backend/routes/reflections.js`
+- `backend/routes/scores.js`
+- `backend/routes/auth.js`
+- `backend/controllers/songController.js`
+- `backend/services/authService.js`
+- `backend/server.js`
+- `backend/migrations/007_game_score_model_alignment.sql`
+- backend lifecycle, health, and integration tests
+
+Frontend additions and relevant updates:
+
+- `frontend/src/pages/Profile.jsx`
+- `frontend/src/pages/Profile.test.jsx`
+- `frontend/src/components/profile/`
+- `frontend/src/services/badgeService.js`
+- `frontend/src/services/scoreService.js`
+- `frontend/src/services/reflectionService.js`
+- `frontend/src/layouts/MainLayout.jsx`
+- `frontend/src/context/AuthContext.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/App.css`
+- `frontend/src/Profile.css`
+- `frontend/src/main.jsx`
+- `frontend/vercel.json`
+
+### Verification Results
+
+The registered Profile implementation was verified with:
+
+- complete root test command passing;
+- backend Jest: 4 suites and 48 tests passed at the final Profile data verification point;
+- frontend Vitest: 3 files and 27 tests passed;
+- full frontend ESLint passed;
+- full repository lint passed during integration;
+- frontend production build passed with 1,894 modules transformed after the visual refinement;
+- the real PostgreSQL score-history query completed successfully after selecting migration-compatible history fields;
+- `git diff --check` passed during the Profile implementation pass.
+
+Focused Profile tests cover authenticated identity, real known badges, unknown badge fallback metadata, empty keepsakes, owned memory controls, badge count, score grade calculation, and partial API failure.
+
+### Manual Follow-up
+
+1. Apply migration 007 to every legacy Supabase database before relying on new score persistence.
+2. Deploy the backend commit containing the CORS, login, Profile endpoints, score history, and publish reconciliation changes.
+3. Deploy the frontend commit containing `vercel.json` and the Profile design.
+4. Test `/profile` with a registered account containing reflections, badges, and scores.
+5. Verify empty and partial-error states with an account that has no activity.
+6. Test reflection edit/delete ownership and confirmation.
+7. Check Profile at 1280px, 768px, 390px, and 360px in both light and dark colour schemes.
+8. Confirm `/profile` redirects guests and does not expose creator navigation.
+
+### Remaining Limitations
+
+- Biography and avatar editing require a future explicitly designed User schema and authenticated update endpoint.
+- Badges are displayed but automatic badge-award rules remain separate from this Profile work.
+- Score history depends on registered gameplay persistence; guest localStorage attempts are intentionally excluded.
+- Migration 007 remains required on older PostgreSQL environments even though the history endpoint can read their stable legacy columns.
+
+### Lesson
+
+A personal Profile is an integration surface, not merely a visual page. Its counters and scrapbook artifacts must remain traceable to authenticated ownership and persisted activity. Visual richness is valuable only when empty states stay honest, unknown metadata degrades safely, and one unavailable service cannot erase the rest of a user's story.
+---
+
+## Phase 9 â€” Creator Experience Polish
+
+### Scope and outcome
+
+Phase 9 improved the creator-facing Studio, My Songs, and Generation Tasks experience without changing the core Song lifecycle. The focus was clear feedback, readable selection states, and removing unnecessary publishing controls.
+
+### Improvements made
+
+- Enabled immediate local MP3 preview in Studio before a draft is saved. A newly selected file takes priority over an existing saved-media URL, preloads for playback, and reports an understandable browser playback error when needed.
+- Restyled selected Song cards to use the readable Dashboard navy surface, white text, and a visible accent border instead of a low-contrast dark overlay.
+- Replaced internal publishing field names such as `videoUrl` and `status READY` with creator-facing guidance. For example, a pending generation now explains that the video is still being prepared before publishing can continue.
+- Added unique, actionable empty states for every My Songs filter: All, Drafts, Generating, Ready, Published, and Archived.
+- Made temporary success and error feedback auto-dismiss after five seconds in Studio, My Songs, and Generation Tasks. Ongoing generation failures and publishing-readiness guidance remain visible because they require action.
+- Removed the duplicate top-header Publish Song button on Preview & Publish. The footer remains the single publishing action.
+
+### Verification
+
+- `npm.cmd run lint` in `frontend`: passed.
+- `npm.cmd run build` in `frontend`: passed.
+
+### Files changed in Phase 9
+
+- `Creator_workflow.md`
+- `frontend/src/App.css`
+- `frontend/src/components/studio/AudioPreviewCard.jsx`
+- `frontend/src/components/studio/StudioHeader.jsx`
+- `frontend/src/pages/CreatorGenerationJobs.jsx`
+- `frontend/src/pages/CreatorSongs.jsx`
+- `frontend/src/pages/Studio.jsx`

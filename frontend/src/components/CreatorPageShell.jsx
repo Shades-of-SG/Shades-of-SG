@@ -1,6 +1,10 @@
 import CreatorAccountWidget from './CreatorAccountWidget'
+import { useAuth } from '../context/AuthContext'
 
 export default function CreatorPageShell({ actions, breadcrumbs = [], children, className = '', description, eyebrow = 'Creator Portal', title }) {
+  const { user } = useAuth()
+  const showCreatorAccount = user?.role === 'CREATOR'
+
   return (
     <div className={`creator-page ${className}`.trim()}>
       <header className="creator-page__header">
@@ -17,10 +21,12 @@ export default function CreatorPageShell({ actions, breadcrumbs = [], children, 
           </div>
         </div>
 
-        <div className="creator-page__header-actions">
-          <CreatorAccountWidget />
-          {actions && <div className="creator-page__actions">{actions}</div>}
-        </div>
+        {(showCreatorAccount || actions) && (
+          <div className="creator-page__header-actions">
+            {showCreatorAccount ? <CreatorAccountWidget /> : null}
+            {actions && <div className="creator-page__actions">{actions}</div>}
+          </div>
+        )}
       </header>
 
       <div className="creator-page__content">{children}</div>
