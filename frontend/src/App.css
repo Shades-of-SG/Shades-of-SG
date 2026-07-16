@@ -4522,6 +4522,301 @@ h1 {
 }
 
 .song-art,
+.rhythm-hub {
+  gap: 22px;
+  margin: 0 auto;
+  max-width: 1180px;
+  padding-bottom: 36px;
+  width: 100%;
+}
+
+.rhythm-list-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+.rhythm-list-toolbar label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.rhythm-list-toolbar select {
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  flex: 0 0 200px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 7px 34px 7px 11px;
+  width: 200px;
+}
+
+.rhythm-list-toolbar select:hover {
+  border-color: rgba(216, 180, 254, 0.5);
+}
+
+.rhythm-list-toolbar select:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rhythm-song-list {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rhythm-song-row {
+  align-items: center;
+  background-color: rgba(21, 30, 49, 0.92);
+  background-image: linear-gradient(115deg, rgba(91, 75, 138, 0.1), transparent 44%);
+  border: 1px solid rgba(216, 180, 254, 0.16);
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16);
+  cursor: default;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 156px minmax(260px, 1fr) auto;
+  min-height: 180px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px 16px 12px 12px;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.rhythm-song-row:hover,
+.rhythm-song-row:focus-within {
+  background-color: rgba(30, 41, 59, 0.98);
+  border-color: rgba(216, 180, 254, 0.58);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.26), 0 0 24px rgba(139, 92, 246, 0.1);
+  transform: translateY(-2px);
+}
+
+.rhythm-song-cover {
+  align-self: center;
+  aspect-ratio: 1;
+  border-radius: 9px;
+  overflow: hidden;
+  width: 156px;
+}
+
+.rhythm-song-cover img,
+.rhythm-song-cover__fallback {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.rhythm-song-cover img {
+  display: block;
+  transition: transform 180ms ease;
+}
+
+.rhythm-song-row:hover .rhythm-song-cover img,
+.rhythm-song-row:focus-within .rhythm-song-cover img {
+  transform: scale(1.02);
+}
+
+.rhythm-song-cover__fallback {
+  align-items: center;
+  background:
+    radial-gradient(circle at 30% 18%, rgba(216, 180, 254, 0.34), transparent 34%),
+    linear-gradient(135deg, var(--primary), #172033);
+  color: rgba(255, 255, 255, 0.78);
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.rhythm-song-info {
+  min-width: 0;
+}
+
+.rhythm-song-info h2 {
+  font-size: clamp(1.5rem, 2.5vw, 1.9rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.rhythm-song-artist {
+  color: var(--text);
+  font-size: 0.96rem;
+  font-weight: 750;
+  margin-top: 5px;
+}
+
+.rhythm-song-context {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.84rem;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.rhythm-song-context > span {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.rhythm-song-context__separator {
+  color: rgba(216, 180, 254, 0.62);
+}
+
+.rhythm-song-summary {
+  color: rgba(216, 180, 254, 0.72);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.075em;
+  margin-top: 9px;
+  text-transform: uppercase;
+}
+
+.rhythm-song-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.rhythm-difficulty-link {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid currentColor;
+  border-radius: 9px;
+  color: #e9d5ff;
+  display: grid;
+  gap: 1px 8px;
+  grid-template-columns: 1fr auto;
+  min-height: 56px;
+  padding: 8px 10px 8px 12px;
+  text-decoration: none;
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  width: 132px;
+}
+
+.rhythm-difficulty-link > span {
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.rhythm-difficulty-link small {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.7rem;
+  font-weight: 750;
+  grid-column: 1;
+  white-space: nowrap;
+}
+
+.rhythm-difficulty-link svg {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.rhythm-difficulty-link.is-easy {
+  background: rgba(34, 197, 94, 0.1);
+  color: #86efac;
+}
+
+.rhythm-difficulty-link.is-medium {
+  background: rgba(168, 85, 247, 0.12);
+  color: #d8b4fe;
+}
+
+.rhythm-difficulty-link.is-hard {
+  background: rgba(244, 63, 94, 0.11);
+  color: #fda4af;
+}
+
+.rhythm-difficulty-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2), 0 0 0 1px currentColor;
+  transform: translateY(-2px);
+}
+
+.rhythm-difficulty-link:active {
+  box-shadow: none;
+  transform: translateY(1px);
+}
+
+.rhythm-difficulty-link:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 980px) {
+  .rhythm-song-row {
+    grid-template-columns: 144px minmax(0, 1fr);
+  }
+
+  .rhythm-song-cover {
+    width: 144px;
+  }
+
+  .rhythm-song-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .rhythm-list-toolbar {
+    justify-content: flex-start;
+  }
+
+  .rhythm-list-toolbar select {
+    min-height: 44px;
+  }
+
+  .rhythm-song-row {
+    align-items: stretch;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .rhythm-song-cover {
+    width: min(100%, 320px);
+  }
+
+  .rhythm-song-actions {
+    flex-direction: column;
+    grid-column: 1;
+  }
+
+  .rhythm-difficulty-link {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rhythm-song-row,
+  .rhythm-song-cover img,
+  .rhythm-difficulty-link {
+    transition: none;
+  }
+
+  .rhythm-song-row:hover,
+  .rhythm-song-row:focus-within,
+  .rhythm-song-row:hover .rhythm-song-cover img,
+  .rhythm-song-row:focus-within .rhythm-song-cover img,
+  .rhythm-difficulty-link:hover,
+  .rhythm-difficulty-link:active {
+    transform: none;
+  }
+}
+
 .video-frame {
   align-items: center;
   background:
