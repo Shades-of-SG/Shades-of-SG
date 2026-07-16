@@ -153,6 +153,40 @@ function ModuleCard({ module }) {
   )
 }
 
+function PublishedSongCard({ song }) {
+  return (
+    <article className="learning-module-card learning-song-card">
+      <div className="learning-song-card__cover">
+        {song.coverImageUrl ? (
+          <img alt={`${song.title} cover`} src={song.coverImageUrl} />
+        ) : (
+          <div aria-label="No cover image" className="learning-song-card__cover-fallback">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M9 18V5l10-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="16" cy="16" r="3" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      <div className="learning-song-card__body">
+        <p className="learning-song-card__theme">{song.theme || 'Published Song'}</p>
+        <h3>{song.title}</h3>
+        <p className="learning-song-card__artist">{song.artist || 'Artist unavailable'}</p>
+      </div>
+
+      <div className="learning-song-card__actions">
+        <Link className="learning-song-card__action learning-song-card__action--primary" to={`/songs/${song.id}`}>
+          Explore Song
+        </Link>
+        <Link className="learning-song-card__action" to={`/songs/${song.id}/trivia`}>Trivia</Link>
+        <Link className="learning-song-card__action" to={`/songs/${song.id}/playground`}>Playground</Link>
+      </div>
+    </article>
+  )
+}
+
 export default function LearningHub() {
   const [publishedSongs, setPublishedSongs] = useState([])
   const [songError, setSongError] = useState('')
@@ -252,11 +286,20 @@ export default function LearningHub() {
       </section>
 
       <section className="learning-modules">
-        <div className="learning-section-heading"><h2>Learn Through Published Songs</h2><p>Choose a Song to carry its real ID into connected activities.</p></div>
+        <Reveal as="div" className="learning-section-heading">
+          <h2>Learn Through Published Songs</h2>
+          <p>Choose a song and continue its journey through connected activities.</p>
+        </Reveal>
         {songsLoading ? <p role="status">Loading published songs…</p> : null}
         {songError ? <div className="state-box" role="alert">{songError}</div> : null}
         {!songsLoading && !songError && publishedSongs.length === 0 ? <div className="state-box"><strong>No published songs yet</strong><p>Song-led learning will appear after a creator publishes a Song.</p></div> : null}
-        <div className="learning-modules__grid">{publishedSongs.map((song) => <article className="learning-module-card" key={song.id}>{song.coverImageUrl ? <img alt={`${song.title} cover`} className="creator-song-cover" src={song.coverImageUrl} /> : null}<h3>{song.title}</h3><p>{song.artist || 'Artist unavailable'} · {song.theme || 'Theme unavailable'}</p><div className="button-row"><Link to={`/songs/${song.id}`}>Explore</Link><Link to={`/songs/${song.id}/trivia`}>Trivia</Link><Link to={`/songs/${song.id}/playground`}>Playground</Link></div></article>)}</div>
+        <div className="learning-modules__grid">
+          {publishedSongs.map((song, index) => (
+            <Reveal as="div" delay={index * 100} key={song.id}>
+              <PublishedSongCard song={song} />
+            </Reveal>
+          ))}
+        </div>
       </section>
 
       <Reveal as="section" className="learning-fact">
