@@ -56,7 +56,7 @@ For each scene block, your visualPrompt must specify:
     }
     CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
 
-      let segmentsStr = rawSegments.map((s, i) => 
+      let segmentsStr = rawSegments.map((s) => 
         `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`
       ).join('\n');
 

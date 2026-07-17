@@ -1,10 +1,10 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
 
-const isPostgres = Boolean(process.env.DATABASE_URL);
+const isPostgres = Boolean(process.env.DB_URL);
 
 const sequelize = isPostgres
-    ? new Sequelize(process.env.DATABASE_URL, {
+    ? new Sequelize(process.env.DB_URL, {
         dialect: 'postgres',
         logging: process.env.SEQUELIZE_LOGGING === 'true' ? console.log : false,
         dialectOptions: {
