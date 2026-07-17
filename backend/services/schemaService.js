@@ -20,8 +20,9 @@ async function ensureGuestReflectionSchema(sequelize) {
         });
     }
 
+    const cast = sequelize.getDialect() === 'postgres' ? '::enum_reflections_display_mode' : '';
     await sequelize.query(
-        "UPDATE reflections SET display_mode = CASE WHEN display_name IS NULL THEN 'ANONYMOUS' ELSE 'PROFILE' END",
+        `UPDATE reflections SET display_mode = CASE WHEN display_name IS NULL THEN 'ANONYMOUS'${cast} ELSE 'PROFILE'${cast} END`,
         { type: QueryTypes.UPDATE }
     );
 }

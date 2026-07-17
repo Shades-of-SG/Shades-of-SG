@@ -238,6 +238,7 @@ export default function VideoEditor() {
   const [showCaptions, setShowCaptions] = useState(true)
   const [isExporting, setIsExporting] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
+  const [hasEdits, setHasEdits] = useState(false)
 
   // Fullscreen UI State
   const [showControls, setShowControls] = useState(true)
@@ -410,6 +411,7 @@ export default function VideoEditor() {
         const newFrames = [...frames];
         newFrames[currentFrameIndex].imageUrl = result.data.imageUrl;
         setFrames(newFrames);
+        setHasEdits(true);
         setShowRegenerateInput(false);
         setUserFeedback('');
       } else {
@@ -426,29 +428,38 @@ export default function VideoEditor() {
   const handlePublishToStudio = async () => {
     setIsPublishing(true);
     try {
-      const res = await fetch(`/api/generation/${id}/export`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        body: JSON.stringify({ burnCaptions: false }) // Clean export for platform
-      });
-      const result = await res.json();
-      if (result.success && result.videoUrl) {
-        // Map raw lyrics from segments or fallback to raw lyrics field
-        const rawLyrics = jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
-        
-        navigate(`/creator/studio/${encodeURIComponent(jobData?.song?.id || '')}`, {
-          state: { 
-            videoUrl: result.videoUrl,
-            lyrics: rawLyrics,
-            transcriptionSegments: jobData?.song?.transcriptionSegments || [],
-            jobId: id,
-            originalSongId: jobData?.song?.id,
-            songData: jobData?.song
-          } 
+      let finalVideoUrl = jobData?.song?.videoUrl || '';
+
+      // Heavy Lane: Run export API if edits exist or if no video is compiled yet
+      if (hasEdits || !finalVideoUrl) {
+        const res = await fetch(`/api/generation/${id}/export`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          body: JSON.stringify({ burnCaptions: false }) 
         });
-      } else {
-        alert('Failed to prepare clean video: ' + (result.message || 'Unknown error'));
+        const result = await res.json();
+        if (result.success && result.videoUrl) {
+          finalVideoUrl = result.videoUrl;
+        } else {
+          alert('Failed to prepare clean video: ' + (result.message || 'Unknown error'));
+          setIsPublishing(false);
+          return;
+        }
       }
+
+      // Fast Lane / Completion: Instantly navigate
+      const rawLyrics = jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
+      
+      navigate(`/creator/studio/${encodeURIComponent(jobData?.song?.id || '')}`, {
+        state: { 
+          videoUrl: finalVideoUrl,
+          lyrics: rawLyrics,
+          transcriptionSegments: jobData?.song?.transcriptionSegments || [],
+          jobId: id,
+          originalSongId: jobData?.song?.id,
+          songData: jobData?.song
+        } 
+      });
     } catch (e) {
       console.error(e);
       alert('Error preparing clean video for Studio');

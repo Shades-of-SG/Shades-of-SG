@@ -54,7 +54,8 @@ For each scene block, your visualPrompt must specify:
         }
       ]
     }
-    CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
+    CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.
+    CRITICAL: DO NOT ROUND THE TIMESTAMPS. They must remain as exact floats with 2 decimal places (e.g., 30.12, not 30).`
 
       let segmentsStr = rawSegments.map((s) => 
         `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`

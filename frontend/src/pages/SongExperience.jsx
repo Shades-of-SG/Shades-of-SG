@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { PlayCircle, Square } from 'lucide-react'
+import CustomVideoPlayer from '../components/shared/CustomVideoPlayer'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import { getPublishedSong } from '../services/publicSongService'
@@ -167,12 +168,6 @@ const MOCK_SONG_DATA = {
   ],
 }
 
-function formatTime(seconds) {
-  if (!Number.isFinite(seconds)) return '0:00'
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
 
 export default function SongExperience() {
   const { id = 'demo-song' } = useParams()
@@ -217,13 +212,12 @@ export default function SongExperience() {
     videoUrl: dbSong.videoUrl || MOCK_SONG_DATA.videoUrl,
     culturalSummary: dbSong.description || MOCK_SONG_DATA.culturalSummary,
     coverImageUrl: dbSong.coverImageUrl || undefined,
+    transcriptionSegments: dbSong.transcriptionSegments || null,
   } : MOCK_SONG_DATA
 
-  // Video state
-  const videoRef = useRef(null)
+  // Video playback is handled by CustomVideoPlayer;
+  // we only track whether something is playing so we can stop instrument melodies.
   const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
 
   // Trivia state
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -256,11 +250,8 @@ export default function SongExperience() {
 
     stopSyntheticMelody()
 
-    // pause main video if it's playing
-    if (isPlaying) {
-      videoRef.current?.pause()
-      setIsPlaying(false)
-    }
+    // The CustomVideoPlayer will be paused by the user; here we just track state
+    setIsPlaying(false)
 
     setPlayingInstrumentId(instrument.id)
     // Mimic the sequence logic from InstrumentPlayer
@@ -286,27 +277,7 @@ export default function SongExperience() {
 
   const currentQuestion = songData.trivia[questionIndex]
 
-  async function togglePlay() {
-    if (!videoRef.current) return
-    if (!videoRef.current.paused) {
-      videoRef.current.pause()
-      setIsPlaying(false)
-    } else {
-      try {
-        await videoRef.current.play()
-        setIsPlaying(true)
-      } catch {
-        setIsPlaying(false)
-      }
-    }
-  }
 
-  function handleSeek(e) {
-    const t = Number(e.target.value)
-    if (!videoRef.current || !Number.isFinite(t)) return
-    videoRef.current.currentTime = t
-    setCurrentTime(t)
-  }
 
   function handleAnswerClick(optionId) {
     if (selectedAnswer) return
@@ -378,60 +349,13 @@ export default function SongExperience() {
 
           {/* Video Player */}
           <div className="section-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ position: 'relative', width: '100%' }}>
-              <video
-                ref={videoRef}
-                src={songData.videoUrl}
-                playsInline
-                onClick={togglePlay}
-                onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-                onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setCurrentTime(0) }}
-                onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}
-                onPause={() => setIsPlaying(false)}
-                onPlay={() => {
-                  setIsPlaying(true)
-                  stopSyntheticMelody()
-                }}
-                style={{ display: 'block', width: '100%', aspectRatio: '16/9', objectFit: 'cover', cursor: 'pointer', background: '#000' }}
-              />
-            </div>
-
-            {/* Controls Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderTop: '1px solid var(--line)', background: 'var(--panel)', fontSize: '0.8rem' }}>
-              {/* Play */}
-              <button onClick={togglePlay} style={iconBtnStyle}>
-                {isPlaying ? pauseIcon : playIcon}
-              </button>
-              {/* Volume */}
-              <button style={iconBtnStyle}>{volumeIcon}</button>
-              {/* Time */}
-              <span style={{ color: 'var(--muted)', fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
-              {/* Scrubber */}
-              <input
-                type="range"
-                min="0"
-                max={duration || 0}
-                step="0.1"
-                value={currentTime}
-                onChange={handleSeek}
-                aria-label="Video progress"
-                style={{ flex: 1, accentColor: 'var(--violet)', cursor: 'pointer' }}
-              />
-              {/* CC */}
-              <button style={iconBtnStyle} title="Captions burned into video">{ccIcon}</button>
-              {/* Fullscreen */}
-              <button
-                onClick={() => {
-                  if (!document.fullscreenElement) videoRef.current?.requestFullscreen()
-                  else document.exitFullscreen()
-                }}
-                style={iconBtnStyle}
-              >
-                {fullscreenIcon}
-              </button>
-            </div>
+            <CustomVideoPlayer
+              src={songData.videoUrl}
+              transcriptionSegments={songData.transcriptionSegments}
+              poster={songData.coverImageUrl}
+              onPlay={() => { setIsPlaying(true); stopSyntheticMelody() }}
+              onPause={() => setIsPlaying(false)}
+            />
           </div>
 
           {/* Title + Tags (below player) */}
@@ -613,30 +537,4 @@ export default function SongExperience() {
   )
 }
 
-/* ── Inline SVG icons (avoiding Lucide dependency issues) ── */
 
-const iconBtnStyle = {
-  background: 'none',
-  border: 'none',
-  padding: '4px',
-  cursor: 'pointer',
-  color: 'var(--muted)',
-  display: 'flex',
-  alignItems: 'center',
-}
-
-const playIcon = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-)
-const pauseIcon = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6zm8-14v14h4V5z"/></svg>
-)
-const volumeIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-)
-const ccIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h4m-4-3h2m6 3h2m-4-3h4"/></svg>
-)
-const fullscreenIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import LyricsCard from '../components/studio/LyricsCard'
 import LivePreviewCard from '../components/studio/LivePreviewCard'
 import MetadataStepper from '../components/studio/MetadataStepper'
@@ -64,6 +64,7 @@ function friendlyActionError(error, action = 'save your draft') {
 export default function Studio() {
   const { songId: routeSongId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { token } = useAuth()
   const [songId, setSongId] = useState(routeSongId || '')
   const [song, setSong] = useState(null)
@@ -87,6 +88,7 @@ export default function Studio() {
   const [publishPrompt, setPublishPrompt] = useState(null)
   const [extractionStatus, setExtractionStatus] = useState('idle')
   const [extractionError, setExtractionError] = useState('')
+  const [transcriptionSegments, setTranscriptionSegments] = useState(null)
   const [transcriptionStatus, setTranscriptionStatus] = useState({ configured: null, error: '' })
 
   useEffect(() => {
@@ -112,6 +114,15 @@ export default function Studio() {
         setSelectedLanguages([...(loadedSong.languages || []), ...(otherLanguages.length ? ['Others'] : [])])
         setSelectedMoods(loadedSong.moodTags || [])
         setLyrics(loadedSong.rawLyrics || '')
+        // Merge prefill from VideoEditor (only if the DB doesn't already have these values)
+        if (location.state?.transcriptionSegments && !loadedSong.transcriptionSegments?.length) {
+          setTranscriptionSegments(location.state.transcriptionSegments)
+        } else {
+          setTranscriptionSegments(loadedSong.transcriptionSegments || null)
+        }
+        if (location.state?.lyrics && !loadedSong.rawLyrics?.trim()) {
+          setLyrics(location.state.lyrics)
+        }
         setCoverImageUrl(loadedSong.coverImageUrl || '')
         setCoverFileName('')
         setSavedAudioFileName(savedMediaName(loadedSong.audioFileName, loadedSong.videoUrl || loadedSong.audioUrl))
@@ -153,6 +164,7 @@ export default function Studio() {
       artist: formData.artist, description: formData.description, languages,
       moodTags: selectedMoods, otherLanguages, rawLyrics: lyrics,
       sourceYoutubeUrl: formData.youtubeLink, theme: formData.theme, title: formData.title,
+      transcriptionSegments,
     }
   }
 

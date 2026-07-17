@@ -169,6 +169,7 @@ const getGenerationStatus = async (req, res, next) => {
             {
               model: SceneSegment,
               as: 'sceneSegments',
+              separate: true,
               order: [['startTime', 'ASC']],
               include: [
                 {

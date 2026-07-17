@@ -10,7 +10,7 @@ const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
 const EDITABLE_FIELDS = [
     'title', 'artist', 'description', 'theme', 'languages', 'otherLanguages', 'moodTags',
     'rawLyrics', 'coverImageUrl', 'coverImagePublicId', 'audioUrl', 'audioPublicId',
-    'sourceYoutubeUrl', 'videoUrl', 'videoPublicId', 'durationSecs',
+    'sourceYoutubeUrl', 'videoUrl', 'videoPublicId', 'durationSecs', 'transcriptionSegments',
 ];
 
 function normalizeArray(value) {

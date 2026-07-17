@@ -1,6 +1,6 @@
 const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
-const DEFAULT_TRANSCRIPTION_MODEL = 'gpt-4o-transcribe';
+const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
 const PROMPT_ECHO_TEXT = 'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.';
 
 const SUPPORTED_MIME_TYPES = new Set([
