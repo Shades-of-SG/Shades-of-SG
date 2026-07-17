@@ -101,7 +101,11 @@ async function findOwnedSong(req) {
 
 async function listPublicSongs(req, res, next) {
     try {
-        const where = { creatorId: { [Op.ne]: null }, status: 'PUBLISHED' };
+        const where = { 
+            creatorId: { [Op.ne]: null }, 
+            status: 'PUBLISHED',
+            title: { [Op.ne]: 'Beatmap Song' }
+        };
         if (req.query.theme) where.theme = req.query.theme;
         const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
         const search = String(req.query.search || '').trim().toLowerCase();

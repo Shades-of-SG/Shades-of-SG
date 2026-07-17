@@ -235,7 +235,7 @@ export default function VideoEditor() {
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [showRegenerateInput, setShowRegenerateInput] = useState(false)
   const [userFeedback, setUserFeedback] = useState('')
-  const [showCaptions, setShowCaptions] = useState(true)
+  const [showCaptions, setShowCaptions] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [hasEdits, setHasEdits] = useState(false)
@@ -449,12 +449,14 @@ export default function VideoEditor() {
 
       // Fast Lane / Completion: Instantly navigate
       const rawLyrics = jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
+      const currentCoverImage = frames[currentFrameIndex]?.imageUrl || '';
       
       navigate(`/creator/studio/${encodeURIComponent(jobData?.song?.id || '')}`, {
         state: { 
           videoUrl: finalVideoUrl,
           lyrics: rawLyrics,
           transcriptionSegments: jobData?.song?.transcriptionSegments || [],
+          coverImageUrl: currentCoverImage,
           jobId: id,
           originalSongId: jobData?.song?.id,
           songData: jobData?.song
@@ -471,6 +473,20 @@ export default function VideoEditor() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
+      if (!hasEdits && !showCaptions && jobData?.song?.videoUrl) {
+        // Fast Lane: Trigger download instantly
+        const a = document.createElement('a');
+        a.href = jobData.song.videoUrl;
+        a.download = `KindMaster_Export_${id}.mp4`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setIsExporting(false);
+        return;
+      }
+
+      // Heavy Lane: Request compilation from backend
       const res = await fetch(`/api/generation/${id}/export`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
@@ -478,6 +494,17 @@ export default function VideoEditor() {
       });
       const result = await res.json();
       if (result.success && result.videoUrl) {
+        setHasEdits(false);
+        if (!showCaptions) {
+          setJobData(prev => ({
+            ...prev,
+            song: {
+              ...(prev?.song || {}),
+              videoUrl: result.videoUrl
+            }
+          }));
+        }
+
         // Trigger download directly in the browser
         const a = document.createElement('a');
         a.href = result.videoUrl;

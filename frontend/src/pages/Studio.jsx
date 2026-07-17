@@ -123,7 +123,7 @@ export default function Studio() {
         if (location.state?.lyrics && !loadedSong.rawLyrics?.trim()) {
           setLyrics(location.state.lyrics)
         }
-        setCoverImageUrl(loadedSong.coverImageUrl || '')
+        setCoverImageUrl(loadedSong.coverImageUrl || location.state?.coverImageUrl || '')
         setCoverFileName('')
         setSavedAudioFileName(savedMediaName(loadedSong.audioFileName, loadedSong.videoUrl || loadedSong.audioUrl))
         setAudioPreviewUrl(loadedSong.videoUrl || loadedSong.audioUrl || '')
@@ -164,7 +164,7 @@ export default function Studio() {
       artist: formData.artist, description: formData.description, languages,
       moodTags: selectedMoods, otherLanguages, rawLyrics: lyrics,
       sourceYoutubeUrl: formData.youtubeLink, theme: formData.theme, title: formData.title,
-      transcriptionSegments,
+      transcriptionSegments, coverImageUrl,
     }
   }
 

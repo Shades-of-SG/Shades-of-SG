@@ -71,9 +71,9 @@ async function cleanupFiles(filePaths) {
  * Assembles a final MP4 video from generated scene images, audio, and lyrics.
  * * @param {number} jobId - The ID of the GenerationJob
  * @param {number} songId - The ID of the corresponding Song
- * @param {boolean} burnCaptions - Whether to hard-burn subtitles into the MP4. Defaults to true.
+ * @param {boolean} burnCaptions - Whether to hard-burn subtitles into the MP4. Defaults to false.
  */
-async function assembleVideo(jobId, songId, burnCaptions = true) {
+async function assembleVideo(jobId, songId, burnCaptions = false) {
   const tempDir = path.join(__dirname, '..', 'storage', 'temp')
   const filesToCleanup = []
 

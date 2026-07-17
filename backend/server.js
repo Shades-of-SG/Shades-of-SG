@@ -12,6 +12,7 @@ const generationRouter = require('./routes/aiGeneration');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
 const { seedCreatorAccount } = require('./services/authService');
+const { GenerationJob, Song } = require('./models');
 const {
     ensureGameScoreSchema,
     ensureGenerationJobSchema,
@@ -92,6 +93,26 @@ async function startServer() {
         await ensureSongMediaSchema(sequelize);
         await seedCreatorAccount();
         console.log('Database connected successfully');
+
+        // Rescue stuck jobs from previous interrupted runs
+        try {
+            const stuckJobs = await GenerationJob.findAll({ 
+                where: { status: ['PROCESSING', 'QUEUED'] } 
+            });
+            let rescued = 0;
+            for (const job of stuckJobs) {
+                const song = await Song.findByPk(job.songId);
+                if (song && song.videoUrl) {
+                    await job.update({ status: 'COMPLETED', errorMessage: null });
+                } else {
+                    await job.update({ status: 'FAILED', errorMessage: 'Server restarted during processing. Please try exporting again.' });
+                }
+                rescued++;
+            }
+            if (rescued > 0) console.log(`[Startup] Rescued ${rescued} stuck generation jobs.`);
+        } catch (e) {
+            console.error('[Startup] Failed to rescue stuck jobs:', e);
+        }
 
         app.listen(PORT, () => {
             console.log(

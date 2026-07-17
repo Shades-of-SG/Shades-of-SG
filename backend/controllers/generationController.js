@@ -325,7 +325,14 @@ const exportVideo = async (req, res, next) => {
     await job.update({ status: 'PROCESSING', errorMessage: null, startedAt: new Date() });
 
     // Wait for the video compilation to finish
-    const assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);
+    let assembleResult;
+    try {
+      assembleResult = await assembleVideo(jobId, job.songId, burnCaptions);
+    } catch (err) {
+      // Safely revert the job status so it doesn't get stuck in PROCESSING
+      await job.update({ status: 'COMPLETED' });
+      throw err;
+    }
     await job.update({ status: 'COMPLETED', completedAt: new Date() });
     await job.reload();
 
