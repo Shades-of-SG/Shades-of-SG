@@ -90,7 +90,22 @@ async function ensureSongSchema(sequelize) {
 }
 
 async function ensureGenerationJobSchema(sequelize) {
-    // Empty schema updater to satisfy server.js import requirements
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('generation_jobs');
+
+    if (!columns.started_at) {
+        await queryInterface.addColumn('generation_jobs', 'started_at', {
+            allowNull: true,
+            type: DataTypes.DATE,
+        });
+    }
+
+    if (!columns.completed_at) {
+        await queryInterface.addColumn('generation_jobs', 'completed_at', {
+            allowNull: true,
+            type: DataTypes.DATE,
+        });
+    }
 }
 
 async function ensureRhythmBeatmapSchema(sequelize) {

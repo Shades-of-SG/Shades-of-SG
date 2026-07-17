@@ -1,10 +1,13 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
 
-const isPostgres = Boolean(process.env.DB_URL);
+// DATABASE_URL is the documented production setting used by Render/Supabase.
+// Keep DB_URL as a backwards-compatible alias for existing environments.
+const databaseUrl = process.env.DATABASE_URL || process.env.DB_URL;
+const isPostgres = Boolean(databaseUrl);
 
 const sequelize = isPostgres
-    ? new Sequelize(process.env.DB_URL, {
+    ? new Sequelize(databaseUrl, {
         dialect: 'postgres',
         logging: process.env.SEQUELIZE_LOGGING === 'true' ? console.log : false,
         dialectOptions: {
