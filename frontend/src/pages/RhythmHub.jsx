@@ -15,7 +15,12 @@ function difficultyLabel(difficulty) {
 function formatDuration(durationSecs) {
   const totalSeconds = Math.floor(Number(durationSecs))
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return ''
-  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  const parts = []
+  if (minutes) parts.push(`${minutes} ${minutes === 1 ? 'min' : 'mins'}`)
+  if (seconds) parts.push(`${seconds} ${seconds === 1 ? 'sec' : 'secs'}`)
+  return parts.join(' ')
 }
 
 function sortSongs(songs, sortBy) {
