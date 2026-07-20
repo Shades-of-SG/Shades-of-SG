@@ -1,5 +1,7 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const User = require('../models/User');
+const { requireAuth } = require('../middleware/auth');
 const {
     createToken,
     hashPassword,
@@ -46,6 +48,30 @@ router.post('/login', async (req, res, next) => {
             token: createToken(user),
             user: serializeUser(user),
         });
+    } catch (error) {
+        return next(error);
+    }
+});
+
+router.put('/profile', requireAuth, async (req, res, next) => {
+    try {
+        const name = req.body.name?.trim();
+        const email = req.body.email?.trim().toLowerCase();
+
+        if (!name || !email) {
+            return res.status(400).json({ message: 'Name and email are required.' });
+        }
+
+        const user = await User.findByPk(req.authUser.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+
+        const emailOwner = await User.findOne({
+            where: { email, id: { [Op.ne]: user.id } },
+        });
+        if (emailOwner) return res.status(409).json({ message: 'An account with this email already exists.' });
+
+        await user.update({ email, name });
+        return res.json({ user: serializeUser(user) });
     } catch (error) {
         return next(error);
     }

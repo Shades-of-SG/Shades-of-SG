@@ -28,3 +28,14 @@ export async function registerAccount(name, email, password) {
   if (!response.ok) throw new Error(data.message || 'Unable to create account.')
   return data
 }
+
+export async function updateProfile(values, token) {
+  const response = await fetch(`${API_URL}/auth/profile`, {
+    body: JSON.stringify(values),
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    method: 'PUT',
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.message || 'Unable to update your profile.')
+  return data.user
+}

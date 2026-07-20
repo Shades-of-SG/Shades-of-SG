@@ -28,7 +28,7 @@ const navigationByRole = {
     { label: 'Songs', to: '/songs' },
     { label: 'Learning Hub', to: '/learning' },
     { label: 'Rhythm Game', to: '/rhythm-game' },
-    { label: 'Reflection Wall', to: '/reflections' },
+    { label: 'Reflection Wall', to: '/reflections' }
   ],
 }
 

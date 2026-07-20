@@ -40,6 +40,10 @@ export function AuthProvider({ children, resetOnPublicEntry = false }) {
       setUser(null)
       setToken(null)
     },
+    updateUser(nextUser) {
+      localStorage.setItem('authUser', JSON.stringify(nextUser))
+      setUser(nextUser)
+    },
   }), [user, token])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

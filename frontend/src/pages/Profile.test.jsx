@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { AuthProvider } from '../context/AuthContext'
@@ -46,6 +46,71 @@ describe('registered Profile', () => {
     expect(await screen.findByText('Badge service unavailable')).toBeInTheDocument()
     expect(screen.getByText('No memories shared yet')).toBeInTheDocument()
     expect(screen.getByText('No rhythm scores yet')).toBeInTheDocument()
+  })
+
+  it('updates and deletes an owned reflection through the existing endpoints', async () => {
+    let memories = [{ content: 'Original memory.', createdAt: '2026-01-02', displayMode: 'PROFILE', id: 'r1', isOwner: true, song: { title: 'Home' }, songId: 's1', tags: [] }]
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = vi.fn((url, options = {}) => {
+      const path = String(url)
+      if (path.includes('/badges/')) return response({ badges: [] })
+      if (path.includes('/scores/mine')) return response({ scores: [] })
+      if (path.includes('/reflections/mine')) return response({ reflections: memories })
+      if (path.includes('/reflections/r1') && options.method === 'PUT') {
+        const values = JSON.parse(options.body)
+        memories = [{ ...memories[0], content: values.content }]
+        return response({ reflection: memories[0] })
+      }
+      if (path.includes('/reflections/r1') && options.method === 'DELETE') {
+        memories = []
+        return response({})
+      }
+      return response({})
+    })
+
+    renderProfile(fetchMock)
+    fireEvent.click(await screen.findByLabelText('Edit memory'))
+    fireEvent.change(screen.getByLabelText('Reflection'), { target: { value: 'Updated memory.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(screen.getByText('Updated memory.', { selector: '.profile-note > p' })).toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/reflections/r1'), expect.objectContaining({ method: 'PUT' }))
+
+    fireEvent.click(screen.getByLabelText('Delete memory'))
+    expect(await screen.findByText('No memories shared yet')).toBeInTheDocument()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/reflections/r1'), expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('updates supported account fields and refreshes AuthContext identity', async () => {
+    const fetchMock = vi.fn((url, options = {}) => {
+      const path = String(url)
+      if (path.includes('/auth/profile') && options.method === 'PUT') {
+        return response({ user: { createdAt: '2025-05-01T00:00:00Z', email: 'mei@example.com', id: 'user-1', name: 'Mei', role: 'REGISTERED' } })
+      }
+      if (path.includes('/badges/')) return response({ badges: [] })
+      if (path.includes('/scores/mine')) return response({ scores: [] })
+      return response({ reflections: [] })
+    })
+
+    renderProfile(fetchMock)
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Profile' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Mei' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mei@example.com' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(await screen.findByRole('heading', { name: 'Mei' })).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('authUser'))).toMatchObject({ email: 'mei@example.com', name: 'Mei' })
+  })
+
+  it('switches theme classes without duplicating profile markup', async () => {
+    renderProfile((url) => response(String(url).includes('/badges/') ? { badges: [] } : String(url).includes('/scores/') ? { scores: [] } : { reflections: [] }))
+    const heading = await screen.findByRole('heading', { name: 'Ferlyn' })
+    const page = heading.closest('.profile-page')
+    expect(page).toHaveAttribute('data-theme', 'light')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to dark theme' }))
+    expect(page).toHaveAttribute('data-theme', 'dark')
+    expect(screen.getAllByRole('heading', { name: 'Ferlyn' })).toHaveLength(1)
   })
 })
 

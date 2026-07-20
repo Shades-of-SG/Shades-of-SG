@@ -77,6 +77,7 @@ function verifyToken(token) {
 
 function serializeUser(user) {
     return {
+        createdAt: user.createdAt,
         email: user.email,
         id: user.id,
         name: user.name,
