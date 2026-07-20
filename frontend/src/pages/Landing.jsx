@@ -6,16 +6,21 @@ import PageHeader from '../components/PageHeader'
 import ReflectionCard from '../components/ReflectionCard'
 import SectionCard from '../components/SectionCard'
 import SongCard from '../components/SongCard'
-import { API_URL } from '../services/apiConfig'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getReflections } from '../services/reflectionService'
+import { getCommunityStats } from '../services/statsService'
 
-const initialStats = { usersCount: 0, songsCount: 0, reflectionsCount: 0 }
+const initialStats = { usersCount: null, songsCount: null, reflectionsCount: null }
+
+function statTitle(value, label) {
+  return `${value === null ? '…' : value.toLocaleString()} ${label}`
+}
 
 export default function Landing() {
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
   const [stats, setStats] = useState(initialStats)
+  const [statsError, setStatsError] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -31,14 +36,9 @@ export default function Landing() {
       .catch((nextError) => active && setError(nextError.message))
       .finally(() => active && setLoading(false))
 
-    fetch(`${API_URL}/stats`)
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.message || 'Unable to load community statistics.')
-        return data
-      })
-      .then((data) => active && setStats({ ...initialStats, ...data }))
-      .catch(() => {})
+    getCommunityStats()
+      .then((data) => active && setStats(data))
+      .catch((nextError) => active && setStatsError(nextError.message))
 
     return () => { active = false }
   }, [])
@@ -58,10 +58,11 @@ export default function Landing() {
         <FeatureCard description="Share memories and read stories from the community." icon="📝" title="Share & Reflect" />
       </div>
       <div className="feature-row stats-row" aria-label="Community statistics">
-        <FeatureCard description="Registered users exploring Shades of SG." icon="👥" title={`${stats.usersCount} Active Explorers`} />
-        <FeatureCard description="Published songs available to explore." icon="🎶" title={`${stats.songsCount} Heritage Songs`} />
-        <FeatureCard description="Community reflections approved and shared." icon="📖" title={`${stats.reflectionsCount} Stories Shared`} />
+        <FeatureCard description="Registered users exploring Shades of SG." icon="👥" title={statTitle(stats.usersCount, 'Active Explorers')} />
+        <FeatureCard description="Published songs available to explore." icon="🎶" title={statTitle(stats.songsCount, 'Heritage Songs')} />
+        <FeatureCard description="Community reflections approved and shared." icon="📖" title={statTitle(stats.reflectionsCount, 'Stories Shared')} />
       </div>
+      {statsError ? <p className="state-message" role="alert">{statsError}</p> : null}
     </section>
 
     <section className="content-section">

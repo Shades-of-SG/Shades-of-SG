@@ -156,7 +156,7 @@ export default function Studio() {
     ? `${Math.floor(song.durationSecs / 60)}:${String(song.durationSecs % 60).padStart(2, '0')}`
     : ''
   const lastSavedLabel = useMemo(() => lastSavedAt
-    ? `Draft last saved at ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+    ? `Draft last saved ${lastSavedAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
     : 'Draft not saved yet', [lastSavedAt])
 
   function values() {

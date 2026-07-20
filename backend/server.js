@@ -11,6 +11,7 @@ const transcriptionsRouter = require('./routes/transcriptions');
 const generationRouter = require('./routes/aiGeneration');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
+const statsRouter = require('./routes/stats');
 const { seedCreatorAccount } = require('./services/authService');
 const { GenerationJob, Song } = require('./models');
 const {
@@ -72,6 +73,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
 app.use('/api/badges', badgesRouter);
+app.use('/api/stats', statsRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {

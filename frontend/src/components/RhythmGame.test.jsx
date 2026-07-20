@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import RhythmGame from './RhythmGame'
+import { drawGame } from '../game/rhythmRenderer'
 import { AuthProvider } from '../context/AuthContext'
 
 const mocks = vi.hoisted(() => ({
@@ -63,10 +64,44 @@ describe('RhythmGame controls and lifecycle', () => {
     cleanup()
   })
 
+  it('keeps an active hold anchored while its remaining body drains', () => {
+    const fillRect = vi.fn()
+    const canvas = {
+      getContext: () => ({
+        clearRect: vi.fn(),
+        createLinearGradient: () => ({ addColorStop: vi.fn() }),
+        fillRect,
+        fillText: vi.fn(),
+        setTransform: vi.fn(),
+        strokeRect: vi.fn(),
+      }),
+      parentElement: { clientHeight: 1000, clientWidth: 800 },
+      style: {},
+    }
+    const hold = { durationMs: 2000, endMs: 3000, id: 'hold-1', lane: 0, startMs: 1000, status: 'holding', type: 'hold' }
+
+    drawGame(canvas, [hold], 1800, 'medium', new Set([0]))
+    const firstHead = fillRect.mock.calls.find(([x, y, width, height]) => x === 20 && width === 160 && height === 22 && y > 800)
+    const firstBody = fillRect.mock.calls.find(([, , width]) => Math.abs(width - 89.6) < 0.01)
+
+    expect(firstHead?.[1]).toBeCloseTo(829)
+    expect(firstBody?.[1] + firstBody?.[3]).toBeCloseTo(840)
+
+    fillRect.mockClear()
+    drawGame(canvas, [hold], 2800, 'medium', new Set([0]))
+    const laterHead = fillRect.mock.calls.find(([x, y, width, height]) => x === 20 && width === 160 && height === 22 && y > 800)
+    const laterBody = fillRect.mock.calls.find(([, , width]) => Math.abs(width - 89.6) < 0.01)
+
+    expect(laterHead?.[1]).toBeCloseTo(829)
+    expect(laterBody?.[3]).toBeLessThan(firstBody?.[3])
+    expect(laterBody?.[1] + laterBody?.[3]).toBeCloseTo(840)
+  })
+
   it('uses accessible exit/fullscreen controls and resets when difficulty changes', async () => {
     renderGame()
     expect(await screen.findByRole('button', { name: 'Exit to rhythm song selection' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Enter fullscreen' })).toBeInTheDocument()
+    expect(document.querySelectorAll('.stats-panel > div > strong')).toHaveLength(5)
     expect(await screen.findByRole('button', { name: 'Start' })).toBeEnabled()
 
     fireEvent.click(screen.getByRole('button', { name: 'hard' }))

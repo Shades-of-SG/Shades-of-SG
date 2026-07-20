@@ -26,6 +26,23 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /browse songs/i })).toBeInTheDocument()
   })
 
+  it('renders current database statistics on the landing cards', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).endsWith('/stats')
+        ? { usersCount: 1284, songsCount: 17, reflectionsCount: 306 }
+        : String(url).includes('/reflections') ? { reflections: [] } : { songs: [] },
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: '1,284 Active Explorers' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '17 Heritage Songs' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '306 Stories Shared' })).toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/stats$/), { cache: 'no-store' })
+  })
+
   it('opens a direct root visit as the logged-out public landing page', () => {
     localStorage.setItem('authToken', 'stale-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
@@ -112,6 +129,7 @@ describe('App', () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-123')
+    const savedAt = new Date('2026-07-18T20:37:00')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
       json: async () => String(url).includes('/readiness')
         ? { generationStatus: null, missing: ['coverImageUrl'], ready: false, songStatus: 'DRAFT' }
@@ -120,7 +138,7 @@ describe('App', () => {
               artist: 'Studio Artist', audioUrl: 'https://media.example/saved-track.mp3', description: 'Saved description', id: 'song-123',
               languages: ['English'], moodTags: ['hopeful'], otherLanguages: [],
               rawLyrics: 'Saved lyrics', status: 'DRAFT', theme: 'Community',
-              title: 'Saved Studio Draft', updatedAt: new Date().toISOString(),
+              title: 'Saved Studio Draft', updatedAt: savedAt.toISOString(),
             },
           },
       ok: true,
@@ -134,6 +152,7 @@ describe('App', () => {
     expect(screen.getByText('Saved media: saved-track.mp3')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://media.example/saved-track.mp3')
     expect(screen.getByRole('heading', { name: 'Rhythm Game' })).toBeInTheDocument()
+    expect(screen.getByText(`Draft last saved ${savedAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`)).toBeInTheDocument()
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
 
