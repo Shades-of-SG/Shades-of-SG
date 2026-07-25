@@ -76,6 +76,17 @@ export async function verifyEmailOtp(email, otp_code) {
   return data
 }
 
+export async function verifyLoginOtp(email, otp_code) {
+  const response = await fetch(`${API_URL}/auth/verify-login-otp`, {
+    body: JSON.stringify({ email, otp_code }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.message || 'Unable to verify OTP.')
+  return data
+}
+
 // Availability checks
 export async function checkNameAvailability(name) {
   const response = await fetch(`${API_URL}/auth/check-name/${encodeURIComponent(name)}`)

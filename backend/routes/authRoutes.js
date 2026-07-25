@@ -14,7 +14,6 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 
 // POST /auth/register
-// POST /auth/register
 router.post("/register", async (req, res) => {
   const { name, email, password, bio, interestTags } = req.body;
 
@@ -40,6 +39,12 @@ router.post("/register", async (req, res) => {
     const bioError = validateBio(bioValue);
     if (bioError) {
       return res.status(400).json({ message: bioError });
+    }
+
+    //Check if user is banned
+    const existing = await User.findOne({ where: { email } });
+    if (existing && existing.isBanned) {
+      return res.status(403).json({ message: "This email is banned and cannot be used." });
     }
 
     // ✅ Hash password using your custom crypto
@@ -77,11 +82,23 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    // Check if user is banned
+    if (user.isBanned) {
+      return res.status(403).json({ message: "This account has been banned." });
+    }
+
     const valid = verifyPassword(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    // ✅ Check 2FA flag
+    if (user.enable2fa) {
+      // ✅ Tell frontend OTP is required
+      return res.json({ requireOtp: true, email });
+    }
+
+    //Normal Login
     const token = createToken(user);
 
     res.json({ user: serializeUser(user), token });
@@ -130,6 +147,7 @@ router.post("/send-email-otp", async (req, res) => {
   }
 });
 
+// OTP verification for registration
 router.post("/verify-email-otp", (req, res) => {
   const { email, otp_code } = req.body;
   const record = otpStore[email];
@@ -145,6 +163,29 @@ router.post("/verify-email-otp", (req, res) => {
 
   delete otpStore[email];
   res.json({ success: true, message: "OTP verified" });
+});
+
+// OTP verification for login
+router.post("/verify-login-otp", async (req, res) => {
+  const { email, otp_code } = req.body;
+  const record = otpStore[email];
+
+  if (!record) return res.json({ success: false, message: "No OTP found" });
+  if (Date.now() > record.expiry) {
+    delete otpStore[email];
+    return res.json({ success: false, message: "OTP expired" });
+  }
+  if (record.otp !== otp_code) {
+    return res.json({ success: false, message: "Invalid OTP" });
+  }
+
+  delete otpStore[email];
+  // ✅ Now return full user + token
+  // ✅ Await the user lookup
+  const user = await User.findOne({ where: { email } });
+  if (!user) return res.json({ success: false, message: "User not found" });
+  const token = createToken(user);
+  res.json({ success: true, user: serializeUser(user), token });
 });
 //otp.end
 

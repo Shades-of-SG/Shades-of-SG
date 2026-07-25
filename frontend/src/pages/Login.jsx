@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { loginWithEmail, checkEmailExists } from '../services/authApi'
+import { loginWithEmail, checkEmailExists, sendEmailOtp, verifyLoginOtp } from '../services/authApi'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -11,6 +11,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -18,6 +19,12 @@ export default function Login() {
   const [emailExists, setEmailExists] = useState(true)
   const [checkingEmail, setCheckingEmail] = useState(false);
   let emailTimer;
+
+  // Add state for OTP handling
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
+
 
   async function handleEmailChange(event) {
     const newEmail = event.target.value;
@@ -46,6 +53,25 @@ export default function Login() {
     try {
       const data = await loginWithEmail(email, password)
 
+      if (data.requireOtp) {
+        // ✅ OTP required
+        setOtpRequired(true);
+        setPendingEmail(data.email);
+
+        // Call backend /send-email-otp route
+        const res = await sendEmailOtp(data.email);
+        if (!res.success) {
+          setError(res.message || "Failed to send OTP");
+        } else {
+          setSuccess("OTP sent to your email. Please verify.");
+          alert("OTP sent to your email"); // ✅ same style as Register
+        }
+
+        setIsSubmitting(false);
+        return;
+      }
+
+      //Normal login
       // ✅ Store token + user in localStorage
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
@@ -112,7 +138,47 @@ export default function Login() {
         </div>
       </label>
 
+      {/* Render an OTP input if otpRequired is true */}
+      {otpRequired && (
+        <div style={{ marginTop: "1rem" }}>
+          <input
+            type="text"
+            value={otpCode}
+            onChange={(e) => setOtpCode(e.target.value)}
+            placeholder="Enter 6-digit OTP"
+          />
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await verifyLoginOtp(pendingEmail, otpCode);
+                if (res.success) {
+                  alert("✅ OTP verified");
+                  localStorage.setItem('token', res.token);
+                  localStorage.setItem('user', JSON.stringify(res.user));
+                  signIn(res.user, res.token);
+
+                  const fallbackPath = res.user.role === 'CREATOR' ? '/creator/dashboard' : '/';
+                  navigate(fallbackPath, { replace: true });
+                } else {
+                  setError(res.message || "OTP verification failed");
+                }
+              } catch (err) {
+                setError(err.message || "OTP verification failed");
+              }
+            }}
+          >
+            Verify OTP
+          </button>
+
+        </div>
+      )}
+
+
+
       {error && <p className="form-error" role="alert">{error}</p>}
+      {success && <p className="form-success">{success}</p>}
+
 
       <button className="primary-button" disabled={isSubmitting} type="submit">
         {isSubmitting ? 'Logging in...' : 'Login'}

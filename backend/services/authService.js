@@ -46,6 +46,7 @@ function serializeUser(user) {
         bio: user.bio,
         interestTags: user.interestTags,
         enable2fa: user.enable2fa,
+        isBanned: user.isBanned
     };
 }
 

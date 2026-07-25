@@ -29,7 +29,7 @@ const User = sequelize.define('User', {
     },
     bio: { //lia added this after just adding a row in supabase
         type: DataTypes.STRING,
-        allowNull: false, 
+        allowNull: false,
         defaultValue: 'This is my bio',
     },
     interestTags: {
@@ -44,6 +44,13 @@ const User = sequelize.define('User', {
         allowNull: false,
         field: 'enable_2fa',
     },
+    isBanned: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+        field: 'is_banned',
+    }
+
 
 }, {
     tableName: 'users',
