@@ -22,8 +22,8 @@ describe('App', () => {
       </AuthProvider>,
     )
 
-    expect(screen.getByRole('heading', { level: 1, name: /shades of sg/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /browse songs/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /explore songs/i })).toBeInTheDocument()
   })
 
   it('opens a direct root visit as the logged-out public landing page', () => {
@@ -32,7 +32,7 @@ describe('App', () => {
 
     render(<AuthProvider resetOnPublicEntry><App /></AuthProvider>)
 
-    expect(screen.getByRole('heading', { level: 1, name: /shades of sg/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument()
     expect(localStorage.getItem('authToken')).toBeNull()
@@ -367,7 +367,7 @@ describe('App', () => {
     })))
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByRole('heading', { name: 'Published Song' })).toBeInTheDocument()
-    expect(screen.getByText('Public Artist')).toBeInTheDocument()
+    expect(screen.getAllByText('Public Artist')).toHaveLength(2)
     expect(screen.getByRole('link', { name: 'Explore Song' })).toHaveAttribute('href', '/songs/published-1')
     expect(screen.queryByText('Demo Song')).not.toBeInTheDocument()
   })

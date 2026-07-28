@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react'
+import { BookOpen, Drum, Headphones, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import FeatureCard from '../components/FeatureCard'
 import PageHeader from '../components/PageHeader'
 import ReflectionCard from '../components/ReflectionCard'
-import SectionCard from '../components/SectionCard'
+import Reveal from '../components/Reveal'
 import SongCard from '../components/SongCard'
 import { API_URL } from '../services/apiConfig'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getReflections } from '../services/reflectionService'
 
-const initialStats = { usersCount: 0, songsCount: 0, reflectionsCount: 0 }
-
 export default function Landing() {
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
-  const [stats, setStats] = useState(initialStats)
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -37,51 +36,163 @@ export default function Landing() {
         if (!response.ok) throw new Error(data.message || 'Unable to load community statistics.')
         return data
       })
-      .then((data) => active && setStats({ ...initialStats, ...data }))
+      .then((data) => active && setStats(data))
       .catch(() => {})
 
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [])
 
-  return <div className="page-stack landing-page">
-    <section className="hero-panel">
-      <PageHeader description="Explore Singapore stories through published songs, cultural learning, rhythm, and shared memories." eyebrow="Public Experience" title="Shades of SG" />
-      <div className="hero-actions"><Link className="primary-link" to="/songs">Browse Songs</Link><Link className="secondary-link" to="/rhythm-game">Play Rhythm Game</Link></div>
-    </section>
+  return (
+    <div className="page-stack landing-page">
+      <section className="hero-panel">
+        <div className="hero-panel__content">
+          <PageHeader
+            description="Explore local songs, uncover the stories behind them, play cultural activities, and share what the music means to you."
+            eyebrow="Music • Memory • Culture"
+            title="Discover Singapore through music and memories"
+          />
+          <div className="hero-actions">
+            <Link className="primary-link" to="/songs">
+              Explore Songs
+            </Link>
+            <a className="secondary-link" href="#journey">
+              Discover How It Works
+            </a>
+          </div>
+        </div>
+      </section>
 
-    <section className="content-section">
-      <h2>What you can do</h2>
-      <div className="feature-row">
-        <FeatureCard description="Enjoy music videos with stories and cultural insights." icon="🎥" title="Watch & Learn" />
-        <FeatureCard description="Explore traditional instruments through playful activities." icon="🎹" title="Play Instruments" />
-        <FeatureCard description="Test your timing, beat your high score, and earn points." icon="🥁" title="Rhythm Challenges" />
-        <FeatureCard description="Share memories and read stories from the community." icon="📝" title="Share & Reflect" />
-      </div>
-      <div className="feature-row stats-row" aria-label="Community statistics">
-        <FeatureCard description="Registered users exploring Shades of SG." icon="👥" title={`${stats.usersCount} Active Explorers`} />
-        <FeatureCard description="Published songs available to explore." icon="🎶" title={`${stats.songsCount} Heritage Songs`} />
-        <FeatureCard description="Community reflections approved and shared." icon="📖" title={`${stats.reflectionsCount} Stories Shared`} />
-      </div>
-    </section>
+      {stats ? (
+        <Reveal
+          as="p"
+          aria-label="Community summary"
+          className="landing-summary landing-summary--reveal"
+        >
+          <span>{stats.songsCount} songs</span>
+          <span>{stats.reflectionsCount} shared memories</span>
+          <span>Interactive cultural experiences</span>
+        </Reveal>
+      ) : null}
 
-    <section className="content-section">
-      <h2>Featured Songs</h2>
-      {loading ? <p role="status">Loading featured stories…</p> : null}
-      {error ? <div className="state-box" role="alert">{error}</div> : null}
-      {!loading && !error && songs.length === 0 ? <EmptyState description="Published songs will appear here." title="No featured songs yet" /> : null}
-      <div className="responsive-grid">{songs.map((song) => <SongCard key={song.id} song={song} />)}</div>
-      {songs.length > 0 ? <Link className="inline-link" to="/songs">View all songs →</Link> : null}
-    </section>
+      <section className="content-section journey-section" id="journey">
+        <Reveal as="header" className="section-heading landing-heading-reveal">
+          <h2>Your journey through Singapore&rsquo;s music</h2>
+          <p>Listen, learn, play and reflect through one connected cultural experience.</p>
+        </Reveal>
+        <div className="feature-row">
+          {[
+            {
+              description: 'Explore Singapore songs and the stories behind them.',
+              icon: <Headphones />,
+              title: 'Listen & Discover',
+              to: '/songs',
+            },
+            {
+              description: 'Discover cultural instruments, traditions and interactive activities.',
+              icon: <BookOpen />,
+              title: 'Learn & Play',
+              to: '/learning',
+            },
+            {
+              description: 'Play rhythm challenges inspired by featured songs.',
+              icon: <Drum />,
+              title: 'Test Your Rhythm',
+              to: '/rhythm-game',
+            },
+            {
+              description: 'Post a reflection and connect through shared experiences.',
+              icon: <MessageCircle />,
+              title: 'Share Your Memory',
+              to: '/reflections',
+            },
+          ].map((feature, index) => (
+            <Reveal className="landing-card-reveal" delay={index * 90} key={feature.title}>
+              <FeatureCard {...feature} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
 
-    {!loading && !error && reflections.length > 0 ? <section className="content-section">
-      <h2>Featured Reflections</h2>
-      <div className="landing-reflections">{reflections.map((reflection) => <ReflectionCard key={reflection.id} reflection={reflection} />)}</div>
-      <Link className="inline-link" to="/reflections">View all reflections →</Link>
-    </section> : null}
+      <section className="content-section">
+        <Reveal as="header" className="landing-section-header landing-heading-reveal">
+          <div className="landing-section-header__row">
+            <h2>Featured Songs</h2>
+            {songs.length > 0 ? (
+              <Link className="landing-section-link" to="/songs">
+                View all songs <span aria-hidden="true">&rarr;</span>
+              </Link>
+            ) : null}
+          </div>
+        </Reveal>
+        {loading ? <p role="status">Loading featured stories&hellip;</p> : null}
+        {error ? (
+          <div className="state-box" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {!loading && !error && songs.length === 0 ? (
+          <EmptyState
+            description="Published songs will appear here."
+            title="No featured songs yet"
+          />
+        ) : null}
+        <div className="responsive-grid">
+          {songs.map((song, index) => (
+            <Reveal
+              className="landing-card-reveal landing-song-reveal"
+              delay={index * 100}
+              key={song.id}
+            >
+              <SongCard song={song} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
 
-    <section className="content-section two-column">
-      <SectionCard title="Why Shades of SG" description="A shared base for music-led cultural discovery."><p>Begin with a published song and continue into its connected learning activities.</p></SectionCard>
-      <SectionCard title="Continue Exploring" description="Follow a real song into its cultural and interactive experiences."><Link className="inline-link" to="/learning">Open Learning Hub</Link></SectionCard>
-    </section>
-  </div>
+      {!loading && !error && reflections.length > 0 ? (
+        <section className="content-section">
+          <Reveal
+            as="header"
+            className="landing-section-header section-heading landing-heading-reveal"
+          >
+            <div className="landing-section-header__row">
+              <h2>Memories from the Community</h2>
+              <Link className="landing-section-link" to="/reflections">
+                View all reflections <span aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+            <p>
+              See how Singapore songs connect people to celebrations, milestones and everyday
+              memories.
+            </p>
+          </Reveal>
+          <div
+            className={`landing-reflections${reflections.length === 2 ? ' landing-reflections--two' : ''}`}
+          >
+            {reflections.map((reflection, index) => (
+              <Reveal
+                className="landing-card-reveal landing-reflection-reveal"
+                delay={index * 100}
+                key={reflection.id}
+              >
+                <ReflectionCard reflection={reflection} />
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <Reveal as="section" className="landing-cta landing-cta-reveal">
+        <div>
+          <h2>Every song carries a memory</h2>
+          <p>Discover the stories behind Singapore&rsquo;s music and share one of your own.</p>
+        </div>
+        <Link className="primary-link" to="/songs">
+          Start Exploring Songs
+        </Link>
+      </Reveal>
+    </div>
+  )
 }

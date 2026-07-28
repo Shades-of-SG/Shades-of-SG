@@ -5,11 +5,12 @@ import Navbar from '../components/Navbar'
 export default function MainLayout({ role = 'guest' }) {
   const { pathname } = useLocation()
   const isReflectionWall = pathname === '/reflections'
+  const isSongsLibrary = pathname === '/songs'
 
   return (
     <div className="app-shell public-shell">
       <Navbar role={role} />
-      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}`}>
+      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}${isSongsLibrary ? ' site-main--songs' : ''}`}>
         <Outlet />
       </main>
       <Footer />

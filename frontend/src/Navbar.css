@@ -38,7 +38,15 @@
   height: 36px;
   justify-content: center;
   overflow: hidden;
+  transition: box-shadow 180ms ease, transform 180ms ease;
   width: 36px;
+}
+
+.registered-navbar__account-button:hover .registered-navbar__avatar,
+.registered-navbar__account-button:focus-visible .registered-navbar__avatar,
+.registered-navbar__account-button[aria-expanded='true'] .registered-navbar__avatar {
+  box-shadow: 0 7px 18px rgba(139, 92, 246, 0.48);
+  transform: scale(1.05);
 }
 
 .registered-navbar__avatar img {
@@ -123,5 +131,11 @@
     margin-top: 10px;
     position: static;
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registered-navbar__avatar {
+    transition: none;
   }
 }
