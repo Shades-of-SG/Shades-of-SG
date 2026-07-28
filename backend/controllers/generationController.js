@@ -113,7 +113,7 @@ const startGeneration = async (req, res, next) => {
     }
 
     const missing = []
-    if (!song.audioUrl) missing.push('audioUrl')
+    if (!song.audioUrl && !song.sourceYoutubeUrl && !song.videoUrl) missing.push('audioUrl')
     if (!song.rawLyrics?.trim()) missing.push('rawLyrics')
     if (missing.length) {
       const error = new Error(`Song is missing generation requirements: ${missing.join(', ')}.`)
@@ -235,22 +235,22 @@ const runGenerationPipeline = async (jobId) => {
 
     await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
 
-    console.log(`[Phase 1] Audio Extraction & Whisper Transcription...`)
+    console.log(`[Phase 1: Initialization] Audio & Lyric Extraction...`)
     if (!song.transcriptionSegments || song.transcriptionSegments.length === 0) {
-      const targetUrl = song.videoUrl || song.audioUrl || 'https://youtu.be/hYIOC3y0tmg'
+      const targetUrl = song.videoUrl || song.audioUrl || song.sourceYoutubeUrl || 'https://youtu.be/hYIOC3y0tmg'
 
       let extractedInfo;
       if (/(youtube\.com|youtu\.be)/i.test(targetUrl)) {
-        console.log(`[Phase 1] Extracting YouTube audio from ${targetUrl}...`)
+        console.log(`[Phase 1: Initialization] Extracting YouTube audio from ${targetUrl}...`)
         extractedInfo = await extractAudioFromYouTube(targetUrl)
       } else {
-        console.log(`[Phase 1] Downloading direct media from ${targetUrl}...`)
+        console.log(`[Phase 1: Initialization] Downloading direct media from ${targetUrl}...`)
         extractedInfo = await downloadMediaFromUrl(targetUrl, jobId)
       }
 
       try {
         const mediaBuffer = await fs.readFile(extractedInfo.filePath)
-        console.log(`[Phase 1] Transcribing audio via Whisper API...`)
+        console.log(`[Phase 1: Initialization] Transcribing audio via Whisper API...`)
         const transcription = await transcribeMediaBuffer({
           fileName: extractedInfo.fileName,
           mediaBuffer,
@@ -258,12 +258,12 @@ const runGenerationPipeline = async (jobId) => {
         })
 
         await song.update({ transcriptionSegments: transcription.segments })
-        console.log(`[Phase 1] Saved ${transcription.segments.length} segments to database.`)
+        console.log(`[Phase 1: Initialization] Saved ${transcription.segments.length} segments to database.`)
       } finally {
         await extractedInfo.cleanup()
       }
     } else {
-      console.log(`[Phase 1] Skipped. transcriptionSegments already exist.`)
+      console.log(`[Phase 1: Initialization] Skipped. transcriptionSegments already exist.`)
     }
     await assertGenerationIsActive(jobId)
 

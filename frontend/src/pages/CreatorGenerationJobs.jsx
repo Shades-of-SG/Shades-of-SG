@@ -36,21 +36,15 @@ export default function CreatorGenerationJobs() {
   // Track Details
   const [formData, setFormData] = useState({ title: '', artist: '', lyrics: '' })
 
-  // Extraction States
-  const [isExtractingAudio, setIsExtractingAudio] = useState(false)
-  const [extractedAudioUrl, setExtractedAudioUrl] = useState('')
-  const [extractedAudioDuration, setExtractedAudioDuration] = useState(null)
-  const [isExtractingLyrics, setIsExtractingLyrics] = useState(false)
-
   // --- INITIAL FETCH (ESLint Safe) ---
   useEffect(() => {
     let isMounted = true
     const loadInitialJobs = async () => {
       try {
         const response = await fetch(`${API_URL}/generation`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
-        const contentType = response.headers.get("content-type");
+        const contentType = response.headers.get("content-type")
         if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("Server returned an invalid response");
+          throw new Error("Server returned an invalid response")
         }
         const json = await response.json()
         if (!response.ok) throw new Error(json.message || `Failed to fetch: ${response.status}`)
@@ -71,9 +65,9 @@ export default function CreatorGenerationJobs() {
     setError(null)
     try {
       const response = await fetch(`${API_URL}/generation`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
-      const contentType = response.headers.get("content-type");
+      const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned an invalid response");
+        throw new Error("Server returned an invalid response")
       }
       const json = await response.json()
       if (!response.ok) throw new Error(json.message || `Failed to fetch: ${response.status}`)
@@ -85,103 +79,66 @@ export default function CreatorGenerationJobs() {
     }
   }
 
-  // --- MP3 EXTRACTION LOGIC ---
-  const handleExtractAudio = async () => {
-    if (!youtubeLink) return alert('Please enter a YouTube link to extract.')
-    setIsExtractingAudio(true)
-    try {
-      const response = await fetch(`${API_URL}/songs/extract-audio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        body: JSON.stringify({ youtubeUrl: youtubeLink })
-      })
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned an invalid response");
-      }
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Failed to extract audio')
-
-      setExtractedAudioUrl(data.audioUrl)
-      setExtractedAudioDuration(Number.isInteger(Number(data.duration)) ? Number(data.duration) : null)
-      alert('MP3 Extracted and saved successfully!')
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setIsExtractingAudio(false)
-    }
-  }
-
-  // --- LYRICS EXTRACTION LOGIC ---
-  const handleExtractLyrics = async () => {
-    if (mediaSource === 'youtube' && !youtubeLink) return alert('Please enter a YouTube link.')
-    if (mediaSource === 'upload' && !audioFile) return alert('Please upload an audio file.')
-
-    setIsExtractingLyrics(true)
-    try {
-      const payload = mediaSource === 'youtube'
-        ? JSON.stringify({ youtubeUrl: youtubeLink })
-        : JSON.stringify({ fileName: audioFile.name })
-
-      const response = await fetch(`${API_URL}/transcriptions/lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        body: payload
-      })
-
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned an invalid response");
-      }
-
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Failed to extract lyrics')
-
-      // Auto-fills the text box beautifully
-      setFormData(prev => ({ ...prev, lyrics: data.lyrics }))
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setIsExtractingLyrics(false)
-    }
-  }
-
   // --- SUBMIT & GENERATE ---
   const handleStartGeneration = async (e) => {
     e.preventDefault()
     if (!formData.title) return alert("Please provide a Title.")
+    if (mediaSource === 'youtube' && !youtubeLink) return alert("Please enter a YouTube link.")
+    if (mediaSource === 'upload' && !audioFile) return alert("Please select an audio file.")
 
     setIsStartingJob(true)
     try {
-      const songRes = await fetch(`${API_URL}/songs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        body: JSON.stringify({
-          title: formData.title,
-          artist: formData.artist || 'Unknown Artist',
-          lyrics: formData.lyrics,
-          theme: 'Standard',
-          description: 'AI Generated', // Dummy data for constraints
-          ...(extractedAudioUrl
-            ? { audioUrl: extractedAudioUrl, ...(extractedAudioDuration !== null ? { durationSecs: extractedAudioDuration } : {}) }
-            : { youtubeUrl: youtubeLink })
-        })
-      })
-      const songContentType = songRes.headers.get("content-type");
-      if (!songContentType || !songContentType.includes("application/json")) {
-        throw new Error("Server returned an invalid response when creating song");
-      }
-      const songData = await songRes.json()
-      if (!songRes.ok) throw new Error(songData.message || 'Failed to create song record')
+      let songData
+      if (mediaSource === 'upload' && audioFile) {
+        const formDataObj = new FormData()
+        formDataObj.append('title', formData.title)
+        formDataObj.append('artist', formData.artist || 'Unknown Artist')
+        formDataObj.append('lyrics', formData.lyrics || 'Instrumental / AI Transcribed')
+        formDataObj.append('theme', 'Standard')
+        formDataObj.append('description', 'AI Generated')
+        formDataObj.append('file', audioFile)
 
+        const songRes = await fetch(`${API_URL}/songs`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          body: formDataObj,
+        })
+        const songContentType = songRes.headers.get("content-type")
+        if (!songContentType || !songContentType.includes("application/json")) {
+          throw new Error("Server returned an invalid response when creating song")
+        }
+        songData = await songRes.json()
+        if (!songRes.ok) throw new Error(songData.message || 'Failed to create song record')
+      } else {
+        const songRes = await fetch(`${API_URL}/songs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          body: JSON.stringify({
+            title: formData.title,
+            artist: formData.artist || 'Unknown Artist',
+            lyrics: formData.lyrics || 'Instrumental / AI Transcribed',
+            theme: 'Standard',
+            description: 'AI Generated',
+            youtubeUrl: youtubeLink,
+          }),
+        })
+        const songContentType = songRes.headers.get("content-type")
+        if (!songContentType || !songContentType.includes("application/json")) {
+          throw new Error("Server returned an invalid response when creating song")
+        }
+        songData = await songRes.json()
+        if (!songRes.ok) throw new Error(songData.message || 'Failed to create song record')
+      }
+
+      const songId = songData.data?.id || songData.song?.id
       const genRes = await fetch(`${API_URL}/generation/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        body: JSON.stringify({ songId: songData.data.id })
+        body: JSON.stringify({ songId }),
       })
-      const genContentType = genRes.headers.get("content-type");
+      const genContentType = genRes.headers.get("content-type")
       if (!genContentType || !genContentType.includes("application/json")) {
-        throw new Error("Server returned an invalid response when starting generation");
+        throw new Error("Server returned an invalid response when starting generation")
       }
       const genData = await genRes.json()
       if (!genRes.ok) throw new Error(genData.message || 'Failed to start generation pipeline')
@@ -190,7 +147,6 @@ export default function CreatorGenerationJobs() {
       setFormData({ title: '', artist: '', lyrics: '' })
       setYoutubeLink('')
       setAudioFile(null)
-      setExtractedAudioUrl('')
 
       await refreshJobs()
 
@@ -252,7 +208,7 @@ export default function CreatorGenerationJobs() {
               <span aria-hidden="true">♫</span>
               <h2>Start New AI Generation</h2>
             </div>
-            <p style={{ margin: 0 }}>Configure your track and extract lyrics to trigger the AI pipeline.</p>
+            <p style={{ margin: 0 }}>Configure your track details. Starting generation automatically triggers Phase 1: Initialization (Audio & Lyric Extraction).</p>
           </header>
 
           <div className="studio-form-column">
@@ -284,28 +240,17 @@ export default function CreatorGenerationJobs() {
               </div>
             </label>
 
-            {/* 2. Media Inputs & Extraction */}
+            {/* 2. Media Inputs */}
             {mediaSource === 'youtube' ? (
-              <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                <label className="studio-field" style={{ flex: 1 }}>
-                  <span>YouTube Link <strong>*</strong></span>
-                  <input
-                    type="url"
-                    value={youtubeLink}
-                    onChange={(e) => setYoutubeLink(e.target.value)}
-                    placeholder="Paste YouTube link here..."
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={handleExtractAudio}
-                  disabled={isExtractingAudio || !youtubeLink}
-                  className="studio-button studio-button--secondary"
-                  style={{ marginTop: '26px' }}
-                >
-                  {isExtractingAudio ? 'Extracting...' : extractedAudioUrl ? 'Audio Saved ✓' : 'Extract MP3'}
-                </button>
-              </div>
+              <label className="studio-field">
+                <span>YouTube Link <strong>*</strong></span>
+                <input
+                  type="url"
+                  value={youtubeLink}
+                  onChange={(e) => setYoutubeLink(e.target.value)}
+                  placeholder="Paste YouTube link here..."
+                />
+              </label>
             ) : (
               <label className="studio-field">
                 <span>Upload Audio File <strong>*</strong></span>
@@ -352,21 +297,12 @@ export default function CreatorGenerationJobs() {
             {/* 4. Lyrics Editor */}
             <label className="studio-field studio-description-field" style={{ marginTop: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '10px' }}>
-                <span>Lyrics (Required for Scenes) <strong>*</strong></span>
-                <button
-                  type="button"
-                  onClick={handleExtractLyrics}
-                  disabled={isExtractingLyrics}
-                  className="studio-button studio-button--secondary"
-                  style={{ minHeight: '32px', padding: '6px 12px', fontSize: '0.8rem' }}
-                >
-                  {isExtractingLyrics ? 'Generating...' : '✨ Auto-Extract Lyrics via AI'}
-                </button>
+                <span>Lyrics (Optional Manual Override)</span>
               </div>
               <textarea
                 onChange={(e) => setFormData({...formData, lyrics: e.target.value})}
-                placeholder="Paste lyrics manually here, or click the AI Extract button above to auto-fill..."
-                rows={9}
+                placeholder="Optional: Paste lyrics manually here, or leave blank for automatic Whisper AI transcription during Initialization Phase..."
+                rows={7}
                 value={formData.lyrics}
               />
             </label>

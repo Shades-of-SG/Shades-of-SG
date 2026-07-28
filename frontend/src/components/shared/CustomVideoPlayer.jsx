@@ -164,10 +164,12 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
 
   useEffect(() => {
     if (!isPlaying) {
-      setShowControls(true)
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
+      const timer = setTimeout(() => setShowControls(true), 0)
+      return () => clearTimeout(timer)
     } else if (isFullscreen) {
-      handleMouseMove()
+      const timer = setTimeout(() => handleMouseMove(), 0)
+      return () => clearTimeout(timer)
     }
   }, [isPlaying, isFullscreen, handleMouseMove])
 
@@ -215,7 +217,16 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
   // ── Keyboard shortcuts ──
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
+      const activeEl = document.activeElement
+      const isInput =
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        activeEl?.isContentEditable ||
+        e.target?.tagName === 'INPUT' ||
+        e.target?.tagName === 'TEXTAREA' ||
+        e.target?.isContentEditable
+
+      if (isInput) return
 
       if (e.code === 'Space') {
         e.preventDefault()
@@ -226,11 +237,17 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
       } else if (e.code === 'ArrowRight') {
         e.preventDefault()
         handleSkipForward()
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault()
+        setShowCaptions((prev) => !prev)
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        toggleFullscreen()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [togglePlay, handleSkipBack, handleSkipForward])
+  }, [togglePlay, handleSkipBack, handleSkipForward, toggleFullscreen])
 
   // Determine whether controls overlay should be visible
   const controlsVisible = !isFullscreen || showControls

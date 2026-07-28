@@ -89,6 +89,8 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
   ]
 }
 CRITICAL: The output must be valid JSON. Do not round timestamps.
+CRITICAL SYNTAX: Never use literal newlines or line breaks inside string values (lyrics or visualPrompt). Keep every string value strictly on a single line.
+Never use double quotes (") inside string values; use single quotes (') instead.
 Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
@@ -160,6 +162,8 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
     }
   ]
 }
+CRITICAL SYNTAX: Never use literal newlines or line breaks inside string values (lyrics or visualPrompt). Keep every string value strictly on a single line.
+Never use double quotes (") inside string values; use single quotes (') instead.
 Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
@@ -171,7 +175,7 @@ ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
     }
 
     const response = await openai.chat.completions.create({
-      model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       response_format: { type: 'json_object' },
       temperature: 0.7,
       max_tokens: 8192,
@@ -181,18 +185,18 @@ ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
       ],
     })
 
-    let responseText = (response.choices[0]?.message?.content || '').trim()
+    const responseText = (response.choices[0]?.message?.content || '').trim()
+    let cleanedText = responseText.replace(/```json|```/g, '').trim()
+    // Replace raw literal newlines, tabs, and carriage returns with spaces to prevent JSON parse errors
+    cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ')
 
-    // Strip markdown codeblocks if they exist
-    responseText = responseText.replace(/```json|```/g, '').trim()
-
-    if (!responseText) {
+    if (!cleanedText) {
       throw new Error('AI completion returned empty response.')
     }
 
     let parsedData
     try {
-      parsedData = JSON.parse(responseText)
+      parsedData = JSON.parse(cleanedText)
     } catch (parseError) {
       throw new Error(`Failed to parse AI JSON response: ${parseError.message}`, { cause: parseError })
     }

@@ -161,7 +161,7 @@ export default function GenerationProgress() {
       <section className="studio-card studio-form-card" style={{ marginBottom: '2rem', padding: '1.5rem 30px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <CheckCircle className="w-8 h-8 text-emerald-500" />
         <div>
-          <h3 className="text-white font-bold text-lg">Phase 1: Audio & Lyrics Extraction</h3>
+          <h3 className="text-white font-bold text-lg">Initialization Phase: Audio & Lyric Extraction</h3>
           <p className="text-emerald-400 text-sm">Successfully completed.</p>
         </div>
       </section>
