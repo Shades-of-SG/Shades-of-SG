@@ -1,12 +1,18 @@
 const { OpenAI } = require('openai')
 const { Song, GenerationJob, SceneSegment } = require('../models')
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 async function generateScenePlan(jobId, songId) {
   try {
+    const apiKey = process.env.DEEPSEEK_API_KEY
+    if (!apiKey) {
+      throw new Error('DEEPSEEK_API_KEY is missing in process.env.')
+    }
+
+    const openai = new OpenAI({
+      baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+      apiKey,
+    })
+
     const job = await GenerationJob.findByPk(jobId)
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
@@ -83,6 +89,7 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
   ]
 }
 CRITICAL: The output must be valid JSON. Do not round timestamps.
+Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
       let segmentsStr = rawSegments.map((s) => 
@@ -153,6 +160,7 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
     }
   ]
 }
+Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
       userMessage = `Title: ${song.title}
@@ -163,32 +171,30 @@ ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
     }
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 8192,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
     })
 
-    let responseText = response.choices[0].message.content
+    let responseText = (response.choices[0]?.message?.content || '').trim()
+
     // Strip markdown codeblocks if they exist
-    if (responseText.startsWith('```json')) {
-      responseText = responseText.replace(/^```json\n?/, '').replace(/\n?```$/, '')
-    } else if (responseText.startsWith('```')) {
-      responseText = responseText.replace(/^```\n?/, '').replace(/\n?```$/, '')
+    responseText = responseText.replace(/```json|```/g, '').trim()
+
+    if (!responseText) {
+      throw new Error('AI completion returned empty response.')
     }
-    
-    // Fix literal newlines inside strings using a regex (replace literal newlines with space)
-    // Wait, regex for literal newlines in JSON is complex, but the prompt should fix it.
 
     let parsedData
     try {
       parsedData = JSON.parse(responseText)
     } catch (parseError) {
-      throw new Error(`Failed to parse OpenAI JSON: ${parseError.message}`, { cause: parseError })
+      throw new Error(`Failed to parse AI JSON response: ${parseError.message}`, { cause: parseError })
     }
 
     if (!parsedData.scenes || !Array.isArray(parsedData.scenes)) {
