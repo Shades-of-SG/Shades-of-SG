@@ -34,7 +34,7 @@ export default function CreatorGenerationJobs() {
   const [audioFile, setAudioFile] = useState(null)
 
   // Track Details
-  const [formData, setFormData] = useState({ title: '', artist: '', lyrics: '' })
+  const [formData, setFormData] = useState({ title: '', artist: '' })
 
   // --- INITIAL FETCH (ESLint Safe) ---
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function CreatorGenerationJobs() {
         const formDataObj = new FormData()
         formDataObj.append('title', formData.title)
         formDataObj.append('artist', formData.artist || 'Unknown Artist')
-        formDataObj.append('lyrics', formData.lyrics || 'Instrumental / AI Transcribed')
+        formDataObj.append('lyrics', 'Instrumental / AI Transcribed')
         formDataObj.append('theme', 'Standard')
         formDataObj.append('description', 'AI Generated')
         formDataObj.append('file', audioFile)
@@ -116,7 +116,7 @@ export default function CreatorGenerationJobs() {
           body: JSON.stringify({
             title: formData.title,
             artist: formData.artist || 'Unknown Artist',
-            lyrics: formData.lyrics || 'Instrumental / AI Transcribed',
+            lyrics: 'Instrumental / AI Transcribed',
             theme: 'Standard',
             description: 'AI Generated',
             youtubeUrl: youtubeLink,
@@ -144,7 +144,7 @@ export default function CreatorGenerationJobs() {
       if (!genRes.ok) throw new Error(genData.message || 'Failed to start generation pipeline')
 
       setIsCreating(false)
-      setFormData({ title: '', artist: '', lyrics: '' })
+      setFormData({ title: '', artist: '' })
       setYoutubeLink('')
       setAudioFile(null)
 
@@ -208,7 +208,7 @@ export default function CreatorGenerationJobs() {
               <span aria-hidden="true">♫</span>
               <h2>Start New AI Generation</h2>
             </div>
-            <p style={{ margin: 0 }}>Configure your track details. Starting generation automatically triggers Phase 1: Initialization (Audio & Lyric Extraction).</p>
+            <p style={{ margin: 0 }}>Configure your track details. Submitting initializes audio extraction & automatic Whisper lyric transcription.</p>
           </header>
 
           <div className="studio-form-column">
@@ -294,27 +294,14 @@ export default function CreatorGenerationJobs() {
               </label>
             </div>
 
-            {/* 4. Lyrics Editor */}
-            <label className="studio-field studio-description-field" style={{ marginTop: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '10px' }}>
-                <span>Lyrics (Optional Manual Override)</span>
-              </div>
-              <textarea
-                onChange={(e) => setFormData({...formData, lyrics: e.target.value})}
-                placeholder="Optional: Paste lyrics manually here, or leave blank for automatic Whisper AI transcription during Initialization Phase..."
-                rows={7}
-                value={formData.lyrics}
-              />
-            </label>
-
-            {/* 5. Generation Trigger */}
+            {/* 4. Generation Trigger */}
             <button
               onClick={handleStartGeneration}
               disabled={isStartingJob}
               className="studio-button studio-button--primary"
               style={{ width: '100%', minHeight: '48px', fontSize: '1rem', marginTop: '14px' }}
             >
-              {isStartingJob ? 'Compiling Video Pipeline...' : 'Generate AI Video Now'}
+              {isStartingJob ? 'Initializing Track & Lyrics...' : 'Initialize Track & Extract Lyrics'}
             </button>
 
           </div>
