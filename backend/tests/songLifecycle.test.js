@@ -7,7 +7,7 @@ process.env.DB_STORAGE = testDatabasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { sequelize, GenerationJob, Instrument, Song, User } = require('../models');
+const { sequelize, GenerationJob, Instrument, Song, TriviaQuestion, User } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
 const aiStorageService = require('../services/aiStorageService');
@@ -537,7 +537,7 @@ test('public song search and filters return only matching published Songs with p
     });
 });
 
-test('public song detail includes linked instruments without changing stored records', async () => {
+test('public song detail includes linked instruments and trivia without changing stored records', async () => {
     const song = await Song.create({
         ...completeSong, creatorId: creator.id, status: 'PUBLISHED', publishedDate: new Date(),
     });
@@ -548,6 +548,12 @@ test('public song detail includes linked instruments without changing stored rec
         origin: 'Singapore',
     });
     await song.addInstrument(instrument);
+    const triviaQuestion = await TriviaQuestion.create({
+        correctAnswer: 'Linked answer',
+        options: ['Linked answer', 'Other answer'],
+        prompt: 'Linked question?',
+        songId: song.id,
+    });
 
     const response = await request(app).get(`/api/songs/${song.id}`);
 
@@ -561,5 +567,14 @@ test('public song detail includes linked instruments without changing stored rec
             origin: 'Singapore',
         }),
     ]);
+    expect(response.body.song.triviaQuestions).toEqual([
+        expect.objectContaining({
+            correctAnswer: 'Linked answer',
+            id: triviaQuestion.id,
+            options: ['Linked answer', 'Other answer'],
+            prompt: 'Linked question?',
+        }),
+    ]);
     expect(await Instrument.count({ where: { id: instrument.id } })).toBe(1);
+    expect(await TriviaQuestion.count({ where: { id: triviaQuestion.id } })).toBe(1);
 });

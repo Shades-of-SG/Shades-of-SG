@@ -9,6 +9,7 @@ import {
   getSongInstruments,
   TEMPORARY_SONG_INSTRUMENT_FALLBACKS,
 } from '../data/songExperienceInstrumentFallbacks'
+import { getSongTrivia, TEMPORARY_SONG_TRIVIA_FALLBACKS } from '../data/songExperienceTriviaFallbacks'
 import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { trackAnalyticsEvent } from '../services/analyticsService'
@@ -25,58 +26,7 @@ const MOCK_SONG_DATA = {
   culturalSummary:
     '"Tomorrow\'s Here Today" is an upbeat, forward-looking anthem released for Singapore\'s National Day Parade in 2016. It embodies a modern, energetic vision of Singapore\'s future, encouraging unity and celebrating the diverse voices that make up the nation\'s fabric. The song resonates with a youthful energy and optimism.',
   instruments: TEMPORARY_SONG_INSTRUMENT_FALLBACKS,
-  trivia: [
-    {
-      question: "Which band performed the 2016 NDP theme song 'Tomorrow's Here Today'?",
-      options: [
-        { id: 'A', text: 'The Sam Willows' },
-        { id: 'B', text: '53A' },
-        { id: 'C', text: 'Electrico' },
-        { id: 'D', text: 'ShiGGa Shay' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'Who wrote and composed the song?',
-      options: [
-        { id: 'A', text: 'Dick Lee' },
-        { id: 'B', text: 'Don Richmond' },
-        { id: 'C', text: 'JJ Lin' },
-        { id: 'D', text: 'Corrinne May' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'What is the core message of the song?',
-      options: [
-        { id: 'A', text: 'Reflecting on past struggles' },
-        { id: 'B', text: 'Looking forward to a bright future' },
-        { id: 'C', text: 'A romantic love story' },
-        { id: 'D', text: 'Celebrating traditional food' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'Which music genre best describes the track?',
-      options: [
-        { id: 'A', text: 'Classical Orchestra' },
-        { id: 'B', text: 'Indie Pop/Rock' },
-        { id: 'C', text: 'Heavy Metal' },
-        { id: 'D', text: 'Electronic Dance Music' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: "What year was 'Tomorrow's Here Today' used for the National Day Parade?",
-      options: [
-        { id: 'A', text: '2014' },
-        { id: 'B', text: '2015' },
-        { id: 'C', text: '2016' },
-        { id: 'D', text: '2017' },
-      ],
-      correctAnswerId: 'C',
-    },
-  ],
+  trivia: TEMPORARY_SONG_TRIVIA_FALLBACKS,
 }
 
 
@@ -133,7 +83,7 @@ export default function SongExperience() {
     coverImageUrl: dbSong.coverImageUrl || undefined,
     transcriptionSegments: dbSong.transcriptionSegments || null,
     instruments: getSongInstruments(dbSong),
-    trivia: Array.isArray(dbSong.trivia) ? dbSong.trivia : [],
+    trivia: getSongTrivia(dbSong),
   } : MOCK_SONG_DATA
 
   // Trivia state

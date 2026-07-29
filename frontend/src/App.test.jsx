@@ -393,6 +393,8 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /play kompang/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /play erhu/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /play tabla/i })).toBeInTheDocument()
+    expect(screen.getByText(/which band performed the 2016 ndp theme song/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'B. 53A' })).toBeInTheDocument()
   })
 
   it('prioritizes linked API instruments over Song Experience placeholders', async () => {
@@ -401,7 +403,9 @@ describe('App', () => {
       json: async () => String(url).includes('/beatmaps') ? { beatmaps: [] } : ({ song: {
         artist: 'Instrument Artist', id: 'published-with-instruments', instruments: [{
           description: 'A linked instrument description.', id: 'linked-kulintang', imageUrl: 'https://media.example/kulintang.jpg', name: 'Kulintang', origin: 'Southeast Asia',
-        }], status: 'PUBLISHED', title: 'Linked Instrument Song',
+        }], status: 'PUBLISHED', title: 'Linked Instrument Song', triviaQuestions: [{
+          correctAnswer: 'API answer', options: ['API answer', 'Other answer'], prompt: 'API quiz question?',
+        }],
       } }),
       ok: true, status: 200,
     })))
@@ -411,6 +415,9 @@ describe('App', () => {
     expect(await screen.findByRole('button', { name: /play kulintang: a linked instrument description/i })).toBeInTheDocument()
     expect(screen.getByAltText('Kulintang')).toHaveAttribute('src', 'https://media.example/kulintang.jpg')
     expect(screen.queryByRole('button', { name: /play angklung/i })).not.toBeInTheDocument()
+    expect(screen.getByText('API quiz question?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'A. API answer' })).toBeInTheDocument()
+    expect(screen.queryByText(/which band performed the 2016 ndp theme song/i)).not.toBeInTheDocument()
   })
 
   it('shows the recovered instrument placeholders in an empty song playground', async () => {
