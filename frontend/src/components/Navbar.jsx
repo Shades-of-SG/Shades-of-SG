@@ -17,7 +17,6 @@ const navigationByRole = {
   guest: [
     { label: 'Home', to: '/' },
     { label: 'Songs', to: '/songs' },
-    { label: 'Collections', to: '/collections' },
     { label: 'Learning Hub', to: '/learning' },
     { label: 'Rhythm Game', to: '/rhythm-game' },
     { label: 'Reflection Wall', to: '/reflections' },
@@ -27,7 +26,6 @@ const navigationByRole = {
   user: [
     { label: 'Home', to: '/' },
     { label: 'Songs', to: '/songs' },
-    { label: 'Collections', to: '/collections' },
     { label: 'Learning Hub', to: '/learning' },
     { label: 'Rhythm Game', to: '/rhythm-game' },
     { label: 'Reflection Wall', to: '/reflections' }

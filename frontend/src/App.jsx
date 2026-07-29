@@ -41,7 +41,6 @@ import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import VideoEditor from './pages/VideoEditor'
 import CreatorApplication from './pages/CreatorApplication'
-import Collections from './pages/Collections'
 import CreatorFolders from './pages/CreatorFolders'
 import CreatorAnalytics from './pages/CreatorAnalytics'
 import AdminLayout from './layouts/AdminLayout'
@@ -88,8 +87,6 @@ function App() {
         <Route element={<MainExperience />}>
           <Route element={<Landing />} path="/" />
           <Route element={<SongsLibrary />} path="/songs" />
-          <Route element={<Collections />} path="/collections" />
-          <Route element={<Collections />} path="/collections/:slug" />
           <Route element={<SongExperience />} path="/songs/:id" />
           <Route element={<TriviaHub />} path="/songs/:id/trivia" />
           <Route element={<InstrumentPlayground />} path="/songs/:id/playground" />
