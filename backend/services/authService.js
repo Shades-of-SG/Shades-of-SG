@@ -82,37 +82,33 @@ function serializeUser(user) {
         id: user.id,
         name: user.name,
         role: user.role,
+        accountStatus: user.accountStatus,
     };
 }
 
-async function seedCreatorAccount() {
-    const email = process.env.SEED_CREATOR_EMAIL;
-    const password = process.env.SEED_CREATOR_PASSWORD;
-
-    if (!email || !password) {
-        return;
-    }
+async function seedAdminAccount() {
+    const email = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+    const password = process.env.SEED_ADMIN_PASSWORD;
+    if (!email || !password) return;
 
     const [user, created] = await User.findOrCreate({
         defaults: {
             email,
-            name: process.env.SEED_CREATOR_NAME || 'Violet',
+            name: process.env.SEED_ADMIN_NAME || 'Platform Administrator',
             passwordHash: hashPassword(password),
-            role: 'CREATOR',
+            role: 'ADMIN',
         },
         where: { email },
     });
-
-    if (!created && user.role !== 'CREATOR') {
-        user.role = 'CREATOR';
-        await user.save();
+    if (!created && user.role !== 'ADMIN') {
+        await user.update({ role: 'ADMIN' });
     }
 }
 
 module.exports = {
     createToken,
     hashPassword,
-    seedCreatorAccount,
+    seedAdminAccount,
     serializeUser,
     verifyToken,
     verifyPassword,

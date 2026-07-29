@@ -16,7 +16,7 @@ async function seed() {
     const [user] = await User.findOrCreate({
       where: { email: 'dev@shadesofsg.local' },
       defaults: {
-        name: 'Violet',
+        name: 'Mock Creator',
         passwordHash: 'dummyhash',
         role: 'CREATOR'
       }

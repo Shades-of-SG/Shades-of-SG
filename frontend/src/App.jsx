@@ -38,6 +38,15 @@ import './SongsLibrary.css'
 import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import VideoEditor from './pages/VideoEditor'
+import CreatorApplication from './pages/CreatorApplication'
+import CreatorFolders from './pages/CreatorFolders'
+import CreatorAnalytics from './pages/CreatorAnalytics'
+import AdminLayout from './layouts/AdminLayout'
+import AdminAnalytics from './pages/AdminAnalytics'
+import AdminApplications from './pages/AdminApplications'
+import AdminCreators from './pages/AdminCreators'
+import AdminFolders from './pages/AdminFolders'
+import AdminGovernance from './pages/AdminGovernance'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -51,6 +60,10 @@ function AuthExperience() {
     return <Navigate replace to="/creator/dashboard" />
   }
 
+  if (user?.role === 'ADMIN') {
+    return <Navigate replace to="/admin" />
+  }
+
   if (user) {
     return <Navigate replace to="/" />
   }
@@ -62,6 +75,7 @@ function App() {
   const { token, user } = useAuth()
   const isCreator = Boolean(token && user?.role === 'CREATOR')
   const isRegistered = Boolean(token && user?.role === 'REGISTERED')
+  const isAdmin = Boolean(token && user?.role === 'ADMIN')
 
   return (
     <BrowserRouter>
@@ -80,6 +94,7 @@ function App() {
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<ProtectedRoute isAllowed={isRegistered}><Profile /></ProtectedRoute>} path="/profile" />
+          <Route element={<ProtectedRoute isAllowed={isRegistered}><CreatorApplication /></ProtectedRoute>} path="/apply/creator" />
           <Route element={<Settings />} path="/settings" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
@@ -105,8 +120,20 @@ function App() {
             <Route element={<VideoEditor />} path="/creator/editor/:id" />
             <Route element={<TotalPlays />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
+            <Route element={<CreatorFolders />} path="/creator/folders" />
+            <Route element={<CreatorAnalytics />} path="/creator/analytics" />
             <Route element={<Profile />} path="/creator/profile" />
             <Route element={<Settings />} path="/creator/settings" />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute isAllowed={isAdmin} />}>
+          <Route element={<AdminLayout />}>
+            <Route element={<AdminAnalytics />} path="/admin" />
+            <Route element={<AdminApplications />} path="/admin/applications" />
+            <Route element={<AdminCreators />} path="/admin/creators" />
+            <Route element={<AdminFolders />} path="/admin/folders" />
+            <Route element={<AdminGovernance />} path="/admin/governance" />
           </Route>
         </Route>
 

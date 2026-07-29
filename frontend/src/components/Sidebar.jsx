@@ -7,6 +7,8 @@ const creatorLinks = [
   { icon: 'edit', label: 'Studio', to: '/creator/studio' },
   { icon: 'jobs', label: 'Generation Jobs', to: '/creator/generation' },
   { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
+  { icon: 'music', label: 'Collections', to: '/creator/folders' },
+  { icon: 'dashboard', label: 'Analytics', to: '/creator/analytics' },
   { icon: 'profile', label: 'Profile', to: '/creator/profile' },
   { icon: 'settings', label: 'Settings', to: '/creator/settings' },
 ]

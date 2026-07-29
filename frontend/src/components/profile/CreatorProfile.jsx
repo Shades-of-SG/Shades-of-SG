@@ -13,10 +13,10 @@ import { formatProfileDate } from './profileUtils'
 
 // TODO: Replace these fallbacks when persisted creator biography/profile fields are introduced.
 const CREATOR_PROFILE_FALLBACK = Object.freeze({
-  about: 'Music has always been Violet\'s way of holding onto the places, voices, and everyday moments that make Singapore feel like home. Her work reimagines local stories through contemporary songs, helping younger audiences discover a personal connection to the heritage around them.',
+  about: 'This creator contributes original music that celebrates Singapore\'s National Day, shared identity, and community stories.',
   bio: 'Turning Singapore\'s stories, sounds, and memories into music for everyone to explore.',
   creatorSince: '2025',
-  displayName: 'Violet',
+  displayName: 'Creator',
   languages: ['English', 'Mandarin'],
   location: 'Singapore',
   role: 'Creator & Storyteller',

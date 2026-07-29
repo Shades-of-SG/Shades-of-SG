@@ -7,14 +7,12 @@ import PageHeader from '../components/PageHeader'
 import ReflectionCard from '../components/ReflectionCard'
 import Reveal from '../components/Reveal'
 import SongCard from '../components/SongCard'
-import { API_URL } from '../services/apiConfig'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getReflections } from '../services/reflectionService'
 
 export default function Landing() {
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
-  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -29,15 +27,6 @@ export default function Landing() {
       })
       .catch((nextError) => active && setError(nextError.message))
       .finally(() => active && setLoading(false))
-
-    fetch(`${API_URL}/stats`)
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(data.message || 'Unable to load community statistics.')
-        return data
-      })
-      .then((data) => active && setStats(data))
-      .catch(() => {})
 
     return () => {
       active = false
@@ -63,18 +52,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
-      {stats ? (
-        <Reveal
-          as="p"
-          aria-label="Community summary"
-          className="landing-summary landing-summary--reveal"
-        >
-          <span>{stats.songsCount} songs</span>
-          <span>{stats.reflectionsCount} shared memories</span>
-          <span>Interactive cultural experiences</span>
-        </Reveal>
-      ) : null}
 
       <section className="content-section journey-section" id="journey">
         <Reveal as="header" className="section-heading landing-heading-reveal">

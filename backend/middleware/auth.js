@@ -12,46 +12,53 @@ function readUser(req) {
     return verifyToken(token);
 }
 
-function optionalAuth(req, res, next) {
+async function loadCurrentUser(req) {
     req.authUser = readUser(req);
-    return next();
+    if (!req.authUser?.id) return null;
+    const user = await User.findByPk(req.authUser.id, {
+        attributes: ['id', 'role', 'accountStatus'],
+    });
+    req.authUserRecord = user || null;
+    return user;
 }
 
-function requireAuth(req, res, next) {
-    req.authUser = readUser(req);
-
-    if (!req.authUser?.id) {
-        return res.status(401).json({ message: 'Please log in to continue.' });
-    }
-
-    return next();
-}
-
-async function requireCreator(req, res, next) {
-    req.authUser = readUser(req);
-
-    if (!req.authUser?.id) {
-        return res.status(401).json({ message: 'Please log in to continue.' });
-    }
-
+async function optionalAuth(req, res, next) {
     try {
-        const user = await User.findByPk(req.authUser.id, {
-            attributes: ['id', 'role'],
-        });
-
-        if (!user) {
-            return res.status(401).json({ message: 'Your account could not be found.' });
+        const user = await loadCurrentUser(req);
+        if (!user || user.accountStatus !== 'ACTIVE') {
+            req.authUser = null;
+            req.authUserRecord = null;
         }
-
-        if (user.role !== 'CREATOR') {
-            return res.status(403).json({ message: 'Creator access is required.' });
-        }
-
-        req.authUserRecord = user;
         return next();
     } catch (error) {
         return next(error);
     }
 }
 
-module.exports = { optionalAuth, requireAuth, requireCreator };
+function requireRoles(...roles) {
+    return async function roleMiddleware(req, res, next) {
+        try {
+            const user = await loadCurrentUser(req);
+            if (!req.authUser?.id || !user) {
+                return res.status(401).json({ message: 'Please log in to continue.' });
+            }
+            if (user.accountStatus !== 'ACTIVE') {
+                return res.status(403).json({ message: 'This account is suspended.' });
+            }
+            if (roles.length && !roles.includes(user.role)) {
+                const label = roles.length === 1 ? roles[0].toLowerCase() : 'authorised';
+                return res.status(403).json({ message: `${label[0].toUpperCase()}${label.slice(1)} access is required.` });
+            }
+            return next();
+        } catch (error) {
+            return next(error);
+        }
+    };
+}
+
+const requireAuth = requireRoles();
+const requireCreator = requireRoles('CREATOR');
+const requireAdmin = requireRoles('ADMIN');
+const requireCreatorOrAdmin = requireRoles('CREATOR', 'ADMIN');
+
+module.exports = { optionalAuth, requireAdmin, requireAuth, requireCreator, requireCreatorOrAdmin };

@@ -23,9 +23,15 @@ const User = sequelize.define('User', {
         field: 'password_hash',
     },
     role: {
-        type: DataTypes.ENUM('CREATOR', 'REGISTERED'),
+        type: DataTypes.ENUM('ADMIN', 'CREATOR', 'REGISTERED'),
         allowNull: false,
         defaultValue: 'REGISTERED',
+    },
+    accountStatus: {
+        type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
+        allowNull: false,
+        defaultValue: 'ACTIVE',
+        field: 'account_status',
     },
 }, {
     tableName: 'users',

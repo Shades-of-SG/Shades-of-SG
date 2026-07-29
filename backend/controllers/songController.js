@@ -4,6 +4,7 @@ const { Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
+const { writeAudit } = require('../services/auditService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -97,6 +98,19 @@ async function reconcileCompletedGeneration(song, latestJob) {
 
 async function findOwnedSong(req) {
     return Song.findOne({ where: { id: req.params.id, creatorId: req.authUserRecord.id } });
+}
+
+function auditSong(req, action, song, metadata = {}) {
+    return writeAudit({
+        action,
+        actorId: req.authUserRecord.id,
+        creatorId: song.creatorId,
+        entityId: song.id,
+        entityType: 'SONG',
+        metadata,
+        req,
+        songId: song.id,
+    });
 }
 
 async function listPublicSongs(req, res, next) {
@@ -214,6 +228,7 @@ async function createSong(req, res, next) {
             videoPublicId: uploadedMediaIsVideo ? audioPublicId : parsed.values.videoPublicId,
             videoUrl: uploadedMediaIsVideo ? audioUrl : parsed.values.videoUrl,
         });
+        await auditSong(req, 'SONG_CREATED', song);
         return res.status(201).json({ success: true, data: song, song });
     } catch (error) { return next(error); }
 }
@@ -225,6 +240,7 @@ async function updateSong(req, res, next) {
         const parsed = buildSongValues(req.body, { partial: true });
         if (parsed.error) return res.status(400).json({ message: parsed.error });
         await song.update(parsed.values);
+        await auditSong(req, 'SONG_METADATA_UPDATED', song, { fields: Object.keys(parsed.values) });
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -240,6 +256,7 @@ async function publishSong(req, res, next) {
         const missing = publishValidation(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
+        await auditSong(req, 'SONG_PUBLISHED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -265,6 +282,7 @@ async function uploadCoverImage(req, res, next) {
         const previousPublicId = song.coverImagePublicId;
         const uploaded = await cloudinaryService.uploadImageBuffer(req.file.buffer);
         await song.update({ coverImageUrl: uploaded.secure_url, coverImagePublicId: uploaded.public_id });
+        await auditSong(req, 'SONG_COVER_UPDATED', song);
         if (previousPublicId && previousPublicId !== uploaded.public_id) {
             await cloudinaryService.deleteImage(previousPublicId).catch((error) => {
                 console.error(`Unable to delete replaced cover ${previousPublicId}:`, error.message);
@@ -298,6 +316,7 @@ async function uploadSongAudio(req, res, next) {
                 videoUrl: uploaded.audioUrl,
             } : {}),
         });
+        await auditSong(req, 'SONG_AUDIO_UPDATED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -329,6 +348,7 @@ async function uploadSongVideo(req, res, next) {
                 audioUrl: uploaded.videoUrl,
             } : {}),
         });
+        await auditSong(req, 'SONG_VIDEO_UPDATED', song);
         if (previousPublicId && previousPublicId !== uploaded.videoPublicId && previousPublicId !== song.audioPublicId) {
             await cloudinaryService.deleteAsset(previousPublicId, 'video').catch((error) => {
                 console.error(`Unable to delete replaced video ${previousPublicId}:`, error.message);
@@ -344,6 +364,7 @@ async function unpublishSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status !== 'PUBLISHED') return res.status(409).json({ message: 'Only a published song can be unpublished.' });
         await song.update({ status: 'READY', publishedDate: null });
+        await auditSong(req, 'SONG_UNPUBLISHED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -354,6 +375,7 @@ async function archiveSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be archived.' });
         await song.update({ status: 'ARCHIVED', publishedDate: null });
+        await auditSong(req, 'SONG_ARCHIVED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -367,6 +389,7 @@ async function unarchiveSong(req, res, next) {
             status: song.videoUrl?.trim() ? 'READY' : 'DRAFT',
             publishedDate: null,
         });
+        await auditSong(req, 'SONG_UNARCHIVED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -387,6 +410,7 @@ async function deleteSong(req, res, next) {
             [song.videoPublicId, 'video'],
             ...segments.flatMap((segment) => segment.generatedFrames.map((frame) => [frame.cloudinaryId, 'image'])),
         ].filter(([publicId]) => publicId);
+        await auditSong(req, 'SONG_DELETED', song);
         await song.destroy();
         const cleanup = await Promise.allSettled(assets.map(([publicId, type]) => cloudinaryService.deleteAsset(publicId, type)));
         const cleanupFailures = cleanup.filter((result) => result.status === 'rejected').length;

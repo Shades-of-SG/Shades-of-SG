@@ -1,12 +1,13 @@
 const { OpenAI } = require('openai')
 const { Song, GenerationJob, SceneSegment } = require('../models')
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
 
 async function generateScenePlan(jobId, songId) {
   try {
+    const openai = getOpenAI()
     const job = await GenerationJob.findByPk(jobId)
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
@@ -17,6 +18,9 @@ async function generateScenePlan(jobId, songId) {
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song with ID ${songId} not found.`)
+    if (job.songId !== song.id) {
+      throw new Error('Generation job does not belong to the requested song.')
+    }
     
     // Read pre-extracted timings instead of re-transcribing audio on the fly!
     let rawSegments = song.transcriptionSegments || []

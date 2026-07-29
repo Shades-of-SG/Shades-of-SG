@@ -14,6 +14,12 @@ const SceneSegment = require('./SceneSegment');
 const GeneratedFrame = require('./GeneratedFrame');
 const SongInstrument = require('./SongInstrument');
 const RhythmBeatmap = require('./RhythmBeatmap');
+const CreatorApplication = require('./CreatorApplication');
+const Folder = require('./Folder');
+const SongFolder = require('./SongFolder');
+const UserWarning = require('./UserWarning');
+const ModerationAction = require('./ModerationAction');
+const AuditLog = require('./AuditLog');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -70,6 +76,43 @@ Instrument.belongsToMany(Song, {
     as: 'songs',
 });
 
+User.hasMany(CreatorApplication, { foreignKey: 'userId', as: 'creatorApplications' });
+CreatorApplication.belongsTo(User, { foreignKey: 'userId', as: 'applicant' });
+User.hasMany(CreatorApplication, { foreignKey: 'reviewedBy', as: 'reviewedCreatorApplications' });
+CreatorApplication.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+
+Song.belongsToMany(Folder, {
+    through: SongFolder,
+    foreignKey: 'songId',
+    otherKey: 'folderId',
+    as: 'folders',
+});
+Folder.belongsToMany(Song, {
+    through: SongFolder,
+    foreignKey: 'folderId',
+    otherKey: 'songId',
+    as: 'songs',
+});
+User.hasMany(Folder, { foreignKey: 'createdBy', as: 'createdFolders' });
+Folder.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+User.hasMany(Folder, { foreignKey: 'proposedBy', as: 'folderProposals' });
+Folder.belongsTo(User, { foreignKey: 'proposedBy', as: 'proposer' });
+User.hasMany(Folder, { foreignKey: 'reviewedBy', as: 'reviewedFolders' });
+Folder.belongsTo(User, { foreignKey: 'reviewedBy', as: 'folderReviewer' });
+
+User.hasMany(UserWarning, { foreignKey: 'userId', as: 'warnings' });
+UserWarning.belongsTo(User, { foreignKey: 'userId', as: 'warnedUser' });
+UserWarning.belongsTo(User, { foreignKey: 'issuedBy', as: 'issuer' });
+UserWarning.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolver' });
+
+ModerationAction.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+ModerationAction.belongsTo(User, { foreignKey: 'targetUserId', as: 'targetUser' });
+ModerationAction.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+
+AuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
+AuditLog.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+AuditLog.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+
 module.exports = {
     sequelize,
     User,
@@ -87,4 +130,10 @@ module.exports = {
     GeneratedFrame,
     SongInstrument,
     RhythmBeatmap,
+    CreatorApplication,
+    Folder,
+    SongFolder,
+    UserWarning,
+    ModerationAction,
+    AuditLog,
 };

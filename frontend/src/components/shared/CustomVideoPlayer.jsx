@@ -163,12 +163,10 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
   }, [])
 
   useEffect(() => {
-    if (!isPlaying) {
-      setShowControls(true)
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-    } else if (isFullscreen) {
-      handleMouseMove()
-    }
+    const scheduled = setTimeout(() => {
+      if (!isPlaying || isFullscreen) handleMouseMove()
+    }, 0)
+    return () => clearTimeout(scheduled)
   }, [isPlaying, isFullscreen, handleMouseMove])
 
   // Cleanup timeout on unmount

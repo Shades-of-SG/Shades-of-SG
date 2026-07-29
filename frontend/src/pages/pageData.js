@@ -25,7 +25,7 @@ export const sampleSongs = [
 export const creatorSongs = [
   {
     badge: 'Published',
-    description: 'Violet Tay',
+    description: 'National Day Creator',
     id: 'demo-song',
     initials: 'DS',
     lyrics:
@@ -35,7 +35,7 @@ export const creatorSongs = [
   },
   {
     badge: 'Processing video generation',
-    description: 'Violet Tay',
+    description: 'National Day Creator',
     id: 'kampong-light',
     initials: 'KL',
     lyrics:
@@ -46,7 +46,7 @@ export const creatorSongs = [
   },
   {
     badge: 'Published',
-    description: 'Violet Tay',
+    description: 'National Day Creator',
     id: 'city-pulse',
     initials: 'CP',
     lyrics:
@@ -56,7 +56,7 @@ export const creatorSongs = [
   },
   {
     badge: 'Draft',
-    description: 'Violet Tay',
+    description: 'National Day Creator',
     id: 'sunset-ferry',
     initials: 'SF',
     lyrics: '',

@@ -12,17 +12,12 @@ const generationRouter = require('./routes/aiGeneration');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
 const statsRouter = require('./routes/stats');
-const { seedCreatorAccount } = require('./services/authService');
+const creatorApplicationsRouter = require('./routes/creatorApplications');
+const foldersRouter = require('./routes/folders');
+const analyticsRouter = require('./routes/analytics');
+const adminRouter = require('./routes/admin');
+const { seedAdminAccount } = require('./services/authService');
 const { GenerationJob, Song } = require('./models');
-const {
-    ensureGameScoreSchema,
-    ensureGenerationJobSchema,
-    ensureGuestReflectionSchema,
-    ensureReflectionModerationSchema,
-    ensureRhythmBeatmapSchema,
-    ensureSongSchema,
-    ensureSongMediaSchema,
-} = require('./services/schemaService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -74,6 +69,10 @@ app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
 app.use('/api/badges', badgesRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/creator-applications', creatorApplicationsRouter);
+app.use('/api/folders', foldersRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/admin', adminRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {
@@ -85,15 +84,7 @@ app.use(errorHandler);
 async function startServer() {
     try {
         await sequelize.authenticate();
-        await sequelize.sync();
-        await ensureGameScoreSchema(sequelize);
-        await ensureGuestReflectionSchema(sequelize);
-        await ensureReflectionModerationSchema(sequelize);
-        await ensureSongSchema(sequelize);
-        await ensureGenerationJobSchema(sequelize);
-        await ensureRhythmBeatmapSchema(sequelize);
-        await ensureSongMediaSchema(sequelize);
-        await seedCreatorAccount();
+        await seedAdminAccount();
         console.log('Database connected successfully');
 
         // Rescue stuck jobs from previous interrupted runs

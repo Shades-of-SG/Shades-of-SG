@@ -215,10 +215,6 @@ export default function SongExperience() {
     transcriptionSegments: dbSong.transcriptionSegments || null,
   } : MOCK_SONG_DATA
 
-  // Video playback is handled by CustomVideoPlayer;
-  // we only track whether something is playing so we can stop instrument melodies.
-  const [isPlaying, setIsPlaying] = useState(false)
-
   // Trivia state
   const [questionIndex, setQuestionIndex] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState(null)
@@ -251,7 +247,6 @@ export default function SongExperience() {
     stopSyntheticMelody()
 
     // The CustomVideoPlayer will be paused by the user; here we just track state
-    setIsPlaying(false)
 
     setPlayingInstrumentId(instrument.id)
     // Mimic the sequence logic from InstrumentPlayer
@@ -353,8 +348,7 @@ export default function SongExperience() {
               src={songData.videoUrl}
               transcriptionSegments={songData.transcriptionSegments}
               poster={songData.coverImageUrl}
-              onPlay={() => { setIsPlaying(true); stopSyntheticMelody() }}
-              onPause={() => setIsPlaying(false)}
+              onPlay={stopSyntheticMelody}
             />
           </div>
 
@@ -536,5 +530,4 @@ export default function SongExperience() {
     </div>
   )
 }
-
 

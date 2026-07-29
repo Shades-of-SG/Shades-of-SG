@@ -125,6 +125,9 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
                       <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/settings">
                         <Settings aria-hidden="true" size={18} /> Settings
                       </Link>
+                      <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/apply/creator">
+                        Apply to be a creator
+                      </Link>
                       <button onClick={handleLogout} role="menuitem" type="button">
                         <LogOut aria-hidden="true" size={18} /> Logout
                       </button>

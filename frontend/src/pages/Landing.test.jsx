@@ -29,18 +29,15 @@ describe('Landing page', () => {
     cleanup()
   })
 
-  it('renders the latest community summary returned by the database API', async () => {
+  it('does not request admin-only platform analytics', async () => {
     render(
       <MemoryRouter>
         <Landing />
       </MemoryRouter>
     )
 
-    expect(await screen.findByText('6 songs')).toBeInTheDocument()
-    expect(screen.getByText('9 shared memories')).toBeInTheDocument()
-    expect(screen.getByText('Interactive cultural experiences')).toBeInTheDocument()
-    expect(screen.queryByText('14 Active Explorers')).not.toBeInTheDocument()
-    expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/stats$/))
+    expect(await screen.findByRole('heading', { name: /Discover Singapore through music/i })).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('renders the updated hero and linked journey cards', () => {

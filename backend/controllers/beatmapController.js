@@ -83,7 +83,10 @@ async function listBeatmaps(req, res, next) {
   try {
     const access = await findAccessibleSong(req)
     if (!access) return res.status(404).json({ message: 'Published song not found.' })
-    const rows = await RhythmBeatmap.findAll({ where: { songId: access.song.id }, order: [['version', 'DESC']] })
+    const rows = await RhythmBeatmap.findAll({
+      where: { songId: access.song.id, ...(!access.isOwner ? { status: 'PUBLISHED' } : {}) },
+      order: [['version', 'DESC']],
+    })
     return res.json({ beatmaps: DIFFICULTIES.map((difficulty) => difficultySummary(difficulty, rows.filter((row) => row.difficulty === difficulty), access.isOwner)) })
   } catch (error) { return next(error) }
 }

@@ -29,7 +29,9 @@ export default function Login() {
       const data = await loginWithEmail(email, password)
       signIn(data.user, data.token)
 
-      const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
+      const fallbackPath = data.user.role === 'ADMIN'
+        ? '/admin'
+        : data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
       navigate(getPostLoginDestination(location.state?.from?.pathname || fallbackPath), { replace: true })
     } catch (nextError) {
       setError(nextError.message)

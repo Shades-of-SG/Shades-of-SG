@@ -9,6 +9,7 @@ const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
 const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
 const { transcribeMediaBuffer } = require('../services/transcriptionService')
+const { writeAudit } = require('../services/auditService')
 
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
@@ -142,6 +143,7 @@ const startGeneration = async (req, res, next) => {
     }
 
     await song.update({ status: 'GENERATING' })
+    await writeAudit({ action: 'GENERATION_STARTED', actorId: req.authUserRecord.id, creatorId: song.creatorId, entityId: job.id, entityType: 'GENERATION_JOB', req, songId: song.id })
     if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
 
     return res.status(202).json({
@@ -335,6 +337,7 @@ const exportVideo = async (req, res, next) => {
     }
     await job.update({ status: 'COMPLETED', completedAt: new Date() });
     await job.reload();
+    await writeAudit({ action: 'GENERATION_EXPORTED', actorId: req.authUserRecord.id, creatorId: job.song.creatorId, entityId: job.id, entityType: 'GENERATION_JOB', req, songId: job.songId })
 
     return res.status(200).json({
       success: true,
@@ -382,15 +385,9 @@ const deleteJob = async (req, res, next) => {
     }
     await SceneSegment.destroy({ where: { songId: job.songId } })
     
-    // Save songId before destroying the job
-    const songIdToDelete = job.songId
     await job.destroy()
+    await writeAudit({ action: 'GENERATION_JOB_DELETED', actorId: req.authUserRecord.id, creatorId: job.song.creatorId, entityId: job.id, entityType: 'GENERATION_JOB', req, songId: job.songId })
     
-    // Finally, delete the orphaned song record
-    if (songIdToDelete) {
-      await Song.destroy({ where: { id: songIdToDelete } })
-    }
-
     // Clean up any leftover temp files
     await cleanupJobFiles(id)
 
@@ -405,8 +402,20 @@ const regenerateFrame = async (req, res, next) => {
     const { frameId } = req.params;
     const { userFeedback } = req.body;
 
-    const frame = await GeneratedFrame.findByPk(frameId, {
-      include: [{ model: SceneSegment, as: 'sceneSegment' }]
+    const frame = await GeneratedFrame.findOne({
+      where: { id: frameId },
+      include: [{
+        model: SceneSegment,
+        as: 'sceneSegment',
+        required: true,
+        include: [{
+          model: Song,
+          as: 'song',
+          attributes: ['id', 'creatorId'],
+          required: true,
+          where: { creatorId: req.authUserRecord.id },
+        }],
+      }]
     });
 
     if (!frame) return res.status(404).json({ success: false, message: 'Frame not found' });
@@ -457,9 +466,7 @@ const regenerateFrame = async (req, res, next) => {
 
     frame.imageUrl = finalImageUrl;
     await frame.save();
-
-    segment.imageUrl = finalImageUrl;
-    await segment.save();
+    await writeAudit({ action: 'GENERATED_FRAME_REGENERATED', actorId: req.authUserRecord.id, creatorId: req.authUserRecord.id, entityId: frame.id, entityType: 'GENERATED_FRAME', req, songId: segment.songId })
 
     return res.json({ success: true, data: frame });
   } catch (error) {

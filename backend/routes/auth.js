@@ -5,7 +5,6 @@ const { requireAuth } = require('../middleware/auth');
 const {
     createToken,
     hashPassword,
-    seedCreatorAccount,
     serializeUser,
     verifyPassword,
 } = require('../services/authService');
@@ -35,8 +34,6 @@ router.post('/login', async (req, res, next) => {
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required.' });
         }
-
-        await seedCreatorAccount();
 
         const user = await User.findOne({ where: { email } });
 

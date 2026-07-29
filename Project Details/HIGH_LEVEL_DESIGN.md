@@ -8,9 +8,9 @@
 > - Completion sets the Song to `READY` and never publishes it; publishing is explicit and owner-only.
 > - Public Song endpoints and public Song experiences expose only `PUBLISHED` Songs.
 > - Guest rhythm play creates no GameScore; registered scores use JWT identity.
-> - Every reflection starts `PENDING`; creator moderation is required before public display.
+> - Every reflection starts `PENDING`; creators moderate only their own songs and admins have explicit platform authority.
+> - Multi-creator ownership for nested resources is enforced through `songs.creator_id`; current schema changes are numbered through migration `014` and startup does not mutate schema.
 > - Temporary MP4 media and duration-derived rhythm charts are MVP limitations. Missing learning content is reported as unavailable.
-> - PostgreSQL applies migrations `001`–`006` in order. Startup uses non-destructive `sequelize.sync()` and seeds no content.
 
 > SCCCI AI Challenge | Team: Unpaid Interns
 

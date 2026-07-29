@@ -7,7 +7,7 @@ export default function CreatorAccountWidget({ className = '', role, userName })
   const menuRef = useRef(null)
   const { signOut, user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
-  const displayName = userName || user?.name || 'Violet'
+  const displayName = userName || user?.name || 'Creator'
   const displayRole = role || (user?.role === 'CREATOR' ? 'Creator' : 'User')
   const initial = displayName.trim().charAt(0).toUpperCase() || 'V'
 

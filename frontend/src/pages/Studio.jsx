@@ -133,7 +133,7 @@ export default function Studio() {
       .catch((error) => active && setMessage({ type: 'error', text: error.message }))
       .finally(() => active && setIsLoading(false))
     return () => { active = false }
-  }, [routeSongId, token])
+  }, [routeSongId, token, location.state])
 
   useEffect(() => () => {
     if (audioPreviewUrl?.startsWith('blob:')) URL.revokeObjectURL(audioPreviewUrl)

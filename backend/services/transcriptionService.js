@@ -126,15 +126,12 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
-    let formattedLyrics = '';
-    if (responseBody.segments && responseBody.segments.length > 0) {
-        formattedLyrics = responseBody.segments
+    const formattedLyrics = responseBody.segments && responseBody.segments.length > 0
+        ? responseBody.segments
             .map(s => s.text.trim())
             .filter(Boolean)
-            .join('\n');
-    } else {
-        formattedLyrics = formatLyricsDraft(rawLyrics);
-    }
+            .join('\n')
+        : formatLyricsDraft(rawLyrics);
 
     return {
         lyrics: formattedLyrics,

@@ -66,7 +66,7 @@ router.get('/demo-song', (req, res) => res.json({
         theme: 'Heritage',
         title: 'Demo Rhythm Track',
         thumbnail_url: '',
-        video_url: '/videos/exploding-kittens-placeholder.mp4',
+        video_url: '/videos/placeholder-generation.mp4',
     },
 }));
 router.get('/', songController.listPublicSongs);
