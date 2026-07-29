@@ -389,6 +389,48 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
     expect(screen.getByRole('link', { name: 'Play Medium Rhythm' })).toHaveAttribute('href', '/game/published-42?difficulty=MEDIUM')
     expect(screen.getByRole('link', { name: 'Share a Reflection' })).toHaveAttribute('href', '/reflections?song_id=published-42')
+    expect(screen.getByRole('button', { name: /play angklung/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play kompang/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play erhu/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play tabla/i })).toBeInTheDocument()
+  })
+
+  it('prioritizes linked API instruments over Song Experience placeholders', async () => {
+    window.history.pushState({}, '', '/songs/published-with-instruments')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [] } : ({ song: {
+        artist: 'Instrument Artist', id: 'published-with-instruments', instruments: [{
+          description: 'A linked instrument description.', id: 'linked-kulintang', imageUrl: 'https://media.example/kulintang.jpg', name: 'Kulintang', origin: 'Southeast Asia',
+        }], status: 'PUBLISHED', title: 'Linked Instrument Song',
+      } }),
+      ok: true, status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('button', { name: /play kulintang: a linked instrument description/i })).toBeInTheDocument()
+    expect(screen.getByAltText('Kulintang')).toHaveAttribute('src', 'https://media.example/kulintang.jpg')
+    expect(screen.queryByRole('button', { name: /play angklung/i })).not.toBeInTheDocument()
+  })
+
+  it('shows the recovered instrument placeholders in an empty song playground', async () => {
+    window.history.pushState({}, '', '/songs/playground-song/playground')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ song: {
+        artist: 'Playground Artist', id: 'playground-song', instruments: [], languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playground Song',
+      } }),
+      ok: true, status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: 'Playground Song Playground' })).toBeInTheDocument()
+    expect(screen.getByText('Angklung')).toBeInTheDocument()
+    expect(screen.getByText('Kompang')).toBeInTheDocument()
+    expect(screen.getByText('Erhu')).toBeInTheDocument()
+    expect(screen.getByText('Tabla')).toBeInTheDocument()
+    expect(screen.getByText(/bamboo instrument shaken to produce a note/i)).toBeInTheDocument()
+    expect(screen.queryByText(/instruments unavailable/i)).not.toBeInTheDocument()
   })
 
   it('keeps a published song usable while disabling rhythm when no beatmap is published', async () => {

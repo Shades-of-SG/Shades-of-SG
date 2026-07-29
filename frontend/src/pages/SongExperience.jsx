@@ -4,6 +4,11 @@ import { PlayCircle, Square } from 'lucide-react'
 import CustomVideoPlayer from '../components/shared/CustomVideoPlayer'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
+import {
+  enrichInstrumentForPlayback,
+  getSongInstruments,
+  TEMPORARY_SONG_INSTRUMENT_FALLBACKS,
+} from '../data/songExperienceInstrumentFallbacks'
 import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { trackAnalyticsEvent } from '../services/analyticsService'
@@ -19,103 +24,7 @@ const MOCK_SONG_DATA = {
   videoUrl: 'https://res.cloudinary.com/dep1fjics/video/upload/v1783863489/shades-of-sg/compiled-videos/nrpqc4kifmwdirz2h2xe.mp4',
   culturalSummary:
     '"Tomorrow\'s Here Today" is an upbeat, forward-looking anthem released for Singapore\'s National Day Parade in 2016. It embodies a modern, energetic vision of Singapore\'s future, encouraging unity and celebrating the diverse voices that make up the nation\'s fabric. The song resonates with a youthful energy and optimism.',
-  instruments: [
-    {
-      description: 'A bamboo instrument shaken to produce a note, traditionally played together in ensembles where each person holds just one pitch.',
-      envelope: 'sustained',
-      facts: {
-        contribution: "A symbol of teamwork and harmony within Singapore's Malay community.",
-        historicalFact: 'In 2010, UNESCO recognised the angklung as an Intangible Cultural Heritage of Humanity.',
-        origin: 'Rooted in Malay and Indonesian-Malay musical traditions of Southeast Asia.',
-        role: 'Each angklung produces one note; players work together to create a melody.',
-        whenPlayed: 'Featured in school performances, cultural festivals, and community events.',
-      },
-      icon: '🎋',
-      id: 'angklung',
-      melody: ['C4', 'D4', 'F4', 'G4', 'A4', 'G4', 'F4'],
-      name: 'Angklung',
-      notes: [
-        { frequency: 261.63, key: 'a', label: 'C4' },
-        { frequency: 293.66, key: 's', label: 'D4' },
-        { frequency: 349.23, key: 'd', label: 'F4' },
-        { frequency: 392, key: 'f', label: 'G4' },
-        { frequency: 440, key: 'g', label: 'A4' },
-      ],
-      origin: 'Malay heritage, Southeast Asia',
-      waveform: 'triangle',
-    },
-    {
-      description: 'A handheld frame drum played in lively ensembles at Malay weddings and festive processions.',
-      envelope: 'percussive',
-      facts: {
-        contribution: "Brings energetic, communal rhythm to Singapore's multicultural celebrations.",
-        historicalFact: 'Kompang ensembles traditionally perform to welcome a wedding couple as they arrive.',
-        origin: 'A Malay hand drum found across Singapore, Malaysia, and Indonesia.',
-        role: 'Played in rhythmic ensembles, often accompanying songs and processions.',
-        whenPlayed: 'Weddings, National Day performances, and community celebrations.',
-      },
-      icon: '🥁',
-      id: 'kompang',
-      melody: ['Low', 'Mid', 'High', 'Slap', 'Mid', 'Low'],
-      name: 'Kompang',
-      notes: [
-        { frequency: 110, key: 'a', label: 'Low' },
-        { frequency: 146.83, key: 's', label: 'Mid' },
-        { frequency: 196, key: 'd', label: 'High' },
-        { frequency: 246.94, key: 'f', label: 'Slap' },
-      ],
-      origin: 'Malay heritage, Southeast Asia',
-      waveform: 'square',
-    },
-    {
-      description: 'A two-stringed bowed instrument known for its expressive, voice-like tone in Chinese music.',
-      envelope: 'sustained',
-      facts: {
-        contribution: "Represents the Chinese community's musical heritage within Singapore's soundscape.",
-        historicalFact: 'The erhu has only two strings, yet skilled players can mimic laughter, crying, and even birdsong.',
-        origin: 'Originated in China over a thousand years ago.',
-        role: 'Often carries the main melody, prized for its expressive, voice-like sound.',
-        whenPlayed: 'Chinese orchestras, festivals, and Chinese New Year performances.',
-      },
-      icon: '🎻',
-      id: 'erhu',
-      melody: ['G4', 'B4', 'D5', 'E5', 'D5', 'B4', 'G4'],
-      name: 'Erhu',
-      notes: [
-        { frequency: 392, key: 'a', label: 'G4' },
-        { frequency: 440, key: 's', label: 'A4' },
-        { frequency: 493.88, key: 'd', label: 'B4' },
-        { frequency: 523.25, key: 'f', label: 'C5' },
-        { frequency: 587.33, key: 'g', label: 'D5' },
-        { frequency: 659.25, key: 'h', label: 'E5' },
-      ],
-      origin: 'Chinese heritage',
-      waveform: 'sawtooth',
-    },
-    {
-      description: 'A pair of hand drums central to Indian classical and devotional music, played with intricate finger and palm strokes.',
-      envelope: 'percussive',
-      facts: {
-        contribution: "Adds the rhythmic heartbeat of Singapore's Indian community to its musical identity.",
-        historicalFact: "Tabla players learn spoken rhythmic syllables, called 'bols', before ever touching the drums.",
-        origin: 'A cornerstone of North Indian classical music.',
-        role: 'Provides intricate rhythmic patterns that anchor a performance.',
-        whenPlayed: 'Indian classical concerts, Deepavali celebrations, and devotional music.',
-      },
-      icon: '🪘',
-      id: 'tabla',
-      melody: ['Dha', 'Ge', 'Na', 'Tin', 'Na', 'Dha'],
-      name: 'Tabla',
-      notes: [
-        { frequency: 130.81, key: 'a', label: 'Dha' },
-        { frequency: 164.81, key: 's', label: 'Ge' },
-        { frequency: 196, key: 'd', label: 'Na' },
-        { frequency: 261.63, key: 'f', label: 'Tin' },
-      ],
-      origin: 'Indian heritage, South Asia',
-      waveform: 'sine',
-    },
-  ],
+  instruments: TEMPORARY_SONG_INSTRUMENT_FALLBACKS,
   trivia: [
     {
       question: "Which band performed the 2016 NDP theme song 'Tomorrow's Here Today'?",
@@ -223,7 +132,7 @@ export default function SongExperience() {
     culturalSummary: dbSong.description || 'No cultural summary has been added yet.',
     coverImageUrl: dbSong.coverImageUrl || undefined,
     transcriptionSegments: dbSong.transcriptionSegments || null,
-    instruments: Array.isArray(dbSong.instruments) ? dbSong.instruments : [],
+    instruments: getSongInstruments(dbSong),
     trivia: Array.isArray(dbSong.trivia) ? dbSong.trivia : [],
   } : MOCK_SONG_DATA
 
@@ -260,17 +169,31 @@ export default function SongExperience() {
 
     // The CustomVideoPlayer will be paused by the user; here we just track state
 
+    const playableInstrument = enrichInstrumentForPlayback(instrument)
+    const notes = Array.isArray(playableInstrument.notes) ? playableInstrument.notes : []
+    const melody = Array.isArray(playableInstrument.melody) && playableInstrument.melody.length > 0
+      ? playableInstrument.melody
+      : notes.map((note) => note.label)
+
     setPlayingInstrumentId(instrument.id)
+
+    if (melody.length === 0) {
+      playNote(playableInstrument, { frequency: 440, key: 'a', label: 'A4' })
+      const resetTimeout = setTimeout(() => setPlayingInstrumentId(null), 600)
+      melodyTimeouts.current.push(resetTimeout)
+      return
+    }
+
     // Mimic the sequence logic from InstrumentPlayer
-    instrument.melody.forEach((noteLabel, index) => {
-      const note = instrument.notes.find((candidate) => candidate.label === noteLabel)
+    melody.forEach((noteLabel, index) => {
+      const note = notes.find((candidate) => candidate.label === noteLabel) || notes[0]
       if (!note) return
 
       const timeoutId = setTimeout(() => {
-        playNote(instrument, note)
+        playNote(playableInstrument, note)
 
         // Clear active state when the melody finishes
-        if (index === instrument.melody.length - 1) {
+        if (index === melody.length - 1) {
           const resetTimeout = setTimeout(() => {
             setPlayingInstrumentId((currentId) => currentId === instrument.id ? null : currentId)
           }, 500)
@@ -406,9 +329,13 @@ export default function SongExperience() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {songData.instruments.map((inst, i) => {
                 const isInstPlaying = playingInstrumentId === inst.id
+                const iconImage = inst.imageUrl || inst.iconUrl
+                const icon = inst.icon || enrichInstrumentForPlayback(inst).icon || '🎵'
                 return (
                   <button
-                    key={i}
+                    aria-label={`${isInstPlaying ? 'Stop' : 'Play'} ${inst.name}${inst.description ? `: ${inst.description}` : ''}`}
+                    id={`instrument-${inst.id || i}`}
+                    key={inst.id || inst.name || i}
                     onClick={() => handlePlayMelody(inst)}
                     style={{
                       position: 'relative',
@@ -433,7 +360,15 @@ export default function SongExperience() {
                     <span style={{ position: 'absolute', top: '8px', right: '8px', color: isInstPlaying ? 'var(--violet)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                       {isInstPlaying ? <Square size={16} fill="currentColor" /> : <PlayCircle size={16} />}
                     </span>
-                    <span style={{ fontSize: '2rem' }}>{inst.icon}</span>
+                    {iconImage ? (
+                      <img
+                        alt={inst.name}
+                        src={iconImage}
+                        style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <span aria-hidden="true" style={{ fontSize: '2rem' }}>{icon}</span>
+                    )}
                     <span>{inst.name}</span>
                   </button>
                 )

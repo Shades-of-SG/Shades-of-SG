@@ -7,7 +7,7 @@ process.env.DB_STORAGE = testDatabasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { sequelize, GenerationJob, Song, User } = require('../models');
+const { sequelize, GenerationJob, Instrument, Song, User } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
 const aiStorageService = require('../services/aiStorageService');
@@ -535,4 +535,31 @@ test('public song search and filters return only matching published Songs with p
         artist: 'Test Artist', coverImageUrl: completeSong.coverImageUrl,
         description: completeSong.description, languages: ['English', 'Malay'], theme: 'Community', title: 'River Home',
     });
+});
+
+test('public song detail includes linked instruments without changing stored records', async () => {
+    const song = await Song.create({
+        ...completeSong, creatorId: creator.id, status: 'PUBLISHED', publishedDate: new Date(),
+    });
+    const instrument = await Instrument.create({
+        description: 'A linked instrument description.',
+        imageUrl: 'https://media.example/instrument.jpg',
+        name: 'Linked Instrument',
+        origin: 'Singapore',
+    });
+    await song.addInstrument(instrument);
+
+    const response = await request(app).get(`/api/songs/${song.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.song.instruments).toEqual([
+        expect.objectContaining({
+            description: 'A linked instrument description.',
+            id: instrument.id,
+            imageUrl: 'https://media.example/instrument.jpg',
+            name: 'Linked Instrument',
+            origin: 'Singapore',
+        }),
+    ]);
+    expect(await Instrument.count({ where: { id: instrument.id } })).toBe(1);
 });
