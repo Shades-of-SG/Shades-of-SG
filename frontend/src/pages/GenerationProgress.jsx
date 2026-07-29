@@ -144,12 +144,22 @@ export default function GenerationProgress() {
               <p style={{ color: '#34d399', fontWeight: 500, fontSize: '1.1rem', marginBottom: '1.5rem' }}>
                 ✨ Your cinematic video has been assembled successfully!
               </p>
-              <Link 
-                to={`/creator/editor/${jobData.id}`} 
-                className="w-full block text-center bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all"
-              >
-                Proceed to Video Editor
-              </Link>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link 
+                  to={`/creator/editor/${jobData.id}`} 
+                  className="studio-button studio-button--primary"
+                  style={{ flex: '1 1 200px', textAlign: 'center', textDecoration: 'none', padding: '0.875rem 1.5rem', fontWeight: 600 }}
+                >
+                  Proceed to Video Editor
+                </Link>
+                <Link 
+                  to={`/creator/curation/${jobData.songId}`} 
+                  className="studio-button studio-button--secondary"
+                  style={{ flex: '1 1 200px', textAlign: 'center', textDecoration: 'none', padding: '0.875rem 1.5rem', fontWeight: 600 }}
+                >
+                  Curate Song Details & Trivia
+                </Link>
+              </div>
             </div>
           ) : (
             <p style={{ color: '#94a3b8' }}>Video is currently processing...</p>

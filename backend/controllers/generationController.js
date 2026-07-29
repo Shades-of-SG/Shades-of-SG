@@ -2,6 +2,7 @@ const fs = require('fs').promises
 const path = require('path')
 const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models')
 const { generateScenePlan } = require('../services/aiScenePlanner')
+const { generateSongCurationDetails } = require('../services/aiCurationPlanner')
 const { generateFrames } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
 const { OpenAI } = require('openai')
@@ -281,6 +282,15 @@ const runGenerationPipeline = async (jobId) => {
     } else {
       console.log(`[Phase 4] Assembling Video with FFmpeg...`)
       await assembleVideo(jobId, job.songId)
+    }
+    await assertGenerationIsActive(jobId)
+
+    console.log(`[Phase 5] Generating Cultural Summary, Trivia, & Instrument Matches...`)
+    try {
+      await generateSongCurationDetails(job.songId)
+      console.log(`[Phase 5] Curation details generated successfully for Song ID: ${job.songId}`)
+    } catch (curationError) {
+      console.error(`[Phase 5 Warning] Failed to generate curation details for Song ID ${job.songId}:`, curationError.message)
     }
     await assertGenerationIsActive(jobId)
 

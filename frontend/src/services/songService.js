@@ -107,3 +107,16 @@ export function deleteSong(songId, token) {
 export function getCreatorDashboardSummary(token) {
   return request('/songs/creator/dashboard/summary', { token })
 }
+
+export function getSongCuration(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/curation`, { token }).then((data) => data.data)
+}
+
+export function updateSongCuration(songId, curationData, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/curation`, {
+    body: JSON.stringify(curationData),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PUT',
+    token,
+  }).then((data) => data.data)
+}

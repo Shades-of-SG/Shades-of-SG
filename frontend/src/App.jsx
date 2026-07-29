@@ -37,6 +37,7 @@ import './App.css'
 import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import VideoEditor from './pages/VideoEditor'
+import CreatorCuration from './pages/CreatorCuration'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -102,6 +103,7 @@ function App() {
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
             <Route element={<VideoEditor />} path="/creator/editor/:id" />
+            <Route element={<CreatorCuration />} path="/creator/curation/:songId" />
             <Route element={<TotalPlays />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />

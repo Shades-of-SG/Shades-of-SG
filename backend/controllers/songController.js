@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, SongInstrument } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -126,7 +126,13 @@ async function listPublicSongs(req, res, next) {
 
 async function getPublicSong(req, res, next) {
     try {
-        const song = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' } });
+        const song = await Song.findOne({
+            where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' },
+            include: [
+                { model: TriviaQuestion, as: 'triviaQuestions' },
+                { model: Instrument, as: 'instruments' },
+            ],
+        });
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         return res.json({ song });
     } catch (error) { return next(error); }
@@ -405,4 +411,90 @@ async function extractAudio(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+async function getCurationDetails(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await Song.findByPk(id, {
+            include: [{ model: Instrument, as: 'instruments' }],
+        });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+
+        const triviaQuestions = await TriviaQuestion.findAll({
+            where: { songId: id },
+            order: [['createdAt', 'ASC']],
+        });
+        const allInstruments = await Instrument.findAll({
+            order: [['name', 'ASC']],
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                song,
+                description: song.description || '',
+                triviaQuestions,
+                associatedInstruments: song.instruments || [],
+                allInstruments,
+            },
+        });
+    } catch (error) { return next(error); }
+}
+
+async function updateCurationDetails(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await Song.findByPk(id);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+
+        const { description, triviaQuestions, instrumentIds } = req.body;
+
+        if (description !== undefined) {
+            await song.update({ description: String(description || '') });
+        }
+
+        if (Array.isArray(triviaQuestions)) {
+            await TriviaQuestion.destroy({ where: { songId: id } });
+            const triviaRecords = triviaQuestions.map((q) => ({
+                songId: id,
+                prompt: q.prompt,
+                type: q.type || 'MULTIPLE_CHOICE',
+                options: Array.isArray(q.options) ? q.options : [],
+                correctAnswer: q.correctAnswer,
+            }));
+            if (triviaRecords.length > 0) {
+                await TriviaQuestion.bulkCreate(triviaRecords);
+            }
+        }
+
+        if (Array.isArray(instrumentIds)) {
+            await SongInstrument.destroy({ where: { songId: id } });
+            const songInstRecords = instrumentIds.map((instrumentId) => ({
+                songId: id,
+                instrumentId,
+            }));
+            if (songInstRecords.length > 0) {
+                await SongInstrument.bulkCreate(songInstRecords);
+            }
+        }
+
+        const updatedSong = await Song.findByPk(id, {
+            include: [{ model: Instrument, as: 'instruments' }],
+        });
+        const updatedTrivia = await TriviaQuestion.findAll({
+            where: { songId: id },
+            order: [['createdAt', 'ASC']],
+        });
+
+        return res.json({
+            success: true,
+            data: {
+                song: updatedSong,
+                description: updatedSong.description,
+                triviaQuestions: updatedTrivia,
+                associatedInstruments: updatedSong.instruments || [],
+            },
+        });
+    } catch (error) { return next(error); }
+}
+
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getCurationDetails, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateCurationDetails, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

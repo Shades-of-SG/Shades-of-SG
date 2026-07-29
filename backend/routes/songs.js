@@ -55,6 +55,8 @@ router.post('/:id/audio', requireCreator, upload.single('audioFile'), songContro
 router.post('/:id/video', requireCreator, videoUpload.single('videoFile'), songController.uploadSongVideo);
 router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), songController.uploadCoverImage);
 router.get('/:id/readiness', requireCreator, songController.getPublishReadiness);
+router.get('/:id/curation', requireCreator, songController.getCurationDetails);
+router.put('/:id/curation', requireCreator, songController.updateCurationDetails);
 router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);

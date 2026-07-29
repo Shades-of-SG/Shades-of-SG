@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { PlayCircle, Square } from 'lucide-react'
+import { PlayCircle, Square, Loader2, AlertCircle, Sparkles, BookOpen, Music2 } from 'lucide-react'
 import CustomVideoPlayer from '../components/shared/CustomVideoPlayer'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
@@ -8,189 +8,56 @@ import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
 import './SongExperience.css'
 
-const MOCK_SONG_DATA = {
-  title: "Tomorrow's Here Today",
-  artist: '53A',
-  year: '2016',
-  location: 'Singapore',
-  tags: ['National Day', 'English Pop', 'Upbeat'],
-  videoUrl: 'https://res.cloudinary.com/dep1fjics/video/upload/v1783863489/shades-of-sg/compiled-videos/nrpqc4kifmwdirz2h2xe.mp4',
-  culturalSummary:
-    '"Tomorrow\'s Here Today" is an upbeat, forward-looking anthem released for Singapore\'s National Day Parade in 2016. It embodies a modern, energetic vision of Singapore\'s future, encouraging unity and celebrating the diverse voices that make up the nation\'s fabric. The song resonates with a youthful energy and optimism.',
-  instruments: [
-    {
-      description: 'A bamboo instrument shaken to produce a note, traditionally played together in ensembles where each person holds just one pitch.',
-      envelope: 'sustained',
-      facts: {
-        contribution: "A symbol of teamwork and harmony within Singapore's Malay community.",
-        historicalFact: 'In 2010, UNESCO recognised the angklung as an Intangible Cultural Heritage of Humanity.',
-        origin: 'Rooted in Malay and Indonesian-Malay musical traditions of Southeast Asia.',
-        role: 'Each angklung produces one note; players work together to create a melody.',
-        whenPlayed: 'Featured in school performances, cultural festivals, and community events.',
-      },
-      icon: '🎋',
-      id: 'angklung',
-      melody: ['C4', 'D4', 'F4', 'G4', 'A4', 'G4', 'F4'],
-      name: 'Angklung',
-      notes: [
-        { frequency: 261.63, key: 'a', label: 'C4' },
-        { frequency: 293.66, key: 's', label: 'D4' },
-        { frequency: 349.23, key: 'd', label: 'F4' },
-        { frequency: 392, key: 'f', label: 'G4' },
-        { frequency: 440, key: 'g', label: 'A4' },
-      ],
-      origin: 'Malay heritage, Southeast Asia',
-      waveform: 'triangle',
-    },
-    {
-      description: 'A handheld frame drum played in lively ensembles at Malay weddings and festive processions.',
-      envelope: 'percussive',
-      facts: {
-        contribution: "Brings energetic, communal rhythm to Singapore's multicultural celebrations.",
-        historicalFact: 'Kompang ensembles traditionally perform to welcome a wedding couple as they arrive.',
-        origin: 'A Malay hand drum found across Singapore, Malaysia, and Indonesia.',
-        role: 'Played in rhythmic ensembles, often accompanying songs and processions.',
-        whenPlayed: 'Weddings, National Day performances, and community celebrations.',
-      },
-      icon: '🥁',
-      id: 'kompang',
-      melody: ['Low', 'Mid', 'High', 'Slap', 'Mid', 'Low'],
-      name: 'Kompang',
-      notes: [
-        { frequency: 110, key: 'a', label: 'Low' },
-        { frequency: 146.83, key: 's', label: 'Mid' },
-        { frequency: 196, key: 'd', label: 'High' },
-        { frequency: 246.94, key: 'f', label: 'Slap' },
-      ],
-      origin: 'Malay heritage, Southeast Asia',
-      waveform: 'square',
-    },
-    {
-      description: 'A two-stringed bowed instrument known for its expressive, voice-like tone in Chinese music.',
-      envelope: 'sustained',
-      facts: {
-        contribution: "Represents the Chinese community's musical heritage within Singapore's soundscape.",
-        historicalFact: 'The erhu has only two strings, yet skilled players can mimic laughter, crying, and even birdsong.',
-        origin: 'Originated in China over a thousand years ago.',
-        role: 'Often carries the main melody, prized for its expressive, voice-like sound.',
-        whenPlayed: 'Chinese orchestras, festivals, and Chinese New Year performances.',
-      },
-      icon: '🎻',
-      id: 'erhu',
-      melody: ['G4', 'B4', 'D5', 'E5', 'D5', 'B4', 'G4'],
-      name: 'Erhu',
-      notes: [
-        { frequency: 392, key: 'a', label: 'G4' },
-        { frequency: 440, key: 's', label: 'A4' },
-        { frequency: 493.88, key: 'd', label: 'B4' },
-        { frequency: 523.25, key: 'f', label: 'C5' },
-        { frequency: 587.33, key: 'g', label: 'D5' },
-        { frequency: 659.25, key: 'h', label: 'E5' },
-      ],
-      origin: 'Chinese heritage',
-      waveform: 'sawtooth',
-    },
-    {
-      description: 'A pair of hand drums central to Indian classical and devotional music, played with intricate finger and palm strokes.',
-      envelope: 'percussive',
-      facts: {
-        contribution: "Adds the rhythmic heartbeat of Singapore's Indian community to its musical identity.",
-        historicalFact: "Tabla players learn spoken rhythmic syllables, called 'bols', before ever touching the drums.",
-        origin: 'A cornerstone of North Indian classical music.',
-        role: 'Provides intricate rhythmic patterns that anchor a performance.',
-        whenPlayed: 'Indian classical concerts, Deepavali celebrations, and devotional music.',
-      },
-      icon: '🪘',
-      id: 'tabla',
-      melody: ['Dha', 'Ge', 'Na', 'Tin', 'Na', 'Dha'],
-      name: 'Tabla',
-      notes: [
-        { frequency: 130.81, key: 'a', label: 'Dha' },
-        { frequency: 164.81, key: 's', label: 'Ge' },
-        { frequency: 196, key: 'd', label: 'Na' },
-        { frequency: 261.63, key: 'f', label: 'Tin' },
-      ],
-      origin: 'Indian heritage, South Asia',
-      waveform: 'sine',
-    },
-  ],
-  trivia: [
-    {
-      question: "Which band performed the 2016 NDP theme song 'Tomorrow's Here Today'?",
-      options: [
-        { id: 'A', text: 'The Sam Willows' },
-        { id: 'B', text: '53A' },
-        { id: 'C', text: 'Electrico' },
-        { id: 'D', text: 'ShiGGa Shay' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'Who wrote and composed the song?',
-      options: [
-        { id: 'A', text: 'Dick Lee' },
-        { id: 'B', text: 'Don Richmond' },
-        { id: 'C', text: 'JJ Lin' },
-        { id: 'D', text: 'Corrinne May' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'What is the core message of the song?',
-      options: [
-        { id: 'A', text: 'Reflecting on past struggles' },
-        { id: 'B', text: 'Looking forward to a bright future' },
-        { id: 'C', text: 'A romantic love story' },
-        { id: 'D', text: 'Celebrating traditional food' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'Which music genre best describes the track?',
-      options: [
-        { id: 'A', text: 'Classical Orchestra' },
-        { id: 'B', text: 'Indie Pop/Rock' },
-        { id: 'C', text: 'Heavy Metal' },
-        { id: 'D', text: 'Electronic Dance Music' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: "What year was 'Tomorrow's Here Today' used for the National Day Parade?",
-      options: [
-        { id: 'A', text: '2014' },
-        { id: 'B', text: '2015' },
-        { id: 'C', text: '2016' },
-        { id: 'D', text: '2017' },
-      ],
-      correctAnswerId: 'C',
-    },
-  ],
-}
-
-
 export default function SongExperience() {
-  const { id = 'demo-song' } = useParams()
+  const { id } = useParams()
 
-  const [dbSong, setDbSong] = useState(null)
-  const [loadingDbSong, setLoadingDbSong] = useState(id !== 'demo-song')
-  const [dbError, setDbError] = useState('')
+  const [song, setSong] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [rhythmDifficulties, setRhythmDifficulties] = useState([])
 
+  // Video playback & synthetic melody state
+  const [isPlaying, setIsPlaying] = useState(false)
+
+  // Trivia state
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [selectedAnswer, setSelectedAnswer] = useState(null)
+  const [quizCompleted, setQuizCompleted] = useState(false)
+  const [score, setScore] = useState(0)
+
+  // Instrument audio state
+  const { playNote } = useInstrumentAudio()
+  const [playingInstrumentId, setPlayingInstrumentId] = useState(null)
+  const activeAudioRef = useRef(null)
+  const melodyTimeouts = useRef([])
+
   useEffect(() => {
-    if (id === 'demo-song') {
-      return
-    }
-    let active = true
+    let isMounted = true
+    if (!id) return
+
+    setLoading(true)
+    setError('')
+
     getPublishedSong(id)
-      .then((data) => active && setDbSong(data))
-      .catch((err) => active && setDbError(err.message))
-      .finally(() => active && setLoadingDbSong(false))
-    return () => { active = false }
+      .then((data) => {
+        if (!isMounted) return
+        setSong(data)
+      })
+      .catch((err) => {
+        if (!isMounted) return
+        setError(err.message || 'Published song not found.')
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
   }, [id])
 
   useEffect(() => {
-    if (id === 'demo-song') return
+    if (!id) return
     let active = true
     getBeatmapSummary(id)
       .then((beatmaps) => {
@@ -205,95 +72,131 @@ export default function SongExperience() {
     return () => { active = false }
   }, [id])
 
-  const songData = dbSong ? {
-    ...MOCK_SONG_DATA,
-    title: dbSong.title || MOCK_SONG_DATA.title,
-    artist: dbSong.artist || MOCK_SONG_DATA.artist,
-    videoUrl: dbSong.videoUrl || MOCK_SONG_DATA.videoUrl,
-    culturalSummary: dbSong.description || MOCK_SONG_DATA.culturalSummary,
-    coverImageUrl: dbSong.coverImageUrl || undefined,
-    transcriptionSegments: dbSong.transcriptionSegments || null,
-  } : MOCK_SONG_DATA
-
-  // Video playback is handled by CustomVideoPlayer;
-  // we only track whether something is playing so we can stop instrument melodies.
-  const [isPlaying, setIsPlaying] = useState(false)
-
-  // Trivia state
-  const [questionIndex, setQuestionIndex] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState(null)
-  const [quizCompleted, setQuizCompleted] = useState(false)
-  const [score, setScore] = useState(0)
-
-  // Instrument audio state
-  const { playNote } = useInstrumentAudio()
-  const [playingInstrumentId, setPlayingInstrumentId] = useState(null)
-  const melodyTimeouts = useRef([])
-
-  function stopSyntheticMelody() {
+  function stopAudioPlayback() {
     melodyTimeouts.current.forEach(clearTimeout)
     melodyTimeouts.current = []
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause()
+      activeAudioRef.current.currentTime = 0
+      activeAudioRef.current = null
+    }
     setPlayingInstrumentId(null)
   }
 
   useEffect(() => {
     return () => {
-      melodyTimeouts.current.forEach(clearTimeout)
+      stopAudioPlayback()
     }
   }, [])
 
-  function handlePlayMelody(instrument) {
-    if (playingInstrumentId === instrument.id) {
-      stopSyntheticMelody()
+  function handlePlayInstrument(inst) {
+    if (playingInstrumentId === inst.id) {
+      stopAudioPlayback()
       return
     }
 
-    stopSyntheticMelody()
-
-    // The CustomVideoPlayer will be paused by the user; here we just track state
+    stopAudioPlayback()
     setIsPlaying(false)
+    setPlayingInstrumentId(inst.id)
 
-    setPlayingInstrumentId(instrument.id)
-    // Mimic the sequence logic from InstrumentPlayer
-    instrument.melody.forEach((noteLabel, index) => {
-      const note = instrument.notes.find((candidate) => candidate.label === noteLabel)
-      if (!note) return
+    if (inst.audioUrl) {
+      const audio = new Audio(inst.audioUrl)
+      activeAudioRef.current = audio
+      audio.play().catch(() => {})
+      audio.onended = () => {
+        setPlayingInstrumentId(null)
+        activeAudioRef.current = null
+      }
+    } else if (Array.isArray(inst.notes) && inst.notes.length > 0) {
+      const melodySequence = inst.melody || inst.notes.map((n) => n.label)
+      melodySequence.forEach((noteLabel, index) => {
+        const note = inst.notes.find((candidate) => candidate.label === noteLabel) || inst.notes[0]
+        if (!note) return
 
-      const timeoutId = setTimeout(() => {
-        playNote(instrument, note)
+        const timeoutId = setTimeout(() => {
+          playNote(inst, note)
+          if (index === melodySequence.length - 1) {
+            const resetTimeout = setTimeout(() => {
+              setPlayingInstrumentId((currentId) => (currentId === inst.id ? null : currentId))
+            }, 600)
+            melodyTimeouts.current.push(resetTimeout)
+          }
+        }, index * 260)
 
-        // Clear active state when the melody finishes
-        if (index === instrument.melody.length - 1) {
-          const resetTimeout = setTimeout(() => {
-            setPlayingInstrumentId((currentId) => currentId === instrument.id ? null : currentId)
-          }, 500)
-          melodyTimeouts.current.push(resetTimeout)
-        }
-      }, index * 260)
-
-      melodyTimeouts.current.push(timeoutId)
-    })
+        melodyTimeouts.current.push(timeoutId)
+      })
+    } else {
+      // Fallback synthetic tone
+      playNote(inst || {}, { frequency: 440, key: 'a', label: 'A4' })
+      setTimeout(() => {
+        setPlayingInstrumentId(null)
+      }, 1000)
+    }
   }
 
-  const currentQuestion = songData.trivia[questionIndex]
+  if (loading) {
+    return (
+      <div className="page-stack" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+        <Loader2 className="w-10 h-10 animate-spin" style={{ margin: '0 auto', color: '#818cf8' }} />
+        <p style={{ marginTop: '1rem', color: '#94a3b8' }}>Loading published song experience...</p>
+      </div>
+    )
+  }
 
+  if (error || !song) {
+    return (
+      <div className="page-stack">
+        <div className="state-box" role="alert" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#ef4444' }}>
+          <AlertCircle className="w-6 h-6 flex-shrink-0" />
+          <span>{error || 'Published song not found.'}</span>
+        </div>
+        <Link to="/songs" className="inline-link" style={{ marginTop: '1rem' }}>
+          ← Back to Songs Library
+        </Link>
+      </div>
+    )
+  }
 
+  // Derive song metadata
+  const songYear = song.publishedDate
+    ? new Date(song.publishedDate).getFullYear()
+    : song.createdAt
+    ? new Date(song.createdAt).getFullYear()
+    : new Date().getFullYear()
 
-  function handleAnswerClick(optionId) {
-    if (selectedAnswer) return
-    setSelectedAnswer(optionId)
+  const moodTags = Array.isArray(song.moodTags) && song.moodTags.length > 0
+    ? song.moodTags
+    : Array.isArray(song.languages) && song.languages.length > 0
+    ? song.languages
+    : ['Singaporean Heritage']
 
-    const isCorrect = optionId === currentQuestion.correctAnswerId
+  const triviaList = Array.isArray(song.triviaQuestions) ? song.triviaQuestions : []
+  const currentQuestion = triviaList[questionIndex] || null
+
+  // Format options for current question
+  const currentOptions = currentQuestion && Array.isArray(currentQuestion.options)
+    ? currentQuestion.options.map((optText, index) => ({
+        id: String.fromCharCode(65 + index),
+        text: optText,
+        rawValue: optText,
+      }))
+    : []
+
+  function handleAnswerClick(opt) {
+    if (selectedAnswer !== null) return
+    setSelectedAnswer(opt.id)
+
+    const isCorrect = opt.rawValue === currentQuestion.correctAnswer
     if (isCorrect) setScore((s) => s + 1)
 
     setTimeout(() => {
       setSelectedAnswer(null)
-      if (questionIndex + 1 < songData.trivia.length) {
+      if (questionIndex + 1 < triviaList.length) {
         setQuestionIndex((prev) => prev + 1)
       } else {
         setQuizCompleted(true)
       }
-    }, 2500)
+    }, 2200)
   }
 
   function optionStyle(opt) {
@@ -308,14 +211,14 @@ export default function SongExperience() {
       background: 'rgba(30, 41, 59, 0.5)',
       color: 'var(--text)',
       fontSize: '0.875rem',
-      cursor: selectedAnswer ? 'default' : 'pointer',
+      cursor: selectedAnswer !== null ? 'default' : 'pointer',
       transition: 'all 150ms ease',
       textAlign: 'left',
     }
 
-    if (!selectedAnswer) return base
+    if (selectedAnswer === null) return base
 
-    const isCorrect = opt.id === currentQuestion.correctAnswerId
+    const isCorrect = opt.rawValue === currentQuestion.correctAnswer
     const isSelected = opt.id === selectedAnswer
 
     if (isSelected && isCorrect) {
@@ -330,43 +233,51 @@ export default function SongExperience() {
     return { ...base, opacity: 0.4 }
   }
 
-  if (loadingDbSong) return <div className="page-stack"><p role="status">Loading published song…</p></div>
-  if (dbError || (!dbSong && id !== 'demo-song')) return <div className="page-stack"><div className="state-box" role="alert">{dbError || 'Published song not found.'}</div><Link to="/songs">Back to Songs</Link></div>
-
   return (
     <div className="page-stack">
       <PageHeader
         eyebrow="Song Experience"
-        title={songData.title}
-        description={`${songData.artist} · ${songData.year} · ${songData.location}`}
+        title={song.title}
+        description={`${song.artist || 'Singapore Artist'} · ${songYear} · Singapore`}
       />
 
       {/* ─── Main Two-Column Layout ─── */}
       <div className="song-experience-layout">
-
         {/* ═══ LEFT COLUMN: Video + About ═══ */}
         <div className="se-left-col">
-
           {/* Video Player */}
           <div className="section-card" style={{ padding: 0, overflow: 'hidden' }}>
             <CustomVideoPlayer
-              src={songData.videoUrl}
-              transcriptionSegments={songData.transcriptionSegments}
-              poster={songData.coverImageUrl}
-              onPlay={() => { setIsPlaying(true); stopSyntheticMelody() }}
+              src={song.videoUrl || song.audioUrl}
+              transcriptionSegments={song.transcriptionSegments}
+              poster={song.coverImageUrl}
+              onPlay={() => {
+                setIsPlaying(true)
+                stopAudioPlayback()
+              }}
               onPause={() => setIsPlaying(false)}
             />
           </div>
 
           {/* Title + Tags (below player) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{songData.title}</h2>
+            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#f8fafc' }}>{song.title}</h2>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-              <span>{songData.artist}</span> · {songData.year} · {songData.location}
+              <span>{song.artist || 'Singapore Artist'}</span> · {songYear} · Singapore
             </p>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-              {songData.tags.map((tag, i) => (
-                <span key={i} style={{ padding: '5px 14px', borderRadius: '6px', border: '1px solid var(--line)', background: 'rgba(30, 41, 59, 0.6)', color: 'var(--muted)', fontSize: '0.75rem' }}>
+              {moodTags.map((tag, i) => (
+                <span
+                  key={i}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(30, 41, 59, 0.6)',
+                    color: 'var(--muted)',
+                    fontSize: '0.75rem',
+                  }}
+                >
                   {tag}
                 </span>
               ))}
@@ -375,121 +286,202 @@ export default function SongExperience() {
 
           {/* About This Song */}
           <div className="section-card">
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span aria-hidden>✨</span>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
+              <Sparkles className="w-5 h-5 text-amber-400" />
               About This Song
             </h3>
-            <p style={{ margin: 0, color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.9rem' }}>
-              {songData.culturalSummary}
+            <p style={{ margin: '0.75rem 0 0', color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.925rem' }}>
+              {song.description || 'No cultural summary has been added for this song yet.'}
             </p>
           </div>
         </div>
 
         {/* ═══ RIGHT COLUMN: Instruments + Quiz ═══ */}
         <div className="se-right-col">
-
           {/* Featured Instruments */}
           <div className="section-card">
-            <h3 style={{ margin: 0, fontStyle: 'italic', fontFamily: 'Georgia, serif' }}>
-              Featured Instruments
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
+              <Music2 className="w-5 h-5 text-violet-400" />
+              Featured Heritage Instruments
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {songData.instruments.map((inst, i) => {
-                const isInstPlaying = playingInstrumentId === inst.id
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handlePlayMelody(inst)}
-                    style={{
-                      position: 'relative',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '20px 12px',
-                      borderRadius: '10px',
-                      border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
-                      background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                      cursor: 'pointer',
-                      transition: 'all 150ms',
-                      color: isInstPlaying ? 'var(--violet)' : 'var(--text)',
-                      fontSize: '0.85rem',
-                    }}
-                    onMouseOver={(e) => { if (!isInstPlaying) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)' }}
-                    onMouseOut={(e) => { if (!isInstPlaying) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)' }}
-                  >
-                    {/* Play icon top-right */}
-                    <span style={{ position: 'absolute', top: '8px', right: '8px', color: isInstPlaying ? 'var(--violet)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
-                      {isInstPlaying ? <Square size={16} fill="currentColor" /> : <PlayCircle size={16} />}
-                    </span>
-                    <span style={{ fontSize: '2rem' }}>{inst.icon}</span>
-                    <span>{inst.name}</span>
-                  </button>
-                )
-              })}
-            </div>
+
+            {Array.isArray(song.instruments) && song.instruments.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginTop: '1rem' }}>
+                {song.instruments.map((inst) => {
+                  const isInstPlaying = playingInstrumentId === inst.id
+                  return (
+                    <div
+                      key={inst.id}
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'center',
+                        padding: '14px',
+                        borderRadius: '10px',
+                        border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
+                        background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                        transition: 'all 150ms ease',
+                      }}
+                    >
+                      {inst.imageUrl ? (
+                        <img
+                          src={inst.imageUrl}
+                          alt={inst.name}
+                          style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem',
+                          }}
+                        >
+                          🎵
+                        </div>
+                      )}
+
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>{inst.name}</h4>
+                          <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 500 }}>{inst.origin}</span>
+                        </div>
+                        {inst.description && (
+                          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.4 }}>
+                            {inst.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePlayInstrument(inst)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: isInstPlaying ? 'var(--violet)' : 'var(--muted)',
+                          cursor: 'pointer',
+                          padding: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title={isInstPlaying ? 'Stop Instrument' : 'Hear Instrument'}
+                      >
+                        {isInstPlaying ? <Square size={22} fill="currentColor" /> : <PlayCircle size={22} />}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: '0.75rem' }}>
+                No heritage instruments currently associated with this song.
+              </p>
+            )}
           </div>
 
           {/* Knowledge Check */}
           <div className="section-card">
-            {quizCompleted ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                <div style={{ background: 'rgba(34, 197, 94, 0.15)', color: 'var(--green)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
+            <h3 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
+              <BookOpen className="w-5 h-5 text-indigo-400" />
+              Knowledge Check
+            </h3>
+
+            {triviaList.length === 0 ? (
+              <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
+                No trivia questions available for this song yet.
+              </p>
+            ) : quizCompleted ? (
+              <div style={{ textAlign: 'center', padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                <div
+                  style={{
+                    background: 'rgba(34, 197, 94, 0.15)',
+                    color: 'var(--green)',
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.75rem',
+                  }}
+                >
                   ✓
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 8px', fontSize: '1.25rem' }}>Quiz Completed!</h3>
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>You scored {score} out of {songData.trivia.length}</p>
+                  <h4 style={{ margin: '0 0 6px', fontSize: '1.2rem', color: '#f8fafc' }}>Quiz Completed!</h4>
+                  <p style={{ margin: 0, color: 'var(--muted)' }}>
+                    You scored {score} out of {triviaList.length}
+                  </p>
                 </div>
                 <button
-                  onClick={() => { setQuizCompleted(false); setQuestionIndex(0); setScore(0); }}
-                  style={{ marginTop: '8px', padding: '10px 24px', borderRadius: '8px', border: '1px solid var(--line)', background: 'rgba(30, 41, 59, 0.8)', color: 'var(--text)', cursor: 'pointer', fontWeight: 500 }}
-                  onMouseOver={(e) => (e.currentTarget.style.background = 'var(--panel)')}
-                  onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)')}
+                  type="button"
+                  onClick={() => {
+                    setQuizCompleted(false)
+                    setQuestionIndex(0)
+                    setScore(0)
+                  }}
+                  style={{
+                    marginTop: '8px',
+                    padding: '10px 24px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--line)',
+                    background: 'rgba(30, 41, 59, 0.8)',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
                 >
                   Retake Quiz
                 </button>
               </div>
             ) : (
               <>
-                <p style={{ margin: 0, color: 'var(--violet)', fontSize: '0.75rem', fontWeight: 600 }}>
-                  Knowledge Check ({questionIndex + 1}/{songData.trivia.length})
+                <p style={{ margin: '0 0 0.5rem', color: 'var(--violet)', fontSize: '0.75rem', fontWeight: 600 }}>
+                  Question {questionIndex + 1} of {triviaList.length}
                 </p>
-                <h3 style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
-                  {currentQuestion.question}
-                </h3>
+                <h4 style={{ margin: '0 0 1rem', fontSize: '0.95rem', lineHeight: 1.5, color: '#f8fafc' }}>
+                  {currentQuestion?.prompt}
+                </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {currentQuestion.options.map((opt) => {
-                const isSelected = selectedAnswer === opt.id
-                const isCorrect = opt.id === currentQuestion.correctAnswerId
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => handleAnswerClick(opt.id)}
-                    disabled={selectedAnswer !== null}
-                    style={optionStyle(opt)}
-                    onMouseOver={(e) => { if (!selectedAnswer) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)' }}
-                    onMouseOut={(e) => { if (!selectedAnswer) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)' }}
-                  >
-                    {/* Radio / result icon */}
-                    {selectedAnswer ? (
-                      (isSelected && isCorrect) || (!isSelected && isCorrect) ? (
-                        <span style={{ color: 'var(--green)', fontSize: '1.1rem' }}>✓</span>
-                      ) : isSelected && !isCorrect ? (
-                        <span style={{ color: 'var(--error)', fontSize: '1.1rem' }}>✕</span>
-                      ) : (
-                        <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--line)', display: 'inline-block', flexShrink: 0 }} />
-                      )
-                    ) : (
-                      <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--muted)', display: 'inline-block', flexShrink: 0 }} />
-                    )}
-                    <span>{opt.id}. {opt.text}</span>
-                  </button>
-                )
-              })}
-            </div>
-            </>
+                  {currentOptions.map((opt) => {
+                    const isSelected = selectedAnswer === opt.id
+                    const isCorrect = opt.rawValue === currentQuestion.correctAnswer
+
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleAnswerClick(opt)}
+                        disabled={selectedAnswer !== null}
+                        style={optionStyle(opt)}
+                      >
+                        {selectedAnswer !== null ? (
+                          (isSelected && isCorrect) || (!isSelected && isCorrect) ? (
+                            <span style={{ color: 'var(--green)', fontSize: '1.1rem', fontWeight: 'bold' }}>✓</span>
+                          ) : isSelected && !isCorrect ? (
+                            <span style={{ color: 'var(--error)', fontSize: '1.1rem', fontWeight: 'bold' }}>✕</span>
+                          ) : (
+                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--line)', display: 'inline-block', flexShrink: 0 }} />
+                          )
+                        ) : (
+                          <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--muted)', display: 'inline-block', flexShrink: 0 }} />
+                        )}
+                        <span>
+                          {opt.id}. {opt.text}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -528,13 +520,9 @@ export default function SongExperience() {
           transition: 'filter 200ms',
           boxShadow: '0 0 30px rgba(91, 75, 138, 0.3)',
         }}
-        onMouseOver={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
-        onMouseOut={(e) => (e.currentTarget.style.filter = 'brightness(1)')}
       >
         Take a Lesson in the Learning Hub →
       </Link>
     </div>
   )
 }
-
-
