@@ -366,8 +366,8 @@ describe('App', () => {
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByRole('heading', { name: 'Published Song' })).toBeInTheDocument()
-    expect(screen.getAllByText('Public Artist')).toHaveLength(2)
+    expect(await screen.findAllByRole('heading', { name: 'Published Song' })).toHaveLength(2)
+    expect(screen.getAllByText('Public Artist')).toHaveLength(3)
     expect(screen.getByRole('link', { name: 'Explore Song' })).toHaveAttribute('href', '/songs/published-1')
     expect(screen.queryByText('Demo Song')).not.toBeInTheDocument()
   })
