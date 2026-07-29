@@ -33,6 +33,9 @@ const User = sequelize.define('User', {
         defaultValue: 'ACTIVE',
         field: 'account_status',
     },
+    emailVerifiedAt: { type: DataTypes.DATE, allowNull: true, field: 'email_verified_at' },
+    emailVerificationRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'email_verification_required' },
+    authVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'auth_version' },
 }, {
     tableName: 'users',
     underscored: true,

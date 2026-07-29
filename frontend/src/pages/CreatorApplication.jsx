@@ -8,25 +8,25 @@ import {
   uploadCreatorResume, withdrawCreatorApplication,
 } from '../services/applicationService'
 
-const EMPTY_FORM = { experience: '', motivation: '', portfolioUrl: '' }
+const EMPTY_FORM = { contentIdeas: '', experience: '', guidelinesAccepted: false, introduction: '', motivation: '', portfolioUrl: '' }
 
 export default function CreatorApplication() {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [applications, setApplications] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [resume, setResume] = useState(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
-  const draft = useMemo(() => applications.find((item) => item.status === 'DRAFT'), [applications])
+  const draft = useMemo(() => applications.find((item) => ['DRAFT', 'CHANGES_REQUESTED'].includes(item.status)), [applications])
   const active = useMemo(() => applications.find((item) => ['SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW'].includes(item.status)), [applications])
 
   const refresh = useCallback(async () => {
     try {
       const items = await getMyCreatorApplications(token)
       setApplications(items)
-      const savedDraft = items.find((item) => item.status === 'DRAFT')
-      if (savedDraft) setForm({ experience: savedDraft.experience || '', motivation: savedDraft.motivation || '', portfolioUrl: savedDraft.portfolioUrl || '' })
+      const savedDraft = items.find((item) => ['DRAFT', 'CHANGES_REQUESTED'].includes(item.status))
+      if (savedDraft) setForm({ contentIdeas: savedDraft.contentIdeas || '', experience: savedDraft.experience || '', guidelinesAccepted: Boolean(savedDraft.guidelinesAccepted), introduction: savedDraft.introduction || '', motivation: savedDraft.motivation || '', portfolioUrl: savedDraft.portfolioUrl || '' })
     } catch (error) { setMessage(error.message) } finally { setLoading(false) }
   }, [token])
 
@@ -52,9 +52,9 @@ export default function CreatorApplication() {
     setBusy(true); setMessage('')
     try {
       const id = await save()
-      await submitCreatorApplicationDraft(id, token)
+      const result = await submitCreatorApplicationDraft(id, token)
       await refresh()
-      setMessage('Application submitted for administrator review.')
+      setMessage(result.message)
     } catch (error) { setMessage(error.message) } finally { setBusy(false) }
   }
 
@@ -85,10 +85,15 @@ export default function CreatorApplication() {
     {loading ? <p role="status">Loading application...</p> : null}
     {!loading && !active ? <SectionCard title={draft ? 'Application draft' : 'Start an application'}>
       <form className="settings-form" onSubmit={saveDraft}>
+        <label>Full name<input disabled value={user?.name || ''} /></label>
+        <label>Email<input disabled value={user?.email || ''} /></label>
+        <label>Short introduction<textarea maxLength="2000" required value={form.introduction} onChange={(event) => setForm({ ...form, introduction: event.target.value })} /></label>
         <label>Relevant experience<textarea maxLength="5000" required value={form.experience} onChange={(event) => setForm({ ...form, experience: event.target.value })} /></label>
         <label>Why would you like to contribute?<textarea minLength="50" maxLength="5000" required value={form.motivation} onChange={(event) => setForm({ ...form, motivation: event.target.value })} /></label>
+        <label>Proposed NDP-song or cultural content ideas<textarea maxLength="5000" required value={form.contentIdeas} onChange={(event) => setForm({ ...form, contentIdeas: event.target.value })} /></label>
         <label>Portfolio URL (optional with resume)<input type="url" value={form.portfolioUrl} onChange={(event) => setForm({ ...form, portfolioUrl: event.target.value })} /></label>
-        <label>Private resume (PDF, DOC or DOCX; 5 MB maximum)<input accept=".pdf,.doc,.docx" onChange={(event) => setResume(event.target.files?.[0] || null)} type="file" /></label>
+        <label>Private resume (PDF or DOCX; 5 MB maximum)<input accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setResume(event.target.files?.[0] || null)} type="file" /></label>
+        <label className="auth-check"><input checked={form.guidelinesAccepted} onChange={(event) => setForm({ ...form, guidelinesAccepted: event.target.checked })} type="checkbox" />I agree to the creator guidelines and will submit appropriate Singapore cultural content.</label>
         {draft?.hasResume ? <p>Stored privately: {draft.resumeFileName} <button onClick={() => downloadResume(draft)} type="button">Download</button> <button disabled={busy} onClick={removeResume} type="button">Remove</button></p> : null}
         <div className="creator-song-actions"><button className="studio-button studio-button--secondary" disabled={busy} type="submit">Save draft</button><button className="studio-button studio-button--primary" disabled={busy} onClick={submit} type="button">Submit for review</button></div>
       </form>
@@ -99,7 +104,7 @@ export default function CreatorApplication() {
         <span>{application.submittedAt ? `Submitted ${new Date(application.submittedAt).toLocaleString()}` : `Updated ${new Date(application.updatedAt).toLocaleString()}`}</span>
         {application.applicantFeedback ? <p>Administrator feedback: {application.applicantFeedback}</p> : null}
         {application.hasResume ? <button onClick={() => downloadResume(application)} type="button">Download submitted resume</button> : null}
-        {['DRAFT', 'SUBMITTED', 'UNDER_REVIEW'].includes(application.status) ? <button disabled={busy} onClick={() => withdraw(application)} type="button">Withdraw</button> : null}
+        {['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'CHANGES_REQUESTED'].includes(application.status) ? <button disabled={busy} onClick={() => withdraw(application)} type="button">Withdraw</button> : null}
         {(application.history || []).map((entry) => <small key={entry.id}>{entry.toStatus.replaceAll('_', ' ')} - {new Date(entry.createdAt).toLocaleString()}{entry.note ? `: ${entry.note}` : ''}</small>)}
       </article>) : <p>No applications yet.</p>}
     </SectionCard>

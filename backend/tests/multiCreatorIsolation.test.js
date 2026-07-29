@@ -149,7 +149,13 @@ test('application drafts and resume bytes remain private until the applicant sub
     const applicantToken = createToken(applicant);
     const draftResponse = await request(app).put('/api/creator-applications/draft')
         .set('Authorization', `Bearer ${applicantToken}`)
-        .send({ experience: 'Community music production', motivation: 'I want to help Singaporeans explore National Day songs through thoughtful learning experiences.', portfolioUrl: '', userId: principals['Creator B'].id });
+        .send({
+            contentIdeas: 'Interactive stories and learning activities around National Day songs.',
+            experience: 'Community music production', guidelinesAccepted: true,
+            introduction: 'I am a community musician and educator.',
+            motivation: 'I want to help Singaporeans explore National Day songs through thoughtful learning experiences.',
+            portfolioUrl: '', userId: principals['Creator B'].id,
+        });
     expect(draftResponse.status).toBe(200);
     const applicationId = draftResponse.body.application.id;
     expect((await CreatorApplication.findByPk(applicationId)).userId).toBe(applicant.id);

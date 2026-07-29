@@ -5378,8 +5378,50 @@ textarea {
 }
 
 .auth-form a {
-  color: var(--accent);
-  font-weight: 800;
+    color: var(--accent);
+    font-weight: 800;
+  }
+
+.password-field {
+  align-items: stretch;
+  display: flex;
+}
+
+.password-field input {
+  border-radius: 8px 0 0 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.password-field button,
+.auth-guest-button {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0 14px;
+}
+
+.password-field button {
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.auth-guest-button {
+  border-radius: 8px;
+  min-height: 44px;
+}
+
+.auth-check {
+  align-items: flex-start;
+  display: flex;
+  gap: 9px;
+  line-height: 1.45;
+}
+
+.auth-check input {
+  margin-top: 4px;
 }
 
 .form-error {

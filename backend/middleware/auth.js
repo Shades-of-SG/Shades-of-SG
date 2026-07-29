@@ -16,8 +16,13 @@ async function loadCurrentUser(req) {
     req.authUser = readUser(req);
     if (!req.authUser?.id) return null;
     const user = await User.findByPk(req.authUser.id, {
-        attributes: ['id', 'role', 'accountStatus'],
+        attributes: ['id', 'role', 'accountStatus', 'authVersion', 'emailVerificationRequired'],
     });
+    if (user && Number(req.authUser.ver || 0) !== Number(user.authVersion || 0)) {
+        req.authUser = null;
+        req.authUserRecord = null;
+        return null;
+    }
     req.authUserRecord = user || null;
     return user;
 }
@@ -25,7 +30,7 @@ async function loadCurrentUser(req) {
 async function optionalAuth(req, res, next) {
     try {
         const user = await loadCurrentUser(req);
-        if (!user || user.accountStatus !== 'ACTIVE') {
+        if (!user || user.accountStatus !== 'ACTIVE' || user.emailVerificationRequired) {
             req.authUser = null;
             req.authUserRecord = null;
         }
@@ -44,6 +49,9 @@ function requireRoles(...roles) {
             }
             if (user.accountStatus !== 'ACTIVE') {
                 return res.status(403).json({ message: 'This account is suspended.' });
+            }
+            if (user.emailVerificationRequired) {
+                return res.status(403).json({ message: 'Verify your email before accessing this account.' });
             }
             if (roles.length && !roles.includes(user.role)) {
                 const label = roles.length === 1 ? roles[0].toLowerCase() : 'authorised';

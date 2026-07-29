@@ -7,11 +7,12 @@ const {
 } = require('../models');
 const { requireAdmin } = require('../middleware/auth');
 const { writeAudit } = require('../services/auditService');
+const { sendApplicationEmail } = require('../services/emailService');
 
 const router = express.Router();
 router.use(requireAdmin);
 
-const ADMIN_APPLICATION_STATUSES = new Set(['SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'APPROVED', 'REJECTED']);
+const ADMIN_APPLICATION_STATUSES = new Set(['SUBMITTED', 'UNDER_REVIEW', 'CHANGES_REQUESTED', 'SHORTLISTED', 'INTERVIEW', 'APPROVED', 'REJECTED']);
 const FOLDER_STATUSES = new Set(['PENDING', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'ARCHIVED']);
 const PLACEMENT_STATUSES = new Set(['PENDING', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'WITHDRAWN']);
 
@@ -74,7 +75,7 @@ router.patch('/creator-applications/:id/status', async (req, res, next) => {
         if (adminNotes && adminNotes.length > 5000) return res.status(400).json({ message: 'Admin notes must be 5000 characters or fewer.' });
         const applicantFeedback = req.body.applicantFeedback === undefined ? application.applicantFeedback : String(req.body.applicantFeedback || '').trim() || null;
         if (applicantFeedback && applicantFeedback.length > 5000) return res.status(400).json({ message: 'Applicant feedback must be 5000 characters or fewer.' });
-        if (status === 'REJECTED' && !applicantFeedback) return res.status(400).json({ message: 'Applicant feedback is required when rejecting an application.' });
+        if (['CHANGES_REQUESTED', 'REJECTED'].includes(status) && !applicantFeedback) return res.status(400).json({ message: 'Applicant feedback is required for this status.' });
         const previousStatus = application.status;
 
         await sequelize.transaction(async (transaction) => {
@@ -101,6 +102,12 @@ router.patch('/creator-applications/:id/status', async (req, res, next) => {
                 metadata: { applicantId: application.userId }, req, transaction,
             });
         });
+        try {
+            const applicant = await User.findByPk(application.userId, { attributes: ['email', 'name'] });
+            if (applicant) await sendApplicationEmail({ feedback: applicantFeedback, name: applicant.name, status, to: applicant.email });
+        } catch (error) {
+            console.error('[Creator application email]', error.message);
+        }
         await application.reload({ include: [
             { model: User, as: 'applicant', attributes: ['id', 'name', 'email', 'role'] },
             { model: CreatorApplicationHistory, as: 'history', include: [{ model: User, as: 'actor', attributes: ['id', 'name'], required: false }] },

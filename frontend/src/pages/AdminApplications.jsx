@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { downloadCreatorResume } from '../services/applicationService'
 import { getAdminApplications, updateApplicationStatus } from '../services/adminService'
 
-const statuses = ['SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW', 'APPROVED', 'REJECTED']
+const statuses = ['SUBMITTED', 'UNDER_REVIEW', 'CHANGES_REQUESTED', 'SHORTLISTED', 'INTERVIEW', 'APPROVED', 'REJECTED']
 
 export default function AdminApplications() {
   const { token } = useAuth()
@@ -20,8 +20,8 @@ export default function AdminApplications() {
   const change = async (application, status) => {
     const adminNotes = window.prompt('Optional internal review note (not visible to the applicant):', application.adminNotes || '') || ''
     let applicantFeedback = ''
-    if (status === 'REJECTED' || status === 'SHORTLISTED' || status === 'INTERVIEW') applicantFeedback = window.prompt('Feedback visible to the applicant:') || ''
-    if (status === 'REJECTED' && !applicantFeedback) return
+    if (['CHANGES_REQUESTED', 'REJECTED', 'SHORTLISTED', 'INTERVIEW'].includes(status)) applicantFeedback = window.prompt('Feedback visible to the applicant:') || ''
+    if (['CHANGES_REQUESTED', 'REJECTED'].includes(status) && !applicantFeedback) return
     if (status === 'APPROVED' && !window.confirm(`Approve ${application.applicant?.name} and convert this account to CREATOR?`)) return
     setBusyId(application.id)
     try { await updateApplicationStatus(application.id, { adminNotes, applicantFeedback, status }, token); setMessage(`Application moved to ${status.replaceAll('_', ' ')}.`); await refresh() } catch (error) { setMessage(error.message) } finally { setBusyId('') }

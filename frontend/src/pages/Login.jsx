@@ -1,74 +1,61 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { loginWithEmail } from '../services/authApi'
-import { getPostLoginDestination } from '../services/postLoginIntent'
+import { getAuthConfig, loginWithEmail } from '../services/authApi'
 
-/*
-TODO - Lia
+function roleDestination(role) {
+  if (role === 'ADMIN') return '/admin'
+  if (role === 'CREATOR') return '/creator/dashboard'
+  return '/profile'
+}
 
-Implement login form handling.
-Connect authentication API.
-Add validation and error states.
-*/
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { signIn } = useAuth()
+  const { signIn, signOut } = useAuth()
+  const [config, setConfig] = useState({ appleAuthEnabled: false })
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => { getAuthConfig().then(setConfig).catch(() => {}) }, [])
 
   async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
-    setIsSubmitting(true)
-
+    event.preventDefault(); setError(''); setIsSubmitting(true)
     try {
-      const data = await loginWithEmail(email, password)
+      const data = await loginWithEmail(email.trim().toLowerCase(), password)
       signIn(data.user, data.token)
-
-      const fallbackPath = data.user.role === 'ADMIN'
-        ? '/admin'
-        : data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
-      navigate(getPostLoginDestination(location.state?.from?.pathname || fallbackPath), { replace: true })
+      const requested = location.state?.from?.pathname
+      const allowedRequested = requested
+        && ((data.user.role === 'ADMIN' && requested.startsWith('/admin'))
+          || (data.user.role === 'CREATOR' && requested.startsWith('/creator'))
+          || (data.user.role === 'REGISTERED' && ['/profile', '/apply/creator', '/settings'].some((path) => requested.startsWith(path))))
+      navigate(allowedRequested ? requested : roleDestination(data.user.role), { replace: true })
     } catch (nextError) {
-      setError(nextError.message)
-    } finally {
-      setIsSubmitting(false)
-    }
+      if (nextError.code === 'EMAIL_UNVERIFIED') {
+        sessionStorage.setItem('pendingVerificationEmail', email.trim().toLowerCase())
+        navigate('/verify-email', { state: { email: email.trim().toLowerCase() } })
+        return
+      }
+      setError(nextError.status === 403 ? nextError.message : nextError.status === 401 ? 'Email or password is incorrect.' : 'We could not sign you in. Please try again.')
+    } finally { setIsSubmitting(false) }
   }
 
-  return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <p className="eyebrow">Welcome Back</p>
-      <h1>Login</h1>
-      <label className="field-stack">
-        <span>Email</span>
-        <input
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="name@example.com"
-          required
-          type="email"
-          value={email}
-        />
-      </label>
-      <label className="field-stack">
-        <span>Password</span>
-        <input
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Password"
-          required
-          type="password"
-          value={password}
-        />
-      </label>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="primary-button" disabled={isSubmitting} type="submit">
-        {isSubmitting ? 'Logging in...' : 'Login'}
-      </button>
-      <p><Link to="/forgot-password">Forgot password?</Link> <Link to="/register">Create account</Link></p>
-    </form>
-  )
+  function continueAsGuest() {
+    signOut()
+    navigate('/', { replace: true })
+  }
+
+  return <form className="auth-form" onSubmit={handleSubmit}>
+    <p className="eyebrow">Welcome back</p><h1>Sign in</h1><p>Use the same login for registered, creator, and administrator accounts.</p>
+    <label className="field-stack"><span>Email</span><input autoComplete="email" onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required type="email" value={email} /></label>
+    <label className="field-stack"><span>Password</span><span className="password-field"><input autoComplete="current-password" onChange={(event) => setPassword(event.target.value)} required type={showPassword ? 'text' : 'password'} value={password} /><button aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? 'Hide' : 'Show'}</button></span></label>
+    {error ? <p className="form-error" role="alert">{error}</p> : null}
+    <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Signing in...' : 'Sign in'}</button>
+    {config.appleAuthEnabled ? <button disabled type="button">Sign in with Apple</button> : null}
+    <button className="auth-guest-button" onClick={continueAsGuest} type="button">Continue as guest</button>
+    <p><Link to="/forgot-password">Forgot password?</Link></p><p>New here? <Link to="/register">Create a normal account</Link></p>
+  </form>
 }

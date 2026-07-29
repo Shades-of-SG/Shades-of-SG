@@ -24,7 +24,7 @@ export function removeCreatorResume(id, token) {
 }
 
 export function submitCreatorApplicationDraft(id, token) {
-  return platformRequest(`/creator-applications/${encodeURIComponent(id)}/submit`, { method: 'POST', token }).then((data) => data.application)
+  return platformRequest(`/creator-applications/${encodeURIComponent(id)}/submit`, { method: 'POST', token })
 }
 
 export function withdrawCreatorApplication(id, note, token) {

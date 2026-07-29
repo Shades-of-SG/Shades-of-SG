@@ -25,6 +25,8 @@ import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
 import Register from './pages/Register'
 import ResetPassword from './pages/ResetPassword'
+import OtpVerification from './pages/OtpVerification'
+import RegistrationSuccess from './pages/RegistrationSuccess'
 import RhythmHub from './pages/RhythmHub'
 import RhythmResults from './pages/RhythmResults'
 import Settings from './pages/Settings'
@@ -109,6 +111,8 @@ function App() {
           <Route element={<Register />} path="/register" />
           <Route element={<ForgotPassword />} path="/forgot-password" />
           <Route element={<ResetPassword />} path="/reset-password" />
+          <Route element={<OtpVerification />} path="/verify-email" />
+          <Route element={<RegistrationSuccess />} path="/registration-success" />
         </Route>
 
         <Route element={<ProtectedRoute isAllowed={isCreator} />}>
