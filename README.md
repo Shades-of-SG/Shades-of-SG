@@ -28,11 +28,7 @@ npm install --prefix frontend
 
 Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`. Do not commit real environment files.
 
-For local SQLite, leave `DATABASE_URL` unset. Apply PostgreSQL migrations in numeric order for Supabase:
-
-```text
-001_initial_schema.sql through 014_moderation_audit_and_warnings.sql
-```
+For local SQLite, leave `DATABASE_URL` unset. For Supabase, apply every numbered SQL file in `backend/migrations` in ascending order.
 
 Apply every numbered migration explicitly before starting the corresponding application version. Server startup does not run `sequelize.sync`, alter tables, reset data, or seed demo content. The optional `SEED_ADMIN_*` settings bootstrap the first administrator; remove the bootstrap password after use. All normal creator accounts are produced by admin approval of a registered user's creator application. `seed:mock` is development-only.
 
@@ -60,6 +56,8 @@ Backend:
 - `YT_DLP_PATH`: optional yt-dlp executable path.
 - `PLACEHOLDER_VIDEO_URL`: optional publicly reachable temporary MP4.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`: optional first-admin operational bootstrap.
+- `GOOGLE_CLIENT_ID`: Google Identity Services web client ID; enables Google sign-in when set.
+- `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_REDIRECT_URI`: complete Sign in with Apple web configuration. The redirect URI must be the registered HTTPS return URL.
 
 Frontend:
 
@@ -67,12 +65,14 @@ Frontend:
 
 ## Render, Vercel, Supabase, and Cloudinary
 
-1. Create Supabase PostgreSQL and apply every numbered migration through 014 in order.
+1. Create Supabase PostgreSQL and apply every numbered migration in `backend/migrations` in order, including the OAuth identity migration.
 2. Configure Render with the database URL, strong auth secret, exact `FRONTEND_URL`, Cloudinary credentials, and required AI/media variables.
 3. Deploy `backend` with `npm install` and `npm start`.
 4. Configure Vercel with `VITE_API_URL=https://<render-service>/api` and build `frontend` using `npm run build`.
 5. Bootstrap the first admin if needed, remove the deployed bootstrap password, and approve creators through the application workflow.
 6. Verify health, two-creator isolation, admin-only platform analytics, published-only access, guest score non-persistence, and song-scoped reflection moderation.
+
+Google and Apple buttons are hidden until their backend settings are complete. Provider tokens are verified server-side and are never stored. The first successful provider sign-in stores only the provider and its stable subject identifier. A safely verified matching email links to the existing account and preserves its role; otherwise a new `REGISTERED` account is created.
 
 A file in `frontend/public/videos` is served after Vercel deployment. Configure its production Vercel URL—not localhost—as Render's `PLACEHOLDER_VIDEO_URL`.
 

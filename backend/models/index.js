@@ -24,11 +24,14 @@ const CreatorApplicationHistory = require('./CreatorApplicationHistory');
 const FolderSongProposal = require('./FolderSongProposal');
 const AnalyticsEvent = require('./AnalyticsEvent');
 const AuthOtp = require('./AuthOtp');
+const AuthIdentity = require('./AuthIdentity');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(AuthOtp, { foreignKey: 'userId', as: 'authOtps' });
 AuthOtp.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(AuthIdentity, { foreignKey: 'userId', as: 'authIdentities' });
+AuthIdentity.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(Song, { foreignKey: 'creatorId', as: 'songs' });
 Song.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
@@ -164,4 +167,5 @@ module.exports = {
     FolderSongProposal,
     AnalyticsEvent,
     AuthOtp,
+    AuthIdentity,
 };

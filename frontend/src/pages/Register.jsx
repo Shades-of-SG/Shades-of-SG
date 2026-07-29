@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerAccount } from '../services/authApi'
 
@@ -26,16 +27,16 @@ export default function Register() {
     } finally { setIsSubmitting(false) }
   }
 
-  return <form className="auth-form" onSubmit={handleSubmit}>
-    <p className="eyebrow">Join Shades of SG</p><h1>Create account</h1>
-    <label className="field-stack"><span>Full name</span><input autoComplete="name" onChange={(event) => update('name', event.target.value)} required value={form.name} /></label>
-    <label className="field-stack"><span>Email</span><input autoComplete="email" onChange={(event) => update('email', event.target.value)} required type="email" value={form.email} /></label>
-    <label className="field-stack"><span>Password</span><span className="password-field"><input autoComplete="new-password" minLength="8" onChange={(event) => update('password', event.target.value)} required type={showPassword ? 'text' : 'password'} value={form.password} /><button onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? 'Hide' : 'Show'}</button></span></label>
-    <label className="field-stack"><span>Confirm password</span><input autoComplete="new-password" minLength="8" onChange={(event) => update('confirmPassword', event.target.value)} required type={showPassword ? 'text' : 'password'} value={form.confirmPassword} /></label>
-    <label className="auth-check"><input checked={form.acceptTerms} onChange={(event) => update('acceptTerms', event.target.checked)} type="checkbox" />I accept the <Link to="/terms">Terms of Use</Link>.</label>
-    <label className="auth-check"><input checked={form.acceptPrivacy} onChange={(event) => update('acceptPrivacy', event.target.checked)} type="checkbox" />I accept the <Link to="/privacy">Privacy Policy</Link>.</label>
+  return <form className="auth-form auth-form--register" onSubmit={handleSubmit}>
+    <header className="auth-form__header"><p className="eyebrow">Join Shades of SG</p><h1>Create account</h1><p>Join a community that celebrates Singapore&rsquo;s vibrant music culture.</p></header>
+    <label className="field-stack"><span>Full name</span><input autoComplete="name" onChange={(event) => update('name', event.target.value)} placeholder="Enter your full name" required value={form.name} /></label>
+    <label className="field-stack"><span>Email</span><input autoComplete="email" onChange={(event) => update('email', event.target.value)} placeholder="Enter your email" required type="email" value={form.email} /></label>
+    <label className="field-stack"><span>Password</span><span className="password-field"><input autoComplete="new-password" minLength="8" onChange={(event) => update('password', event.target.value)} placeholder="Create a password" required type={showPassword ? 'text' : 'password'} value={form.password} /><button aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? <EyeOff aria-hidden="true" size={19} /> : <Eye aria-hidden="true" size={19} />}<span>{showPassword ? 'Hide' : 'Show'}</span></button></span></label>
+    <label className="field-stack"><span>Confirm password</span><input autoComplete="new-password" minLength="8" onChange={(event) => update('confirmPassword', event.target.value)} placeholder="Confirm your password" required type={showPassword ? 'text' : 'password'} value={form.confirmPassword} /></label>
+    <label className="auth-check"><input checked={form.acceptTerms} onChange={(event) => update('acceptTerms', event.target.checked)} type="checkbox" /><span>I accept the <Link to="/terms">Terms of Use</Link></span></label>
+    <label className="auth-check"><input checked={form.acceptPrivacy} onChange={(event) => update('acceptPrivacy', event.target.checked)} type="checkbox" /><span>I accept the <Link to="/privacy">Privacy Policy</Link></span></label>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Creating account...' : 'Create account'}</button>
-    <p><Link to="/login">Already have an account?</Link></p>
+    <p className="auth-switch auth-switch--center">Already have an account? <Link to="/login">Sign in</Link></p>
   </form>
 }

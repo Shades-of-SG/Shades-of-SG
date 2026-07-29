@@ -8,8 +8,9 @@ process.env.DB_STORAGE = databasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { AuthOtp, CreatorApplication, User, sequelize } = require('../models');
+const { AuthIdentity, AuthOtp, CreatorApplication, User, sequelize } = require('../models');
 const { createToken, hashPassword, verifyPassword } = require('../services/authService');
+const { finishOauthSignIn, publicOauthConfig } = require('../services/oauthService');
 const { getTestOutbox, resetEmailTransportForTests } = require('../services/emailService');
 const { resetRateLimitsForTests } = require('../middleware/rateLimit');
 
@@ -177,6 +178,61 @@ test('login returns ADMIN and CREATOR roles from the database without a role sel
         expect(response.status).toBe(200);
         expect(response.body.user.role).toBe(role);
     }
+});
+
+test('OAuth creates a registered account and stores the stable provider subject', async () => {
+    const result = await finishOauthSignIn({
+        email: 'social-user@gmail.com', emailAuthoritative: true,
+        name: 'Social User', provider: 'GOOGLE', subject: 'google-subject-1',
+    });
+    expect(result.user).toMatchObject({ email: 'social-user@gmail.com', emailVerified: true, role: 'REGISTERED' });
+    expect(result.token).toBeTruthy();
+    const identity = await AuthIdentity.findOne({ where: { provider: 'GOOGLE', providerSubject: 'google-subject-1' } });
+    expect(identity.userId).toBe(result.user.id);
+});
+
+test('OAuth links an authoritative matching email without replacing its creator role', async () => {
+    const creator = await createVerifiedUser({ email: 'linked-creator@gmail.com', role: 'CREATOR' });
+    const first = await finishOauthSignIn({
+        email: creator.email, emailAuthoritative: true,
+        name: 'Different Provider Name', provider: 'GOOGLE', subject: 'google-creator-subject',
+    });
+    const returning = await finishOauthSignIn({
+        email: '', emailAuthoritative: false,
+        name: '', provider: 'GOOGLE', subject: 'google-creator-subject',
+    });
+    expect(first.user).toMatchObject({ id: creator.id, name: creator.name, role: 'CREATOR' });
+    expect(returning.user).toMatchObject({ id: creator.id, role: 'CREATOR' });
+    expect(await User.count({ where: { email: creator.email } })).toBe(1);
+});
+
+test('OAuth refuses to auto-link a non-authoritative Google email', async () => {
+    await createVerifiedUser({ email: 'external-domain@example.com' });
+    await expect(finishOauthSignIn({
+        email: 'external-domain@example.com', emailAuthoritative: false,
+        name: 'External User', provider: 'GOOGLE', subject: 'google-external-subject',
+    })).rejects.toMatchObject({ code: 'OAUTH_LINK_REQUIRED', statusCode: 409 });
+});
+
+test('OAuth refuses to replace an account provider with a different subject', async () => {
+    const user = await createVerifiedUser({ email: 'one-provider@gmail.com' });
+    await AuthIdentity.create({ provider: 'GOOGLE', providerSubject: 'original-subject', userId: user.id });
+    await expect(finishOauthSignIn({
+        email: user.email, emailAuthoritative: true,
+        name: user.name, provider: 'GOOGLE', subject: 'different-subject',
+    })).rejects.toMatchObject({ code: 'OAUTH_IDENTITY_CONFLICT', statusCode: 409 });
+});
+
+test('OAuth configuration only exposes providers with complete server settings', () => {
+    const originalGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+    process.env.GOOGLE_CLIENT_ID = 'web-client.apps.googleusercontent.com';
+    expect(publicOauthConfig()).toMatchObject({
+        appleAuthEnabled: false,
+        googleAuthEnabled: true,
+        googleClientId: 'web-client.apps.googleusercontent.com',
+    });
+    if (originalGoogleClientId === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalGoogleClientId;
 });
 
 test('creator applications validate resumes, prevent duplicates, hide internal notes, and preserve roles on rejection', async () => {

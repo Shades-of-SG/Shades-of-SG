@@ -21,6 +21,9 @@ const jsonRequest = (method, body, token = '') => ({
 
 export const getAuthConfig = () => authRequest('/config')
 export const loginWithEmail = (email, password) => authRequest('/login', jsonRequest('POST', { email, password }))
+export const getOauthChallenge = (provider) => authRequest('/oauth/challenge', jsonRequest('POST', { provider }))
+export const loginWithGoogle = (credential, nonce) => authRequest('/oauth/google', jsonRequest('POST', { credential, nonce }))
+export const loginWithApple = (values) => authRequest('/oauth/apple', jsonRequest('POST', values))
 export const registerAccount = (values) => authRequest('/register', jsonRequest('POST', values))
 export const verifyRegistrationOtp = (email, code) => authRequest('/verify-email', jsonRequest('POST', { code, email }))
 export const resendRegistrationOtp = (email) => authRequest('/resend-verification', jsonRequest('POST', { email }))

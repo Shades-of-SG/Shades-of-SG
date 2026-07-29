@@ -8,11 +8,16 @@ const {
     verifyPassword, verifyScopedToken,
 } = require('../services/authService');
 const { consumeOtp, invalidateOtps, issueOtp, normalizeEmail } = require('../services/otpService');
+const {
+    createOauthChallenge, finishOauthSignIn, publicOauthConfig,
+    verifyAppleCredential, verifyGoogleCredential,
+} = require('../services/oauthService');
 
 const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const requestLimit = createRateLimit({ key: authRateKey('otp-request'), max: 5, windowMs: 15 * 60 * 1000 });
 const verifyLimit = createRateLimit({ key: authRateKey('otp-verify'), max: 10, windowMs: 10 * 60 * 1000 });
+const oauthLimit = createRateLimit({ key: (req) => `oauth:ip:${req.ip}`, max: 30, windowMs: 10 * 60 * 1000 });
 
 function validPassword(password) {
     return typeof password === 'string' && password.length >= 8 && password.length <= 128;
@@ -39,10 +44,27 @@ async function processOtp(values, onSuccess) {
     return result;
 }
 
-router.get('/config', (req, res) => res.json({
-    // Apple stays hidden until a complete state/nonce/token-validation implementation is available.
-    appleAuthEnabled: false,
-}));
+router.get('/config', (req, res) => res.json(publicOauthConfig()));
+
+router.post('/oauth/challenge', oauthLimit, (req, res, next) => {
+    try {
+        return res.json(createOauthChallenge(req.body.provider));
+    } catch (error) { return next(error); }
+});
+
+router.post('/oauth/google', oauthLimit, async (req, res, next) => {
+    try {
+        const identity = await verifyGoogleCredential(req.body);
+        return res.json(await finishOauthSignIn(identity));
+    } catch (error) { return next(error); }
+});
+
+router.post('/oauth/apple', oauthLimit, async (req, res, next) => {
+    try {
+        const identity = await verifyAppleCredential(req.body);
+        return res.json(await finishOauthSignIn(identity));
+    } catch (error) { return next(error); }
+});
 
 router.post('/register', requestLimit, async (req, res, next) => {
     try {

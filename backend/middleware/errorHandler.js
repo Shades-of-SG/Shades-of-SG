@@ -10,6 +10,7 @@ function errorHandler(error, req, res, next) {
 
     return res.status(statusCode).json({
         success: false,
+        ...(statusCode < 500 && error.code ? { code: error.code } : {}),
         message: fileTooLarge
             ? 'The uploaded file is too large.'
             : statusCode === 500 ? 'Internal server error' : error.message
