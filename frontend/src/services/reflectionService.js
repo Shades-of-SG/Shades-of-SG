@@ -58,6 +58,15 @@ export async function moderateReflection(id, values, token) {
   return data.reflection
 }
 
+export async function warnReflectionAuthor(id, reason, token) {
+  const data = await request(`/reflections/${id}/warn`, {
+    body: JSON.stringify({ reason }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'POST',
+  })
+  return data.warning
+}
+
 export async function getReflectionSongs() {
   const data = await request('/songs')
   return data.songs

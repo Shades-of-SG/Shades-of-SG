@@ -20,6 +20,9 @@ const SongFolder = require('./SongFolder');
 const UserWarning = require('./UserWarning');
 const ModerationAction = require('./ModerationAction');
 const AuditLog = require('./AuditLog');
+const CreatorApplicationHistory = require('./CreatorApplicationHistory');
+const FolderSongProposal = require('./FolderSongProposal');
+const AnalyticsEvent = require('./AnalyticsEvent');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -80,6 +83,9 @@ User.hasMany(CreatorApplication, { foreignKey: 'userId', as: 'creatorApplication
 CreatorApplication.belongsTo(User, { foreignKey: 'userId', as: 'applicant' });
 User.hasMany(CreatorApplication, { foreignKey: 'reviewedBy', as: 'reviewedCreatorApplications' });
 CreatorApplication.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
+CreatorApplication.hasMany(CreatorApplicationHistory, { foreignKey: 'applicationId', as: 'history' });
+CreatorApplicationHistory.belongsTo(CreatorApplication, { foreignKey: 'applicationId', as: 'application' });
+CreatorApplicationHistory.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 
 Song.belongsToMany(Folder, {
     through: SongFolder,
@@ -100,6 +106,14 @@ Folder.belongsTo(User, { foreignKey: 'proposedBy', as: 'proposer' });
 User.hasMany(Folder, { foreignKey: 'reviewedBy', as: 'reviewedFolders' });
 Folder.belongsTo(User, { foreignKey: 'reviewedBy', as: 'folderReviewer' });
 
+Song.hasMany(FolderSongProposal, { foreignKey: 'songId', as: 'folderPlacementProposals' });
+FolderSongProposal.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+Folder.hasMany(FolderSongProposal, { foreignKey: 'folderId', as: 'songPlacementProposals' });
+FolderSongProposal.belongsTo(Folder, { foreignKey: 'folderId', as: 'folder' });
+User.hasMany(FolderSongProposal, { foreignKey: 'proposedBy', as: 'folderSongProposals' });
+FolderSongProposal.belongsTo(User, { foreignKey: 'proposedBy', as: 'proposer' });
+FolderSongProposal.belongsTo(User, { foreignKey: 'reviewedBy', as: 'proposalReviewer' });
+
 User.hasMany(UserWarning, { foreignKey: 'userId', as: 'warnings' });
 UserWarning.belongsTo(User, { foreignKey: 'userId', as: 'warnedUser' });
 UserWarning.belongsTo(User, { foreignKey: 'issuedBy', as: 'issuer' });
@@ -112,6 +126,13 @@ ModerationAction.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 AuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 AuditLog.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
 AuditLog.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+
+Song.hasMany(AnalyticsEvent, { foreignKey: 'songId', as: 'analyticsEvents' });
+AnalyticsEvent.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+Folder.hasMany(AnalyticsEvent, { foreignKey: 'folderId', as: 'analyticsEvents' });
+AnalyticsEvent.belongsTo(Folder, { foreignKey: 'folderId', as: 'folder' });
+User.hasMany(AnalyticsEvent, { foreignKey: 'userId', as: 'analyticsEvents' });
+AnalyticsEvent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 module.exports = {
     sequelize,
@@ -136,4 +157,7 @@ module.exports = {
     UserWarning,
     ModerationAction,
     AuditLog,
+    CreatorApplicationHistory,
+    FolderSongProposal,
+    AnalyticsEvent,
 };

@@ -6,6 +6,8 @@ import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
+import { trackAnalyticsEvent } from '../services/analyticsService'
+import { useAuth } from '../context/AuthContext'
 import './SongExperience.css'
 
 const MOCK_SONG_DATA = {
@@ -171,6 +173,7 @@ const MOCK_SONG_DATA = {
 
 export default function SongExperience() {
   const { id = 'demo-song' } = useParams()
+  const { token } = useAuth()
 
   const [dbSong, setDbSong] = useState(null)
   const [loadingDbSong, setLoadingDbSong] = useState(id !== 'demo-song')
@@ -190,6 +193,11 @@ export default function SongExperience() {
   }, [id])
 
   useEffect(() => {
+    if (!dbSong?.id) return
+    trackAnalyticsEvent('SONG_PAGE_VIEWED', { songId: dbSong.id }, token).catch(() => {})
+  }, [dbSong?.id, token])
+
+  useEffect(() => {
     if (id === 'demo-song') return
     let active = true
     getBeatmapSummary(id)
@@ -206,13 +214,17 @@ export default function SongExperience() {
   }, [id])
 
   const songData = dbSong ? {
-    ...MOCK_SONG_DATA,
-    title: dbSong.title || MOCK_SONG_DATA.title,
-    artist: dbSong.artist || MOCK_SONG_DATA.artist,
-    videoUrl: dbSong.videoUrl || MOCK_SONG_DATA.videoUrl,
-    culturalSummary: dbSong.description || MOCK_SONG_DATA.culturalSummary,
+    title: dbSong.title,
+    artist: dbSong.artist || 'Unknown artist',
+    year: dbSong.publishedDate ? new Date(dbSong.publishedDate).getFullYear() : '',
+    location: 'Singapore',
+    tags: [...(dbSong.moodTags || []), ...(dbSong.languages || [])],
+    videoUrl: dbSong.videoUrl,
+    culturalSummary: dbSong.description || 'No cultural summary has been added yet.',
     coverImageUrl: dbSong.coverImageUrl || undefined,
     transcriptionSegments: dbSong.transcriptionSegments || null,
+    instruments: Array.isArray(dbSong.instruments) ? dbSong.instruments : [],
+    trivia: Array.isArray(dbSong.trivia) ? dbSong.trivia : [],
   } : MOCK_SONG_DATA
 
   // Trivia state
@@ -270,7 +282,7 @@ export default function SongExperience() {
     })
   }
 
-  const currentQuestion = songData.trivia[questionIndex]
+  const currentQuestion = songData.trivia[questionIndex] || { options: [], question: '' }
 
 
 
@@ -348,7 +360,11 @@ export default function SongExperience() {
               src={songData.videoUrl}
               transcriptionSegments={songData.transcriptionSegments}
               poster={songData.coverImageUrl}
-              onPlay={stopSyntheticMelody}
+              onPlay={() => {
+                stopSyntheticMelody()
+                if (dbSong?.id) trackAnalyticsEvent('SONG_PLAYBACK_STARTED', { songId: dbSong.id }, token).catch(() => {})
+              }}
+              onEnded={() => { if (dbSong?.id) trackAnalyticsEvent('SONG_PLAYBACK_COMPLETED', { songId: dbSong.id }, token).catch(() => {}) }}
             />
           </div>
 
@@ -427,7 +443,9 @@ export default function SongExperience() {
 
           {/* Knowledge Check */}
           <div className="section-card">
-            {quizCompleted ? (
+            {!songData.trivia.length ? (
+              <p style={{ margin: 0, color: 'var(--muted)' }}>No knowledge check has been published for this song yet.</p>
+            ) : quizCompleted ? (
               <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                 <div style={{ background: 'rgba(34, 197, 94, 0.15)', color: 'var(--green)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
                   ✓
@@ -530,4 +548,3 @@ export default function SongExperience() {
     </div>
   )
 }
-

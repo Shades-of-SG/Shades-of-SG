@@ -8,7 +8,7 @@ process.env.DB_STORAGE = databasePath;
 const request = require('supertest');
 const app = require('../server');
 const {
-    AuditLog, CreatorApplication, Folder, GameScore, GeneratedFrame, GenerationJob,
+    AnalyticsEvent, AuditLog, CreatorApplication, CreatorApplicationHistory, Folder, FolderSongProposal, GameScore, GeneratedFrame, GenerationJob,
     ModerationAction, Reflection, RhythmBeatmap, SceneSegment, Song, SongFolder,
     User, UserWarning, sequelize,
 } = require('../models');
@@ -117,6 +117,62 @@ test('creator analytics are unaffected by activity attached to Creator B songs',
     expect(response.body.reflections.APPROVED).toBe(1);
 });
 
+test('analytics derives the user from auth and creator song filters cannot cross ownership', async () => {
+    const publishedA = await Song.create({ creatorId: principals['Creator A'].id, title: 'Published A', status: 'PUBLISHED' });
+    const accepted = await request(app).post('/api/analytics/events')
+        .set('Authorization', `Bearer ${tokens.REGISTERED}`)
+        .send({ eventType: 'SONG_PAGE_VIEWED', metadata: { email: 'must-not-store@example.com', score: 7 }, songId: publishedA.id, userId: principals['Creator B'].id });
+    expect(accepted.status).toBe(202);
+    const event = await AnalyticsEvent.findOne({ where: { songId: publishedA.id } });
+    expect(event.userId).toBe(principals.REGISTERED.id);
+    expect(event.metadata).toEqual({ score: 7 });
+
+    expect((await request(app).get('/api/analytics/creator').query({ songId: resources.songB.id }).set('Authorization', `Bearer ${tokens['Creator A']}`)).status).toBe(404);
+    const own = await request(app).get('/api/analytics/creator').query({ songId: publishedA.id }).set('Authorization', `Bearer ${tokens['Creator A']}`);
+    expect(own.status).toBe(200);
+    expect(own.body.events.SONG_PAGE_VIEWED).toBe(1);
+    expect((await request(app).get('/api/admin/analytics').set('Authorization', `Bearer ${tokens.ADMIN}`)).body.events.SONG_PAGE_VIEWED).toBe(1);
+});
+
+test('creator warnings are limited to registered authors on reflections attached to owned songs', async () => {
+    const accountReflection = await Reflection.create({ content: 'Account memory', displayMode: 'ANONYMOUS', guestSubmission: false, songId: resources.songA.id, status: 'PENDING', userId: principals.REGISTERED.id });
+    expect((await request(app).post(`/api/reflections/${accountReflection.id}/warn`).set('Authorization', `Bearer ${tokens['Creator B']}`).send({ reason: 'Cross-owner warning attempt.' })).status).toBe(404);
+    expect((await request(app).post(`/api/reflections/${resources.reflectionA.id}/warn`).set('Authorization', `Bearer ${tokens['Creator A']}`).send({ reason: 'Guest warning attempt.' })).status).toBe(400);
+    const warned = await request(app).post(`/api/reflections/${accountReflection.id}/warn`).set('Authorization', `Bearer ${tokens['Creator A']}`).send({ reason: 'Please follow the community contribution guidelines.' });
+    expect(warned.status).toBe(201);
+    expect(await UserWarning.findByPk(warned.body.warning.id)).toMatchObject({ issuedBy: principals['Creator A'].id, userId: principals.REGISTERED.id });
+    expect(await ModerationAction.count({ where: { actionType: 'USER_WARNED_FROM_REFLECTION', songId: resources.songA.id, targetId: accountReflection.id } })).toBe(1);
+});
+
+test('application drafts and resume bytes remain private until the applicant submits', async () => {
+    const applicant = await User.create({ email: 'second-applicant@example.com', name: 'Second Applicant', passwordHash: hashPassword('password123'), role: 'REGISTERED' });
+    const applicantToken = createToken(applicant);
+    const draftResponse = await request(app).put('/api/creator-applications/draft')
+        .set('Authorization', `Bearer ${applicantToken}`)
+        .send({ experience: 'Community music production', motivation: 'I want to help Singaporeans explore National Day songs through thoughtful learning experiences.', portfolioUrl: '', userId: principals['Creator B'].id });
+    expect(draftResponse.status).toBe(200);
+    const applicationId = draftResponse.body.application.id;
+    expect((await CreatorApplication.findByPk(applicationId)).userId).toBe(applicant.id);
+
+    const upload = await request(app).post(`/api/creator-applications/${applicationId}/resume`)
+        .set('Authorization', `Bearer ${applicantToken}`)
+        .attach('resume', Buffer.from('%PDF-1.4 private resume'), { contentType: 'application/pdf', filename: 'resume.pdf' });
+    expect(upload.status).toBe(200);
+    expect((await request(app).get(`/api/creator-applications/${applicationId}/resume`).set('Authorization', `Bearer ${tokens['Creator A']}`)).status).toBe(404);
+    expect((await request(app).get(`/api/creator-applications/${applicationId}/resume`).set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(404);
+    expect((await request(app).get('/api/admin/creator-applications').set('Authorization', `Bearer ${tokens.ADMIN}`)).body.applications.some((item) => item.id === applicationId)).toBe(false);
+
+    expect((await request(app).post(`/api/creator-applications/${applicationId}/submit`).set('Authorization', `Bearer ${applicantToken}`)).status).toBe(200);
+    const adminResume = await request(app).get(`/api/creator-applications/${applicationId}/resume`).set('Authorization', `Bearer ${tokens.ADMIN}`);
+    expect(adminResume.status).toBe(200);
+    expect(adminResume.headers['cache-control']).toBe('private, no-store');
+    const mine = await request(app).get('/api/creator-applications/mine').set('Authorization', `Bearer ${applicantToken}`);
+    expect(mine.body.applications[0]).not.toHaveProperty('resumeData');
+    expect(mine.body.applications[0].history.map((entry) => entry.toStatus)).toEqual(['DRAFT', 'SUBMITTED']);
+    expect(await CreatorApplicationHistory.count({ where: { applicationId } })).toBe(2);
+    expect((await request(app).post(`/api/creator-applications/${applicationId}/withdraw`).set('Authorization', `Bearer ${applicantToken}`).send({ note: 'Withdrawing for now.' })).status).toBe(200);
+});
+
 test('registered applicant cannot forge user identity and admin approval converts exactly that applicant', async () => {
     const submitted = await request(app).post('/api/creator-applications')
         .set('Authorization', `Bearer ${tokens.REGISTERED}`)
@@ -143,8 +199,13 @@ test('creator folder proposals need admin approval and song attachment enforces 
 
     expect((await request(app).patch(`/api/admin/folders/${proposed.body.folder.id}`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ status: 'APPROVED' })).status).toBe(200);
     expect((await request(app).put(`/api/folders/song/${resources.songA.id}/${proposed.body.folder.id}`).set('Authorization', `Bearer ${tokens['Creator B']}`)).status).toBe(404);
-    expect((await request(app).put(`/api/folders/song/${resources.songA.id}/${proposed.body.folder.id}`).set('Authorization', `Bearer ${tokens['Creator A']}`)).status).toBe(201);
+    const placement = await request(app).put(`/api/folders/song/${resources.songA.id}/${proposed.body.folder.id}`).set('Authorization', `Bearer ${tokens['Creator A']}`);
+    expect(placement.status).toBe(202);
+    expect(await SongFolder.count({ where: { folderId: proposed.body.folder.id, songId: resources.songA.id } })).toBe(0);
+    expect((await request(app).patch(`/api/admin/folder-song-proposals/${placement.body.proposal.id}`).set('Authorization', `Bearer ${tokens['Creator B']}`).send({ status: 'APPROVED' })).status).toBe(403);
+    expect((await request(app).patch(`/api/admin/folder-song-proposals/${placement.body.proposal.id}`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ status: 'APPROVED' })).status).toBe(200);
     expect(await SongFolder.count({ where: { folderId: proposed.body.folder.id, songId: resources.songA.id } })).toBe(1);
+    expect((await FolderSongProposal.findByPk(placement.body.proposal.id)).reviewedBy).toBe(principals.ADMIN.id);
     expect((await Folder.findByPk(proposed.body.folder.id)).reviewedBy).toBe(principals.ADMIN.id);
 });
 
@@ -155,6 +216,11 @@ test('only admins can issue warnings and inspect global moderation and audit his
     expect((await UserWarning.findByPk(warning.body.warning.id)).issuedBy).toBe(principals.ADMIN.id);
     expect((await request(app).get('/api/admin/moderation-actions').set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(200);
     expect((await request(app).get('/api/admin/audit-logs').set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(200);
+    const registeredTarget = await User.findOne({ where: { email: 'second-applicant@example.com' } });
+    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens['Creator A']}`).send({ accountStatus: 'SUSPENDED' })).status).toBe(403);
+    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'SUSPENDED', actorId: principals['Creator A'].id })).status).toBe(200);
+    expect((await User.findByPk(registeredTarget.id)).accountStatus).toBe('SUSPENDED');
+    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'ACTIVE' })).status).toBe(200);
 });
 
 test('admin suspension is enforced from the current database record even for an existing token', async () => {

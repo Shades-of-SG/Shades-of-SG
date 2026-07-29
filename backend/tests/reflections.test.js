@@ -312,7 +312,7 @@ test('flagging an approved reflection immediately hides it from the public API',
     expect((await request(app).get('/api/reflections')).body.reflections).toHaveLength(0);
 });
 
-test('creator can delete any reflection while a regular non-owner cannot', async () => {
+test('creator can remove an owned-song reflection from public view while a regular non-owner cannot', async () => {
     const reflection = await createStoredReflection();
 
     const forbidden = await request(app)
@@ -325,7 +325,7 @@ test('creator can delete any reflection while a regular non-owner cannot', async
         .delete(`/api/reflections/${reflection.id}`)
         .set('Authorization', `Bearer ${creatorToken}`);
     expect(deleted.status).toBe(204);
-    expect(await Reflection.findByPk(reflection.id)).toBeNull();
+    expect(await Reflection.findByPk(reflection.id)).toMatchObject({ status: 'REJECTED' });
 });
 
 test('public reflection API excludes both pending and flagged submissions', async () => {

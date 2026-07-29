@@ -1,6 +1,8 @@
 const express = require('express');
 const { Op, Sequelize } = require('sequelize');
-const { sequelize, ModerationAction, Reflection, Song, User } = require('../models');
+const {
+    AnalyticsEvent, sequelize, ModerationAction, Reflection, Song, User, UserWarning,
+} = require('../models');
 const { optionalAuth, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
 const { writeAudit } = require('../services/auditService');
 
@@ -299,15 +301,24 @@ router.post('/', optionalAuth, async (req, res, next) => {
             ? 'ANONYMOUS'
             : 'PROFILE';
 
-        const reflection = await Reflection.create({
-            content: input.content,
-            displayMode,
-            displayName: displayMode === 'PROFILE' ? user.name : null,
-            guestSubmission,
-            songId: input.songId,
-            status: 'PENDING',
-            tags: normalizeTags(getSubmittedTags(req.body)),
-            userId: user?.id || null,
+        const reflection = await sequelize.transaction(async (transaction) => {
+            const createdReflection = await Reflection.create({
+                content: input.content,
+                displayMode,
+                displayName: displayMode === 'PROFILE' ? user.name : null,
+                guestSubmission,
+                songId: input.songId,
+                status: 'PENDING',
+                tags: normalizeTags(getSubmittedTags(req.body)),
+                userId: user?.id || null,
+            }, { transaction });
+            await AnalyticsEvent.create({
+                eventType: 'REFLECTION_SUBMITTED',
+                metadata: {},
+                songId: input.songId,
+                userId: user?.id || null,
+            }, { transaction });
+            return createdReflection;
         });
 
         const created = await findReflection(reflection.id);
@@ -389,6 +400,51 @@ router.put('/:id/moderation', requireCreatorOrAdmin, async (req, res, next) => {
     }
 });
 
+router.post('/:id/warn', requireCreatorOrAdmin, async (req, res, next) => {
+    try {
+        const creatorId = req.authUserRecord.role === 'CREATOR' ? req.authUserRecord.id : null;
+        const reflection = await findReflection(req.params.id, { creatorId });
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        if (!reflection.userId) return res.status(400).json({ message: 'Guest submissions cannot receive account warnings.' });
+
+        const reason = String(req.body.reason || '').trim();
+        if (reason.length < 5 || reason.length > 2000) {
+            return res.status(400).json({ message: 'Warning reason must be between 5 and 2000 characters.' });
+        }
+
+        const warning = await sequelize.transaction(async (transaction) => {
+            const createdWarning = await UserWarning.create({
+                issuedBy: req.authUserRecord.id,
+                reason,
+                userId: reflection.userId,
+            }, { transaction });
+            await ModerationAction.create({
+                actionType: 'USER_WARNED_FROM_REFLECTION',
+                actorId: req.authUserRecord.id,
+                metadata: { warningId: createdWarning.id },
+                reason,
+                songId: reflection.songId,
+                targetId: reflection.id,
+                targetType: 'REFLECTION',
+                targetUserId: reflection.userId,
+            }, { transaction });
+            await writeAudit({
+                action: 'USER_WARNED_FROM_REFLECTION',
+                actorId: req.authUserRecord.id,
+                creatorId: reflection.song.creatorId,
+                entityId: createdWarning.id,
+                entityType: 'USER_WARNING',
+                metadata: { reflectionId: reflection.id, targetUserId: reflection.userId },
+                req,
+                songId: reflection.songId,
+                transaction,
+            });
+            return createdWarning;
+        });
+        return res.status(201).json({ warning });
+    } catch (error) { return next(error); }
+});
+
 router.put('/:id', requireAuth, async (req, res, next) => {
     try {
         const reflection = await findReflection(req.params.id);
@@ -433,17 +489,24 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
         await sequelize.transaction(async (transaction) => {
             if (canModerate && !isOwner) {
                 await ModerationAction.create({
-                    actionType: 'REFLECTION_DELETED', actorId: currentUser.id,
+                    actionType: 'REFLECTION_REJECTED', actorId: currentUser.id,
                     songId: reflection.songId, targetId: reflection.id,
                     targetType: 'REFLECTION', targetUserId: reflection.userId,
                 }, { transaction });
+                await reflection.update({
+                    moderatedAt: new Date(),
+                    moderatedBy: currentUser.id,
+                    moderatorNote: 'Removed from public view by a moderator.',
+                    status: 'REJECTED',
+                }, { transaction });
+            } else {
+                await reflection.destroy({ transaction });
             }
             await writeAudit({
-                action: 'REFLECTION_DELETED', actorId: currentUser.id,
-                creatorId, entityId: reflection.id, entityType: 'REFLECTION',
+                action: canModerate && !isOwner ? 'REFLECTION_REJECTED' : 'REFLECTION_DELETED', actorId: currentUser.id,
+                creatorId: reflection.song.creatorId || creatorId, entityId: reflection.id, entityType: 'REFLECTION',
                 req, songId: reflection.songId, transaction,
             });
-            await reflection.destroy({ transaction });
         });
         return res.status(204).end();
     } catch (error) {

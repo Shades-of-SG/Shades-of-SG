@@ -7,6 +7,7 @@ import { createResult, storeResult } from '../game/results'
 import { fetchSongDetails } from '../game/songDetailsApi'
 import { useAuth } from '../context/AuthContext'
 import { publishBeatmap, saveBeatmapSettings } from '../services/beatmapService'
+import { trackAnalyticsEvent } from '../services/analyticsService'
 import { applyJudgement, calculateWeightedAccuracy, completeHold, createStats } from '../utils/rhythmScoring'
 import { getNoteProgress, getSongTimeMs, getTimingJudgement, isMissed, JUDGEMENT_WINDOWS } from '../utils/rhythmTiming'
 
@@ -225,9 +226,12 @@ export default function RhythmGame() {
       earlyReleases: finalStats.earlyReleases, processedNotes: finalStats.processed, preview, songId, totalNotes,
     })
     if (!preview) storeResult(result)
+    if (!preview) trackAnalyticsEvent('RHYTHM_GAME_COMPLETED', {
+      metadata: { accuracy: finalAccuracy, difficulty, score: finalStats.score }, songId,
+    }, token).catch(() => {})
     setPhase('finished')
     navigate(`/game/${songId}/results`, { replace: true, state: { result } })
-  }, [difficulty, navigate, preview, songId, totalNotes])
+  }, [difficulty, navigate, preview, songId, token, totalNotes])
 
   const finishAtAudioEnd = useCallback(() => {
     notesRef.current = notesRef.current.map((note) => {
@@ -367,12 +371,13 @@ export default function RhythmGame() {
       if (audioRef.current) audioRef.current.muted = false
     }
     resetRun(beatmap)
+    if (!preview) trackAnalyticsEvent('RHYTHM_GAME_STARTED', { metadata: { difficulty }, songId }, token).catch(() => {})
     setPhase('countdown')
     const values = ['3', '2', '1', 'Go']
     setCountdown(values[0])
     values.slice(1).forEach((value, index) => timersRef.current.push(window.setTimeout(() => setCountdown(value), (index + 1) * 700)))
     timersRef.current.push(window.setTimeout(() => { setCountdown(null); startPlayback() }, values.length * 700))
-  }, [beatmap, loadingState, resetRun, startPlayback])
+  }, [beatmap, difficulty, loadingState, preview, resetRun, songId, startPlayback, token])
 
   const requestRestart = useCallback(() => {
     if (phase === 'playing' && !window.confirm('Restart this run? Your current score will be lost.')) return

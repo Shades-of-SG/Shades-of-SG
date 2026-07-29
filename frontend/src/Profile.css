@@ -312,7 +312,7 @@
   .profile-page *::after { animation-duration: .01ms !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
 
-/* Violet's creator profile stays within the portal's permanent dark theme. */
+/* Creator profiles stay within the portal's permanent dark theme. */
 .creator-profile {
   --cp-accent: #c4b5fd;
   --cp-panel: rgba(17, 24, 52, .9);

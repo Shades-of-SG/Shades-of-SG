@@ -53,7 +53,7 @@ Public access is limited to resources attached to a `PUBLISHED` song. Registered
 | `rhythm_beatmaps` | Song-owned through `song_id -> songs.creator_id` | Creator preview/mutations resolve owned song; public reads require published song | Secure. List endpoint hides drafts from non-owner but currently fetches all rows before serializing; query only published rows for non-owner as defense in depth. |
 | `creator_applications` (new) | Applicant-owned by `user_id`; platform-reviewed | Not present | Registered applicant can submit/read own application. Admin can list and transition valid stages. Approval promotes exactly the linked user in one transaction. |
 | `folders` (new) | Platform-managed; proposal provenance via `proposed_by` | Not present | Approved folders publicly/creator readable. Admin creates platform folders and approves/rejects proposals. Creators can only manage their own pending proposals. |
-| `song_folders` (new) | Song-owned through `song_id -> songs.creator_id` | Not present | Creator attach/detach requires owned song and approved folder. Admin may manage globally. Composite uniqueness prevents duplicates. |
+| `song_folders` (new) | Song-owned through `song_id -> songs.creator_id` | Implemented | Only admins create/remove published placements. Creators submit placement proposals after resolving their owned song. Composite uniqueness prevents duplicates; `song_order` controls collection order. |
 | `user_warnings` (new) | Target-user history; admin-issued | Not present | Admin-only create/list/resolve. Target user id must resolve server-side. |
 | `moderation_actions` (new) | Immutable platform history; actor and target recorded | Not present | Creator actions only against reflections on owned songs; admin actions global. Do not allow client-supplied actor id. |
 | `audit_logs` (new) | Immutable security/audit history | Not present | Actor comes from auth context; creator id/song id are derived from the resolved object; admin-only global reads and creator-only own reads if exposed. |
@@ -130,7 +130,7 @@ Legend: **Public** means deliberately accessible without login; **Self** means a
 | `GET /api/folders` (new) | Public/creator | Not present | Return approved folders only. |
 | `GET /api/folders/proposals/mine` (new) | Creator | Not present | Filter by authenticated proposer. |
 | `POST /api/folders/proposals` (new) | Creator | Not present | Derive proposer; force pending proposal state. |
-| `PUT /api/songs/:songId/folders/:folderId` (new) | Owned song | Not present | Resolve owned song and approved folder before attach. |
+| `POST /api/folders/placements` | Creator-owned song | Implemented | Resolves `song_id` with the authenticated creator and creates a review proposal; it never publishes the placement directly. |
 | `DELETE /api/songs/:songId/folders/:folderId` (new) | Owned song | Not present | Delete by both ids only after owned-song resolution. |
 | `GET /api/admin/folders` (new) | Admin | Not present | Admin-only all statuses. |
 | `POST /api/admin/folders` (new) | Admin | Not present | Server records admin actor and approved platform origin. |
@@ -174,6 +174,10 @@ Migrations are additive or constraint/index changes only. They contain no `DROP 
 4. `014_moderation_audit_and_warnings.sql`
    - create user warnings, immutable moderation-action history, and audit logs;
    - add actor/target/song/creator/time indexes.
+5. `015_workflow_completion_and_analytics_events.sql`
+   - extend creator applications with drafts, private resumes, applicant feedback, timestamps, and stage history;
+   - add folder/song ordering and creator song-placement proposals;
+   - add privacy-minimised analytics events and ownership indexes.
 
 Migration execution remains an explicit deployment step in numeric order. The server will authenticate and validate schema availability but will no longer mutate production schema at startup.
 
@@ -276,7 +280,7 @@ For every Creator A song endpoint, use Song B's id and prove Creator A cannot re
 - Proposal is not public/attachable until admin approval.
 - Creator B cannot edit Creator A's proposal.
 - Admin can create platform folders and approve/reject proposals.
-- Creator A may attach approved folders only to Song A, never Song B; duplicate attachment is prevented.
+- Creator A may propose placement only for Song A, never Song B; only admin approval creates the `song_folders` row and duplicate active proposals are prevented.
 - Public listing includes approved folders only; deletion/rejection does not destructively alter songs.
 
 ### Analytics, warnings, and audit history
@@ -284,7 +288,7 @@ For every Creator A song endpoint, use Song B's id and prove Creator A cannot re
 - Creator A analytics totals derive only from Song A scores/reflections/jobs; inserting Song B activity does not change Creator A results.
 - `/api/stats` and admin analytics/history routes reject guest, registered, and creator tokens.
 - Admin analytics includes both creators and registered-user totals.
-- Only admin can issue/resolve warnings; actor id is the authenticated admin regardless of request body.
+- Admin may issue/resolve global warnings. A creator may warn only a registered account linked to a reflection on that creator's own song; guest reflections cannot receive warnings. Actor id always comes from the authenticated principal.
 - Creator moderation actions and important song lifecycle actions create audit rows with derived song/creator ids.
 - Only admin can read global audit/moderation history.
 

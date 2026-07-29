@@ -39,6 +39,7 @@ import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import VideoEditor from './pages/VideoEditor'
 import CreatorApplication from './pages/CreatorApplication'
+import Collections from './pages/Collections'
 import CreatorFolders from './pages/CreatorFolders'
 import CreatorAnalytics from './pages/CreatorAnalytics'
 import AdminLayout from './layouts/AdminLayout'
@@ -47,6 +48,7 @@ import AdminApplications from './pages/AdminApplications'
 import AdminCreators from './pages/AdminCreators'
 import AdminFolders from './pages/AdminFolders'
 import AdminGovernance from './pages/AdminGovernance'
+import AdminSongs from './pages/AdminSongs'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -84,6 +86,8 @@ function App() {
         <Route element={<MainExperience />}>
           <Route element={<Landing />} path="/" />
           <Route element={<SongsLibrary />} path="/songs" />
+          <Route element={<Collections />} path="/collections" />
+          <Route element={<Collections />} path="/collections/:slug" />
           <Route element={<SongExperience />} path="/songs/:id" />
           <Route element={<TriviaHub />} path="/songs/:id/trivia" />
           <Route element={<InstrumentPlayground />} path="/songs/:id/playground" />
@@ -132,6 +136,8 @@ function App() {
             <Route element={<AdminAnalytics />} path="/admin" />
             <Route element={<AdminApplications />} path="/admin/applications" />
             <Route element={<AdminCreators />} path="/admin/creators" />
+            <Route element={<AdminSongs />} path="/admin/songs" />
+            <Route element={<ReflectionModeration />} path="/admin/reflections" />
             <Route element={<AdminFolders />} path="/admin/folders" />
             <Route element={<AdminGovernance />} path="/admin/governance" />
           </Route>
