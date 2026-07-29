@@ -131,15 +131,90 @@ router.get('/creators', async (req, res, next) => {
             where.accountStatus = accountStatus;
         }
         const { count, rows: creators } = await User.findAndCountAll({
-            attributes: ['id', 'name', 'email', 'role', 'accountStatus', 'createdAt'],
-            include: [{ model: Song, as: 'songs', attributes: ['id', 'status'], required: false }],
-            distinct: true, limit, offset, order: [['createdAt', 'DESC']], subQuery: false, where,
+            attributes: ['id', 'name', 'email', 'role', 'accountStatus', 'createdAt', 'updatedAt'],
+            include: [
+                { model: Song, as: 'songs', attributes: ['id', 'status'], required: false, separate: true },
+                {
+                    model: CreatorApplication, as: 'creatorApplications', required: false, separate: true,
+                    attributes: ['id', 'status', 'createdAt', 'reviewedAt'],
+                    include: [{ model: CreatorApplicationHistory, as: 'history', attributes: ['id', 'fromStatus', 'toStatus', 'note', 'createdAt'], required: false }],
+                },
+                {
+                    model: UserWarning, as: 'warnings', required: false, separate: true,
+                    attributes: ['id', 'reason', 'status', 'createdAt', 'resolvedAt'],
+                    include: [{ model: User, as: 'issuer', attributes: ['id', 'name'], required: false }],
+                },
+            ],
+            distinct: true, limit, offset, order: [['createdAt', 'DESC']], where,
         });
         return res.json({ creators: creators.map((creator) => {
             const value = creator.get({ plain: true });
             const songs = value.songs || [];
             return { ...value, songCount: songs.length, publishedSongCount: songs.filter((song) => song.status === 'PUBLISHED').length, songs: undefined };
         }), pagination: pageResult([], count, page, limit).pagination });
+    } catch (error) { return next(error); }
+});
+
+router.get('/users', async (req, res, next) => {
+    try {
+        const { limit, offset, page } = paging(req.query);
+        const where = { role: { [Op.in]: ['REGISTERED', 'CREATOR'] } };
+        const conditions = [];
+        const search = String(req.query.search || '').trim();
+        if (search) {
+            const operator = sequelize.getDialect() === 'postgres' ? Op.iLike : Op.like;
+            conditions.push({ [Op.or]: [{ name: { [operator]: `%${search}%` } }, { email: { [operator]: `%${search}%` } }] });
+        }
+        if (req.query.role) {
+            const role = String(req.query.role).toUpperCase();
+            if (!['REGISTERED', 'CREATOR'].includes(role)) return res.status(400).json({ message: 'Invalid user role.' });
+            where.role = role;
+        }
+        if (req.query.accountStatus) {
+            const accountStatus = String(req.query.accountStatus).toUpperCase();
+            if (!['ACTIVE', 'SUSPENDED'].includes(accountStatus)) return res.status(400).json({ message: 'Invalid account status.' });
+            where.accountStatus = accountStatus;
+        }
+        if (req.query.scope) {
+            if (String(req.query.scope).toLowerCase() !== 'safety') return res.status(400).json({ message: 'Invalid user scope.' });
+            const [warningRows, flaggedRows, actionRows] = await Promise.all([
+                UserWarning.findAll({ attributes: ['userId'], group: ['userId'], raw: true }),
+                Reflection.findAll({ attributes: ['userId'], group: ['userId'], raw: true, where: { status: 'FLAGGED', userId: { [Op.ne]: null } } }),
+                ModerationAction.findAll({ attributes: ['targetUserId'], group: ['targetUserId'], raw: true, where: { targetUserId: { [Op.ne]: null } } }),
+            ]);
+            const safetyUserIds = [...new Set([
+                ...warningRows.map((row) => row.userId),
+                ...flaggedRows.map((row) => row.userId),
+                ...actionRows.map((row) => row.targetUserId),
+            ].filter(Boolean))];
+            conditions.push({ [Op.or]: [{ accountStatus: 'SUSPENDED' }, { id: { [Op.in]: safetyUserIds } }] });
+        }
+        if (conditions.length) where[Op.and] = conditions;
+        const { count, rows } = await User.findAndCountAll({
+            attributes: ['id', 'name', 'email', 'role', 'accountStatus', 'createdAt', 'updatedAt'],
+            include: [
+                { model: Reflection, as: 'reflections', attributes: ['id', 'status'], required: false },
+                { model: UserWarning, as: 'warnings', attributes: ['id', 'status'], required: false },
+            ],
+            distinct: true, limit, offset, order: [['createdAt', 'DESC']], subQuery: false, where,
+        });
+        return res.json({
+            pagination: pageResult([], count, page, limit).pagination,
+            users: rows.map((user) => {
+                const value = user.get({ plain: true });
+                const reflections = value.reflections || [];
+                const warnings = value.warnings || [];
+                return {
+                    ...value,
+                    activeWarningCount: warnings.filter((warning) => warning.status === 'ACTIVE').length,
+                    flaggedContentCount: reflections.filter((reflection) => reflection.status === 'FLAGGED').length,
+                    reflectionCount: reflections.length,
+                    warningCount: warnings.length,
+                    reflections: undefined,
+                    warnings: undefined,
+                };
+            }),
+        });
     } catch (error) { return next(error); }
 });
 
@@ -326,13 +401,45 @@ router.delete('/folders/:folderId/songs/:songId', async (req, res, next) => {
 
 router.get('/analytics', async (req, res, next) => {
     try {
-        const [admins, creators, registeredUsers, songs, publishedSongs, scores, reflections, generationJobs, eventRows] = await Promise.all([
+        const singaporeNow = new Date(Date.now() + (8 * 60 * 60 * 1000));
+        const activityStart = new Date(Date.UTC(singaporeNow.getUTCFullYear(), singaporeNow.getUTCMonth(), singaporeNow.getUTCDate() - 6) - (8 * 60 * 60 * 1000));
+        const [admins, creators, registeredUsers, songs, publishedSongs, scores, reflections, generationJobs, eventRows, pendingApplications, pendingReflections, flaggedReflections, unresolvedWarnings, suspendedAccounts, recentEvents] = await Promise.all([
             User.count({ where: { role: 'ADMIN' } }), User.count({ where: { role: 'CREATOR' } }),
             User.count({ where: { role: 'REGISTERED' } }), Song.count(), Song.count({ where: { status: 'PUBLISHED' } }),
             GameScore.count(), Reflection.count(), GenerationJob.count(), AnalyticsEvent.count({ group: ['eventType'] }),
+            CreatorApplication.count({ where: { status: { [Op.in]: ['SUBMITTED', 'UNDER_REVIEW', 'CHANGES_REQUESTED', 'SHORTLISTED', 'INTERVIEW'] } } }),
+            Reflection.count({ where: { status: 'PENDING' } }), Reflection.count({ where: { status: 'FLAGGED' } }),
+            UserWarning.count({ where: { status: 'ACTIVE' } }), User.count({ where: { accountStatus: 'SUSPENDED', role: { [Op.in]: ['REGISTERED', 'CREATOR'] } } }),
+            AnalyticsEvent.findAll({
+                attributes: ['eventType', 'createdAt'], raw: true,
+                where: { createdAt: { [Op.gte]: activityStart }, eventType: { [Op.in]: ['SONG_PAGE_VIEWED', 'SONG_PLAYBACK_STARTED'] } },
+            }),
         ]);
         const events = Object.fromEntries(eventRows.map((row) => [row.eventType, Number(row.count)]));
-        return res.json({ events, generationJobs, reflections, scores, songs: { published: publishedSongs, total: songs }, users: { admins, creators, registered: registeredUsers, total: admins + creators + registeredUsers } });
+        const activityByDate = new Map();
+        for (let daysAgo = 6; daysAgo >= 0; daysAgo -= 1) {
+            const date = new Date(Date.UTC(singaporeNow.getUTCFullYear(), singaporeNow.getUTCMonth(), singaporeNow.getUTCDate() - daysAgo));
+            const key = date.toISOString().slice(0, 10);
+            activityByDate.set(key, {
+                date: key,
+                label: date.toLocaleDateString('en-SG', { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+                playbacks: 0,
+                views: 0,
+            });
+        }
+        recentEvents.forEach((event) => {
+            const key = new Date(new Date(event.createdAt).getTime() + (8 * 60 * 60 * 1000)).toISOString().slice(0, 10);
+            const point = activityByDate.get(key);
+            if (!point) return;
+            if (event.eventType === 'SONG_PAGE_VIEWED') point.views += 1;
+            if (event.eventType === 'SONG_PLAYBACK_STARTED') point.playbacks += 1;
+        });
+        return res.json({
+            activitySeries: [...activityByDate.values()], events, generationJobs, reflections, scores,
+            pending: { creatorApplications: pendingApplications, flaggedReflections, reflections: pendingReflections, suspendedAccounts, unresolvedWarnings },
+            songs: { published: publishedSongs, total: songs },
+            users: { admins, creators, registered: registeredUsers, total: admins + creators + registeredUsers },
+        });
     } catch (error) { return next(error); }
 });
 
@@ -389,9 +496,13 @@ router.get('/moderation-actions', async (req, res, next) => {
         if (req.query.actionType) where.actionType = String(req.query.actionType);
         if (req.query.targetType) where.targetType = String(req.query.targetType);
         if (req.query.actorId) where.actorId = req.query.actorId;
+        if (req.query.scope) {
+            if (String(req.query.scope).toLowerCase() !== 'account') return res.status(400).json({ message: 'Invalid moderation action scope.' });
+            where.actionType = { [Op.in]: ['USER_SUSPENDED', 'USER_ACTIVE'] };
+        }
         const { count, rows } = await ModerationAction.findAndCountAll({
             include: [
-                { model: User, as: 'actor', attributes: ['id', 'name', 'email'] },
+                { model: User, as: 'actor', attributes: ['id', 'name', 'email', 'role'] },
                 { model: User, as: 'targetUser', attributes: ['id', 'name', 'email'], required: false },
                 { model: Song, as: 'song', attributes: ['id', 'title'], required: false },
             ],
@@ -406,10 +517,15 @@ router.get('/audit-logs', async (req, res, next) => {
         const { limit, offset, page } = paging(req.query);
         const where = req.query.actorId ? { actorId: req.query.actorId } : {};
         if (req.query.action) where.action = { [Op.eq]: String(req.query.action) };
+        if (req.query.entityId) where.entityId = String(req.query.entityId);
         if (req.query.entityType) where.entityType = String(req.query.entityType);
         if (req.query.songId) where.songId = req.query.songId;
         const { count, rows } = await AuditLog.findAndCountAll({
-            include: [{ model: User, as: 'actor', attributes: ['id', 'name', 'email'], required: false }],
+            include: [
+                { model: User, as: 'actor', attributes: ['id', 'name', 'email', 'role'], required: false },
+                { model: User, as: 'creator', attributes: ['id', 'name', 'email'], required: false },
+                { model: Song, as: 'song', attributes: ['id', 'title'], required: false },
+            ],
             limit, offset, order: [['createdAt', 'DESC']], where,
         });
         return res.json({ auditLogs: rows, pagination: pageResult([], count, page, limit).pagination });

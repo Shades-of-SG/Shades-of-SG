@@ -44,12 +44,11 @@ import CreatorApplication from './pages/CreatorApplication'
 import CreatorFolders from './pages/CreatorFolders'
 import CreatorAnalytics from './pages/CreatorAnalytics'
 import AdminLayout from './layouts/AdminLayout'
-import AdminAnalytics from './pages/AdminAnalytics'
-import AdminApplications from './pages/AdminApplications'
-import AdminCreators from './pages/AdminCreators'
-import AdminFolders from './pages/AdminFolders'
-import AdminGovernance from './pages/AdminGovernance'
-import AdminSongs from './pages/AdminSongs'
+import AdminActivityPage from './pages/AdminActivityPage'
+import AdminCommunityPage from './pages/AdminCommunityPage'
+import AdminContentPage from './pages/AdminContentPage'
+import AdminCreatorsPage from './pages/AdminCreatorsPage'
+import AdminOverview from './pages/AdminOverview'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -134,13 +133,16 @@ function App() {
 
         <Route element={<ProtectedRoute isAllowed={isAdmin} />}>
           <Route element={<AdminLayout />}>
-            <Route element={<AdminAnalytics />} path="/admin" />
-            <Route element={<AdminApplications />} path="/admin/applications" />
-            <Route element={<AdminCreators />} path="/admin/creators" />
-            <Route element={<AdminSongs />} path="/admin/songs" />
-            <Route element={<ReflectionModeration />} path="/admin/reflections" />
-            <Route element={<AdminFolders />} path="/admin/folders" />
-            <Route element={<AdminGovernance />} path="/admin/governance" />
+            <Route element={<AdminOverview />} path="/admin" />
+            <Route element={<AdminCreatorsPage />} path="/admin/creators" />
+            <Route element={<AdminContentPage />} path="/admin/content" />
+            <Route element={<AdminCommunityPage />} path="/admin/community" />
+            <Route element={<AdminActivityPage />} path="/admin/activity" />
+            <Route element={<Navigate replace to="/admin/creators?tab=applications" />} path="/admin/applications" />
+            <Route element={<Navigate replace to="/admin/content?tab=songs" />} path="/admin/songs" />
+            <Route element={<Navigate replace to="/admin/community?tab=reports" />} path="/admin/reflections" />
+            <Route element={<Navigate replace to="/admin/content?tab=collections" />} path="/admin/folders" />
+            <Route element={<Navigate replace to="/admin/activity" />} path="/admin/governance" />
           </Route>
         </Route>
 

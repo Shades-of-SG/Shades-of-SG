@@ -11,6 +11,7 @@ export const getAdminAnalytics = (token) => platformRequest('/admin/analytics', 
 export const getAdminApplications = (token, filters = {}) => platformRequest(`/admin/creator-applications${queryString(typeof filters === 'string' ? { status: filters } : filters)}`, { token })
 export const updateApplicationStatus = (id, values, token) => platformRequest(`/admin/creator-applications/${encodeURIComponent(id)}/status`, jsonOptions('PATCH', values, token))
 export const getAdminCreators = (token, filters = {}) => platformRequest(`/admin/creators${queryString(filters)}`, { token })
+export const getAdminUsers = (token, filters = {}) => platformRequest(`/admin/users${queryString(filters)}`, { token })
 export const updateCreatorStatus = (id, accountStatus, token) => platformRequest(`/admin/creators/${encodeURIComponent(id)}/status`, jsonOptions('PATCH', { accountStatus }, token))
 export const updateUserStatus = (id, accountStatus, token) => platformRequest(`/admin/users/${encodeURIComponent(id)}/status`, jsonOptions('PATCH', { accountStatus }, token))
 export const getAdminSongs = (token, filters = {}) => platformRequest(`/admin/songs${queryString(filters)}`, { token })

@@ -55,6 +55,12 @@ test('guest, registered user, creator, and admin role boundaries are database-ba
     expect((await request(app).get('/api/songs/creator')).status).toBe(401);
     expect((await request(app).get('/api/songs/creator').set('Authorization', `Bearer ${tokens.REGISTERED}`)).status).toBe(403);
     expect((await request(app).get('/api/admin/analytics').set('Authorization', `Bearer ${tokens['Creator A']}`)).status).toBe(403);
+    expect((await request(app).get('/api/admin/users').set('Authorization', `Bearer ${tokens['Creator A']}`)).status).toBe(403);
+    expect((await request(app).get('/api/admin/users').set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(200);
+    const creatorDirectory = await request(app).get('/api/admin/creators').set('Authorization', `Bearer ${tokens.ADMIN}`);
+    expect(creatorDirectory.status).toBe(200);
+    expect(creatorDirectory.body.creators[0]).toHaveProperty('warnings');
+    expect(creatorDirectory.body.creators[0]).toHaveProperty('creatorApplications');
     expect((await request(app).get('/api/stats')).status).toBe(401);
     expect((await request(app).get('/api/stats').set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(200);
 });
@@ -107,6 +113,11 @@ test('owning creator can moderate and immutable histories record the derived son
     expect(response.status).toBe(200);
     expect(await ModerationAction.count({ where: { actorId: principals['Creator A'].id, songId: resources.songA.id, targetId: resources.reflectionA.id } })).toBe(1);
     expect(await AuditLog.count({ where: { action: 'REFLECTION_MODERATED', actorId: principals['Creator A'].id, songId: resources.songA.id } })).toBe(1);
+    const contextualHistory = await request(app).get('/api/admin/audit-logs')
+        .set('Authorization', `Bearer ${tokens.ADMIN}`).query({ entityId: resources.reflectionA.id });
+    expect(contextualHistory.status).toBe(200);
+    expect(contextualHistory.body.auditLogs).toHaveLength(1);
+    expect(contextualHistory.body.auditLogs[0].entityId).toBe(resources.reflectionA.id);
 });
 
 test('creator analytics are unaffected by activity attached to Creator B songs', async () => {
@@ -131,7 +142,10 @@ test('analytics derives the user from auth and creator song filters cannot cross
     const own = await request(app).get('/api/analytics/creator').query({ songId: publishedA.id }).set('Authorization', `Bearer ${tokens['Creator A']}`);
     expect(own.status).toBe(200);
     expect(own.body.events.SONG_PAGE_VIEWED).toBe(1);
-    expect((await request(app).get('/api/admin/analytics').set('Authorization', `Bearer ${tokens.ADMIN}`)).body.events.SONG_PAGE_VIEWED).toBe(1);
+    const adminAnalytics = await request(app).get('/api/admin/analytics').set('Authorization', `Bearer ${tokens.ADMIN}`);
+    expect(adminAnalytics.body.events.SONG_PAGE_VIEWED).toBe(1);
+    expect(adminAnalytics.body.activitySeries).toHaveLength(7);
+    expect(adminAnalytics.body.activitySeries.reduce((sum, day) => sum + day.views, 0)).toBe(1);
 });
 
 test('creator warnings are limited to registered authors on reflections attached to owned songs', async () => {
@@ -227,6 +241,15 @@ test('only admins can issue warnings and inspect global moderation and audit his
     expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'SUSPENDED', actorId: principals['Creator A'].id })).status).toBe(200);
     expect((await User.findByPk(registeredTarget.id)).accountStatus).toBe('SUSPENDED');
     expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'ACTIVE' })).status).toBe(200);
+
+    const safetyUsers = await request(app).get('/api/admin/users?scope=safety').set('Authorization', `Bearer ${tokens.ADMIN}`);
+    expect(safetyUsers.status).toBe(200);
+    expect(safetyUsers.body.users.map((user) => user.id)).toEqual(expect.arrayContaining([principals['Creator B'].id, registeredTarget.id]));
+    expect(safetyUsers.body.users.find((user) => user.id === principals['Creator B'].id)).toMatchObject({ warningCount: 1 });
+
+    const accountActions = await request(app).get('/api/admin/moderation-actions?scope=account').set('Authorization', `Bearer ${tokens.ADMIN}`);
+    expect(accountActions.status).toBe(200);
+    expect(accountActions.body.actions.map((action) => action.actionType)).toEqual(expect.arrayContaining(['USER_SUSPENDED', 'USER_ACTIVE']));
 });
 
 test('admin suspension is enforced from the current database record even for an existing token', async () => {

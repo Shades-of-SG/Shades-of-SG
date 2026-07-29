@@ -72,6 +72,15 @@ function serializeModerationReflection(reflection, currentUserId) {
         moderator: value.moderator
             ? { id: value.moderator.id, name: value.moderator.name }
             : null,
+        account: value.user
+            ? { id: value.user.id, name: value.user.name, email: value.user.email, accountStatus: value.user.accountStatus }
+            : null,
+        song: value.song ? {
+            id: value.song.id,
+            title: value.song.title,
+            creator: value.song.creator ? { id: value.song.creator.id, name: value.song.creator.name, email: value.song.creator.email } : null,
+        } : null,
+        userId: value.userId,
     };
 }
 
@@ -83,11 +92,13 @@ function reflectionIncludes({ creatorId = null, includeModerator = false, publis
         model: Song,
         as: 'song',
         attributes: ['id', 'title', 'creatorId'],
+        include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'], required: false }],
         ...(songWhere ? { required: true, where: songWhere } : {}),
     }];
 
     if (includeModerator) {
-        includes.push({ model: User, as: 'moderator', attributes: ['id', 'name'], required: false });
+        includes.push({ model: User, as: 'moderator', attributes: ['id', 'name', 'role'], required: false });
+        includes.push({ model: User, as: 'user', attributes: ['id', 'name', 'email', 'accountStatus'], required: false });
     }
 
     return includes;
