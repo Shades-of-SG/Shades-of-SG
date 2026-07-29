@@ -61,21 +61,29 @@ const styles = {
   },
   lyricsOverlay: {
     position: 'absolute',
-    bottom: 0,
+    bottom: '20px',
     left: 0,
     right: 0,
-    background: 'linear-gradient(to top, rgba(0,0,0,.8), transparent)',
-    padding: '16px 24px',
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '0 16px',
     pointerEvents: 'none',
   },
   lyricsText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: '0.875rem',
-    fontWeight: 500,
+    color: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: '8px 20px',
+    borderRadius: '10px',
+    fontSize: 'clamp(1rem, 2.2vw, 1.25rem)',
+    fontWeight: 700,
     letterSpacing: '0.025em',
-    textShadow: '0 2px 4px rgba(0,0,0,.5)',
+    textShadow: '0 2px 6px rgba(0, 0, 0, 0.95)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    textAlign: 'center',
+    maxWidth: '90%',
     margin: 0,
+    lineHeight: 1.4,
   },
   controlsBar: {
     display: 'flex',
@@ -378,23 +386,37 @@ export default function VideoEditor() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't trigger if user is typing in the feedback input
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      const activeEl = document.activeElement
+      const isInput =
+        activeEl?.tagName === 'INPUT' ||
+        activeEl?.tagName === 'TEXTAREA' ||
+        activeEl?.isContentEditable ||
+        e.target?.tagName === 'INPUT' ||
+        e.target?.tagName === 'TEXTAREA' ||
+        e.target?.isContentEditable
+
+      if (isInput) return
 
       if (e.code === 'Space') {
-        e.preventDefault();
-        handlePlayPause();
+        e.preventDefault()
+        handlePlayPause()
       } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        handleSkipBack();
+        e.preventDefault()
+        handleSkipBack()
       } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        handleSkipForward();
+        e.preventDefault()
+        handleSkipForward()
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault()
+        setShowCaptions((prev) => !prev)
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        toggleFullscreen()
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSkipBack, handleSkipForward]);
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSkipBack, handleSkipForward])
 
   const handleRegenerateFrame = async () => {
     if (frames.length === 0) return;
@@ -448,8 +470,8 @@ export default function VideoEditor() {
       }
 
       // Fast Lane / Completion: Instantly navigate
-      const rawLyrics = jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
-      const currentCoverImage = frames[currentFrameIndex]?.imageUrl || '';
+      const rawLyrics = jobData?.song?.rawLyrics || jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
+      const currentCoverImage = frames[currentFrameIndex]?.imageUrl || jobData?.song?.coverImageUrl || frames[0]?.imageUrl || '';
       
       navigate(`/creator/studio/${encodeURIComponent(jobData?.song?.id || '')}`, {
         state: { 
@@ -710,7 +732,7 @@ export default function VideoEditor() {
           {showCaptions && frames[currentFrameIndex]?.lyrics && (
             <div style={{ 
               ...styles.lyricsOverlay, 
-              bottom: (isFullscreen && showControls) ? '70px' : '0px',
+              bottom: (isFullscreen && showControls) ? '80px' : '20px',
               transition: 'bottom 0.3s ease' 
             }}>
               <p style={styles.lyricsText}>

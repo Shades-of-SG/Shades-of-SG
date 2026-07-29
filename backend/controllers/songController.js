@@ -431,6 +431,7 @@ async function getCurationDetails(req, res, next) {
             success: true,
             data: {
                 song,
+                aiSummary: song.aiSummary || song.description || '',
                 description: song.description || '',
                 triviaQuestions,
                 associatedInstruments: song.instruments || [],
@@ -446,10 +447,17 @@ async function updateCurationDetails(req, res, next) {
         const song = await Song.findByPk(id);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
 
-        const { description, triviaQuestions, instrumentIds } = req.body;
+        const { aiSummary, description, triviaQuestions, instrumentIds } = req.body;
 
+        const updatePayload = {};
+        if (aiSummary !== undefined) {
+            updatePayload.aiSummary = String(aiSummary || '');
+        }
         if (description !== undefined) {
-            await song.update({ description: String(description || '') });
+            updatePayload.description = String(description || '');
+        }
+        if (Object.keys(updatePayload).length > 0) {
+            await song.update(updatePayload);
         }
 
         if (Array.isArray(triviaQuestions)) {
@@ -489,6 +497,7 @@ async function updateCurationDetails(req, res, next) {
             success: true,
             data: {
                 song: updatedSong,
+                aiSummary: updatedSong.aiSummary || updatedSong.description || '',
                 description: updatedSong.description,
                 triviaQuestions: updatedTrivia,
                 associatedInstruments: updatedSong.instruments || [],

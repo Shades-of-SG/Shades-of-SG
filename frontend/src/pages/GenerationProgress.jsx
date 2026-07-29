@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle, RefreshCw, Sparkles } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
 import { useAuth } from '../context/AuthContext'
-import { getGenerationJob } from '../services/songService'
+import { getGenerationJob, retryGenerationJob } from '../services/songService'
 
 /*
 TODO - Htet
@@ -133,9 +133,27 @@ export default function GenerationProgress() {
         </header>
 
         <div style={{ padding: '20px 30px' }}>
-          {status === 'FAILED' && jobData?.errorMessage && (
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px' }}>
-               <p style={{ color: '#f87171', fontSize: '0.875rem', fontFamily: 'monospace' }}>{jobData.errorMessage}</p>
+          {status === 'FAILED' && (
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', marginBottom: '1rem' }}>
+               {jobData?.errorMessage && (
+                 <p style={{ color: '#f87171', fontSize: '0.875rem', fontFamily: 'monospace', marginBottom: '1rem' }}>{jobData.errorMessage}</p>
+               )}
+               <button
+                 className="studio-button studio-button--primary"
+                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', fontWeight: 600 }}
+                 onClick={async () => {
+                   try {
+                     await retryGenerationJob(jobData.id, token)
+                     window.location.reload()
+                   } catch (err) {
+                     console.error('Retry failed:', err)
+                     alert('Failed to retry generation. Please try again.')
+                   }
+                 }}
+               >
+                 <RefreshCw className="w-4 h-4" />
+                 Retry / Resume Generation
+               </button>
             </div>
           )}
 
@@ -390,6 +408,40 @@ export default function GenerationProgress() {
             )}
           </div>
         )}
+      </section>
+
+      {/* Phase 5 Section */}
+      <section className="studio-card studio-form-card" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+        <header className="studio-card__header studio-card__header--spread">
+          <div className="studio-card__title">
+            <span aria-hidden="true"><Sparkles className="w-5 h-5" style={{ color: '#a78bfa', display: 'inline' }} /></span>
+            <h2>Phase 5: Cultural Curation & Trivia</h2>
+          </div>
+        </header>
+        <div style={{ padding: '20px 30px' }}>
+          {status === 'COMPLETED' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <CheckCircle className="w-8 h-8 text-emerald-500" />
+              <div>
+                <h3 className="text-white font-bold text-lg">Curation Complete</h3>
+                <p className="text-emerald-400 text-sm">Cultural summary, trivia questions, and instrument matches have been generated.</p>
+              </div>
+            </div>
+          ) : status === 'FAILED' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <AlertCircle className="w-8 h-8 text-amber-500" />
+              <div>
+                <h3 className="text-white font-bold text-lg">Curation Skipped</h3>
+                <p className="text-amber-400 text-sm">Pipeline failed before curation could complete. Retry the generation to generate curation details.</p>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
+              <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+              <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Generating cultural summary, trivia, & instrument matches...</p>
+            </div>
+          )}
+        </div>
       </section>
     </CreatorPageShell>
   )

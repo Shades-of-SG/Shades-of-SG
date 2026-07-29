@@ -17,6 +17,7 @@ import { Play, Pause, SkipBack, SkipForward, Maximize, Minimize, Subtitles } fro
 const styles = {
   wrapper: {
     position: 'relative',
+    width: '100%',
     background: '#000',
     borderRadius: '12px',
     overflow: 'hidden',
@@ -26,34 +27,45 @@ const styles = {
   videoContainer: {
     position: 'relative',
     width: '100%',
+    aspectRatio: '16 / 9',
+    overflow: 'hidden',
+    background: '#000',
   },
   video: {
     display: 'block',
     width: '100%',
-    aspectRatio: '16/9',
-    objectFit: 'cover',
+    height: '100%',
+    aspectRatio: '16 / 9',
+    objectFit: 'contain',
     cursor: 'pointer',
     background: '#000',
   },
   captionOverlay: {
     position: 'absolute',
-    bottom: 0,
+    bottom: '20px',
     left: 0,
     right: 0,
-    background: 'linear-gradient(to top, rgba(0,0,0,.8), transparent)',
-    padding: '32px 24px 16px',
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '0 16px',
     pointerEvents: 'none',
     transition: 'bottom 0.3s ease',
   },
   captionText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: '0.9rem',
-    fontWeight: 500,
+    color: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: '8px 20px',
+    borderRadius: '10px',
+    fontSize: 'clamp(1rem, 2.2vw, 1.25rem)',
+    fontWeight: 700,
     letterSpacing: '0.025em',
-    textShadow: '0 2px 4px rgba(0,0,0,.5)',
+    textShadow: '0 2px 6px rgba(0, 0, 0, 0.95)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    textAlign: 'center',
+    maxWidth: '90%',
     margin: 0,
-    lineHeight: 1.5,
+    lineHeight: 1.4,
   },
   controlsBar: {
     display: 'flex',
@@ -282,7 +294,7 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
         {showCaptions && activeCaption && (
           <div style={{
             ...styles.captionOverlay,
-            bottom: (isFullscreen && controlsVisible) ? '70px' : '0px',
+            bottom: (isFullscreen && controlsVisible) ? '80px' : '20px',
             opacity: controlsVisible || !isFullscreen ? 1 : 0.9,
           }}>
             <p style={styles.captionText}>

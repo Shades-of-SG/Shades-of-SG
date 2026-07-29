@@ -120,3 +120,10 @@ export function updateSongCuration(songId, curationData, token) {
     token,
   }).then((data) => data.data)
 }
+
+export function retryGenerationJob(jobId, token) {
+  return request(`/generation/retry/${encodeURIComponent(jobId)}`, {
+    method: 'POST',
+    token,
+  })
+}

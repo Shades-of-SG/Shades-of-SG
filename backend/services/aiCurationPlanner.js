@@ -25,12 +25,12 @@ async function generateSongCurationDetails(songId) {
     description: inst.description || '',
   }));
 
-  const systemPrompt = `You are a cultural heritage and music education expert specializing in Singaporean music, culture, and musical instruments.
-Your task is to analyze the provided song details and generate rich educational and curation metadata.
+  const systemPrompt = `You are a cultural heritage, Singapore history, and music education expert.
+Your task is to analyze the provided song details and generate a rich educational mini-article, trivia questions based on that mini-article, and matching heritage instruments.
 
 <project_context>
 Theme: ${song.theme || 'Singaporean Heritage'}
-Target Audience: Music learners, students, and culture enthusiasts.
+Target Audience: Music learners, students, and Singapore culture enthusiasts.
 </project_context>
 
 <available_instruments>
@@ -40,10 +40,11 @@ ${JSON.stringify(availableInstrumentsInfo, null, 2)}
 <output_format>
 You must return ONLY a JSON object following this exact schema:
 {
-  "culturalSummary": "<string, 2-3 sentence cultural and educational summary explaining the song's meaning and Singaporean heritage connection>",
+  "aiSummary": "<string, a rich, educational mini-article consisting of 3 to 4 detailed paragraphs separated by double line breaks (\\n\\n). It must cover the song's historical era, cultural significance, Singapore heritage context (e.g. independence era, National Day history, community traditions), and musical story>",
+  "culturalSummary": "<string, a concise 2-sentence summary of the song's heritage background>",
   "trivia": [
     {
-      "prompt": "<string, engaging multiple choice trivia question about the song, lyrics, or cultural theme>",
+      "prompt": "<string, multiple choice trivia question strictly based on historical or cultural facts mentioned in your aiSummary mini-article>",
       "options": ["<string, Option A>", "<string, Option B>", "<string, Option C>", "<string, Option D>"],
       "correctAnswer": "<string, MUST be exactly identical to one of the 4 strings in options>"
     }
@@ -52,8 +53,8 @@ You must return ONLY a JSON object following this exact schema:
 }
 
 RULES:
-1. "culturalSummary" MUST be 2-3 informative sentences.
-2. "trivia" MUST contain exactly 5 multiple choice questions. Each MUST have 4 options and a correctAnswer matching one of the options.
+1. "aiSummary" MUST be a detailed 3-4 paragraph educational mini-article. Separate paragraphs with double line breaks (\\n\\n).
+2. "trivia" MUST contain exactly 5 multiple choice questions. Every question MUST be strictly factual and derived from the facts presented in your "aiSummary". Each MUST have 4 options and a correctAnswer matching one of the options.
 3. "matchedInstrumentIds" MUST contain 1 to 4 instrument UUIDs chosen ONLY from the provided <available_instruments> list that best match the song's style/heritage.
 4. Return ONLY valid JSON with no markdown formatting.
 </output_format>`;
@@ -77,7 +78,6 @@ ${song.rawLyrics || 'No lyrics provided.'}`;
 
   const responseText = (response.choices[0]?.message?.content || '').trim();
   let cleanedText = responseText.replace(/```json|```/g, '').trim();
-  cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ');
 
   if (!cleanedText) {
     throw new Error('DeepSeek returned an empty curation response.');
@@ -90,11 +90,12 @@ ${song.rawLyrics || 'No lyrics provided.'}`;
     throw new Error(`Failed to parse AI Curation JSON response: ${parseError.message}`, { cause: parseError });
   }
 
-  const { culturalSummary, trivia, matchedInstrumentIds } = parsedData;
+  const { aiSummary, culturalSummary, trivia, matchedInstrumentIds } = parsedData;
+  const finalArticle = (aiSummary || culturalSummary || '').trim();
 
-  // 1. Update Song description with cultural summary
-  if (culturalSummary && typeof culturalSummary === 'string') {
-    await song.update({ description: culturalSummary.trim() });
+  // 1. Update Song aiSummary (preserving description)
+  if (finalArticle) {
+    await song.update({ aiSummary: finalArticle });
   }
 
   // 2. Seed trivia questions
@@ -126,7 +127,7 @@ ${song.rawLyrics || 'No lyrics provided.'}`;
   }
 
   return {
-    culturalSummary,
+    aiSummary: finalArticle,
     triviaCount: trivia ? trivia.length : 0,
     matchedInstrumentIds: matchedInstrumentIds || [],
   };

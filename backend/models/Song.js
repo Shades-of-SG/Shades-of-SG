@@ -59,6 +59,11 @@ const Song = sequelize.define('Song', {
         type: DataTypes.TEXT,
         allowNull: true,
     },
+    aiSummary: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'ai_summary',
+    },
     videoUrl: {
         type: DataTypes.TEXT,
         allowNull: true,

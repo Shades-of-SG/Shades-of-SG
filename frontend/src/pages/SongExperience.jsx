@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
+import { LEARNING_HUB_INSTRUMENTS } from '../data/learningHubInstruments'
 import './SongExperience.css'
 
 export default function SongExperience() {
@@ -99,22 +100,28 @@ export default function SongExperience() {
     setIsPlaying(false)
     setPlayingInstrumentId(inst.id)
 
-    if (inst.audioUrl) {
-      const audio = new Audio(inst.audioUrl)
+    // Match with Learning Hub instrument catalog to retrieve notes, melody, envelope, waveform, and samples
+    const hubMatch = LEARNING_HUB_INSTRUMENTS.find(
+      (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
+    )
+    const targetInst = { ...hubMatch, ...inst }
+
+    if (targetInst.audioUrl) {
+      const audio = new Audio(targetInst.audioUrl)
       activeAudioRef.current = audio
       audio.play().catch(() => {})
       audio.onended = () => {
         setPlayingInstrumentId(null)
         activeAudioRef.current = null
       }
-    } else if (Array.isArray(inst.notes) && inst.notes.length > 0) {
-      const melodySequence = inst.melody || inst.notes.map((n) => n.label)
+    } else if (Array.isArray(targetInst.notes) && targetInst.notes.length > 0) {
+      const melodySequence = targetInst.melody || targetInst.notes.map((n) => n.label)
       melodySequence.forEach((noteLabel, index) => {
-        const note = inst.notes.find((candidate) => candidate.label === noteLabel) || inst.notes[0]
+        const note = targetInst.notes.find((candidate) => candidate.label === noteLabel) || targetInst.notes[0]
         if (!note) return
 
         const timeoutId = setTimeout(() => {
-          playNote(inst, note)
+          playNote(targetInst, note)
           if (index === melodySequence.length - 1) {
             const resetTimeout = setTimeout(() => {
               setPlayingInstrumentId((currentId) => (currentId === inst.id ? null : currentId))
@@ -127,7 +134,7 @@ export default function SongExperience() {
       })
     } else {
       // Fallback synthetic tone
-      playNote(inst || {}, { frequency: 440, key: 'a', label: 'A4' })
+      playNote(targetInst || {}, { frequency: 440, key: 'a', label: 'A4' })
       setTimeout(() => {
         setPlayingInstrumentId(null)
       }, 1000)
@@ -234,19 +241,19 @@ export default function SongExperience() {
   }
 
   return (
-    <div className="page-stack">
+    <div className="page-stack" style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', padding: '0 1rem' }}>
       <PageHeader
         eyebrow="Song Experience"
         title={song.title}
         description={`${song.artist || 'Singapore Artist'} · ${songYear} · Singapore`}
       />
 
-      {/* ─── Main Two-Column Layout ─── */}
+      {/* ─── YouTube-Style Grid (Main 1fr + Sidebar 360px) ─── */}
       <div className="song-experience-layout">
-        {/* ═══ LEFT COLUMN: Video + About ═══ */}
+        {/* ═══ LEFT MAIN COLUMN (1fr): Video + Title + About ═══ */}
         <div className="se-left-col">
-          {/* Video Player */}
-          <div className="section-card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Custom Video Player */}
+          <div className="section-card" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
             <CustomVideoPlayer
               src={song.videoUrl || song.audioUrl}
               transcriptionSegments={song.transcriptionSegments}
@@ -259,18 +266,18 @@ export default function SongExperience() {
             />
           </div>
 
-          {/* Title + Tags (below player) */}
+          {/* Title + Metadata Tags */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#f8fafc' }}>{song.title}</h2>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
+            <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc' }}>{song.title}</h1>
+            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.95rem' }}>
               <span>{song.artist || 'Singapore Artist'}</span> · {songYear} · Singapore
             </p>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
               {moodTags.map((tag, i) => (
                 <span
                   key={i}
                   style={{
-                    padding: '5px 14px',
+                    padding: '4px 12px',
                     borderRadius: '6px',
                     border: '1px solid var(--line)',
                     background: 'rgba(30, 41, 59, 0.6)',
@@ -284,78 +291,118 @@ export default function SongExperience() {
             </div>
           </div>
 
-          {/* About This Song */}
+          {/* About This Song & Cultural Story */}
           <div className="section-card">
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
               <Sparkles className="w-5 h-5 text-amber-400" />
-              About This Song
+              About This Song & Cultural Story
             </h3>
-            <p style={{ margin: '0.75rem 0 0', color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.925rem' }}>
-              {song.description || 'No cultural summary has been added for this song yet.'}
-            </p>
+            {(() => {
+              const articleContent = song.aiSummary || song.description || ''
+              const paragraphs = articleContent.split(/\n\n+/).filter((p) => p.trim() !== '')
+              return paragraphs.length > 0 ? (
+                paragraphs.map((p, idx) => (
+                  <p key={idx} style={{ margin: '0.875rem 0 0', color: '#cbd5e1', lineHeight: 1.75, fontSize: '0.925rem' }}>
+                    {p.trim()}
+                  </p>
+                ))
+              ) : (
+                <p style={{ margin: '0.75rem 0 0', color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.925rem' }}>
+                  No cultural summary has been added for this song yet.
+                </p>
+              )
+            })()}
           </div>
         </div>
 
-        {/* ═══ RIGHT COLUMN: Instruments + Quiz ═══ */}
+        {/* ═══ RIGHT SIDEBAR (360px): Instruments + Quiz ═══ */}
         <div className="se-right-col">
           {/* Featured Instruments */}
           <div className="section-card">
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc', fontSize: '1.05rem' }}>
               <Music2 className="w-5 h-5 text-violet-400" />
               Featured Heritage Instruments
             </h3>
 
             {Array.isArray(song.instruments) && song.instruments.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginTop: '1rem' }}>
-                {song.instruments.map((inst) => {
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
+                {(song.instruments || []).slice(0, 5).map((inst) => {
                   const isInstPlaying = playingInstrumentId === inst.id
+                  const hubMatch = LEARNING_HUB_INSTRUMENTS.find(
+                    (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
+                  )
+                  const iconImage = inst.imageUrl || inst.iconUrl
+                  const iconEmoji = hubMatch?.icon || '🎵'
+                  const displayOrigin = (inst.origin || inst.culture || '').split(',')[0].trim()
+
                   return (
                     <div
                       key={inst.id}
                       style={{
-                        position: 'relative',
                         display: 'flex',
-                        gap: '12px',
+                        gap: '10px',
                         alignItems: 'center',
-                        padding: '14px',
+                        padding: '8px 12px',
                         borderRadius: '10px',
                         border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
                         background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
                         transition: 'all 150ms ease',
                       }}
                     >
-                      {inst.imageUrl ? (
+                      {iconImage ? (
                         <img
-                          src={inst.imageUrl}
+                          src={iconImage}
                           alt={inst.name}
-                          style={{ width: '56px', height: '56px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                          style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
                         />
                       ) : (
                         <div
                           style={{
-                            width: '56px',
-                            height: '56px',
+                            width: '36px',
+                            height: '36px',
                             borderRadius: '8px',
                             backgroundColor: 'rgba(15, 23, 42, 0.8)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '1.5rem',
+                            fontSize: '1.2rem',
+                            flexShrink: 0,
+                            border: '1px solid rgba(139, 92, 246, 0.2)'
                           }}
                         >
-                          🎵
+                          {iconEmoji}
                         </div>
                       )}
 
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#f8fafc' }}>{inst.name}</h4>
-                          <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 500 }}>{inst.origin}</span>
-                        </div>
-                        {inst.description && (
-                          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--muted)', lineHeight: 1.4 }}>
-                            {inst.description}
-                          </p>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4
+                          style={{
+                            margin: 0,
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            color: '#f8fafc',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={inst.name}
+                        >
+                          {inst.name}
+                        </h4>
+                        {displayOrigin && (
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              color: '#818cf8',
+                              fontWeight: 500,
+                              display: 'block',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {displayOrigin}
+                          </span>
                         )}
                       </div>
 
@@ -367,14 +414,15 @@ export default function SongExperience() {
                           border: 'none',
                           color: isInstPlaying ? 'var(--violet)' : 'var(--muted)',
                           cursor: 'pointer',
-                          padding: '8px',
+                          padding: '4px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          flexShrink: 0,
                         }}
                         title={isInstPlaying ? 'Stop Instrument' : 'Hear Instrument'}
                       >
-                        {isInstPlaying ? <Square size={22} fill="currentColor" /> : <PlayCircle size={22} />}
+                        {isInstPlaying ? <Square size={18} fill="currentColor" /> : <PlayCircle size={18} />}
                       </button>
                     </div>
                   )

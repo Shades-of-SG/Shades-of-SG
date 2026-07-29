@@ -13,6 +13,7 @@ const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
 const statsRouter = require('./routes/stats');
 const { seedCreatorAccount } = require('./services/authService');
+const { seedDefaultInstruments } = require('./services/instrumentService');
 const { GenerationJob, Song } = require('./models');
 const {
     ensureGameScoreSchema,
@@ -94,6 +95,7 @@ async function startServer() {
         await ensureRhythmBeatmapSchema(sequelize);
         await ensureSongMediaSchema(sequelize);
         await seedCreatorAccount();
+        await seedDefaultInstruments();
         console.log('Database connected successfully');
 
         // Rescue stuck jobs from previous interrupted runs

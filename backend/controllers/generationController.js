@@ -20,8 +20,21 @@ const completeGeneration = async (jobId) => {
     throw new Error('Generation was stopped because the creator selected a finished uploaded video.')
   }
   if (!song.videoUrl) throw new Error('Generation cannot complete without a video URL.')
+
+  // Cover Image Fallback: If coverImageUrl is empty, pick the image from the first SceneSegment
+  let coverImageUrl = song.coverImageUrl
+  if (!coverImageUrl) {
+    const firstSegment = await SceneSegment.findOne({
+      where: { songId: song.id },
+      order: [['startTime', 'ASC']],
+    })
+    if (firstSegment && firstSegment.imageUrl) {
+      coverImageUrl = firstSegment.imageUrl
+    }
+  }
+
   await job.update({ status: 'COMPLETED', errorMessage: null, completedAt: new Date() })
-  await song.update({ status: 'READY' })
+  await song.update({ status: 'READY', ...(coverImageUrl ? { coverImageUrl } : {}) })
   return { job, song }
 }
 
@@ -234,10 +247,40 @@ const runGenerationPipeline = async (jobId) => {
     const song = await Song.findByPk(job.songId)
     if (!song) throw new Error(`Song ${job.songId} not found.`)
 
-    await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
+    // Only set to PROCESSING if not already (retry case already sets it)
+    if (job.status !== 'PROCESSING') {
+      await job.update({ status: 'PROCESSING', startedAt: new Date(), errorMessage: null })
+    }
 
-    console.log(`[Phase 1: Initialization] Audio & Lyric Extraction...`)
-    if (!song.transcriptionSegments || song.transcriptionSegments.length === 0) {
+    // ─── Phase 1: Audio & Lyric Extraction (skip if already done) ───
+    const hasTranscription = song.transcriptionSegments && song.transcriptionSegments.length > 0
+    const hasAudio = Boolean(song.audioUrl)
+
+    if (hasTranscription && hasAudio) {
+      console.log(`[Phase 1: Initialization] Skipped. Audio and transcriptionSegments already exist.`)
+    } else if (hasTranscription && !hasAudio) {
+      // Transcription exists but audio URL is missing — re-extract audio only (skip Whisper)
+      console.log(`[Phase 1: Initialization] Re-extracting audio to recover missing audioUrl...`)
+      const targetUrl = song.videoUrl || song.sourceYoutubeUrl || 'https://youtu.be/hYIOC3y0tmg'
+
+      let extractedInfo;
+      if (/(youtube\.com|youtu\.be)/i.test(targetUrl)) {
+        extractedInfo = await extractAudioFromYouTube(targetUrl)
+      } else {
+        extractedInfo = await downloadMediaFromUrl(targetUrl, jobId)
+      }
+
+      try {
+        const mediaBuffer = await fs.readFile(extractedInfo.filePath)
+        console.log(`[Phase 1: Initialization] Uploading recovered audio to cloud storage...`)
+        const uploaded = await aiStorageService.uploadAudioStream(mediaBuffer)
+        await song.update({ audioUrl: uploaded.audioUrl, audioPublicId: uploaded.audioPublicId })
+        console.log(`[Phase 1: Initialization] Recovered audioUrl: ${uploaded.audioUrl}`)
+      } finally {
+        await extractedInfo.cleanup()
+      }
+    } else {
+      console.log(`[Phase 1: Initialization] Audio & Lyric Extraction...`)
       const targetUrl = song.videoUrl || song.audioUrl || song.sourceYoutubeUrl || 'https://youtu.be/hYIOC3y0tmg'
 
       let extractedInfo;
@@ -251,6 +294,13 @@ const runGenerationPipeline = async (jobId) => {
 
       try {
         const mediaBuffer = await fs.readFile(extractedInfo.filePath)
+
+        // Upload audio to cloud storage FIRST so audioUrl is always persisted
+        console.log(`[Phase 1: Initialization] Uploading audio to cloud storage...`)
+        const uploaded = await aiStorageService.uploadAudioStream(mediaBuffer)
+        await song.update({ audioUrl: uploaded.audioUrl, audioPublicId: uploaded.audioPublicId })
+        console.log(`[Phase 1: Initialization] Saved audioUrl: ${uploaded.audioUrl}`)
+
         console.log(`[Phase 1: Initialization] Transcribing audio via Whisper API...`)
         const transcription = await transcribeMediaBuffer({
           fileName: extractedInfo.fileName,
@@ -263,19 +313,36 @@ const runGenerationPipeline = async (jobId) => {
       } finally {
         await extractedInfo.cleanup()
       }
-    } else {
-      console.log(`[Phase 1: Initialization] Skipped. transcriptionSegments already exist.`)
     }
     await assertGenerationIsActive(jobId)
 
-    console.log(`[Phase 2] Generating Scene Plan...`)
-    await generateScenePlan(jobId, job.songId)
+    // ─── Phase 2: Scene Planning (skip if scenes exist) ───
+    const existingSceneCount = await SceneSegment.count({ where: { songId: job.songId } })
+    if (existingSceneCount > 0) {
+      console.log(`[Phase 2] Skipped. ${existingSceneCount} SceneSegments already exist.`)
+    } else {
+      console.log(`[Phase 2] Generating Scene Plan...`)
+      await generateScenePlan(jobId, job.songId)
+    }
     await assertGenerationIsActive(jobId)
 
-    console.log(`[Phase 3] Generating Image Frames...`)
-    await generateFrames(jobId, job.songId)
+    // ─── Phase 3: Frame Generation (skip if all segments have frames) ───
+    const allSegments = await SceneSegment.findAll({
+      where: { songId: job.songId },
+      include: [{ model: GeneratedFrame, as: 'generatedFrames' }],
+    })
+    const allSegmentsHaveFrames = allSegments.length > 0 && allSegments.every(
+      (seg) => seg.imageUrl || (seg.generatedFrames && seg.generatedFrames.length > 0)
+    )
+    if (allSegmentsHaveFrames) {
+      console.log(`[Phase 3] Skipped. All ${allSegments.length} segments already have frames/images.`)
+    } else {
+      console.log(`[Phase 3] Generating Image Frames...`)
+      await generateFrames(jobId, job.songId)
+    }
     await assertGenerationIsActive(jobId)
 
+    // ─── Phase 4: Video Assembly ───
     const placeholderApplied = await usePlaceholderVideo(job.songId)
     if (placeholderApplied) {
       console.warn(`[Temporary Video] Job ${jobId} is using configured PLACEHOLDER_VIDEO_URL.`)
@@ -285,6 +352,7 @@ const runGenerationPipeline = async (jobId) => {
     }
     await assertGenerationIsActive(jobId)
 
+    // ─── Phase 5: Cultural Summary, Trivia, & Instruments ───
     console.log(`[Phase 5] Generating Cultural Summary, Trivia, & Instrument Matches...`)
     try {
       await generateSongCurationDetails(job.songId)
@@ -311,6 +379,54 @@ const runGenerationPipeline = async (jobId) => {
     } catch (fallbackError) {
       console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
     }
+  }
+}
+
+const retryGeneration = async (req, res, next) => {
+  try {
+    const { jobId } = req.params
+
+    const job = await GenerationJob.findOne({
+      where: { id: jobId },
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'creatorId', 'status'],
+        where: { creatorId: req.authUserRecord.id },
+      }],
+    })
+
+    if (!job) {
+      const error = new Error('Generation job not found.')
+      error.statusCode = 404
+      throw error
+    }
+
+    if (job.status !== 'FAILED') {
+      const error = new Error('Only FAILED jobs can be retried.')
+      error.statusCode = 409
+      throw error
+    }
+
+    // Reset job for retry
+    await job.update({ status: 'PROCESSING', errorMessage: null, startedAt: new Date() })
+
+    // Ensure song is in GENERATING state
+    const song = await Song.findByPk(job.songId)
+    if (song && !['GENERATING'].includes(song.status)) {
+      await song.update({ status: 'GENERATING' })
+    }
+
+    // Fire pipeline in background
+    if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
+
+    return res.json({
+      success: true,
+      message: 'Pipeline resumed.',
+      data: job,
+    })
+  } catch (error) {
+    next(error)
   }
 }
 
@@ -485,6 +601,7 @@ module.exports = {
   deleteJob,
   exportVideo,
   regenerateFrame,
+  retryGeneration,
   runGenerationPipeline,
   completeGeneration,
   failGeneration,

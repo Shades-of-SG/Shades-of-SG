@@ -6,7 +6,8 @@ const {
   startGeneration,
   deleteJob,
   exportVideo,
-  regenerateFrame
+  regenerateFrame,
+  retryGeneration
 } = require('../controllers/generationController')
 const { requireCreator } = require('../middleware/auth')
 
@@ -16,6 +17,9 @@ router.get('/:id/status', requireCreator, getGenerationStatus)
 router.delete('/:id', requireCreator, deleteJob)
 
 router.post('/start', requireCreator, startGeneration)
+
+// Retry / Resume a FAILED job
+router.post('/retry/:jobId', requireCreator, retryGeneration)
 
 // Export Final Video
 router.post('/:jobId/export', requireCreator, exportVideo)

@@ -16,6 +16,7 @@ export default function CreatorCuration() {
   const [toast, setToast] = useState({ type: '', message: '' })
 
   const [song, setSong] = useState(null)
+  const [aiSummary, setAiSummary] = useState('')
   const [description, setDescription] = useState('')
   const [triviaQuestions, setTriviaQuestions] = useState([])
   const [allInstruments, setAllInstruments] = useState([])
@@ -32,6 +33,7 @@ export default function CreatorCuration() {
         if (!isMounted) return
 
         setSong(data.song)
+        setAiSummary(data.aiSummary || data.song?.aiSummary || data.description || data.song?.description || '')
         setDescription(data.description || data.song?.description || '')
         setTriviaQuestions(
           Array.isArray(data.triviaQuestions) && data.triviaQuestions.length > 0
@@ -123,6 +125,7 @@ export default function CreatorCuration() {
     try {
       setSaving(true)
       const payload = {
+        aiSummary,
         description,
         triviaQuestions: triviaQuestions.map((q) => ({
           prompt: q.prompt,
@@ -196,7 +199,7 @@ export default function CreatorCuration() {
           </button>
           <button
             className="studio-button studio-button--secondary"
-            onClick={() => navigate(`/creator/studio/${songId}`)}
+            onClick={() => navigate(`/creator/studio/${songId}`, { state: { lyrics: song?.rawLyrics, coverImageUrl: song?.coverImageUrl, songData: song } })}
           >
             Proceed to Studio
           </button>
@@ -263,24 +266,24 @@ export default function CreatorCuration() {
       </div>
 
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        {/* Section A: AI Cultural Summary */}
+        {/* Section A: AI Cultural Mini-Article */}
         <section className="studio-card studio-form-card">
           <header className="studio-card__header">
             <div className="studio-card__title">
               <Sparkles className="w-5 h-5 text-amber-400" />
-              <h2>AI Cultural Summary</h2>
+              <h2>AI Cultural Mini-Article</h2>
             </div>
           </header>
           <div style={{ padding: '1.5rem 2rem' }}>
             <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Educational summary explaining the song's meaning and Singaporean heritage connection:
+              Educational mini-article (3-4 paragraphs) covering historical era, Singapore heritage context, and musical background:
             </label>
             <textarea
               className="studio-field"
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter a 2-3 sentence cultural summary..."
+              rows={8}
+              value={aiSummary}
+              onChange={(e) => setAiSummary(e.target.value)}
+              placeholder="DeepSeek generated educational mini-article..."
               style={{
                 width: '100%',
                 backgroundColor: 'rgba(15, 23, 42, 0.8)',
