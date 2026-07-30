@@ -489,11 +489,12 @@ router.put('/:id', requireAuth, async (req, res, next) => {
 router.delete('/:id', requireAuth, async (req, res, next) => {
     try {
         const currentUser = req.authUserRecord;
-        const creatorId = currentUser.role === 'CREATOR' ? currentUser.id : null;
+        const hasCreatorAccess = currentUser.role === 'CREATOR' && currentUser.creatorAccessStatus === 'ACTIVE';
+        const creatorId = hasCreatorAccess ? currentUser.id : null;
         const reflection = await findReflection(req.params.id, { creatorId });
         if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
         const isOwner = reflection.userId === currentUser.id;
-        const canModerate = currentUser.role === 'ADMIN' || currentUser.role === 'CREATOR';
+        const canModerate = currentUser.role === 'ADMIN' || hasCreatorAccess;
         if (!isOwner && !canModerate) {
             return res.status(403).json({ message: 'You can only delete your own reflections.' });
         }

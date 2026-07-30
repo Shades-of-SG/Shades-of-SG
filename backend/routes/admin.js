@@ -29,7 +29,20 @@ function pageResult(rows, count, page, limit) {
 function serializeApplication(application) {
     const value = application.get({ plain: true });
     delete value.resumeData;
+    delete value.resumeUrl;
     return { ...value, hasResume: Boolean(value.resumeFileName) };
+}
+
+function serializeManagedUser(user) {
+    const value = user.get({ plain: true });
+    delete value.passwordHash;
+    delete value.authVersion;
+    return value;
+}
+
+function accessReason(value, maximum = 1000) {
+    const reason = String(value || '').trim() || null;
+    return reason && reason.length > maximum ? undefined : reason;
 }
 
 router.get('/creator-applications', async (req, res, next) => {
@@ -47,7 +60,9 @@ router.get('/creator-applications', async (req, res, next) => {
             where[Op.or] = [
                 { '$applicant.name$': { [searchOperator]: `%${search}%` } },
                 { '$applicant.email$': { [searchOperator]: `%${search}%` } },
+                { introduction: { [searchOperator]: `%${search}%` } },
                 { motivation: { [searchOperator]: `%${search}%` } },
+                { contentIdeas: { [searchOperator]: `%${search}%` } },
             ];
         }
         const { count, rows } = await CreatorApplication.findAndCountAll({
@@ -89,7 +104,7 @@ router.patch('/creator-applications/:id/status', async (req, res, next) => {
                 visibleToApplicant: Boolean(applicantFeedback),
             }, { transaction });
             if (status === 'APPROVED') {
-                const [updated] = await User.update({ role: 'CREATOR' }, { where: { id: application.userId, role: 'REGISTERED' }, transaction });
+                const [updated] = await User.update({ creatorAccessStatus: 'ACTIVE', creatorSuspensionReason: null, role: 'CREATOR' }, { where: { id: application.userId, role: 'REGISTERED' }, transaction });
                 if (!updated) {
                     const applicant = await User.findByPk(application.userId, { transaction });
                     if (!applicant || applicant.role !== 'CREATOR') throw new Error('Applicant is not eligible for creator conversion.');
@@ -125,13 +140,22 @@ router.get('/creators', async (req, res, next) => {
             const operator = sequelize.getDialect() === 'postgres' ? Op.iLike : Op.like;
             where[Op.or] = [{ name: { [operator]: `%${search}%` } }, { email: { [operator]: `%${search}%` } }];
         }
-        if (req.query.accountStatus) {
-            const accountStatus = String(req.query.accountStatus).toUpperCase();
-            if (!['ACTIVE', 'SUSPENDED'].includes(accountStatus)) return res.status(400).json({ message: 'Invalid account status.' });
+        const creatorAccessFilter = req.query.creatorAccessStatus || req.query.accountStatus;
+        if (creatorAccessFilter) {
+            const creatorAccessStatus = String(creatorAccessFilter).toUpperCase();
+            if (!['ACTIVE', 'SUSPENDED'].includes(creatorAccessStatus)) return res.status(400).json({ message: 'Invalid creator access status.' });
+            where.creatorAccessStatus = creatorAccessStatus;
+        }
+        if (req.query.userAccountStatus) {
+            const accountStatus = String(req.query.userAccountStatus).toUpperCase();
+            if (!['ACTIVE', 'SUSPENDED'].includes(accountStatus)) return res.status(400).json({ message: 'Invalid user account status.' });
             where.accountStatus = accountStatus;
         }
         const { count, rows: creators } = await User.findAndCountAll({
-            attributes: ['id', 'name', 'email', 'role', 'accountStatus', 'createdAt', 'updatedAt'],
+            attributes: [
+                'id', 'name', 'email', 'role', 'accountStatus', 'accountSuspensionReason',
+                'creatorAccessStatus', 'creatorSuspensionReason', 'createdAt', 'updatedAt',
+            ],
             include: [
                 { model: Song, as: 'songs', attributes: ['id', 'status'], required: false, separate: true },
                 {
@@ -191,7 +215,10 @@ router.get('/users', async (req, res, next) => {
         }
         if (conditions.length) where[Op.and] = conditions;
         const { count, rows } = await User.findAndCountAll({
-            attributes: ['id', 'name', 'email', 'role', 'accountStatus', 'createdAt', 'updatedAt'],
+            attributes: [
+                'id', 'name', 'email', 'role', 'accountStatus', 'accountSuspensionReason',
+                'creatorAccessStatus', 'creatorSuspensionReason', 'createdAt', 'updatedAt',
+            ],
             include: [
                 { model: Reflection, as: 'reflections', attributes: ['id', 'status'], required: false },
                 { model: UserWarning, as: 'warnings', attributes: ['id', 'status'], required: false },
@@ -244,15 +271,47 @@ router.get('/songs', async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
+router.post('/songs/:id/unpublish', async (req, res, next) => {
+    try {
+        const reason = accessReason(req.body.reason, 2000);
+        if (reason === undefined) return res.status(400).json({ message: 'Unpublish reason must be 2000 characters or fewer.' });
+        if (!reason) return res.status(400).json({ message: 'A reason is required to unpublish a song.' });
+        const song = await Song.findByPk(req.params.id);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        if (song.status !== 'PUBLISHED') return res.status(409).json({ message: 'Only a published song can be unpublished.' });
+        await sequelize.transaction(async (transaction) => {
+            await song.update({ status: 'READY' }, { transaction });
+            await writeAudit({
+                action: 'SONG_UNPUBLISHED_BY_ADMIN', actorId: req.authUserRecord.id, creatorId: song.creatorId,
+                entityId: song.id, entityType: 'SONG', metadata: { reason }, req, songId: song.id, transaction,
+            });
+        });
+        return res.json({ song });
+    } catch (error) { return next(error); }
+});
+
 router.patch('/creators/:id/status', async (req, res, next) => {
     try {
-        const accountStatus = String(req.body.accountStatus || '').toUpperCase();
-        if (!['ACTIVE', 'SUSPENDED'].includes(accountStatus)) return res.status(400).json({ message: 'accountStatus must be ACTIVE or SUSPENDED.' });
+        // accountStatus remains an accepted alias for older admin clients, but
+        // this creator-specific endpoint no longer changes whole-account access.
+        const creatorAccessStatus = String(req.body.creatorAccessStatus || req.body.accountStatus || '').toUpperCase();
+        if (!['ACTIVE', 'SUSPENDED'].includes(creatorAccessStatus)) return res.status(400).json({ message: 'creatorAccessStatus must be ACTIVE or SUSPENDED.' });
+        const reason = accessReason(req.body.reason);
+        if (reason === undefined) return res.status(400).json({ message: 'Creator suspension reason must be 1000 characters or fewer.' });
         const creator = await User.findOne({ where: { id: req.params.id, role: 'CREATOR' } });
         if (!creator) return res.status(404).json({ message: 'Creator not found.' });
-        await creator.update({ accountStatus });
-        await writeAudit({ action: `CREATOR_${accountStatus}`, actorId: req.authUserRecord.id, creatorId: creator.id, entityId: creator.id, entityType: 'USER', req });
-        return res.json({ creator });
+        const nextReason = creatorAccessStatus === 'SUSPENDED'
+            ? reason || creator.creatorSuspensionReason || 'Contact Shades of SG support for details or to appeal this decision.'
+            : null;
+        const action = creatorAccessStatus === 'SUSPENDED' ? 'CREATOR_SUSPENDED' : 'CREATOR_RESTORED';
+        await sequelize.transaction(async (transaction) => {
+            await creator.update({ creatorAccessStatus, creatorSuspensionReason: nextReason }, { transaction });
+            await writeAudit({
+                action, actorId: req.authUserRecord.id, creatorId: creator.id, entityId: creator.id,
+                entityType: 'USER', metadata: { accountStatus: creator.accountStatus, creatorAccessStatus, reason: nextReason }, req, transaction,
+            });
+        });
+        return res.json({ creator: serializeManagedUser(creator) });
     } catch (error) { return next(error); }
 });
 
@@ -260,12 +319,26 @@ router.patch('/users/:id/status', async (req, res, next) => {
     try {
         const accountStatus = String(req.body.accountStatus || '').toUpperCase();
         if (!['ACTIVE', 'SUSPENDED'].includes(accountStatus)) return res.status(400).json({ message: 'accountStatus must be ACTIVE or SUSPENDED.' });
+        const reason = accessReason(req.body.reason);
+        if (reason === undefined) return res.status(400).json({ message: 'Account suspension reason must be 1000 characters or fewer.' });
         const user = await User.findOne({ where: { id: req.params.id, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } } });
         if (!user) return res.status(404).json({ message: 'Manageable user not found.' });
-        await user.update({ accountStatus });
-        await ModerationAction.create({ actionType: `USER_${accountStatus}`, actorId: req.authUserRecord.id, targetId: user.id, targetType: 'USER', targetUserId: user.id });
-        await writeAudit({ action: `USER_${accountStatus}`, actorId: req.authUserRecord.id, creatorId: user.role === 'CREATOR' ? user.id : null, entityId: user.id, entityType: 'USER', req });
-        return res.json({ user });
+        const nextReason = accountStatus === 'SUSPENDED'
+            ? reason || user.accountSuspensionReason || 'Contact Shades of SG support for details or to appeal this decision.'
+            : null;
+        const auditAction = accountStatus === 'SUSPENDED' ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_RESTORED';
+        await sequelize.transaction(async (transaction) => {
+            await user.update({ accountStatus, accountSuspensionReason: nextReason }, { transaction });
+            await ModerationAction.create({
+                actionType: `USER_${accountStatus}`, actorId: req.authUserRecord.id, reason: nextReason,
+                targetId: user.id, targetType: 'USER', targetUserId: user.id,
+            }, { transaction });
+            await writeAudit({
+                action: auditAction, actorId: req.authUserRecord.id, creatorId: user.role === 'CREATOR' ? user.id : null,
+                entityId: user.id, entityType: 'USER', metadata: { accountStatus, creatorAccessStatus: user.creatorAccessStatus, reason: nextReason }, req, transaction,
+            });
+        });
+        return res.json({ user: serializeManagedUser(user) });
     } catch (error) { return next(error); }
 });
 

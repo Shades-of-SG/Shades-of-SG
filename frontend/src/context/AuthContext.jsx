@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react'
+import { normalizeUserAccess } from '../utils/accessStatus'
 
 const AuthContext = createContext(null)
 
@@ -12,7 +13,7 @@ function readInitialAuth(resetOnPublicEntry) {
   const storedUser = localStorage.getItem('authUser')
   let user = null
   try {
-    user = storedUser ? JSON.parse(storedUser) : null
+    user = storedUser ? normalizeUserAccess(JSON.parse(storedUser)) : null
   } catch {
     localStorage.removeItem('authUser')
   }
@@ -29,9 +30,10 @@ export function AuthProvider({ children, resetOnPublicEntry = false }) {
     token,
     isAuthenticated: Boolean(token),
     signIn(nextUser, nextToken) {
+      const normalizedUser = normalizeUserAccess(nextUser)
       localStorage.setItem('authToken', nextToken)
-      localStorage.setItem('authUser', JSON.stringify(nextUser))
-      setUser(nextUser)
+      localStorage.setItem('authUser', JSON.stringify(normalizedUser))
+      setUser(normalizedUser)
       setToken(nextToken)
     },
     signOut() {
@@ -41,8 +43,9 @@ export function AuthProvider({ children, resetOnPublicEntry = false }) {
       setToken(null)
     },
     updateUser(nextUser) {
-      localStorage.setItem('authUser', JSON.stringify(nextUser))
-      setUser(nextUser)
+      const normalizedUser = normalizeUserAccess(nextUser)
+      localStorage.setItem('authUser', JSON.stringify(normalizedUser))
+      setUser(normalizedUser)
     },
   }), [user, token])
 

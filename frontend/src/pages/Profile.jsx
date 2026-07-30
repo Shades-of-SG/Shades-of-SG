@@ -12,6 +12,7 @@ import { updateProfile } from '../services/authApi'
 import { getUserBadges } from '../services/badgeService'
 import { deleteReflection, getMyReflections, updateReflection } from '../services/reflectionService'
 import { getMyScores } from '../services/scoreService'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 
 function getInitialTheme() {
   const stored = localStorage.getItem('shadesProfileTheme')
@@ -21,7 +22,7 @@ function getInitialTheme() {
 
 export default function Profile() {
   const { user } = useAuth()
-  if (user?.role === 'CREATOR') return <CreatorProfile />
+  if (hasActiveCreatorAccess(user)) return <CreatorProfile />
   return <RegisteredProfile />
 }
 

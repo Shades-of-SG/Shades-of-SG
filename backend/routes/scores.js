@@ -11,7 +11,7 @@ router.get('/mine', requireAuth, async (req, res, next) => {
     try {
         const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
-        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required.' });
+        if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required.' });
         const scores = await GameScore.findAll({
             where: { userId: user.id },
             // Keep history readable while migration 007 is being rolled out to
@@ -58,7 +58,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
 
         const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
-        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required to save scores.' });
+        if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required to save scores.' });
 
         const gameScore = await GameScore.create({
             accuracy, difficulty: normalizedDifficulty, maxCombo,

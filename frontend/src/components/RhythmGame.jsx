@@ -6,6 +6,7 @@ import { getHoldRenderGeometry } from '../game/rhythmRenderer'
 import { createResult, storeResult } from '../game/results'
 import { fetchSongDetails } from '../game/songDetailsApi'
 import { useAuth } from '../context/AuthContext'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import { publishBeatmap, saveBeatmapSettings } from '../services/beatmapService'
 import { trackAnalyticsEvent } from '../services/analyticsService'
 import { applyJudgement, calculateWeightedAccuracy, completeHold, createStats } from '../utils/rhythmScoring'
@@ -96,7 +97,7 @@ export default function RhythmGame() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { token, user } = useAuth()
-  const preview = searchParams.get('preview') === '1' && user?.role === 'CREATOR' && Boolean(token)
+  const preview = searchParams.get('preview') === '1' && hasActiveCreatorAccess(user) && Boolean(token)
   const requestedDifficulty = String(searchParams.get('difficulty') || '').toLowerCase()
   const canvasRef = useRef(null)
   const audioRef = useRef(null)

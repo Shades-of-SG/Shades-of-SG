@@ -102,6 +102,16 @@ function verifyScopedToken(token, purpose) {
     return payload?.purpose === purpose && payload.userId ? payload : null;
 }
 
+function accountSuspensionMessage(user) {
+    const reason = String(user?.accountSuspensionReason || '').trim();
+    return `Your Shades of SG account has been suspended.${reason ? ` Reason: ${reason}` : ''} Contact Shades of SG support if you would like to appeal or believe this is a mistake.`;
+}
+
+function creatorSuspensionMessage(user) {
+    const reason = String(user?.creatorSuspensionReason || '').trim();
+    return `Your creator access has been suspended. You can continue using Shades of SG as a regular user, but creator tools are currently unavailable.${reason ? ` Reason: ${reason}` : ''}`;
+}
+
 function serializeUser(user) {
     return {
         createdAt: user.createdAt,
@@ -110,6 +120,9 @@ function serializeUser(user) {
         name: user.name,
         role: user.role,
         accountStatus: user.accountStatus,
+        accountSuspensionReason: user.accountSuspensionReason,
+        creatorAccessStatus: user.creatorAccessStatus || 'ACTIVE',
+        creatorSuspensionReason: user.creatorSuspensionReason,
         emailVerified: !user.emailVerificationRequired,
     };
 }
@@ -134,7 +147,9 @@ async function seedAdminAccount() {
 }
 
 module.exports = {
+    accountSuspensionMessage,
     createToken,
+    creatorSuspensionMessage,
     createScopedToken,
     hashPassword,
     seedAdminAccount,

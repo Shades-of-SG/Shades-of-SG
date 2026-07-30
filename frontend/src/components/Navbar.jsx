@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BrandLogo from './BrandLogo'
 import '../Navbar.css'
+import { CREATOR_SUSPENSION_MESSAGE, hasActiveCreatorAccess, hasSuspendedCreatorAccess } from '../utils/accessStatus'
 
 const navigationByRole = {
   creator: [
@@ -41,6 +42,8 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
   const links = navigationByRole[role] || navigationByRole.guest
   const displayName = user?.name || 'Account'
   const avatarUrl = user?.avatarUrl || user?.avatar_url || '/images/Default_pfp.jpg'
+  const creatorActive = hasActiveCreatorAccess(user)
+  const creatorSuspended = hasSuspendedCreatorAccess(user)
 
   useEffect(() => {
     function closeAccountMenu(event) {
@@ -125,9 +128,9 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
                       <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/settings">
                         <Settings aria-hidden="true" size={18} /> Settings
                       </Link>
-                      <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/apply/creator">
-                        Apply to be a creator
-                      </Link>
+                      {creatorActive ? <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/creator/dashboard">Creator dashboard</Link> : null}
+                      {user?.role === 'REGISTERED' ? <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/apply/creator">Apply to be a creator</Link> : null}
+                      {creatorSuspended ? <div className="registered-navbar__creator-suspended" role="status">Creator tools suspended</div> : null}
                       <button onClick={handleLogout} role="menuitem" type="button">
                         <LogOut aria-hidden="true" size={18} /> Logout
                       </button>
@@ -159,6 +162,7 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
             <span />
           </button>
         </nav>
+        {creatorSuspended ? <div className="creator-access-banner" role="status">{CREATOR_SUSPENSION_MESSAGE}</div> : null}
       </header>
     )
   }

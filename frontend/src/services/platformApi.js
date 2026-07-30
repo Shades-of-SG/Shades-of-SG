@@ -7,6 +7,8 @@ export async function platformRequest(path, { token, ...options } = {}) {
   const data = response.status === 204 ? null : await response.json().catch(() => ({}))
   if (!response.ok) {
     const error = new Error(data?.message || 'Request failed.')
+    error.code = data?.code
+    error.reason = data?.reason
     error.status = response.status
     throw error
   }
@@ -16,4 +18,3 @@ export async function platformRequest(path, { token, ...options } = {}) {
 export function jsonOptions(method, body, token) {
   return { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' }, method, token }
 }
-

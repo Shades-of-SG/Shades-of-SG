@@ -80,6 +80,58 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/creator/reflections')
   })
 
+  it('blocks a creator-suspended user from direct creator URLs while keeping regular-user navigation', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED',
+      creatorSuspensionReason: 'Programme review pending.', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: /creator tools are temporarily unavailable/i })).toBeInTheDocument()
+    expect(screen.getByText(/You can continue using Shades of SG as a regular user/)).toBeInTheDocument()
+    expect(screen.getByText('Programme review pending.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /continue to your profile/i })).toHaveAttribute('href', '/profile')
+    expect(screen.queryByRole('navigation', { name: /creator navigation/i })).not.toBeInTheDocument()
+  })
+
+  it('lets a creator-suspended user open the regular user profile', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED',
+      id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/profile')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/badges/') ? { badges: [] } : String(url).includes('/scores/mine') ? { scores: [] } : { reflections: [] },
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: 'My Memories' })).toBeInTheDocument()
+    expect(screen.getByText(/You can continue using Shades of SG as a regular user/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Creator account actions')).not.toBeInTheDocument()
+  })
+
+  it('shows the reason and appeal guidance for a fully suspended cached account', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'SUSPENDED', accountSuspensionReason: 'Account safety review.',
+      creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: /Your Shades of SG account is unavailable/i })).toBeInTheDocument()
+    expect(screen.getByText('Account safety review.')).toBeInTheDocument()
+    expect(screen.getByText(/appeal/i)).toBeInTheDocument()
+  })
+
   it('sends the creator token when loading generation progress', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))

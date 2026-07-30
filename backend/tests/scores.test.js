@@ -56,10 +56,11 @@ test('authenticated registered score is saved for the JWT user and ignores suppl
     expect((await GameScore.findOne()).userId).toBe(player.id);
 });
 
-test('creator token is not treated as a registered rhythm player', async () => {
+test('creator token retains normal registered-user rhythm access', async () => {
     const response = await request(app).post('/api/scores').set(authorization(creator)).send(validPayload());
-    expect(response.status).toBe(403);
-    expect(await GameScore.count()).toBe(0);
+    expect(response.status).toBe(201);
+    expect(response.body.score).toMatchObject({ userId: creator.id, songId: publishedSong.id });
+    expect(await GameScore.count()).toBe(1);
 });
 
 test('draft song score submission is rejected', async () => {

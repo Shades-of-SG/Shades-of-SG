@@ -46,7 +46,11 @@ function resumeContentMatchesMime(file) {
         return file.buffer.subarray(0, 5).toString('ascii') === '%PDF-';
     }
     if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        return file.buffer[0] === 0x50 && file.buffer[1] === 0x4b;
+        if (file.buffer[0] !== 0x50 || file.buffer[1] !== 0x4b) return false;
+        // DOCX is an OOXML ZIP package. Checking its required package entries
+        // prevents an arbitrary ZIP file from being accepted as a resume.
+        return file.buffer.includes(Buffer.from('[Content_Types].xml'))
+            && file.buffer.includes(Buffer.from('word/document.xml'));
     }
     return false;
 }
@@ -54,6 +58,7 @@ function resumeContentMatchesMime(file) {
 function serializeApplication(application, { includeInternal = false } = {}) {
     const value = application.get({ plain: true });
     delete value.resumeData;
+    delete value.resumeUrl;
     const history = (value.history || []).filter((entry) => includeInternal || entry.visibleToApplicant);
     if (!includeInternal) delete value.adminNotes;
     return { ...value, hasResume: Boolean(value.resumeFileName), history };
@@ -135,8 +140,10 @@ router.post('/:id/resume', requireAuth, resumeUpload.single('resume'), async (re
         if (!application) return res.status(404).json({ message: 'Editable application draft not found.' });
         if (!req.file) return res.status(400).json({ message: 'Choose a resume file.' });
         if (!resumeContentMatchesMime(req.file)) return res.status(400).json({ message: 'Resume contents do not match the selected PDF or DOCX file type.' });
-        await application.update({ resumeData: req.file.buffer, resumeFileName: req.file.originalname.slice(0, 255), resumeFileSize: req.file.size, resumeMimeType: req.file.mimetype });
-        await writeAudit({ action: 'CREATOR_APPLICATION_RESUME_UPLOADED', actorId: req.authUserRecord.id, entityId: application.id, entityType: 'CREATOR_APPLICATION', metadata: { fileSize: req.file.size, mimeType: req.file.mimetype }, req });
+        await sequelize.transaction(async (transaction) => {
+            await application.update({ resumeData: req.file.buffer, resumeFileName: req.file.originalname.slice(0, 255), resumeFileSize: req.file.size, resumeMimeType: req.file.mimetype }, { transaction });
+            await writeAudit({ action: 'CREATOR_APPLICATION_RESUME_UPLOADED', actorId: req.authUserRecord.id, entityId: application.id, entityType: 'CREATOR_APPLICATION', metadata: { fileSize: req.file.size, mimeType: req.file.mimetype }, req, transaction });
+        });
         return res.json({ application: serializeApplication(application) });
     } catch (error) { return next(error); }
 });
@@ -145,8 +152,10 @@ router.delete('/:id/resume', requireAuth, async (req, res, next) => {
     try {
         const application = await ownedApplication(req, EDITABLE_STATUSES);
         if (!application) return res.status(404).json({ message: 'Editable application draft not found.' });
-        await application.update({ resumeData: null, resumeFileName: null, resumeFileSize: null, resumeMimeType: null });
-        await writeAudit({ action: 'CREATOR_APPLICATION_RESUME_REMOVED', actorId: req.authUserRecord.id, entityId: application.id, entityType: 'CREATOR_APPLICATION', req });
+        await sequelize.transaction(async (transaction) => {
+            await application.update({ resumeData: null, resumeFileName: null, resumeFileSize: null, resumeMimeType: null }, { transaction });
+            await writeAudit({ action: 'CREATOR_APPLICATION_RESUME_REMOVED', actorId: req.authUserRecord.id, entityId: application.id, entityType: 'CREATOR_APPLICATION', req, transaction });
+        });
         return res.status(204).end();
     } catch (error) { return next(error); }
 });
@@ -161,6 +170,7 @@ router.get('/:id/resume', requireAuth, async (req, res, next) => {
         const fileName = String(application.resumeFileName || 'resume').replace(/[\r\n"]/g, '_');
         res.set('Cache-Control', 'private, no-store');
         res.set('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.set('X-Content-Type-Options', 'nosniff');
         res.type(application.resumeMimeType || 'application/octet-stream');
         return res.send(application.resumeData);
     } catch (error) { return next(error); }

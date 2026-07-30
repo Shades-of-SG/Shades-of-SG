@@ -22,7 +22,8 @@ export default function AdminGovernance() {
   const toggleAccount = async (warning) => {
     const next = warning.warnedUser?.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
     if (!window.confirm(`${next === 'SUSPENDED' ? 'Suspend' : 'Restore'} this account?`)) return
-    try { await updateUserStatus(warning.userId, next, token); setMessage(`Account ${next.toLowerCase()}.`); await refresh() } catch (error) { setMessage(error.message) }
+    const reason = next === 'SUSPENDED' ? window.prompt('Reason and appeal guidance for this full account suspension:') || '' : ''
+    try { await updateUserStatus(warning.userId, next, token, reason); setMessage(`Account ${next.toLowerCase()}.`); await refresh() } catch (error) { setMessage(error.message) }
   }
   return <div className="creator-page">
     <PageHeader eyebrow="Admin" title="Warnings and moderation history" description="Review immutable history, manage warnings, and suspend or restore abusive accounts." />

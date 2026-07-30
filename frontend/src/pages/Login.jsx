@@ -3,6 +3,7 @@ import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle } from '../services/authApi'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 
 const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client'
 const APPLE_SCRIPT = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js'
@@ -24,9 +25,9 @@ function loadScript(src) {
   })
 }
 
-function roleDestination(role) {
-  if (role === 'ADMIN') return '/admin'
-  if (role === 'CREATOR') return '/creator/dashboard'
+function roleDestination(user) {
+  if (user.role === 'ADMIN') return '/admin'
+  if (hasActiveCreatorAccess(user)) return '/creator/dashboard'
   return '/profile'
 }
 
@@ -48,9 +49,10 @@ export default function Login() {
     const requested = location.state?.from?.pathname
     const allowedRequested = requested
       && ((data.user.role === 'ADMIN' && requested.startsWith('/admin'))
-        || (data.user.role === 'CREATOR' && requested.startsWith('/creator'))
+        || (hasActiveCreatorAccess(data.user) && requested.startsWith('/creator'))
+        || (data.user.role === 'CREATOR' && requested.startsWith('/profile'))
         || (data.user.role === 'REGISTERED' && ['/profile', '/apply/creator', '/settings'].some((path) => requested.startsWith(path))))
-    navigate(allowedRequested ? requested : roleDestination(data.user.role), { replace: true })
+    navigate(allowedRequested ? requested : roleDestination(data.user), { replace: true })
   }, [location.state, navigate, signIn])
 
   useEffect(() => { getAuthConfig().then(setConfig).catch(() => {}) }, [])

@@ -152,7 +152,11 @@ router.patch('/placements/:id', requireCreator, async (req, res, next) => {
 router.get('/song/:songId', optionalAuth, async (req, res, next) => {
     try {
         const song = await Song.findByPk(req.params.songId);
-        const isOwner = Boolean(req.authUserRecord?.role === 'CREATOR' && song?.creatorId === req.authUserRecord.id);
+        const isOwner = Boolean(
+            req.authUserRecord?.role === 'CREATOR'
+            && req.authUserRecord.creatorAccessStatus === 'ACTIVE'
+            && song?.creatorId === req.authUserRecord.id
+        );
         if (!song || (!isOwner && song.status !== 'PUBLISHED')) return res.status(404).json({ message: 'Song not found.' });
         const folders = await song.getFolders({ where: { status: 'APPROVED' }, order: [['displayOrder', 'ASC'], ['name', 'ASC']] });
         return res.json({ folders });

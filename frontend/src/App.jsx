@@ -49,18 +49,24 @@ import AdminCommunityPage from './pages/AdminCommunityPage'
 import AdminContentPage from './pages/AdminContentPage'
 import AdminCreatorsPage from './pages/AdminCreatorsPage'
 import AdminOverview from './pages/AdminOverview'
+import { hasActiveAccount, hasActiveCreatorAccess } from './utils/accessStatus'
+import AccountAccessSuspended from './components/AccountAccessSuspended'
 function MainExperience() {
   const { user } = useAuth()
 
-  return <MainLayout role={user ? 'user' : 'guest'} />
+  return <MainLayout role={user && hasActiveAccount(user) ? 'user' : 'guest'} />
 }
 
 function AuthExperience() {
   const { user } = useAuth()
 
-  if (user?.role === 'CREATOR') {
+  if (user && !hasActiveAccount(user)) return <AccountAccessSuspended />
+
+  if (hasActiveCreatorAccess(user)) {
     return <Navigate replace to="/creator/dashboard" />
   }
+
+  if (user?.role === 'CREATOR' && hasActiveAccount(user)) return <Navigate replace to="/profile" />
 
   if (user?.role === 'ADMIN') {
     return <Navigate replace to="/admin" />
@@ -75,9 +81,10 @@ function AuthExperience() {
 
 function App() {
   const { token, user } = useAuth()
-  const isCreator = Boolean(token && user?.role === 'CREATOR')
-  const isRegistered = Boolean(token && user?.role === 'REGISTERED')
-  const isAdmin = Boolean(token && user?.role === 'ADMIN')
+  const isCreatorIdentity = Boolean(token && user?.role === 'CREATOR' && hasActiveAccount(user))
+  const isNormalUser = Boolean(token && ['CREATOR', 'REGISTERED'].includes(user?.role) && hasActiveAccount(user))
+  const isRegistered = Boolean(token && user?.role === 'REGISTERED' && hasActiveAccount(user))
+  const isAdmin = Boolean(token && user?.role === 'ADMIN' && hasActiveAccount(user))
 
   return (
     <BrowserRouter>
@@ -95,7 +102,7 @@ function App() {
           <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
-          <Route element={<ProtectedRoute isAllowed={isRegistered}><Profile /></ProtectedRoute>} path="/profile" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Profile /></ProtectedRoute>} path="/profile" />
           <Route element={<ProtectedRoute isAllowed={isRegistered}><CreatorApplication /></ProtectedRoute>} path="/apply/creator" />
           <Route element={<Settings />} path="/settings" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
@@ -111,7 +118,7 @@ function App() {
           <Route element={<RegistrationSuccess />} path="/registration-success" />
         </Route>
 
-        <Route element={<ProtectedRoute isAllowed={isCreator} />}>
+        <Route element={<ProtectedRoute isAllowed={isCreatorIdentity} />}>
           <Route element={<CreatorLayout />}>
             <Route element={<Navigate replace to="/creator/dashboard" />} path="/creator" />
             <Route element={<Dashboard />} path="/creator/dashboard" />

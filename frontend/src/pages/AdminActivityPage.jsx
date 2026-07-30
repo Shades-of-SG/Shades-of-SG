@@ -17,7 +17,7 @@ function isPriorityRecord(record) {
   if (record.kind === 'Warning') return true
   const action = String(record.title || '').toUpperCase()
   if (/CREATOR_APPLICATION_(APPROVED|REJECTED)/.test(action)) return true
-  if (/(CREATOR|USER)_(SUSPENDED|ACTIVE|WARNED|WARNING_RESOLVED)/.test(action)) return true
+  if (/(CREATOR|USER|ACCOUNT)_(SUSPENDED|ACTIVE|RESTORED|WARNED|WARNING_RESOLVED)/.test(action)) return true
   if (/(FOLDER|SONG_FOLDER_PROPOSAL)_(APPROVED|REJECTED)/.test(action)) return true
   if (/REFLECTION_(REJECTED|APPROVED|PENDING)/.test(action)) return record.actorRole === 'ADMIN'
   if (action === 'REFLECTION_MODERATED') return record.actorRole === 'ADMIN'

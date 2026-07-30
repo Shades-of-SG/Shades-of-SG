@@ -16,7 +16,7 @@ function greeting() {
 function isPriorityLog(log) {
   const action = String(log.action || '').toUpperCase()
   if (/CREATOR_APPLICATION_(APPROVED|REJECTED)/.test(action)) return true
-  if (/(CREATOR|USER)_(SUSPENDED|ACTIVE|WARNED|WARNING_RESOLVED)/.test(action)) return true
+  if (/(CREATOR|USER|ACCOUNT)_(SUSPENDED|ACTIVE|RESTORED|WARNED|WARNING_RESOLVED)/.test(action)) return true
   if (/(FOLDER|SONG_FOLDER_PROPOSAL)_(APPROVED|REJECTED)/.test(action)) return true
   if (/REFLECTION_(REJECTED|APPROVED|PENDING)/.test(action)) return log.actor?.role === 'ADMIN'
   if (action === 'REFLECTION_MODERATED') return log.actor?.role === 'ADMIN'

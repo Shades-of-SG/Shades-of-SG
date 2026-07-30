@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 
 export default function CreatorAccountWidget({ className = '', role, userName }) {
   const navigate = useNavigate()
@@ -8,7 +9,7 @@ export default function CreatorAccountWidget({ className = '', role, userName })
   const { signOut, user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const displayName = userName || user?.name || 'Creator'
-  const displayRole = role || (user?.role === 'CREATOR' ? 'Creator' : 'User')
+  const displayRole = role || (hasActiveCreatorAccess(user) ? 'Creator' : 'User')
   const initial = displayName.trim().charAt(0).toUpperCase() || 'V'
 
   useEffect(() => {

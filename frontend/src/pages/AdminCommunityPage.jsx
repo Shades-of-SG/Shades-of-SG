@@ -137,7 +137,7 @@ function EscalatedReports({ onFeedback, token }) {
     const next = selected.account?.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
     setBusy(true)
     try {
-      await updateUserStatus(selected.userId, next, token)
+      await updateUserStatus(selected.userId, next, token, modal?.reason || '')
       onFeedback({ message: `Account ${next === 'ACTIVE' ? 'restored' : 'suspended'}.`, type: 'status' })
       setModal(null)
       await refresh(pagination.page)
@@ -180,7 +180,7 @@ function EscalatedReports({ onFeedback, token }) {
             <ContextAuditHistory entityId={selected.id} token={token} />
           </div>
           <div className="admin-report-detail__actions"><button className="admin-button admin-button--primary" disabled={busy} onClick={() => setModal({ entity: 'dismiss' })} type="button">Dismiss report</button><button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ entity: 'return' })} type="button">Return to creator</button>{selected.userId ? <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ entity: 'warn', reason: '' })} type="button"><AlertTriangle />Warn account</button> : null}</div>
-          <div className="admin-report-detail__danger"><button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ entity: 'remove' })} type="button">Remove content</button>{selected.userId ? <button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ entity: 'account' })} type="button">{selected.account?.accountStatus === 'SUSPENDED' ? 'Restore account' : 'Suspend account'}</button> : null}</div>
+          <div className="admin-report-detail__danger"><button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ entity: 'remove' })} type="button">Remove content</button>{selected.userId ? <button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ entity: 'account', reason: '' })} type="button">{selected.account?.accountStatus === 'SUSPENDED' ? 'Restore account' : 'Suspend account'}</button> : null}</div>
         </> : null}
       </aside>
     </div> : <EmptyState description={hasFilters ? 'Try clearing the report filters.' : 'Creator escalations, user reports, automatic safety flags and moderation appeals will appear here.'} icon={Flag} title="No platform reports" />}
@@ -188,7 +188,7 @@ function EscalatedReports({ onFeedback, token }) {
     {modal?.entity === 'return' ? <ConfirmationModal busy={busy} confirmLabel="Return to creator" onCancel={() => setModal(null)} onConfirm={() => updateStatus('PENDING', 'Report returned to the song creator.')} title="Return this report to the creator?"><p>The reflection will move to the creator’s normal moderation queue for a new decision.</p></ConfirmationModal> : null}
     {modal?.entity === 'remove' ? <ConfirmationModal busy={busy} confirmLabel="Remove content" danger onCancel={() => setModal(null)} onConfirm={removeContent} title="Remove this content?"><p>The reflection will be rejected and removed from public view. This action is recorded.</p></ConfirmationModal> : null}
     {modal?.entity === 'warn' ? <ConfirmationModal busy={busy} confirmLabel="Issue warning" danger onCancel={() => setModal(null)} onConfirm={warnAccount} title="Warn this account?"><form className="admin-form"><label>Reason<textarea minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
-    {modal?.entity === 'account' ? <ConfirmationModal busy={busy} confirmLabel={selected.account?.accountStatus === 'SUSPENDED' ? 'Restore account' : 'Suspend account'} danger={selected.account?.accountStatus !== 'SUSPENDED'} onCancel={() => setModal(null)} onConfirm={changeAccount} title={selected.account?.accountStatus === 'SUSPENDED' ? 'Restore this account?' : 'Suspend this account?'}><p>This platform-level account action will be recorded in the audit log.</p></ConfirmationModal> : null}
+    {modal?.entity === 'account' ? <ConfirmationModal busy={busy} confirmLabel={selected.account?.accountStatus === 'SUSPENDED' ? 'Restore account' : 'Suspend account'} danger={selected.account?.accountStatus !== 'SUSPENDED'} onCancel={() => setModal(null)} onConfirm={changeAccount} title={selected.account?.accountStatus === 'SUSPENDED' ? 'Restore this account?' : 'Suspend this account?'}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>This is a full account action and will block both regular-user and creator access.</p>{selected.account?.accountStatus !== 'SUSPENDED' ? <label>Reason<textarea maxLength="1000" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} placeholder="Explain the suspension and provide appeal guidance" value={modal.reason} /></label> : null}</form></ConfirmationModal> : null}
   </>
 }
 
@@ -251,7 +251,7 @@ export default function AdminCommunityPage() {
     const next = modal.user.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
     setBusy(true)
     try {
-      await updateUserStatus(modal.user.id, next, token)
+      await updateUserStatus(modal.user.id, next, token, modal.reason || '')
       setFeedback({ message: `Account ${next === 'ACTIVE' ? 'restored' : 'suspended'}.`, type: 'status' })
       setModal(null); setSelected(null); await refresh()
     } catch (error) { setFeedback({ message: error.message, type: 'error' }) } finally { setBusy(false) }
@@ -308,7 +308,7 @@ export default function AdminCommunityPage() {
             {warnings.map((warning) => <tr className={selected?.id === warning.id ? 'is-selected' : ''} key={warning.id}>
               <td data-label="User"><button className="admin-row-button" onClick={() => setSelected(warning)} type="button"><strong>{warning.warnedUser?.name || warning.userId}</strong><small>{warning.warnedUser?.email}</small></button></td>
               <td data-label="Reason">{warning.reason}</td><td data-label="Issued by">{warning.issuer?.name || 'Administrator'}</td><td data-label="Status"><StatusBadge status={warning.status} /></td><td data-label="Date">{relativeTime(warning.createdAt)}</td>
-              <td data-label="Action"><div className="admin-table__actions">{warning.status === 'ACTIVE' ? <button className="admin-button admin-button--ghost" onClick={() => setModal({ entity: 'resolve', resolutionNote: '', warning })} type="button">Resolve</button> : null}<button className={`admin-button ${warning.warnedUser?.accountStatus === 'ACTIVE' ? 'admin-button--danger' : 'admin-button--ghost'}`} onClick={() => setModal({ entity: 'account', user: { ...warning.warnedUser, id: warning.userId } })} type="button">{warning.warnedUser?.accountStatus === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></div></td>
+              <td data-label="Action"><div className="admin-table__actions">{warning.status === 'ACTIVE' ? <button className="admin-button admin-button--ghost" onClick={() => setModal({ entity: 'resolve', resolutionNote: '', warning })} type="button">Resolve</button> : null}<button className={`admin-button ${warning.warnedUser?.accountStatus === 'ACTIVE' ? 'admin-button--danger' : 'admin-button--ghost'}`} onClick={() => setModal({ entity: 'account', reason: '', user: { ...warning.warnedUser, id: warning.userId } })} type="button">{warning.warnedUser?.accountStatus === 'SUSPENDED' ? 'Restore' : 'Suspend'}</button></div></td>
             </tr>)}
           </DataTable> : <EmptyState description="Warnings issued through platform safety review will appear here." icon={MessageSquareWarning} title="No warnings found" />}
         </Panel>
@@ -317,16 +317,16 @@ export default function AdminCommunityPage() {
     </>}
     <DetailDrawer onClose={() => setSelected(null)} open={Boolean(selected)} title={tab === 'users' ? 'User safety details' : 'Warning details'}>
       {selected ? <>{tab === 'users' ? <>
-        <section className="admin-detail-drawer__section"><h3>User</h3><p><strong>{selected.name}</strong><br />{selected.email}</p><StatusBadge status={selected.accountStatus} /></section>
+        <section className="admin-detail-drawer__section"><h3>User</h3><p><strong>{selected.name}</strong><br />{selected.email}</p><StatusBadge status={selected.accountStatus} />{selected.accountSuspensionReason ? <p><strong>Account suspension reason:</strong><br />{selected.accountSuspensionReason}</p> : null}</section>
         <section className="admin-detail-drawer__section"><h3>Safety history</h3><p>{selected.flaggedContentCount || 0} flagged content items<br />{selected.warningCount || 0} warnings ({selected.activeWarningCount || 0} active)<br />Last updated {formatDate(selected.updatedAt, false)}</p></section>
-        <section className="admin-detail-drawer__section"><h3>Actions</h3><div className="admin-form__actions"><button className="admin-button admin-button--ghost" onClick={() => setModal({ entity: 'warning', reason: '', user: selected })} type="button"><ShieldAlert />Issue warning</button><button className={`admin-button ${selected.accountStatus === 'ACTIVE' ? 'admin-button--danger' : 'admin-button--primary'}`} onClick={() => setModal({ entity: 'account', user: selected })} type="button">{selected.accountStatus === 'ACTIVE' ? <><UserRoundX />Suspend</> : <><UserRoundCheck />Restore</>}</button></div></section>
+        <section className="admin-detail-drawer__section"><h3>Actions</h3><div className="admin-form__actions"><button className="admin-button admin-button--ghost" onClick={() => setModal({ entity: 'warning', reason: '', user: selected })} type="button"><ShieldAlert />Issue warning</button><button className={`admin-button ${selected.accountStatus === 'ACTIVE' ? 'admin-button--danger' : 'admin-button--primary'}`} onClick={() => setModal({ entity: 'account', reason: '', user: selected })} type="button">{selected.accountStatus === 'ACTIVE' ? <><UserRoundX />Suspend</> : <><UserRoundCheck />Restore</>}</button></div></section>
       </> : <>
         <section className="admin-detail-drawer__section"><h3>Warning</h3><p>{selected.reason}</p><StatusBadge status={selected.status} /></section>
         <section className="admin-detail-drawer__section"><h3>Record</h3><p>Issued by {selected.issuer?.name || 'Administrator'}<br />{formatDate(selected.createdAt)}</p>{selected.resolutionNote ? <p><strong>Resolution:</strong> {selected.resolutionNote}</p> : null}</section>
       </>}<ContextAuditHistory entityId={selected.id} token={token} /></> : null}
     </DetailDrawer>
     {modal?.entity === 'warning' ? <ConfirmationModal busy={busy} confirmLabel="Issue warning" danger onCancel={() => setModal(null)} onConfirm={submitWarning} title={`Warn ${modal.user.name}?`}><form className="admin-form"><label>Reason<textarea minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
-    {modal?.entity === 'account' ? <ConfirmationModal busy={busy} confirmLabel={modal.user.accountStatus === 'SUSPENDED' ? 'Restore account' : 'Suspend account'} danger={modal.user.accountStatus !== 'SUSPENDED'} onCancel={() => setModal(null)} onConfirm={submitAccountChange} title={modal.user.accountStatus === 'SUSPENDED' ? 'Restore this account?' : 'Suspend this account?'}><p>This account-level action will be recorded.</p></ConfirmationModal> : null}
+    {modal?.entity === 'account' ? <ConfirmationModal busy={busy} confirmLabel={modal.user.accountStatus === 'SUSPENDED' ? 'Restore account' : 'Suspend account'} danger={modal.user.accountStatus !== 'SUSPENDED'} onCancel={() => setModal(null)} onConfirm={submitAccountChange} title={modal.user.accountStatus === 'SUSPENDED' ? 'Restore this account?' : 'Suspend this account?'}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>This full account action blocks both regular-user and creator access and will be audited.</p>{modal.user.accountStatus !== 'SUSPENDED' ? <label>Reason<textarea maxLength="1000" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} placeholder="Explain the suspension and provide appeal guidance" value={modal.reason} /></label> : null}</form></ConfirmationModal> : null}
     {modal?.entity === 'resolve' ? <ConfirmationModal busy={busy} confirmLabel="Resolve warning" onCancel={() => setModal(null)} onConfirm={submitResolve} title="Resolve this warning?"><form className="admin-form"><label>Resolution note<textarea onChange={(event) => setModal((value) => ({ ...value, resolutionNote: event.target.value }))} value={modal.resolutionNote} /></label></form></ConfirmationModal> : null}
   </div></div>
 }

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const { AuthIdentity, User, sequelize } = require('../models');
-const { createScopedToken, createToken, hashPassword, serializeUser, verifyScopedToken } = require('./authService');
+const { accountSuspensionMessage, createScopedToken, createToken, hashPassword, serializeUser, verifyScopedToken } = require('./authService');
 
 const PROVIDERS = new Set(['GOOGLE', 'APPLE']);
 const googleClient = new OAuth2Client();
@@ -179,7 +179,7 @@ async function finishOauthSignIn(identity) {
             await user.update({ emailVerificationRequired: false, emailVerifiedAt: new Date() }, { transaction });
         }
         if (user.accountStatus !== 'ACTIVE') {
-            throw oauthError('This account is suspended. Contact support if you believe this is a mistake.', 403, 'ACCOUNT_SUSPENDED');
+            throw oauthError(accountSuspensionMessage(user), 403, 'ACCOUNT_SUSPENDED');
         }
         const providerAlreadyLinked = await AuthIdentity.findOne({
             transaction,
@@ -195,7 +195,7 @@ async function finishOauthSignIn(identity) {
         }, { transaction });
         signedInUser = user;
     });
-    if (signedInUser.accountStatus !== 'ACTIVE') throw oauthError('This account is suspended. Contact support if you believe this is a mistake.', 403, 'ACCOUNT_SUSPENDED');
+    if (signedInUser.accountStatus !== 'ACTIVE') throw oauthError(accountSuspensionMessage(signedInUser), 403, 'ACCOUNT_SUSPENDED');
     return { token: createToken(signedInUser), user: serializeUser(signedInUser) };
 }
 
