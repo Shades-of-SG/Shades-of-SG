@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react'
-import { useAuth } from './AuthContext';
+import { useAuth } from './AuthContext'
 
 const SESSION_STORAGE_KEY = 'shadesOfSgGuestSession'
 const SessionContext = createContext(null)
@@ -15,11 +15,14 @@ function createGuestSession() {
 }
 
 function loadGuestSession() {
-  
   const existingSession = localStorage.getItem(SESSION_STORAGE_KEY)
-// get item user and token
+
   if (existingSession) {
-    return JSON.parse(existingSession)
+    try {
+      return JSON.parse(existingSession)
+    } catch {
+      localStorage.removeItem(SESSION_STORAGE_KEY)
+    }
   }
 
   const guestSession = createGuestSession()
@@ -30,24 +33,34 @@ function loadGuestSession() {
 export function SessionProvider({ children }) {
   const { user } = useAuth()
 
-  // ✅ Only create guest session if no logged-in user
-  const [session, setSession] = useState(() => {
-    if (user) {
-      return null 
-    }
-    return loadGuestSession()
-  })
+  // ✅ Only touch the guest session when nobody is signed in. AuthProvider resolves
+  // the stored user synchronously, so on a refresh `user` is already known here and
+  // a signed-in visitor never gets a stray guest session written to localStorage —
+  // only `user` and `token` are kept.
+  const [guestSession, setGuestSession] = useState(() => (user ? null : loadGuestSession()))
+
+  const session = user ? null : guestSession
 
   const value = useMemo(() => ({
     session,
     updateSession(updater) {
-      setSession((currentSession) => {
-        const nextSession = typeof updater === 'function' ? updater(currentSession) : updater
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+      if (user) {
+        // Signed-in progress belongs to the account, not to localStorage.
+        return
+      }
+
+      setGuestSession((currentSession) => {
+        const baseSession = currentSession ?? loadGuestSession()
+        const nextSession = typeof updater === 'function' ? updater(baseSession) : updater
+
+        if (nextSession) {
+          localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+        }
+
         return nextSession
       })
     },
-  }), [session])
+  }), [session, user])
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

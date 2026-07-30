@@ -1,31 +1,31 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { useSession } from '../context/SessionContext'
+import { createContext, useContext, useState } from "react";
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+const GUEST_SESSION_KEY = "shadesOfSgGuestSession";
 
-
-  useEffect(() => {
+// Read the stored session up front (not in an effect) so the very first render
+// already knows who is signed in. Anything that derives state from `user` on
+// mount — the guest session, the prefilled settings fields — depends on this.
+function readStoredAuth() {
+  try {
     const storedUser = localStorage.getItem("user");
     const storedToken = localStorage.getItem("token");
-    console.log("AuthProvider - checking for user token");
+
     if (storedUser && storedToken) {
-      try {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
-        console.log("AuthProvider - user token set");
-      } catch {
-        // If parsing fails, clear bad data
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      }
+      return { token: storedToken, user: JSON.parse(storedUser) };
     }
-  }, []);
+  } catch {
+    // Corrupted payload — drop it so we start from a clean slate.
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+  }
 
+  return { token: null, user: null };
+}
 
+export function AuthProvider({ children }) {
+  const [auth, setAuth] = useState(readStoredAuth);
 
   function signIn(nextUser, nextToken) {
     // ✅ Always include bio + interestTags
@@ -35,25 +35,23 @@ export function AuthProvider({ children }) {
       interestTags: nextUser.interestTags,
     };
 
-    setUser(mergedUser);
-    setToken(nextToken);
     localStorage.setItem("user", JSON.stringify(mergedUser));
     localStorage.setItem("token", nextToken);
 
     // ✅ Clear guest session once logged in
-    localStorage.removeItem("shadesOfSgGuestSession");
+    localStorage.removeItem(GUEST_SESSION_KEY);
+
+    setAuth({ token: nextToken, user: mergedUser });
   }
-  
+
   function signOut() {
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    setUser(null);
-    setToken(null);
+    setAuth({ token: null, user: null });
   }
 
-
   return (
-    <AuthContext.Provider value={{ user, token, signIn, signOut }}>
+    <AuthContext.Provider value={{ signIn, signOut, token: auth.token, user: auth.user }}>
       {children}
     </AuthContext.Provider>
   );

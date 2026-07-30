@@ -24,7 +24,7 @@ export default function Register() {
 */
 
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 //import { registerWithEmail } from '../services/authApi'   //Commented out since there is another one below including the otp
@@ -33,6 +33,7 @@ import * as Yup from 'yup'
 import { sendEmailOtp, verifyEmailOtp, registerWithEmail, checkNameAvailability, checkEmailAvailability } from '../services/authApi'
 //lia.otp.end
 import InterestTagsAccordion from "../components/InterestTagsAccordion";
+import PasswordToggle from "../components/PasswordToggle";
 
 // Define Yup schema
 const registerSchema = Yup.object().shape({
@@ -69,6 +70,7 @@ export default function Register() {
   });
   const [selectedTags, setSelectedTags] = useState([]);
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // OTP states
@@ -91,18 +93,19 @@ export default function Register() {
   //Error message below the relevant fields
   const [fieldErrors, setFieldErrors] = useState({})
 
-  // Debounce timers
-  let nameTimer;
-  let emailTimer;
+  // Debounce timers — refs, not locals: a local is re-created every render so the
+  // pending timeout would never actually be cleared.
+  const nameTimer = useRef(null);
+  const emailTimer = useRef(null);
 
   async function handleNameChange(e) {
     const newName = e.target.value;
     setFormValues({ ...formValues, name: newName });
 
-    clearTimeout(nameTimer);
+    clearTimeout(nameTimer.current);
     if (newName.trim().length > 2) {
       setCheckingName(true);
-      nameTimer = setTimeout(async () => {
+      nameTimer.current = setTimeout(async () => {
         const res = await checkNameAvailability(newName);
         setNameAvailable(res.available);
         setError(res.available ? '' : res.message);
@@ -117,10 +120,10 @@ export default function Register() {
     const newEmail = e.target.value;
     setFormValues({ ...formValues, email: newEmail });
 
-    clearTimeout(emailTimer);
+    clearTimeout(emailTimer.current);
     if (newEmail.includes("@")) {
       setCheckingEmail(true);
-      emailTimer = setTimeout(async () => {
+      emailTimer.current = setTimeout(async () => {
         const res = await checkEmailAvailability(newEmail);
         setEmailAvailable(res.available);
         setError(res.available ? '' : res.message);
@@ -134,6 +137,7 @@ export default function Register() {
 
   async function handleSendOtp() {
     setError('')
+    setSuccess('')
     setFieldErrors({})
 
     try {
@@ -157,7 +161,7 @@ export default function Register() {
       const res = await sendEmailOtp(formValues.email)
       if (res.success) {
         setOtpSent(true)
-        alert("OTP sent to your email")
+        setSuccess("OTP sent to your email. Enter it below to verify.")
       } else {
         setError(res.message)
       }
@@ -177,10 +181,13 @@ export default function Register() {
 
 
   async function handleVerifyOtp() {
+    setError('')
+    setSuccess('')
+
     const res = await verifyEmailOtp(formValues.email, otpCode)
     if (res.success) {
       setOtpVerified(true)
-      alert("✅ OTP verified")
+      setSuccess("Email verified. You can create your account now.")
     } else {
       setError(res.message)
     }
@@ -208,11 +215,7 @@ export default function Register() {
       );
 
 
-      // ✅ Store token + user in localStorage
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-
-      // ✅ Update context
+      // ✅ signIn persists token + user and clears any guest session
       signIn(data.user, data.token)
 
       const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
@@ -248,19 +251,17 @@ export default function Register() {
           placeholder="Your name"
           required
         />
-        {checkingName && (
-          <span style={{ color: "blue", fontSize: "12px" }}>Checking name...</span>
-        )}
+        {checkingName && <span className="field-hint">Checking name…</span>}
         {!nameAvailable && !checkingName && (
-          <span style={{ color: "red", fontSize: "12px" }}>
+          <span className="field-hint field-hint--error">
             Name already taken. Please choose another.
           </span>
         )}
         {nameAvailable && !checkingName && formValues.name.trim().length > 2 && (
-          <span style={{ color: "green", fontSize: "12px" }}>✅ Name available</span>
+          <span className="field-hint field-hint--ok">Name available</span>
         )}
         {fieldErrors.name && (
-          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.name}</span>
+          <span className="field-hint field-hint--error">{fieldErrors.name}</span>
         )}
       </label>
 
@@ -273,19 +274,17 @@ export default function Register() {
           placeholder="name@example.com"
           required
         />
-        {checkingEmail && (
-          <span style={{ color: "blue", fontSize: "12px" }}>Checking email...</span>
-        )}
+        {checkingEmail && <span className="field-hint">Checking email…</span>}
         {!emailAvailable && !checkingEmail && (
-          <span style={{ color: "red", fontSize: "12px" }}>
+          <span className="field-hint field-hint--error">
             Email already registered. Please use another.
           </span>
         )}
         {emailAvailable && !checkingEmail && formValues.email.includes("@") && (
-          <span style={{ color: "green", fontSize: "12px" }}>✅ Email available</span>
+          <span className="field-hint field-hint--ok">Email available</span>
         )}
         {fieldErrors.email && (
-          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.email}</span>
+          <span className="field-hint field-hint--error">{fieldErrors.email}</span>
         )}
       </label>
 
@@ -293,10 +292,10 @@ export default function Register() {
       {/*Update password to allow show/hide*/}
       <label className="field-stack">
         <span>Password</span>
-        <span style={{ fontSize: "11px", color: "grey" }}>
+        <span className="field-hint">
           Password must contain at least 8 characters, an uppercase letter and a number.
         </span>
-        <div style={{ display: "flex", alignItems: "center" }}>
+        <div className="input-with-action">
           <input
             type={showPassword ? "text" : "password"}
             value={formValues.password}
@@ -304,23 +303,20 @@ export default function Register() {
             placeholder="Password"
             required
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            style={{ marginLeft: "8px" }}
-          >
-            {showPassword ? "🙈 Hide" : "👁 Show"}
-          </button>
+          <PasswordToggle
+            isVisible={showPassword}
+            onToggle={() => setShowPassword(!showPassword)}
+          />
         </div>
         {fieldErrors.password && (
-          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.password}</span>
+          <span className="field-hint field-hint--error">{fieldErrors.password}</span>
         )}
       </label>
 
 
       <label className="field-stack">
         <span>Confirm Password</span>
-        <div style={{ display: "flex", alignItems: "center" }}>
+        <div className="input-with-action">
           <input
             type={showConfirmPassword ? "text" : "password"}
             value={formValues.confirmPassword}
@@ -328,16 +324,14 @@ export default function Register() {
             placeholder="Confirm Password"
             required
           />
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            style={{ marginLeft: "8px" }}
-          >
-            {showConfirmPassword ? "🙈 Hide" : "👁 Show"}
-          </button>
+          <PasswordToggle
+            isVisible={showConfirmPassword}
+            label="password confirmation"
+            onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+          />
         </div>
         {fieldErrors.confirmPassword && (
-          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.confirmPassword}</span>
+          <span className="field-hint field-hint--error">{fieldErrors.confirmPassword}</span>
         )}
       </label>
 
@@ -351,7 +345,7 @@ export default function Register() {
           style={{ resize: "none" }}
         />
         {fieldErrors.bio && (
-          <span style={{ color: "red", fontSize: "12px" }}>{fieldErrors.bio}</span>
+          <span className="field-hint field-hint--error">{fieldErrors.bio}</span>
         )}
       </label>
 
@@ -361,21 +355,41 @@ export default function Register() {
 
 
       {/*otp.start*/}
-      <span style={{ fontSize: "12px", color: "grey" }}>Please wait for the relevant prompts as the neccesary materials load.</span>
-      <button type="button" onClick={handleSendOtp} disabled={otpSent}>
+      <span className="field-hint">
+        Please wait for the relevant prompts as the necessary materials load.
+      </span>
+      <button
+        className="pill-button pill-button--ghost"
+        disabled={otpSent}
+        onClick={handleSendOtp}
+        type="button"
+      >
         {otpSent ? "OTP Sent" : "Send OTP"}
       </button>
 
       {otpSent && (
-        <div>
-          <input
-            type="text"
-            value={otpCode}
-            onChange={(e) => setOtpCode(e.target.value)}
-            placeholder="Enter 6-digit OTP"
-          />
-          <button type="button" onClick={handleVerifyOtp}>Verify OTP</button>
-        </div>
+        <label className="field-stack">
+          <span>One-time code</span>
+          <div className="input-with-action">
+            <input
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(e) => setOtpCode(e.target.value)}
+              placeholder="Enter 6-digit OTP"
+              type="text"
+              value={otpCode}
+            />
+            <button
+              className="field-action"
+              disabled={otpVerified}
+              onClick={handleVerifyOtp}
+              type="button"
+            >
+              {otpVerified ? 'Verified' : 'Verify'}
+            </button>
+          </div>
+        </label>
       )}
 
       {/*otp.end*/}
@@ -383,12 +397,13 @@ export default function Register() {
 
 
       {error && <p className="form-error" role="alert">{error}</p>}
+      {success && <p className="form-success" role="status">{success}</p>}
 
       <button className="primary-button" disabled={isSubmitting} type="submit">
         {isSubmitting ? 'Registering...' : 'Register'}
       </button>
 
-      <p><Link to="/login">Already have an account?</Link></p>
+      <p className="auth-form__links"><Link to="/login">Already have an account?</Link></p>
     </form>
   )
 }

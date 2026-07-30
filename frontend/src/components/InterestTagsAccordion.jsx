@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function InterestTagsAccordion({ selectedTags, setSelectedTags }) {
     const sections = {
         Events: ["National Day"],
@@ -15,28 +13,28 @@ export default function InterestTagsAccordion({ selectedTags, setSelectedTags })
     };
 
     return (
-        <div className="accordion">
+        <div className="tag-picker">
+            <span className="tag-picker__title">Interests</span>
+
             {Object.entries(sections).map(([section, tags]) => (
-                <div key={section}>
-                    <h3>{section}</h3>
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        {tags.map(tag => (
-                            <button
-                                key={tag}
-                                type="button"
-                                onClick={() => toggleTag(tag)}
-                                style={{
-                                    backgroundColor: selectedTags.includes(tag) ? "purple" : "white",
-                                    color: selectedTags.includes(tag) ? "white" : "black",
-                                    border: "1px solid black",
-                                    padding: "4px 8px",
-                                    borderRadius: "4px",
-                                    cursor: "pointer"
-                                }}
-                            >
-                                {tag}
-                            </button>
-                        ))}
+                <div className="tag-picker__group" key={section}>
+                    <h3 className="tag-picker__group-title">{section}</h3>
+                    <div className="tag-picker__tags">
+                        {tags.map(tag => {
+                            const isSelected = selectedTags.includes(tag);
+
+                            return (
+                                <button
+                                    aria-pressed={isSelected}
+                                    className={`tag-chip ${isSelected ? 'is-selected' : ''}`}
+                                    key={tag}
+                                    onClick={() => toggleTag(tag)}
+                                    type="button"
+                                >
+                                    {tag}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             ))}

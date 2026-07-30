@@ -18,20 +18,15 @@ const schema = Yup.object().shape({
 
 export default function ProfileSettings() {
   const { user, signIn } = useAuth()
-  // ✅ Use optional chaining and fallback values
-  const [name, setName] = useState(user?.name)
-  const [email, setEmail] = useState(user?.email)
+
+  // AuthProvider resolves the stored user synchronously, so these are already
+  // populated on the first render after a refresh instead of falling back to blanks.
+  const [name, setName] = useState(user?.name ?? '')
+  const [email, setEmail] = useState(user?.email ?? '')
+  const [bio, setBio] = useState(user?.bio ?? '')
+  const [selectedTags, setSelectedTags] = useState(user?.interestTags ?? [])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-
-  const [bio, setBio] = useState(user?.bio || "This is my bio");
-  const [selectedTags, setSelectedTags] = useState(user?.interestTags || []);
-
-
-  if (!user) {
-    // ✅ Show a loading state or redirect if no user //Please add an actual loading screen for both this and DataPrivacy because the pages keep jumping
-    return <p>Loading profile...</p>
-  }
 
   async function handleSave(e) {
     e.preventDefault()
@@ -69,36 +64,53 @@ export default function ProfileSettings() {
     }
   }
 
+  if (!user) {
+    return (
+      <section className="settings-card">
+        <p className="settings-card__loading">Loading profile…</p>
+      </section>
+    )
+  }
+
   return (
-    <form className="auth-form" onSubmit={handleSave}>
-      <h1>Profile Settings</h1>
+    <form className="settings-card settings-form" onSubmit={handleSave}>
+      <header className="settings-card__head">
+        <h2>Profile</h2>
+        <p>Update the name, email, bio, and interests shown on your profile.</p>
+      </header>
 
       <label className="field-stack">
         <span>Name</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <input onChange={(e) => setName(e.target.value)} placeholder="Your name" value={name} />
       </label>
 
       <label className="field-stack">
         <span>Email</span>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@example.com"
+          type="email"
+          value={email}
+        />
       </label>
 
       <label className="field-stack">
         <span>Bio</span>
         <textarea
-          value={bio}
           onChange={(e) => setBio(e.target.value)}
+          placeholder="Tell us about yourself"
           rows={4}
           style={{ resize: "none" }}
+          value={bio}
         />
       </label>
 
       <InterestTagsAccordion selectedTags={selectedTags} setSelectedTags={setSelectedTags} />
 
-      {error && <p className="form-error">{error}</p>}
-      {success && <p className="form-success">{success}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {success && <p className="form-success" role="status">{success}</p>}
 
-      <button className="primary-button" type="submit">Save Changes</button>
+      <button className="primary-button button--block" type="submit">Save Changes</button>
     </form>
   )
 }

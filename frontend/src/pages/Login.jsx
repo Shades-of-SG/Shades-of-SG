@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
 import { loginWithEmail, checkEmailExists, sendEmailOtp, verifyLoginOtp } from '../services/authApi'
 
@@ -11,14 +12,17 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('');
+  // Carries over the confirmation from a completed password reset.
+  const [success, setSuccess] = useState(location.state?.notice ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   // Email existence check
   const [emailExists, setEmailExists] = useState(true)
   const [checkingEmail, setCheckingEmail] = useState(false);
-  let emailTimer;
+  // A ref, not a local — a local is re-created every render so the pending
+  // timeout would never actually be cleared.
+  const emailTimer = useRef(null);
 
   // Add state for OTP handling
   const [otpRequired, setOtpRequired] = useState(false);
@@ -30,10 +34,10 @@ export default function Login() {
     const newEmail = event.target.value;
     setEmail(newEmail);
 
-    clearTimeout(emailTimer);
+    clearTimeout(emailTimer.current);
     if (newEmail.includes("@")) {
       setCheckingEmail(true);
-      emailTimer = setTimeout(async () => {
+      emailTimer.current = setTimeout(async () => {
         const res = await checkEmailExists(newEmail);
         setEmailExists(res.exists);
         setError(res.exists ? '' : "Email not registered. Please create an account.");
@@ -64,7 +68,6 @@ export default function Login() {
           setError(res.message || "Failed to send OTP");
         } else {
           setSuccess("OTP sent to your email. Please verify.");
-          alert("OTP sent to your email"); // ✅ same style as Register
         }
 
         setIsSubmitting(false);
@@ -72,11 +75,7 @@ export default function Login() {
       }
 
       //Normal login
-      // ✅ Store token + user in localStorage
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-
-      // ✅ Update context
+      // ✅ signIn persists token + user and clears any guest session
       signIn(data.user, data.token)
 
       const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
@@ -85,6 +84,25 @@ export default function Login() {
       setError(nextError.message || 'Login failed')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+
+  async function handleVerifyOtp() {
+    setError('')
+
+    try {
+      const res = await verifyLoginOtp(pendingEmail, otpCode);
+      if (res.success) {
+        signIn(res.user, res.token);
+
+        const fallbackPath = res.user.role === 'CREATOR' ? '/creator/dashboard' : '/';
+        navigate(fallbackPath, { replace: true });
+      } else {
+        setError(res.message || "OTP verification failed");
+      }
+    } catch (err) {
+      setError(err.message || "OTP verification failed");
     }
   }
 
@@ -103,16 +121,14 @@ export default function Login() {
           onChange={handleEmailChange}
           required
         />
-        {checkingEmail && (
-          <span style={{ color: "blue", fontSize: "12px" }}>Checking email...</span>
-        )}
+        {checkingEmail && <span className="field-hint">Checking email…</span>}
         {!emailExists && !checkingEmail && (
-          <span style={{ color: "red", fontSize: "12px" }}>
+          <span className="field-hint field-hint--error">
             Email not registered. Please create an account.
           </span>
         )}
         {emailExists && !checkingEmail && email.includes("@") && (
-          <span style={{ color: "green", fontSize: "12px" }}>✅ Email registered</span>
+          <span className="field-hint field-hint--ok">Email registered</span>
         )}
       </label>
 
@@ -120,7 +136,7 @@ export default function Login() {
 
       <label className="field-stack">
         <span>Password</span>
-        <div style={{ display: "flex", alignItems: "center" }}>
+        <div className="input-with-action">
           <input
             type={showPassword ? "text" : "password"}
             value={password}
@@ -128,63 +144,45 @@ export default function Login() {
             placeholder="Password"
             required
           />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            style={{ marginLeft: "8px" }}
-          >
-            {showPassword ? "🙈 Hide" : "👁 Show"} {/* 🙉 */}
-          </button>
+          <PasswordToggle
+            isVisible={showPassword}
+            onToggle={() => setShowPassword(!showPassword)}
+          />
         </div>
       </label>
 
       {/* Render an OTP input if otpRequired is true */}
       {otpRequired && (
-        <div style={{ marginTop: "1rem" }}>
-          <input
-            type="text"
-            value={otpCode}
-            onChange={(e) => setOtpCode(e.target.value)}
-            placeholder="Enter 6-digit OTP"
-          />
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await verifyLoginOtp(pendingEmail, otpCode);
-                if (res.success) {
-                  alert("✅ OTP verified");
-                  localStorage.setItem('token', res.token);
-                  localStorage.setItem('user', JSON.stringify(res.user));
-                  signIn(res.user, res.token);
-
-                  const fallbackPath = res.user.role === 'CREATOR' ? '/creator/dashboard' : '/';
-                  navigate(fallbackPath, { replace: true });
-                } else {
-                  setError(res.message || "OTP verification failed");
-                }
-              } catch (err) {
-                setError(err.message || "OTP verification failed");
-              }
-            }}
-          >
-            Verify OTP
-          </button>
-
-        </div>
+        <label className="field-stack">
+          <span>One-time code</span>
+          <div className="input-with-action">
+            <input
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(e) => setOtpCode(e.target.value)}
+              placeholder="Enter 6-digit OTP"
+              type="text"
+              value={otpCode}
+            />
+            <button className="field-action" onClick={handleVerifyOtp} type="button">
+              Verify
+            </button>
+          </div>
+        </label>
       )}
 
 
 
       {error && <p className="form-error" role="alert">{error}</p>}
-      {success && <p className="form-success">{success}</p>}
+      {success && <p className="form-success" role="status">{success}</p>}
 
 
       <button className="primary-button" disabled={isSubmitting} type="submit">
         {isSubmitting ? 'Logging in...' : 'Login'}
       </button>
 
-      <p>
+      <p className="auth-form__links">
         <Link to="/forgot-password">Forgot password?</Link>{' '}
         <Link to="/register">Create account</Link>
       </p>

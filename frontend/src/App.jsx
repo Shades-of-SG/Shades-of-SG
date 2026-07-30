@@ -80,10 +80,12 @@ function App() {
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<Profile />} path="/profile" />
-          <Route element={<Settings />} path="/settings" />
-          <Route path="/settings/profile" element={<ProfileSettings />} />
-          <Route path="/settings/account-security" element={<AccountSecurity />} />
-          <Route path="/settings/data-privacy" element={<DataPrivacy />} />
+          <Route element={<Settings />} path="/settings">
+            <Route element={<Navigate replace to="/settings/profile" />} index />
+            <Route element={<ProfileSettings />} path="profile" />
+            <Route element={<AccountSecurity />} path="account-security" />
+            <Route element={<DataPrivacy />} path="data-privacy" />
+          </Route>
         </Route>
 
         <Route element={<AuthExperience />}>
@@ -103,10 +105,12 @@ function App() {
             <Route element={<TotalPlays />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<Profile />} path="/creator/profile" />
-            <Route element={< CreatorSettings />} path="/creator/settings" />
-            <Route path="/creator/settings/profile" element={<ProfileSettings />} />
-            <Route path="/creator/settings/account-security" element={<AccountSecurity />} />
-            <Route path="/creator/settings/data-privacy" element={<DataPrivacy />} />
+            <Route element={<CreatorSettings />} path="/creator/settings">
+              <Route element={<Navigate replace to="/creator/settings/profile" />} index />
+              <Route element={<ProfileSettings />} path="profile" />
+              <Route element={<AccountSecurity />} path="account-security" />
+              <Route element={<DataPrivacy />} path="data-privacy" />
+            </Route>
           </Route>
         </Route>
 

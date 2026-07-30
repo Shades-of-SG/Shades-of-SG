@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import * as Yup from 'yup'
+import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
 import { changePassword, updateTwoFA } from '../services/authApi'
 
@@ -34,12 +35,10 @@ export default function AccountSecurity() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const { user, signIn } = useAuth()
-  const [twoFA, setTwoFA] = useState(user?.enable2fa || false)
 
-  if (!user) {
-    // ✅ Show a loading state or redirect if no user //Please add an actual loading screen for both this and DataPrivacy because the pages keep jumping
-    return <p>Loading settings...</p>
-  }
+  // AuthProvider resolves the stored user synchronously, so the tick box already
+  // reflects the saved setting on the first render after a refresh.
+  const [twoFA, setTwoFA] = useState(user?.enable2fa ?? false)
 
   async function handleChangePassword(e) {
     e.preventDefault()
@@ -66,96 +65,120 @@ export default function AccountSecurity() {
 
   }
 
-  return (
-    <div className="auth-form">
-      <h1>Account & Security</h1>
+  async function handleToggleTwoFA() {
+    const newValue = !twoFA;
+    setTwoFA(newValue);
+    setTwoFAError('');
+    setTwoFASuccess('');
 
-      <form onSubmit={handleChangePassword}>
+    try {
+      const res = await updateTwoFA(newValue);
+      if (res.success) {
+        signIn(res.user, localStorage.getItem("token"));
+        setTwoFASuccess(newValue ? '2FA enabled' : '2FA disabled');
+      } else {
+        setTwoFA(!newValue);
+        setTwoFAError(res.message || 'Could not update your 2FA setting');
+      }
+    } catch (err) {
+      setTwoFA(!newValue);
+      setTwoFAError(err.message || 'Could not update your 2FA setting');
+    }
+  }
+
+  if (!user) {
+    return (
+      <section className="settings-card">
+        <p className="settings-card__loading">Loading settings…</p>
+      </section>
+    )
+  }
+
+  return (
+    <div className="settings-stack">
+      <form className="settings-card settings-form" onSubmit={handleChangePassword}>
+        <header className="settings-card__head">
+          <h2>Change Password</h2>
+          <p>Use at least 8 characters, including an uppercase letter and a number.</p>
+        </header>
+
         <label className="field-stack">
           <span>Old Password</span>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div className="input-with-action">
             <input
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder="Current password"
               type={showOldPassword ? "text" : "password"}
               value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
             />
-            <button type="button" onClick={() => setShowOldPassword(!showOldPassword)} style={{ marginLeft: "8px" }}>
-              {showOldPassword ? "🙈 Hide" : "👁 Show"}
-            </button>
+            <PasswordToggle
+              isVisible={showOldPassword}
+              label="old password"
+              onToggle={() => setShowOldPassword(!showOldPassword)}
+            />
           </div>
         </label>
 
-
         <label className="field-stack">
           <span>New Password</span>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div className="input-with-action">
             <input
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="New password"
               type={showNewPassword ? "text" : "password"}
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
             />
-            <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} style={{ marginLeft: "8px" }}>
-              {showNewPassword ? "🙈 Hide" : "👁 Show"}
-            </button>
+            <PasswordToggle
+              isVisible={showNewPassword}
+              label="new password"
+              onToggle={() => setShowNewPassword(!showNewPassword)}
+            />
           </div>
         </label>
 
         <label className="field-stack">
           <span>Confirm New Password</span>
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div className="input-with-action">
             <input
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
               type={showConfirmPassword ? "text" : "password"}
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
             />
-            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ marginLeft: "8px" }}>
-              {showConfirmPassword ? "🙈 Hide" : "👁 Show"}
-            </button>
+            <PasswordToggle
+              isVisible={showConfirmPassword}
+              label="password confirmation"
+              onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+            />
           </div>
         </label>
 
+        {passwordError && <p className="form-error" role="alert">{passwordError}</p>}
+        {passwordSuccess && <p className="form-success" role="status">{passwordSuccess}</p>}
 
-        {passwordError && <p className="form-error">{passwordError}</p>}
-        {passwordSuccess && <p className="form-success">{passwordSuccess}</p>}
-
-
-        <button className="primary-button" type="submit">Change Password</button>
+        <button className="primary-button button--block" type="submit">Change Password</button>
       </form>
 
-      <div className="field-stack" style={{ marginTop: '2rem' }}>
-        <span>Enable 2FA</span>
-        <label>
-          <input
-            type="checkbox"
-            checked={twoFA}
-            onChange={async () => {
-              const newValue = !twoFA;
-              setTwoFA(newValue);
-              try {
-                const res = await updateTwoFA(newValue);
-                if (res.success) {
-                  signIn(res.user, localStorage.getItem("token"));
-                  setTwoFASuccess("2FA setting updated");
-                  setTwoFAError("");
+      <section className="settings-card">
+        <header className="settings-card__head">
+          <h2>Two-Factor Authentication (2FA)</h2>
+          <p>Add an extra layer of security to your account.</p>
+        </header>
 
-                }
-              } catch (err) {
-                setTwoFASuccess("2FA setting updated");
-                setTwoFAError("");
+        <div className="settings-toggle-row">
+          <span className="settings-toggle-row__label">Status</span>
+          <span className={`status-pill ${twoFA ? 'is-on' : 'is-off'}`}>{twoFA ? 'ON' : 'OFF'}</span>
 
-              }
-            }}
-          />
-          {twoFA ? 'On' : 'Off'}
-        </label>
+          <label className="checkbox-row">
+            <input checked={twoFA} onChange={handleToggleTwoFA} type="checkbox" />
+            <span>{twoFA ? 'On' : 'Off'}</span>
+          </label>
+        </div>
 
         {/* ✅ Messages now appear directly beneath the checkbox */}
-        {twoFAError && <p className="form-error">{twoFAError}</p>}
-        {twoFASuccess && <p className="form-success">{twoFASuccess}</p>}
-
-      </div>
-
-
+        {twoFAError && <p className="form-error" role="alert">{twoFAError}</p>}
+        {twoFASuccess && <p className="form-success" role="status">{twoFASuccess}</p>}
+      </section>
     </div>
   )
 }

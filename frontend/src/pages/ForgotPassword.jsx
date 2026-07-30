@@ -23,9 +23,10 @@ export default function ForgotPassword() {
 }
 */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import * as Yup from 'yup'
+import PasswordToggle from '../components/PasswordToggle'
 import { sendEmailOtp, verifyEmailOtp, resetPassword, checkEmailExists } from '../services/authApi'
 
 const passwordSchema = Yup.object().shape({
@@ -43,6 +44,7 @@ export default function ForgotPassword() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [otpVerified, setOtpVerified] = useState(false)
@@ -53,16 +55,18 @@ export default function ForgotPassword() {
   const [checkingEmail, setCheckingEmail] = useState(false)
   const [emailExists, setEmailExists] = useState(true)
 
-  let emailTimer
+  // A ref, not a local — a local is re-created every render so the pending
+  // timeout would never actually be cleared.
+  const emailTimer = useRef(null)
 
   async function handleEmailChange(e) {
     const newEmail = e.target.value
     setEmail(newEmail)
 
-    clearTimeout(emailTimer)
+    clearTimeout(emailTimer.current)
     if (newEmail.includes("@")) {
       setCheckingEmail(true)
-      emailTimer = setTimeout(async () => {
+      emailTimer.current = setTimeout(async () => {
         const res = await checkEmailExists(newEmail)
         setEmailExists(res.exists)
         setError(res.exists ? '' : "Account not registered")
@@ -74,6 +78,9 @@ export default function ForgotPassword() {
   }
 
   async function handleSendOtp() {
+    setError('')
+    setSuccess('')
+
     if (!emailExists) {
       setError("Account not registered")
       return
@@ -81,17 +88,20 @@ export default function ForgotPassword() {
     const res = await sendEmailOtp(email)
     if (res.success) {
       setOtpSent(true)
-      alert("OTP sent to your email")
+      setSuccess("OTP sent to your email. Enter it below to continue.")
     } else {
       setError(res.message)
     }
   }
 
   async function handleVerifyOtp() {
+    setError('')
+    setSuccess('')
+
     const res = await verifyEmailOtp(email, otpCode)
     if (res.success) {
       setOtpVerified(true)
-      alert("✅ OTP verified")
+      setSuccess("Code verified. Choose a new password below.")
     } else {
       setError(res.message)
     }
@@ -100,13 +110,13 @@ export default function ForgotPassword() {
   async function handleResetPassword(e) {
     e.preventDefault()
     setError('')
+    setSuccess('')
 
     try {
       await passwordSchema.validate({ newPassword, confirmPassword }, { abortEarly: false })
       const res = await resetPassword(email, newPassword)
       if (res.success) {
-        alert("Password reset successful. Please login.")
-        navigate('/login')
+        navigate('/login', { state: { notice: 'Password reset successful. Please log in.' } })
       } else {
         setError(res.message)
       }
@@ -129,36 +139,46 @@ export default function ForgotPassword() {
           placeholder="name@example.com"
           required
         />
-        {checkingEmail && <span style={{ color: "blue", fontSize: "12px" }}>Checking email...</span>}
+        {checkingEmail && <span className="field-hint">Checking email…</span>}
         {!emailExists && !checkingEmail && (
-          <span style={{ color: "red", fontSize: "12px" }}>Account not registered</span>
+          <span className="field-hint field-hint--error">Account not registered</span>
         )}
         {emailExists && !checkingEmail && email.includes("@") && (
-          <span style={{ color: "green", fontSize: "12px" }}>✅ Account found</span>
+          <span className="field-hint field-hint--ok">Account found</span>
         )}
       </label>
 
       {!otpSent && (
-        <button type="button" onClick={handleSendOtp}>Send OTP</button>
+        <button className="pill-button pill-button--ghost" onClick={handleSendOtp} type="button">
+          Send OTP
+        </button>
       )}
 
       {otpSent && !otpVerified && (
-        <div>
-          <input
-            type="text"
-            value={otpCode}
-            onChange={(e) => setOtpCode(e.target.value)}
-            placeholder="Enter 6-digit OTP"
-          />
-          <button type="button" onClick={handleVerifyOtp}>Verify OTP</button>
-        </div>
+        <label className="field-stack">
+          <span>One-time code</span>
+          <div className="input-with-action">
+            <input
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(e) => setOtpCode(e.target.value)}
+              placeholder="Enter 6-digit OTP"
+              type="text"
+              value={otpCode}
+            />
+            <button className="field-action" onClick={handleVerifyOtp} type="button">
+              Verify
+            </button>
+          </div>
+        </label>
       )}
 
       {otpVerified && (
         <>
           <label className="field-stack">
             <span>New Password</span>
-            <div style={{ display: "flex", alignItems: "center" }}>
+            <div className="input-with-action">
               <input
                 type={showPassword ? "text" : "password"}
                 value={newPassword}
@@ -166,19 +186,17 @@ export default function ForgotPassword() {
                 placeholder="New Password"
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{ marginLeft: "8px" }}
-              >
-                {showPassword ? "🙈 Hide" : "👁 Show"} {/* 🙉 */}
-              </button>
+              <PasswordToggle
+                isVisible={showPassword}
+                label="new password"
+                onToggle={() => setShowPassword(!showPassword)}
+              />
             </div>
           </label>
 
           <label className="field-stack">
             <span>Confirm Password</span>
-            <div style={{ display: "flex", alignItems: "center" }}>
+            <div className="input-with-action">
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
@@ -186,13 +204,11 @@ export default function ForgotPassword() {
                 placeholder="Confirm Password"
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{ marginLeft: "8px" }}
-              >
-                {showConfirmPassword ? "🙈 Hide" : "🙉 Show"} {/* 👁 O 👁 */}
-              </button>
+              <PasswordToggle
+                isVisible={showConfirmPassword}
+                label="password confirmation"
+                onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+              />
             </div>
           </label>
 
@@ -201,8 +217,9 @@ export default function ForgotPassword() {
       )}
 
       {error && <p className="form-error" role="alert">{error}</p>}
+      {success && <p className="form-success" role="status">{success}</p>}
 
-      <p><Link to="/login">Back to login</Link></p>
+      <p className="auth-form__links"><Link to="/login">Back to login</Link></p>
     </form>
   )
 }
