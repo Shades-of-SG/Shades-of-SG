@@ -90,6 +90,9 @@ async function sendEmail({ html, subject, text, to }) {
 }
 
 function sendOtpEmail(values) {
+    if (isTestTransport() && process.env.NODE_ENV !== 'test') {
+        console.info(`[Development email] OTP for ${values.to}: ${values.code}`);
+    }
     return sendEmail({ ...otpTemplate(values), to: values.to });
 }
 

@@ -25,7 +25,7 @@ FRONTEND_URL=https://your-frontend.example.com
 
 For Gmail, enable two-step verification on the sending account and create a dedicated App Password. Use port 465 with `SMTP_SECURE=true`, or port 587 with `SMTP_SECURE=false` for STARTTLS. Store the App Password only in the deployment secret manager; never commit it to an environment example or source file.
 
-For local email inspection, set `MAIL_TRANSPORT=json`. Test runs automatically use Nodemailer's JSON transport and never contact an SMTP server. Do not use the JSON transport in production.
+For local email inspection, set `MAIL_TRANSPORT=json`. The backend prints the recipient and six-digit OTP to its terminal so the local verification flow can be completed without an SMTP account. Test runs automatically use Nodemailer's JSON transport and never contact an SMTP server. Do not use the JSON transport in production.
 
 Also set unique, randomly generated values for `AUTH_TOKEN_SECRET` and `OTP_IP_HASH_SECRET`. Bearer-token lifetime is controlled by `AUTH_TOKEN_TTL_SECONDS` and defaults to one hour.
 

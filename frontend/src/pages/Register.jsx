@@ -23,7 +23,13 @@ export default function Register() {
       sessionStorage.setItem('pendingVerificationEmail', email)
       navigate('/verify-email', { replace: true, state: { email } })
     } catch (nextError) {
-      setError(nextError.status === 409 ? 'An account with this email already exists.' : nextError.status === 429 ? 'Too many attempts. Please wait and try again.' : 'We could not create your account. Check the form and try again.')
+      setError(nextError.status === 409
+        ? 'An account with this email already exists.'
+        : nextError.status === 429
+          ? 'Too many attempts. Please wait and try again.'
+          : nextError.status === 503
+            ? 'Email verification is temporarily unavailable. Please try again later.'
+            : nextError.message || 'We could not create your account. Check the form and try again.')
     } finally { setIsSubmitting(false) }
   }
 
