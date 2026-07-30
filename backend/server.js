@@ -16,6 +16,8 @@ const creatorApplicationsRouter = require('./routes/creatorApplications');
 const foldersRouter = require('./routes/folders');
 const analyticsRouter = require('./routes/analytics');
 const adminRouter = require('./routes/admin');
+const creatorsRouter = require('./routes/creators');
+const usersRouter = require('./routes/users');
 const { seedAdminAccount } = require('./services/authService');
 const { GenerationJob, Song } = require('./models');
 
@@ -73,6 +75,8 @@ app.use('/api/creator-applications', creatorApplicationsRouter);
 app.use('/api/folders', foldersRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/creators', creatorsRouter);
+app.use('/api/users', usersRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {

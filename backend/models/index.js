@@ -25,6 +25,8 @@ const FolderSongProposal = require('./FolderSongProposal');
 const AnalyticsEvent = require('./AnalyticsEvent');
 const AuthOtp = require('./AuthOtp');
 const AuthIdentity = require('./AuthIdentity');
+const CreatorProfile = require('./CreatorProfile');
+const UserProfile = require('./UserProfile');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -35,6 +37,10 @@ AuthIdentity.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(Song, { foreignKey: 'creatorId', as: 'songs' });
 Song.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
+User.hasOne(CreatorProfile, { foreignKey: 'userId', as: 'creatorProfile' });
+CreatorProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasOne(UserProfile, { foreignKey: 'userId', as: 'profile' });
+UserProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 Song.hasMany(Lesson, { foreignKey: 'songId', as: 'lessons' });
 Lesson.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
@@ -168,4 +174,6 @@ module.exports = {
     AnalyticsEvent,
     AuthOtp,
     AuthIdentity,
+    CreatorProfile,
+    UserProfile,
 };

@@ -4,10 +4,10 @@ import ProfileEmptyState from './ProfileEmptyState'
 import ProfileSectionHeader from './ProfileSectionHeader'
 import { formatProfileDate } from './profileUtils'
 
-export default function ProfileMemories({ error, loading, memories, onDelete, onEdit, onRetry }) {
+export default function ProfileMemories({ error, loading, memories, onDelete, onEdit, onRetry, subtitle = 'Reflections I have shared', title = 'My Memories' }) {
   return (
     <section className="profile-section">
-      <ProfileSectionHeader action={memories.length > 4 ? <Link to="/reflections">View all →</Link> : null} subtitle="Reflections I’ve shared" title="My Memories" />
+      <ProfileSectionHeader action={memories.length > 4 ? <Link to="/reflections">View all →</Link> : null} subtitle={subtitle} title={title} />
       {loading ? <div className="profile-note-grid">{[1, 2, 3, 4].map((value) => <span className="profile-skeleton profile-skeleton--card" key={value} />)}</div> : null}
       {error ? <div className="profile-error" role="alert"><p>{error}</p><button onClick={onRetry} type="button">Retry</button></div> : null}
       {!loading && !error && !memories.length ? <ProfileEmptyState actionLabel="Explore songs" description="Experience a published song, then share the memory it brings back." title="No memories shared yet" to="/songs" /> : null}
@@ -20,7 +20,7 @@ export default function ProfileMemories({ error, loading, memories, onDelete, on
               <div className="profile-note__meta"><span>{memory.song?.title || 'Song unavailable'}</span><span>{formatProfileDate(memory.createdAt)}</span></div>
               {memory.isAnonymous || memory.displayMode === 'ANONYMOUS' ? <small>Posted anonymously</small> : null}
               {memory.tags?.length ? <div className="profile-note__tags">{memory.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div> : null}
-              {memory.isOwner ? <div className="profile-note__actions"><button aria-label="Edit memory" onClick={() => onEdit(memory)} type="button"><Pencil aria-hidden="true" size={15} /></button><button aria-label="Delete memory" onClick={() => onDelete(memory)} type="button"><Trash2 aria-hidden="true" size={15} /></button></div> : null}
+              {memory.isOwner && onEdit && onDelete ? <div className="profile-note__actions"><button aria-label="Edit memory" onClick={() => onEdit(memory)} type="button"><Pencil aria-hidden="true" size={15} /></button><button aria-label="Delete memory" onClick={() => onDelete(memory)} type="button"><Trash2 aria-hidden="true" size={15} /></button></div> : null}
             </article>
           ))}
         </div>

@@ -7,6 +7,7 @@ import SongCatalogue from '../components/songs/SongCatalogue'
 import SongPreviewPanel from '../components/songs/SongPreviewPanel'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { getPublishedSongs } from '../services/publicSongService'
+import CreatorNameLink from '../components/CreatorNameLink'
 
 const PAGE_SIZE = 9
 const emptyFilters = { search: '', theme: '', language: '', mood: '' }
@@ -51,7 +52,7 @@ function FeaturedSongsSection({ songs }) {
           <div className="songs-featured-primary__content">
             <span className="songs-featured-primary__label"><Sparkles aria-hidden="true" size={14} /> Featured song</span>
             <h3>{featured.title}</h3>
-            <p className="songs-featured-primary__artist">{featured.artist || 'Artist unavailable'}</p>
+            <CreatorNameLink className="songs-featured-primary__artist" song={featured} />
             {featured.description ? <p className="songs-featured-primary__description">{featured.description}</p> : null}
             <div className="songs-featured-primary__tags">
               {[featured.theme, ...(featured.moodTags || [])].filter(Boolean).slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}

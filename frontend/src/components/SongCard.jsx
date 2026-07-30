@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import CreatorNameLink from './CreatorNameLink'
 
 function SongArtwork({ song }) {
   return song.coverImageUrl ? (
@@ -59,7 +60,7 @@ export default function SongCard({ song, variant = 'default' }) {
       <div>
         {song.theme && <p className="eyebrow">{song.theme}</p>}
         <h3>{song.title}</h3>
-        {song.artist && <p className="song-card__artist">{song.artist}</p>}
+        {song.artist && <CreatorNameLink className="song-card__artist" song={song} />}
         {song.description && <p className="song-card__description">{song.description}</p>}
         {song.languages?.length > 0 && (
           <p className="song-card__languages">{song.languages.join(', ')}</p>

@@ -1,6 +1,6 @@
 const express = require('express');
 const { Op, UniqueConstraintError } = require('sequelize');
-const { sequelize, User } = require('../models');
+const { sequelize, User, UserProfile } = require('../models');
 const { requireAuth } = require('../middleware/auth');
 const { authRateKey, createRateLimit } = require('../middleware/rateLimit');
 const {
@@ -131,7 +131,7 @@ router.post('/login', async (req, res, next) => {
         const email = normalizeEmail(req.body.email);
         const password = req.body.password;
         if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
-        const user = await User.findOne({ where: { email } });
+        const user = await User.findOne({ include: [{ model: UserProfile, as: 'profile', required: false }], where: { email } });
         if (!user || !verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Invalid email or password.' });
         if (user.accountStatus !== 'ACTIVE') return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
         if (user.emailVerificationRequired) return res.status(403).json({ code: 'EMAIL_UNVERIFIED', message: 'Verify your email before signing in.' });
@@ -141,7 +141,7 @@ router.post('/login', async (req, res, next) => {
 
 router.get('/me', requireAuth, async (req, res, next) => {
     try {
-        const user = await User.findByPk(req.authUserRecord.id);
+        const user = await User.findByPk(req.authUserRecord.id, { include: [{ model: UserProfile, as: 'profile', required: false }] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
         return res.json({ user: serializeUser(user) });
     } catch (error) { return next(error); }

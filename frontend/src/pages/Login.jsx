@@ -25,9 +25,10 @@ function loadScript(src) {
   })
 }
 
-function roleDestination(user) {
+function roleDestination(user, activeMode) {
   if (user.role === 'ADMIN') return '/admin'
-  if (hasActiveCreatorAccess(user)) return '/creator/dashboard'
+  if (hasActiveCreatorAccess(user) && activeMode === 'creator') return '/creator/dashboard'
+  if (user.role === 'CREATOR') return '/'
   return '/profile'
 }
 
@@ -45,14 +46,14 @@ export default function Login() {
   const googleButtonRef = useRef(null)
 
   const completeSignIn = useCallback((data) => {
-    signIn(data.user, data.token)
+    const activeMode = signIn(data.user, data.token)
     const requested = location.state?.from?.pathname
     const allowedRequested = requested
       && ((data.user.role === 'ADMIN' && requested.startsWith('/admin'))
-        || (hasActiveCreatorAccess(data.user) && requested.startsWith('/creator'))
+        || (hasActiveCreatorAccess(data.user) && activeMode === 'creator' && requested.startsWith('/creator'))
         || (data.user.role === 'CREATOR' && requested.startsWith('/profile'))
         || (data.user.role === 'REGISTERED' && ['/profile', '/apply/creator', '/settings'].some((path) => requested.startsWith(path))))
-    navigate(allowedRequested ? requested : roleDestination(data.user), { replace: true })
+    navigate(allowedRequested ? requested : roleDestination(data.user, activeMode), { replace: true })
   }, [location.state, navigate, signIn])
 
   useEffect(() => { getAuthConfig().then(setConfig).catch(() => {}) }, [])

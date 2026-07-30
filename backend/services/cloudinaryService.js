@@ -43,14 +43,14 @@ async function uploadImage(filePath) {
   }
 }
 
-async function uploadImageBuffer(buffer) {
+async function uploadImageBuffer(buffer, { folder = 'shades-of-sg/covers' } = {}) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new Error('Cloudinary upload failed: image data is required');
   }
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: 'shades-of-sg/covers', resource_type: 'image' },
+      { folder, resource_type: 'image' },
       (error, result) => {
         if (error) return reject(new Error(`Cloudinary upload failed: ${error.message}`, { cause: error }));
         return resolve({

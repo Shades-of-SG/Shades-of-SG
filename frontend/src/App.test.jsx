@@ -26,17 +26,98 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /explore songs/i })).toBeInTheDocument()
   })
 
-  it('opens a direct root visit as the logged-out public landing page', () => {
-    localStorage.setItem('authToken', 'stale-token')
+  it('preserves an authenticated creator in User Mode across a direct root refresh', () => {
+    localStorage.setItem('activeMode', 'user')
+    localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
 
-    render(<AuthProvider resetOnPublicEntry><App /></AuthProvider>)
+    render(<AuthProvider><App /></AuthProvider>)
 
     expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument()
-    expect(localStorage.getItem('authToken')).toBeNull()
-    expect(localStorage.getItem('authUser')).toBeNull()
+    expect(screen.getByRole('button', { name: /open user menu for violet/i })).toBeInTheDocument()
+    expect(localStorage.getItem('authToken')).toBe('creator-token')
+    expect(localStorage.getItem('activeMode')).toBe('user')
+  })
+
+  it('switches an approved creator from the creator portal to the normal user shell', async () => {
+    localStorage.setItem('activeMode', 'creator')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ counts: {}, generationJobs: [], recentSongs: [] }),
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByText('Creator Mode')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /open creator menu for violet.*creator mode/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to User Mode' }))
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(localStorage.getItem('activeMode')).toBe('user')
+    expect(JSON.parse(localStorage.getItem('authUser')).role).toBe('CREATOR')
+    expect(screen.getByRole('button', { name: /open user menu for violet/i })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Creator navigation' })).not.toBeInTheDocument()
+  })
+
+  it('switches an approved creator from the normal user menu to Creator Mode', async () => {
+    localStorage.setItem('activeMode', 'user')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ counts: {}, generationJobs: [], recentSongs: [] }),
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    fireEvent.click(screen.getByRole('button', { name: /open user menu for violet/i }))
+    expect(screen.getByText('User Mode')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to Creator Mode' }))
+
+    await waitFor(() => expect(window.location.pathname).toBe('/creator/dashboard'))
+    expect(localStorage.getItem('activeMode')).toBe('creator')
+    expect(JSON.parse(localStorage.getItem('authUser')).role).toBe('CREATOR')
+    expect(await screen.findByText('Creator Mode')).toBeInTheDocument()
+  })
+
+  it('does not expose the Creator Mode switch to a creator with suspended creator access', () => {
+    localStorage.setItem('activeMode', 'creator')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED', creatorSuspensionReason: 'Programme review pending.',
+      id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    fireEvent.click(screen.getByRole('button', { name: /open user menu for violet/i }))
+    expect(screen.queryByRole('menuitem', { name: 'Switch to Creator Mode' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('status').some((status) => /creator access has been suspended/i.test(status.textContent))).toBe(true)
+    expect(screen.getAllByRole('status').some((status) => status.textContent.includes('Programme review pending.'))).toBe(true)
+    expect(localStorage.getItem('activeMode')).toBe('user')
+  })
+
+  it('uses CreatorRoute to keep User Mode out of direct creator URLs', async () => {
+    localStorage.setItem('activeMode', 'user')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(screen.queryByRole('navigation', { name: 'Creator navigation' })).not.toBeInTheDocument()
   })
 
   it('uses only the top-navbar account menu on registered settings pages', () => {

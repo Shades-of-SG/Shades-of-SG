@@ -10,7 +10,7 @@ const creatorLinks = [
   { icon: 'music', label: 'Collections', to: '/creator/folders' },
   { icon: 'dashboard', label: 'Analytics', to: '/creator/analytics' },
   { icon: 'profile', label: 'Profile', to: '/creator/profile' },
-  { icon: 'settings', label: 'Settings', to: '/creator/settings' },
+  { icon: 'settings', label: 'Settings', to: '/settings' },
 ]
 
 function SidebarIcon({ type }) {
@@ -77,11 +77,16 @@ function SidebarIcon({ type }) {
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const { signOut } = useAuth()
+  const { setActiveMode, signOut } = useAuth()
 
   const handleLogout = () => {
     signOut()
     navigate('/login', { replace: true })
+  }
+
+  const switchToUserMode = () => {
+    setActiveMode('user')
+    navigate('/', { replace: true })
   }
 
   return (
@@ -136,6 +141,7 @@ export default function Sidebar() {
       />
 
       <div className="creator-sidebar__footer">
+        <button className="creator-sidebar__utility" onClick={switchToUserMode} type="button"><span className="creator-sidebar__utility-icon creator-sidebar__utility-icon--help" aria-hidden="true" /><span>Switch to User Mode</span></button>
         <button
           className="creator-sidebar__utility"
           type="button"

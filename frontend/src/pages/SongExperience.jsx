@@ -14,6 +14,7 @@ import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { trackAnalyticsEvent } from '../services/analyticsService'
 import { useAuth } from '../context/AuthContext'
+import CreatorNameLink from '../components/CreatorNameLink'
 import './SongExperience.css'
 
 const MOCK_SONG_DATA = {
@@ -84,6 +85,8 @@ export default function SongExperience() {
     transcriptionSegments: dbSong.transcriptionSegments || null,
     instruments: getSongInstruments(dbSong),
     trivia: getSongTrivia(dbSong),
+    creator: dbSong.creator,
+    creatorId: dbSong.creatorId,
   } : MOCK_SONG_DATA
 
   // Trivia state
@@ -245,7 +248,7 @@ export default function SongExperience() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{songData.title}</h2>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-              <span>{songData.artist}</span> · {songData.year} · {songData.location}
+              {dbSong ? <CreatorNameLink song={{ artist: songData.artist, creator: songData.creator, creatorId: songData.creatorId }} /> : <span>{songData.artist}</span>} · {songData.year} · {songData.location}
             </p>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
               {songData.tags.map((tag, i) => (

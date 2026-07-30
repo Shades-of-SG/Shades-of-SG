@@ -1,5 +1,6 @@
 import { Music2, Pause, Play } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import CreatorNameLink from '../CreatorNameLink'
 
 function formatSongDuration(durationSecs) {
   const totalSeconds = Math.floor(Number(durationSecs))
@@ -51,7 +52,7 @@ export default function SongCatalogue({ onSelect, playingSongId, rhythmBySong, s
             </span>
             <span className="song-catalogue-row__identity">
               <span className="song-catalogue-art"><SongArtwork song={song} /></span>
-              <span className="song-catalogue-row__copy"><strong>{song.title}</strong><span>{song.artist || 'Artist unavailable'}</span></span>
+              <span className="song-catalogue-row__copy"><strong>{song.title}</strong><CreatorNameLink song={song} /></span>
             </span>
             <span className="song-catalogue-row__theme">{song.theme || '—'}</span>
             <span className="song-catalogue-row__mood">{song.moodTags?.[0] || '—'}</span>

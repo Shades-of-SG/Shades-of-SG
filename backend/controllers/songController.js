@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -121,7 +121,14 @@ async function listPublicSongs(req, res, next) {
             title: { [Op.ne]: 'Beatmap Song' }
         };
         if (req.query.theme) where.theme = req.query.theme;
-        const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
+        const songs = await Song.findAll({
+            where,
+            include: [{
+                model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+                include: [{ model: UserProfile, as: 'profile', attributes: ['displayName'], required: false }],
+            }],
+            order: [['publishedDate', 'DESC'], ['title', 'ASC']],
+        });
         const search = String(req.query.search || '').trim().toLowerCase();
         const language = String(req.query.language || '').trim().toLowerCase();
         const mood = String(req.query.mood || '').trim().toLowerCase();
@@ -134,7 +141,7 @@ async function listPublicSongs(req, res, next) {
                 && (!language || languages.includes(language))
                 && (!mood || moods.includes(mood));
         });
-        return res.json({ songs: filtered });
+        return res.json({ songs: filtered.map(withPublicCreator) });
     } catch (error) { return next(error); }
 }
 
@@ -145,11 +152,25 @@ async function getPublicSong(req, res, next) {
             include: [
                 { model: Instrument, as: 'instruments', required: false, through: { attributes: [] } },
                 { model: TriviaQuestion, as: 'triviaQuestions', required: false },
+                {
+                    model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+                    include: [{ model: UserProfile, as: 'profile', attributes: ['displayName'], required: false }],
+                },
             ],
         });
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        return res.json({ song });
+        return res.json({ song: withPublicCreator(song) });
     } catch (error) { return next(error); }
+}
+
+function withPublicCreator(song) {
+    const value = song.get({ plain: true });
+    const creator = value.creator;
+    value.creator = creator ? {
+        displayName: creator.profile?.displayName || creator.name,
+        id: creator.id,
+    } : null;
+    return value;
 }
 
 async function listCreatorSongs(req, res, next) {

@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import CreatorRoute from './components/CreatorRoute'
 import RhythmGame from './components/RhythmGame'
 import ScrollToTop from './components/ScrollToTop'
 import { useAuth } from './context/AuthContext'
@@ -19,6 +20,10 @@ import LearningHub from './pages/LearningHub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
+import PublicCreatorProfile from './pages/PublicCreatorProfile'
+import PublicUserProfile from './pages/PublicUserProfile'
+import CreatorProfile from './components/profile/CreatorProfile'
+import CreatorProfileSettings from './pages/CreatorProfileSettings'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
@@ -58,15 +63,15 @@ function MainExperience() {
 }
 
 function AuthExperience() {
-  const { user } = useAuth()
+  const { activeMode, user } = useAuth()
 
   if (user && !hasActiveAccount(user)) return <AccountAccessSuspended />
 
-  if (hasActiveCreatorAccess(user)) {
+  if (hasActiveCreatorAccess(user) && activeMode === 'creator') {
     return <Navigate replace to="/creator/dashboard" />
   }
 
-  if (user?.role === 'CREATOR' && hasActiveAccount(user)) return <Navigate replace to="/profile" />
+  if (user?.role === 'CREATOR' && hasActiveAccount(user)) return <Navigate replace to="/" />
 
   if (user?.role === 'ADMIN') {
     return <Navigate replace to="/admin" />
@@ -81,7 +86,6 @@ function AuthExperience() {
 
 function App() {
   const { token, user } = useAuth()
-  const isCreatorIdentity = Boolean(token && user?.role === 'CREATOR' && hasActiveAccount(user))
   const isNormalUser = Boolean(token && ['CREATOR', 'REGISTERED'].includes(user?.role) && hasActiveAccount(user))
   const isRegistered = Boolean(token && user?.role === 'REGISTERED' && hasActiveAccount(user))
   const isAdmin = Boolean(token && user?.role === 'ADMIN' && hasActiveAccount(user))
@@ -89,7 +93,7 @@ function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Routes>
+      {token && user && !hasActiveAccount(user) ? <AccountAccessSuspended /> : <Routes>
         <Route element={<MainExperience />}>
           <Route element={<Landing />} path="/" />
           <Route element={<SongsLibrary />} path="/songs" />
@@ -102,9 +106,11 @@ function App() {
           <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<ReflectionWall />} path="/reflections" />
+          <Route element={<PublicCreatorProfile />} path="/creators/:creatorId" />
+          <Route element={<PublicUserProfile />} path="/users/:userId" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Profile /></ProtectedRoute>} path="/profile" />
           <Route element={<ProtectedRoute isAllowed={isRegistered}><CreatorApplication /></ProtectedRoute>} path="/apply/creator" />
-          <Route element={<Settings />} path="/settings" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings /></ProtectedRoute>} path="/settings" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
@@ -118,7 +124,7 @@ function App() {
           <Route element={<RegistrationSuccess />} path="/registration-success" />
         </Route>
 
-        <Route element={<ProtectedRoute isAllowed={isCreatorIdentity} />}>
+        <Route element={<CreatorRoute />}>
           <Route element={<CreatorLayout />}>
             <Route element={<Navigate replace to="/creator/dashboard" />} path="/creator" />
             <Route element={<Dashboard />} path="/creator/dashboard" />
@@ -133,8 +139,9 @@ function App() {
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<CreatorFolders />} path="/creator/folders" />
             <Route element={<CreatorAnalytics />} path="/creator/analytics" />
-            <Route element={<Profile />} path="/creator/profile" />
-            <Route element={<Settings />} path="/creator/settings" />
+            <Route element={<CreatorProfile />} path="/creator/profile" />
+            <Route element={<CreatorProfileSettings />} path="/creator/profile/edit" />
+            <Route element={<Navigate replace to="/settings" />} path="/creator/settings" />
           </Route>
         </Route>
 
@@ -156,7 +163,7 @@ function App() {
         <Route element={<RhythmGame />} path="/game/:songId" />
         <Route element={<RhythmResults />} path="/game/:songId/results" />
         <Route element={<NotFound />} path="*" />
-      </Routes>
+      </Routes>}
     </BrowserRouter>
   )
 }

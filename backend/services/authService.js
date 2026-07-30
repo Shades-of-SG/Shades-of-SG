@@ -113,6 +113,7 @@ function creatorSuspensionMessage(user) {
 }
 
 function serializeUser(user) {
+    const profile = user.profile?.get ? user.profile.get({ plain: true }) : user.profile;
     return {
         createdAt: user.createdAt,
         email: user.email,
@@ -120,10 +121,19 @@ function serializeUser(user) {
         name: user.name,
         role: user.role,
         accountStatus: user.accountStatus,
+        userStatus: user.accountStatus,
         accountSuspensionReason: user.accountSuspensionReason,
         creatorAccessStatus: user.creatorAccessStatus || 'ACTIVE',
+        creatorStatus: user.creatorAccessStatus || 'ACTIVE',
         creatorSuspensionReason: user.creatorSuspensionReason,
         emailVerified: !user.emailVerificationRequired,
+        sharedProfile: profile ? {
+            avatarUrl: profile.avatarUrl || '', bio: profile.bio || '', displayName: profile.displayName,
+            fontSize: profile.fontSize, location: profile.location || '', preferredLanguage: profile.preferredLanguage || '',
+            profileVisibility: profile.profileVisibility, reducedMotion: profile.reducedMotion,
+            showBadges: profile.showBadges, showReflections: profile.showReflections,
+            showRhythmRanking: profile.showRhythmRanking, theme: profile.theme,
+        } : undefined,
     };
 }
 

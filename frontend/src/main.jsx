@@ -7,7 +7,7 @@ import { SessionProvider } from './context/SessionContext.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider resetOnPublicEntry>
+    <AuthProvider>
       <SessionProvider>
         <App />
       </SessionProvider>

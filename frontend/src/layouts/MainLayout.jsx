@@ -6,11 +6,12 @@ export default function MainLayout({ role = 'guest' }) {
   const { pathname } = useLocation()
   const isReflectionWall = pathname === '/reflections'
   const isSongsLibrary = pathname === '/songs'
+  const isAccountSettings = pathname === '/settings'
 
   return (
     <div className="app-shell public-shell">
       <Navbar role={role} />
-      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}${isSongsLibrary ? ' site-main--songs' : ''}`}>
+      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}${isSongsLibrary ? ' site-main--songs' : ''}${isAccountSettings ? ' site-main--account' : ''}`}>
         <Outlet />
       </main>
       <Footer />

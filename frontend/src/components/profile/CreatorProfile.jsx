@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   CalendarDays, CheckCircle2, Clock3, Disc3, FilePenLine, Globe2, Languages, MapPin,
   Music2, Pencil, Quote, Settings, Sparkles, UsersRound, WandSparkles,
@@ -8,10 +8,11 @@ import { useAuth } from '../../context/AuthContext'
 import { getBeatmapSummary } from '../../services/beatmapService'
 import { getModerationReflections } from '../../services/reflectionService'
 import { getCreatorDashboardSummary, getCreatorSongs } from '../../services/songService'
+import { getMyCreatorProfile } from '../../services/creatorProfileService'
 import ProfileSectionHeader from './ProfileSectionHeader'
 import { formatProfileDate } from './profileUtils'
+import CreatorSocialLinks from './CreatorSocialLinks'
 
-// TODO: Replace these fallbacks when persisted creator biography/profile fields are introduced.
 const CREATOR_PROFILE_FALLBACK = Object.freeze({
   about: 'This creator contributes original music that celebrates Singapore\'s National Day, shared identity, and community stories.',
   bio: 'Turning Singapore\'s stories, sounds, and memories into music for everyone to explore.',
@@ -61,8 +62,9 @@ function CreatorProfileHero({ profile }) {
         <div aria-label="Creative focus" className="creator-profile-tags">
           {profile.themes.map((theme) => <span key={theme}>{theme}</span>)}
         </div>
+        <CreatorSocialLinks displayName={profile.displayName} socialLinks={profile.socialLinks} />
       </div>
-      <Link className="creator-profile-button creator-profile-button--secondary creator-profile-hero__edit" to="/creator/settings">
+      <Link className="creator-profile-button creator-profile-button--secondary creator-profile-hero__edit" to="/creator/profile/edit">
         <Pencil aria-hidden="true" /> Edit Profile
       </Link>
       <svg aria-hidden="true" className="creator-profile-skyline" viewBox="0 0 520 190">
@@ -269,36 +271,44 @@ function SectionError({ message, onRetry }) {
 
 export default function CreatorProfile() {
   const { token, user } = useAuth()
+  const location = useLocation()
   const [summary, setSummary] = useState(EMPTY_SUMMARY)
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
   const [beatmapsBySong, setBeatmapsBySong] = useState({})
+  const [savedProfile, setSavedProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [errors, setErrors] = useState({ activity: '', community: '', songs: '' })
 
   const profile = useMemo(() => ({
     ...CREATOR_PROFILE_FALLBACK,
-    avatarUrl: user?.avatarUrl || user?.avatar_url || '',
-    bio: user?.bio || CREATOR_PROFILE_FALLBACK.bio,
-    displayName: user?.name || CREATOR_PROFILE_FALLBACK.displayName,
-    languages: user?.languages?.length ? user.languages : CREATOR_PROFILE_FALLBACK.languages,
-    location: user?.location || CREATOR_PROFILE_FALLBACK.location,
-    creatorSince: user?.createdAt && !Number.isNaN(new Date(user.createdAt).getFullYear())
+    about: savedProfile ? savedProfile.bio : CREATOR_PROFILE_FALLBACK.about,
+    avatarUrl: savedProfile?.avatarUrl || '',
+    bio: savedProfile ? savedProfile.tagline : CREATOR_PROFILE_FALLBACK.bio,
+    displayName: savedProfile?.displayName || user?.name || CREATOR_PROFILE_FALLBACK.displayName,
+    languages: Array.isArray(savedProfile?.languages) ? savedProfile.languages : CREATOR_PROFILE_FALLBACK.languages,
+    location: savedProfile ? savedProfile.location : CREATOR_PROFILE_FALLBACK.location,
+    quote: savedProfile ? savedProfile.featuredQuote : CREATOR_PROFILE_FALLBACK.quote,
+    role: savedProfile ? savedProfile.creatorTitle : CREATOR_PROFILE_FALLBACK.role,
+    creatorSince: savedProfile?.creatorSince || (user?.createdAt && !Number.isNaN(new Date(user.createdAt).getFullYear())
       ? String(new Date(user.createdAt).getFullYear())
-      : CREATOR_PROFILE_FALLBACK.creatorSince,
-    themes: user?.themes?.length ? user.themes : CREATOR_PROFILE_FALLBACK.themes,
-  }), [user])
+      : CREATOR_PROFILE_FALLBACK.creatorSince),
+    socialLinks: savedProfile?.socialLinks || {},
+    themes: Array.isArray(savedProfile?.contentFocus) ? savedProfile.contentFocus : CREATOR_PROFILE_FALLBACK.themes,
+  }), [savedProfile, user])
 
   const load = useCallback(async () => {
     setLoading(true)
     setErrors({ activity: '', community: '', songs: '' })
-    const [songResult, summaryResult, reflectionResult] = await Promise.allSettled([
+    const [profileResult, songResult, summaryResult, reflectionResult] = await Promise.allSettled([
+      getMyCreatorProfile(token),
       getCreatorSongs(token),
       getCreatorDashboardSummary(token),
       getModerationReflections({ limit: 24, page: 1, status: 'APPROVED' }, token),
     ])
 
     const nextErrors = { activity: '', community: '', songs: '' }
+    if (profileResult.status === 'fulfilled' && profileResult.value) setSavedProfile(profileResult.value)
     if (songResult.status === 'fulfilled') {
       const nextSongs = songResult.value || []
       setSongs(nextSongs)
@@ -338,6 +348,7 @@ export default function CreatorProfile() {
 
   return (
     <div className="creator-profile">
+      {location.state?.profileSaved ? <div className="creator-profile-success" role="status">Your public profile was updated successfully.</div> : null}
       <CreatorProfileHero profile={profile} />
       <CreatorProfileStats counts={counts} loading={loading} />
       <CreatorSongCollection beatmapsBySong={beatmapsBySong} error={errors.songs} loading={loading} onRetry={load} profile={profile} songs={orderedSongs} />
@@ -348,7 +359,7 @@ export default function CreatorProfile() {
       <CreatorFeaturedQuote profile={profile} />
       <CreatorActivity error={errors.activity} jobs={summary.generationJobs || []} loading={loading} onRetry={load} />
       <section className="creator-profile-account">
-        <div><Settings aria-hidden="true" /><span><strong>Account &amp; profile settings</strong><small>Update {profile.displayName}'s account preferences and profile details.</small></span></div>
+        <div><Settings aria-hidden="true" /><span><strong>Account settings</strong><small>Manage password, security, notifications, and account preferences separately.</small></span></div>
         <Link className="creator-profile-button creator-profile-button--secondary" to="/creator/settings">Open Settings</Link>
       </section>
     </div>

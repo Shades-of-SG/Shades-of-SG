@@ -60,7 +60,9 @@ test('active registered users have normal access but not creator access', async 
 test('active creators have both normal-user and creator access', async () => {
     const me = await request(app).get('/api/auth/me').set(authorization(creator));
     expect(me.status).toBe(200);
-    expect(me.body.user).toMatchObject({ accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', role: 'CREATOR' });
+    expect(me.body.user).toMatchObject({
+        accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', creatorStatus: 'ACTIVE', role: 'CREATOR', userStatus: 'ACTIVE',
+    });
     expect((await request(app).get(`/api/badges/${creator.id}`).set(authorization(creator))).status).toBe(200);
     expect((await request(app).get('/api/scores/mine').set(authorization(creator))).status).toBe(200);
     expect((await request(app).get('/api/songs/creator').set(authorization(creator))).status).toBe(200);

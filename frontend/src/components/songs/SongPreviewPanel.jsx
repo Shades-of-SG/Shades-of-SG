@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Gamepad2, Music2, RefreshCw, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import CreatorNameLink from '../CreatorNameLink'
 
 function PreviewArtwork({ song }) {
   return song?.coverImageUrl ? (
@@ -75,7 +76,7 @@ export default function SongPreviewPanel({ loading, mobileOpen, onClose, onPause
 
         <div aria-live="polite" className="song-preview-panel__content">
           <h3>{song.title}</h3>
-          <p className="song-preview-panel__artist">{song.artist || 'Artist unavailable'}</p>
+          <CreatorNameLink className="song-preview-panel__artist" song={song} />
           {tags.length > 0 ? <div aria-label="Song details" className="song-preview-panel__tags">{tags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
           {song.description ? <p className="song-preview-panel__description">{song.description}</p> : null}
           <div className="song-preview-panel__actions">
