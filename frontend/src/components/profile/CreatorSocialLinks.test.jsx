@@ -18,13 +18,13 @@ describe('CreatorSocialLinks', () => {
   })
 
   it('renders all four supported links and filters blank, placeholder, and unsafe values', () => {
-    const { rerender } = render(<CreatorSocialLinks displayName="Violet" socialLinks={{
-      instagram: 'https://instagram.com/violet', tiktok: 'https://tiktok.com/@violet',
-      website: 'https://violet.example', youtube: 'https://youtube.com/@violet',
+    const { rerender } = render(<CreatorSocialLinks displayName="Rose" socialLinks={{
+      instagram: 'https://instagram.com/Rose', tiktok: 'https://tiktok.com/@Rose',
+      website: 'https://Rose.example', youtube: 'https://youtube.com/@Rose',
     }} />)
     expect(screen.getAllByRole('link')).toHaveLength(4)
 
-    rerender(<CreatorSocialLinks displayName="Violet" socialLinks={{ instagram: 'javascript:alert(1)', website: 'https://', youtube: '   ' }} />)
+    rerender(<CreatorSocialLinks displayName="Rose" socialLinks={{ instagram: 'javascript:alert(1)', website: 'https://', youtube: '   ' }} />)
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 })

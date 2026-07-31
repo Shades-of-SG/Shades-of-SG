@@ -22,7 +22,7 @@ beforeAll(async () => {
     creator = await User.create({ email: 'creator@example.com', name: 'Account Name', passwordHash: hashPassword('password123'), role: 'CREATOR' });
     privateCreator = await User.create({ email: 'private@example.com', name: 'Private Creator', passwordHash: hashPassword('password123'), role: 'CREATOR' });
     registered = await User.create({ email: 'listener@example.com', name: 'Listener', passwordHash: hashPassword('password123'), role: 'REGISTERED' });
-    await UserProfile.create({ displayName: 'Violet', userId: creator.id });
+    await UserProfile.create({ displayName: 'Rose', userId: creator.id });
     await UserProfile.create({ displayName: 'Hidden', userId: privateCreator.id });
     await CreatorProfile.create({
         bio: 'Public biography', contentFocus: ['Heritage'],
@@ -30,8 +30,8 @@ beforeAll(async () => {
     });
     await CreatorProfile.create({ socialLinks: { website: 'https://private.example' }, userId: privateCreator.id, visibility: 'PRIVATE' });
 
-    const published = await Song.create({ artist: 'Violet', creatorId: creator.id, status: 'PUBLISHED', title: 'Public Song' });
-    await Song.create({ artist: 'Violet', creatorId: creator.id, status: 'DRAFT', title: 'Secret Draft' });
+    const published = await Song.create({ artist: 'Rose', creatorId: creator.id, status: 'PUBLISHED', title: 'Public Song' });
+    await Song.create({ artist: 'Rose', creatorId: creator.id, status: 'DRAFT', title: 'Secret Draft' });
     await Song.create({ artist: 'Hidden', creatorId: privateCreator.id, status: 'PUBLISHED', title: 'Other Song' });
     const folder = await Folder.create({ createdBy: creator.id, name: 'Public Collection', slug: 'public-collection', status: 'APPROVED' });
     await SongFolder.create({ addedBy: creator.id, folderId: folder.id, songId: published.id });
@@ -48,7 +48,7 @@ test('public creator profile returns only public-safe, published creator data', 
     const response = await request(app).get(`/api/creators/${creator.id}/profile`);
 
     expect(response.status).toBe(200);
-    expect(response.body.profile).toMatchObject({ creatorId: creator.id, displayName: 'Violet' });
+    expect(response.body.profile).toMatchObject({ creatorId: creator.id, displayName: 'Rose' });
     expect(response.body.songs.map((song) => song.title)).toEqual(['Public Song']);
     expect(response.body.collections).toHaveLength(1);
     expect(response.body.collections[0].songs.map((song) => song.title)).toEqual(['Public Song']);
@@ -77,14 +77,14 @@ test('creator can update only their own editable profile fields', async () => {
         .patch('/api/creators/me/profile')
         .set(authorization(creator))
         .send({
-            displayName: 'Updated Violet', languages: ['English', 'Malay'],
+            displayName: 'Updated Rose', languages: ['English', 'Malay'],
             showCommunityReflections: false, socialLinks: { website: 'https://example.com' },
             tagline: 'A new public introduction.', visibility: 'PUBLIC',
         });
 
     expect(response.status).toBe(200);
-    expect(response.body.profile).toMatchObject({ displayName: 'Updated Violet', showCommunityReflections: false });
-    expect((await UserProfile.findByPk(creator.id)).displayName).toBe('Updated Violet');
+    expect(response.body.profile).toMatchObject({ displayName: 'Updated Rose', showCommunityReflections: false });
+    expect((await UserProfile.findByPk(creator.id)).displayName).toBe('Updated Rose');
     expect((await UserProfile.findByPk(privateCreator.id)).displayName).toBe('Hidden');
     const publicResponse = await request(app).get(`/api/creators/${creator.id}/profile`);
     expect(publicResponse.body.reflections).toEqual([]);
@@ -105,16 +105,16 @@ test('social links are trimmed, placeholders are omitted, and public-safe links 
         .patch('/api/creators/me/profile')
         .set(authorization(creator))
         .send({ socialLinks: {
-            instagram: '  https://instagram.com/violet  ',
+            instagram: '  https://instagram.com/Rose  ',
             tiktok: 'http://',
             website: 'https://',
-            youtube: 'https://youtube.com/@violet',
+            youtube: 'https://youtube.com/@Rose',
         } });
 
     expect(response.status).toBe(200);
     expect(response.body.profile.socialLinks).toEqual({
-        instagram: 'https://instagram.com/violet',
-        youtube: 'https://youtube.com/@violet',
+        instagram: 'https://instagram.com/Rose',
+        youtube: 'https://youtube.com/@Rose',
     });
     const publicResponse = await request(app).get(`/api/creators/${creator.id}/profile`);
     expect(publicResponse.body.profile.socialLinks).toEqual(response.body.profile.socialLinks);

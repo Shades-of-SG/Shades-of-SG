@@ -11,7 +11,15 @@ export default function MainLayout({ role = 'guest' }) {
   return (
     <div className="app-shell public-shell">
       <Navbar role={role} />
-      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}${isSongsLibrary ? ' site-main--songs' : ''}${isAccountSettings ? ' site-main--account' : ''}`}>
+      <main
+        className={`site-main${
+          isReflectionWall ? ' site-main--wide' : ''
+        }${
+          isSongsLibrary ? ' site-main--songs' : ''
+        }${
+          isAccountSettings ? ' site-main--account' : ''
+        }`}
+      >
         <Outlet />
       </main>
       <Footer />

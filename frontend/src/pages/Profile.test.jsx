@@ -18,7 +18,7 @@ describe('creator Profile', () => {
 
   function renderCreatorProfile({ beatmaps = {}, failures = {}, profile = null, reflections = [], songs = [], summary = {} } = {}) {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/profile')
     vi.stubGlobal('fetch', vi.fn((url) => {
       const path = String(url)
@@ -49,10 +49,10 @@ describe('creator Profile', () => {
     title: 'Market Morning', updatedAt: '2026-07-08',
   }
 
-  it('renders Violet creator information and profile actions', async () => {
+  it('renders Rose creator information and profile actions', async () => {
     renderCreatorProfile()
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Violet' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Rose' })).toBeInTheDocument()
     expect(screen.getByText('Creator & Storyteller')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Verified creator' })).toBeInTheDocument()
     expect(screen.getByText('Singapore-based artist')).toBeInTheDocument()
@@ -65,14 +65,14 @@ describe('creator Profile', () => {
 
   it('shows only saved social links in the private profile hero', async () => {
     renderCreatorProfile({ profile: {
-      bio: 'About Violet', contentFocus: ['Heritage'], creatorSince: '2025', creatorTitle: 'Creator & Storyteller',
-      displayName: 'Violet', featuredQuote: 'Stories become songs.', languages: ['English'], location: 'Singapore',
-      socialLinks: { instagram: 'https://instagram.com/violet' }, tagline: 'Songs inspired by home.',
+      bio: 'About Rose', contentFocus: ['Heritage'], creatorSince: '2025', creatorTitle: 'Creator & Storyteller',
+      displayName: 'Rose', featuredQuote: 'Stories become songs.', languages: ['English'], location: 'Singapore',
+      socialLinks: { instagram: 'https://instagram.com/Rose' }, tagline: 'Songs inspired by home.',
     } })
 
-    const instagram = await screen.findByRole('link', { name: "Visit Violet's Instagram" })
+    const instagram = await screen.findByRole('link', { name: "Visit Rose's Instagram" })
     expect(instagram.closest('.creator-profile-hero')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: "Visit Violet's Website" })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: "Visit Rose's Website" })).not.toBeInTheDocument()
   })
 
   it('calculates published, draft, ready, and total counts from creator songs', async () => {
@@ -104,7 +104,7 @@ describe('creator Profile', () => {
     expect(screen.getByRole('link', { name: 'Create a song' })).toHaveAttribute('href', '/creator/studio/new')
   })
 
-  it('shows approved reflections associated with Violet songs', async () => {
+  it('shows approved reflections associated with Rose songs', async () => {
     renderCreatorProfile({
       reflections: [{ content: 'This brought back Sunday mornings with my grandmother.', createdAt: '2026-07-09', displayName: 'Mei', id: 'reflection-1', isAnonymous: false, song: { id: 'published-1', title: 'Orchid Skies' }, songId: 'published-1', status: 'APPROVED' }],
       songs: [publishedSong],
@@ -139,7 +139,7 @@ describe('creator Profile', () => {
 
     expect(await screen.findByText('Unable to load creator songs.')).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Retry' })).not.toHaveLength(0)
-    expect(screen.getByRole('heading', { name: 'About Violet' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'About Rose' })).toBeInTheDocument()
   })
 
   it('redirects guests away from the creator profile route', async () => {
@@ -148,6 +148,6 @@ describe('creator Profile', () => {
     render(<AuthProvider><App /></AuthProvider>)
 
     await waitFor(() => expect(window.location.pathname).toBe('/login'))
-    expect(screen.queryByRole('heading', { name: 'Violet' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Rose' })).not.toBeInTheDocument()
   })
 })

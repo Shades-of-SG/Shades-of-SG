@@ -57,8 +57,8 @@ beforeAll(async () => {
         passwordHash: hashPassword('password123'),
     });
     creator = await User.create({
-        email: 'violet@example.com',
-        name: 'Violet',
+        email: 'Rose@example.com',
+        name: 'Rose',
         passwordHash: hashPassword('password123'),
         role: 'CREATOR',
     });
@@ -271,7 +271,7 @@ test('creator can approve a guest reflection, save a moderator note, and make it
         status: 'APPROVED',
         moderatorNote: 'Suitable for the wall.',
         moderatedBy: creator.id,
-        moderator: { id: creator.id, name: 'Violet' },
+        moderator: { id: creator.id, name: 'Rose' },
     });
     expect(approved.body.reflection.moderatedAt).toBeTruthy();
 

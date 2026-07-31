@@ -29,12 +29,12 @@ describe('App', () => {
   it('preserves an authenticated creator in User Mode across a direct root refresh', () => {
     localStorage.setItem('activeMode', 'user')
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
 
     render(<AuthProvider><App /></AuthProvider>)
 
     expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /open user menu for violet/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open user menu for Rose/i })).toBeInTheDocument()
     expect(localStorage.getItem('authToken')).toBe('creator-token')
     expect(localStorage.getItem('activeMode')).toBe('user')
   })
@@ -43,7 +43,7 @@ describe('App', () => {
     localStorage.setItem('activeMode', 'creator')
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
-      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
     window.history.pushState({}, '', '/creator/dashboard')
     vi.stubGlobal('fetch', vi.fn(async () => ({
@@ -55,13 +55,13 @@ describe('App', () => {
     render(<AuthProvider><App /></AuthProvider>)
 
     expect(await screen.findByText('Creator Mode')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /open creator menu for violet.*creator mode/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open creator menu for Rose.*creator mode/i }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to User Mode' }))
 
     await waitFor(() => expect(window.location.pathname).toBe('/'))
     expect(localStorage.getItem('activeMode')).toBe('user')
     expect(JSON.parse(localStorage.getItem('authUser')).role).toBe('CREATOR')
-    expect(screen.getByRole('button', { name: /open user menu for violet/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open user menu for Rose/i })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Creator navigation' })).not.toBeInTheDocument()
   })
 
@@ -69,7 +69,7 @@ describe('App', () => {
     localStorage.setItem('activeMode', 'user')
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
-      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
     vi.stubGlobal('fetch', vi.fn(async () => ({
       json: async () => ({ counts: {}, generationJobs: [], recentSongs: [] }),
@@ -79,7 +79,7 @@ describe('App', () => {
 
     render(<AuthProvider><App /></AuthProvider>)
 
-    fireEvent.click(screen.getByRole('button', { name: /open user menu for violet/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open user menu for Rose/i }))
     expect(screen.getByText('User Mode')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to Creator Mode' }))
 
@@ -94,12 +94,12 @@ describe('App', () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
       accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED', creatorSuspensionReason: 'Programme review pending.',
-      id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
 
     render(<AuthProvider><App /></AuthProvider>)
 
-    fireEvent.click(screen.getByRole('button', { name: /open user menu for violet/i }))
+    fireEvent.click(screen.getByRole('button', { name: /open user menu for Rose/i }))
     expect(screen.queryByRole('menuitem', { name: 'Switch to Creator Mode' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('status').some((status) => /creator access has been suspended/i.test(status.textContent))).toBe(true)
     expect(screen.getAllByRole('status').some((status) => status.textContent.includes('Programme review pending.'))).toBe(true)
@@ -110,7 +110,7 @@ describe('App', () => {
     localStorage.setItem('activeMode', 'user')
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
-      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
     window.history.pushState({}, '', '/creator/dashboard')
 
@@ -141,7 +141,7 @@ describe('App', () => {
 
   it('allows an authenticated creator to open reflection moderation', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/reflections')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
       json: async () => String(url).includes('/moderation')
@@ -165,7 +165,7 @@ describe('App', () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
       accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED',
-      creatorSuspensionReason: 'Programme review pending.', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      creatorSuspensionReason: 'Programme review pending.', id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
     window.history.pushState({}, '', '/creator/dashboard')
 
@@ -182,7 +182,7 @@ describe('App', () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
       accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED',
-      id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
     window.history.pushState({}, '', '/profile')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
@@ -202,7 +202,7 @@ describe('App', () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
       accountStatus: 'SUSPENDED', accountSuspensionReason: 'Account safety review.',
-      creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Violet', role: 'CREATOR',
+      creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
     }))
     window.history.pushState({}, '', '/creator/dashboard')
 
@@ -215,13 +215,13 @@ describe('App', () => {
 
   it('sends the creator token when loading generation progress', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/generation/job-123')
     const fetchMock = vi.fn(async () => ({
       json: async () => ({
         data: {
           id: 'job-123',
-          song: { artist: 'Violet', sceneSegments: [], title: 'Generation Test' },
+          song: { artist: 'Rose', sceneSegments: [], title: 'Generation Test' },
           status: 'COMPLETED',
         },
         success: true,
@@ -243,7 +243,7 @@ describe('App', () => {
 
   it('loads an existing creator draft into Studio by song id', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-123')
     const savedAt = new Date('2026-07-20T14:34:00.000Z')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
@@ -274,10 +274,10 @@ describe('App', () => {
 
   it('shows publishing tasks only after Publish is attempted and uses friendly video choices', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-456')
     const savedSong = {
-      artist: 'Violet', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/cover.jpg',
+      artist: 'Rose', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/cover.jpg',
       description: 'Description', durationSecs: 120, id: 'song-456', languages: ['English'], moodTags: [],
       otherLanguages: [], rawLyrics: 'Lyrics', status: 'DRAFT', theme: 'Community', title: 'Modal Song', updatedAt: new Date().toISOString(),
     }
@@ -304,10 +304,10 @@ describe('App', () => {
 
   it('publishes with a saved MP4 song-media upload without asking for another video', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-mp4')
     const savedSong = {
-      artist: 'Violet', audioFileName: 'finished-song.mp4', audioUrl: 'https://media.example/finished-song.mp4',
+      artist: 'Rose', audioFileName: 'finished-song.mp4', audioUrl: 'https://media.example/finished-song.mp4',
       coverImageUrl: 'https://media.example/cover.jpg', description: 'Description', durationSecs: 120,
       id: 'song-mp4', languages: ['English'], moodTags: [], otherLanguages: [], rawLyrics: 'Lyrics',
       status: 'GENERATING', theme: 'Community', title: 'Uploaded Video Song', updatedAt: new Date().toISOString(),
@@ -335,10 +335,10 @@ describe('App', () => {
 
   it('uploads the MP4 selected in the publish prompt and publishes immediately', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-upload-final')
     const draft = {
-      artist: 'Violet', audioUrl: 'https://media.example/source.mp3', coverImageUrl: 'https://media.example/cover.jpg',
+      artist: 'Rose', audioUrl: 'https://media.example/source.mp3', coverImageUrl: 'https://media.example/cover.jpg',
       description: 'Description', durationSecs: 120, id: 'song-upload-final', languages: ['English'], moodTags: [],
       otherLanguages: [], rawLyrics: 'Lyrics', status: 'DRAFT', theme: 'Community', title: 'Final Upload Song',
       updatedAt: new Date().toISOString(),
@@ -369,7 +369,7 @@ describe('App', () => {
 
   it('shows save errors only after Save Draft and dismisses them after five seconds', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/new')
     vi.useFakeTimers()
     render(<AuthProvider><App /></AuthProvider>)
@@ -386,7 +386,7 @@ describe('App', () => {
 
   it('creates metadata first and uploads a new MP4 through the video endpoint', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/new')
     const draft = { id: 'mp4-draft', status: 'DRAFT', title: 'MP4 Draft', updatedAt: new Date().toISOString() }
     const ready = { ...draft, status: 'READY', videoUrl: 'https://media.example/uploaded.mp4' }
@@ -419,7 +419,7 @@ describe('App', () => {
 
   it('renders creator-scoped My Songs data instead of mock songs', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/songs')
     vi.stubGlobal('fetch', vi.fn(async () => ({
       json: async () => ({ songs: [{
@@ -444,7 +444,7 @@ describe('App', () => {
 
   it('uses the archive icon as an archive and unarchive toggle', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/songs')
     let status = 'ARCHIVED'
     vi.stubGlobal('fetch', vi.fn(async (url) => {
@@ -472,7 +472,7 @@ describe('App', () => {
 
   it('renders real dashboard summary counts without fake play totals', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/dashboard')
     vi.stubGlobal('fetch', vi.fn(async () => ({
       json: async () => ({

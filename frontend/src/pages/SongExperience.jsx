@@ -299,18 +299,18 @@ export default function SongExperience() {
                       gap: '8px',
                       padding: '20px 12px',
                       borderRadius: '10px',
-                      border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
+                      border: isInstPlaying ? '1px solid var(--Rose)' : '1px solid var(--line)',
                       background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
                       cursor: 'pointer',
                       transition: 'all 150ms',
-                      color: isInstPlaying ? 'var(--violet)' : 'var(--text)',
+                      color: isInstPlaying ? 'var(--Rose)' : 'var(--text)',
                       fontSize: '0.85rem',
                     }}
                     onMouseOver={(e) => { if (!isInstPlaying) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)' }}
                     onMouseOut={(e) => { if (!isInstPlaying) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)' }}
                   >
                     {/* Play icon top-right */}
-                    <span style={{ position: 'absolute', top: '8px', right: '8px', color: isInstPlaying ? 'var(--violet)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', top: '8px', right: '8px', color: isInstPlaying ? 'var(--Rose)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                       {isInstPlaying ? <Square size={16} fill="currentColor" /> : <PlayCircle size={16} />}
                     </span>
                     {iconImage ? (
@@ -353,7 +353,7 @@ export default function SongExperience() {
               </div>
             ) : (
               <>
-                <p style={{ margin: 0, color: 'var(--violet)', fontSize: '0.75rem', fontWeight: 600 }}>
+                <p style={{ margin: 0, color: 'var(--Rose)', fontSize: '0.75rem', fontWeight: 600 }}>
                   Knowledge Check ({questionIndex + 1}/{songData.trivia.length})
                 </p>
                 <h3 style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
@@ -420,7 +420,7 @@ export default function SongExperience() {
           justifyContent: 'center',
           padding: '20px',
           borderRadius: '12px',
-          background: 'linear-gradient(135deg, var(--primary), var(--violet))',
+          background: 'linear-gradient(135deg, var(--primary), var(--Rose))',
           textDecoration: 'none',
           color: '#fff',
           fontWeight: 600,

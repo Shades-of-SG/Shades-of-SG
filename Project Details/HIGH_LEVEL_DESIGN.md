@@ -26,7 +26,7 @@ Shades of SG follows a **Modular Monolith** architecture with a strict client-se
 │                                                                 │
 │   ┌─────────────────────┐    ┌──────────────────────────────┐  │
 │   │  Creator Dashboard  │    │     Public Experience        │  │
-│   │  (Violet Portal)    │    │     (Trojan Horse App)       │  │
+│   │  (Rose Portal)    │    │     (Trojan Horse App)       │  │
 │   └─────────┬───────────┘    └────────────┬─────────────────┘  │
 │             │  React + Vite (SPA)          │                    │
 └─────────────┼──────────────────────────────┼────────────────────┘
@@ -467,7 +467,7 @@ Shades-of-SG/
         │
         └── pages/                   # Route-level page views (PascalCase)
             ├── Login.jsx            # Creator login
-            ├── Dashboard.jsx        # Creator dashboard (Violet)
+            ├── Dashboard.jsx        # Creator dashboard (Rose)
             ├── Studio.jsx           # AI video generation studio
             ├── EducatorView.jsx     # Educator/admin analytics view
             ├── MemoryWall.jsx       # Public Reflection Wall

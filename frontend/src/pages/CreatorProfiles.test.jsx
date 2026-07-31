@@ -20,8 +20,8 @@ describe('public creator profile', () => {
       isOwner: false,
       profile: {
         avatarUrl: '', bio: 'A public biography.', contentFocus: ['Heritage'], creatorId: 'creator-1', creatorSince: '2025',
-        creatorTitle: 'Creator & Storyteller', displayName: 'Violet', featuredQuote: 'Stories become songs.',
-        languages: ['English'], location: 'Singapore', socialLinks: { instagram: 'https://instagram.com/violet' }, tagline: 'Songs inspired by home.',
+        creatorTitle: 'Creator & Storyteller', displayName: 'Rose', featuredQuote: 'Stories become songs.',
+        languages: ['English'], location: 'Singapore', socialLinks: { instagram: 'https://instagram.com/Rose' }, tagline: 'Songs inspired by home.',
       },
       reflections: [{ content: 'A lovely memory.', createdAt: '2026-07-01', displayName: 'Mei', id: 'reflection-1', isAnonymous: false, song: { title: 'Orchid Skies' } }],
       songs: [{ id: 'song-1', languages: ['English'], publishedDate: '2026-07-02', theme: 'Heritage', title: 'Orchid Skies' }],
@@ -30,12 +30,12 @@ describe('public creator profile', () => {
 
     render(<AuthProvider><App /></AuthProvider>)
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'Violet' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Rose' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Orchid Skies' })).toBeInTheDocument()
     expect(screen.getByText('Home Stories')).toBeInTheDocument()
     expect(screen.getByText('A lovely memory.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: "Visit Violet's Instagram" })).toHaveAttribute('target', '_blank')
-    expect(screen.queryByRole('link', { name: "Visit Violet's Website" })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Visit Rose's Instagram" })).toHaveAttribute('target', '_blank')
+    expect(screen.queryByRole('link', { name: "Visit Rose's Website" })).not.toBeInTheDocument()
     expect(screen.queryByText('Studio Activity')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Continue Editing' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Edit Profile' })).not.toBeInTheDocument()
@@ -54,14 +54,14 @@ describe('creator profile settings', () => {
   beforeEach(() => {
     localStorage.clear()
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Account Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Account Rose', role: 'CREATOR' }))
   })
   afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
   it('loads persisted defaults and saves public profile fields separately from account fields', async () => {
     const profile = {
       avatarUrl: '', bio: 'Original bio', contentFocus: ['Heritage'], creatorId: 'creator-1', creatorSince: '2025',
-      creatorTitle: 'Creator', displayName: 'Violet', featuredQuote: 'Original quote', languages: ['English'],
+      creatorTitle: 'Creator', displayName: 'Rose', featuredQuote: 'Original quote', languages: ['English'],
       location: 'Singapore', showCommunityReflections: true, socialLinks: {}, tagline: 'Original tagline', visibility: 'PUBLIC',
     }
     const fetchMock = vi.fn((url, options = {}) => {
@@ -87,7 +87,7 @@ describe('creator profile settings', () => {
 
   it('validates social URLs before sending an update', async () => {
     const profile = { ...Object.fromEntries(['avatarUrl', 'bio', 'creatorTitle', 'displayName', 'featuredQuote', 'location', 'tagline'].map((key) => [key, ''])), contentFocus: [], languages: [], showCommunityReflections: true, socialLinks: {}, visibility: 'PUBLIC' }
-    profile.displayName = 'Violet'
+    profile.displayName = 'Rose'
     const fetchMock = vi.fn(() => response({ profile }))
     vi.stubGlobal('fetch', fetchMock)
     render(<AuthProvider><MemoryRouter><CreatorProfileSettings /></MemoryRouter></AuthProvider>)
@@ -100,12 +100,12 @@ describe('creator profile settings', () => {
   })
 
   it('treats bare protocol placeholders and removed links as empty values', async () => {
-    const profile = { avatarUrl: '', bio: '', contentFocus: [], creatorTitle: '', displayName: 'Violet', featuredQuote: '', languages: [], location: '', showCommunityReflections: true, socialLinks: { instagram: 'https://instagram.com/violet' }, tagline: '', visibility: 'PUBLIC' }
+    const profile = { avatarUrl: '', bio: '', contentFocus: [], creatorTitle: '', displayName: 'Rose', featuredQuote: '', languages: [], location: '', showCommunityReflections: true, socialLinks: { instagram: 'https://instagram.com/Rose' }, tagline: '', visibility: 'PUBLIC' }
     const fetchMock = vi.fn((url, options = {}) => options.method === 'PATCH' ? response({ profile: { ...profile, socialLinks: {} } }) : response({ profile }))
     vi.stubGlobal('fetch', fetchMock)
     render(<AuthProvider><MemoryRouter initialEntries={['/creator/profile/edit']}><Routes><Route element={<CreatorProfileSettings />} path="/creator/profile/edit" /><Route element={<p>Saved</p>} path="/creator/profile" /></Routes></MemoryRouter></AuthProvider>)
 
-    await screen.findByDisplayValue('https://instagram.com/violet')
+    await screen.findByDisplayValue('https://instagram.com/Rose')
     fireEvent.change(screen.getByLabelText('Instagram'), { target: { value: '   ' } })
     fireEvent.change(screen.getByLabelText('Website'), { target: { value: 'https://' } })
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()

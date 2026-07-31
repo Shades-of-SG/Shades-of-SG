@@ -97,7 +97,7 @@ describe('authentication onboarding pages', () => {
       const path = String(url)
       if (path.endsWith('/auth/config')) return response({ googleAuthEnabled: true, googleClientId: 'google-client', appleAuthEnabled: false })
       if (path.endsWith('/auth/oauth/challenge')) return response({ nonce: 'signed-nonce', state: 'signed-state' })
-      if (path.endsWith('/auth/oauth/google')) return response({ token: 'creator-token', user: { email: 'violet@gmail.com', id: 'creator-1', role: 'CREATOR' } })
+      if (path.endsWith('/auth/oauth/google')) return response({ token: 'creator-token', user: { email: 'Rose@gmail.com', id: 'creator-1', role: 'CREATOR' } })
       throw new Error(`Unexpected request: ${path}`)
     })
     renderLogin(fetchMock)
@@ -118,7 +118,7 @@ describe('authentication onboarding pages', () => {
       init: vi.fn(),
       signIn: vi.fn().mockResolvedValue({
         authorization: { code: 'apple-code', state: 'signed-state' },
-        user: { name: { firstName: 'Violet', lastName: 'Tay' } },
+        user: { name: { firstName: 'Rose', lastName: 'Tay' } },
       }),
     } }
     const fetchMock = vi.fn((url) => {
@@ -128,7 +128,7 @@ describe('authentication onboarding pages', () => {
         appleRedirectUri: 'https://example.com/login', googleAuthEnabled: false,
       })
       if (path.endsWith('/auth/oauth/challenge')) return response({ nonce: 'signed-nonce', state: 'signed-state' })
-      if (path.endsWith('/auth/oauth/apple')) return response({ token: 'creator-token', user: { email: 'violet@example.com', id: 'creator-1', role: 'CREATOR' } })
+      if (path.endsWith('/auth/oauth/apple')) return response({ token: 'creator-token', user: { email: 'Rose@example.com', id: 'creator-1', role: 'CREATOR' } })
       throw new Error(`Unexpected request: ${path}`)
     })
     renderLogin(fetchMock)

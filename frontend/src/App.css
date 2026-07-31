@@ -3502,7 +3502,7 @@ h1 {
 }
 
 .difficulty-control button.active {
-  background: var(--violet);
+  background: var(--Rose);
   color: #ffffff;
 }
 
@@ -4198,19 +4198,24 @@ h1 {
   .creator-access-suspended__actions { display: grid; width: 100%; }
 }
 
-.site-main,
-.creator-main {
-  margin: 0 auto;
-  max-width: 1180px;
+.site-main {
+  margin: 0;
+  max-width: none;
+  min-width: 0;
   width: 100%;
 }
 
-.site-main--wide {
+.creator-main {
+  margin: 0;
   max-width: none;
+  min-width: 0;
+  width: 100%;
 }
 
-.site-main--songs {
-  max-width: 1280px;
+.site-main--wide,
+.site-main--songs,
+.site-main--account {
+  max-width: none;
 }
 
 .site-main--account { max-width: none; }
@@ -5905,6 +5910,7 @@ textarea {
   display: grid;
   grid-template-columns: 184px minmax(0, 1fr);
   min-height: 100svh;
+  width: 100%;
 }
 
 .creator-sidebar {
@@ -6128,6 +6134,7 @@ textarea {
 
 .creator-workspace {
   min-width: 0;
+  width: 100%;
 }
 
 .creator-main {
@@ -7157,7 +7164,7 @@ textarea {
   background: linear-gradient(145deg, rgba(120, 53, 15, 0.94), rgba(30, 41, 59, 0.94));
 }
 
-.padlet-card-violet {
+.padlet-card-Rose {
   background: linear-gradient(145deg, rgba(76, 29, 149, 0.94), rgba(30, 41, 59, 0.94));
 }
 
