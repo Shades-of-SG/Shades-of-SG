@@ -82,6 +82,11 @@ const Song = sequelize.define('Song', {
         allowNull: true,
         field: 'published_date',
     },
+    bookmark: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+    },
 }, {
     tableName: 'songs',
     underscored: true,

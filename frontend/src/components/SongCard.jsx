@@ -9,9 +9,9 @@ export default function SongCard({ song }) {
       <div>
         {song.theme && <p className="eyebrow">{song.theme}</p>}
         <h3>{song.title}</h3>
-        {song.artist && <p>{song.artist}</p>}
-        {song.description && <p>{song.description}</p>}
-        {song.languages?.length > 0 && <p>{song.languages.join(', ')}</p>}
+        <p><strong>Artist:</strong> {song.artist || 'Unknown'}</p>
+        <p className="song-card-description"><strong>Description:</strong> {song.description || 'No description available.'}</p>
+        <p><strong>Language(s):</strong> {song.languages?.length > 0 ? song.languages.join(', ') : 'Not specified'}</p>
       </div>
       <Link to={`/songs/${song.id}`}>Explore Song</Link>
     </article>

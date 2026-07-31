@@ -25,6 +25,47 @@ router.get('/mine', requireAuth, async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
+const RANK_ORDER = { S: 4, A: 3, B: 2, C: 1 };
+
+router.get('/best', requireAuth, async (req, res, next) => {
+    try {
+        const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required.' });
+
+        const rows = await GameScore.findAll({
+            where: { userId: user.id },
+            attributes: ['id', 'songId', 'score', 'accuracy', 'maxCombo', 'rank', 'difficulty', 'createdAt'],
+            include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
+            order: [['createdAt', 'ASC'], ['id', 'ASC']],
+        });
+
+        if (rows.length === 0) return res.json({ best: null });
+
+        const pickBest = (isBetter) => rows.reduce((champion, row) => (
+            champion === null || isBetter(row, champion) ? row : champion
+        ), null);
+
+        const serialize = (row) => (row ? {
+            score: row.score,
+            accuracy: row.accuracy,
+            maxCombo: row.maxCombo,
+            rank: row.rank,
+            difficulty: row.difficulty,
+            songTitle: row.song?.title || 'Unknown song',
+        } : null);
+
+        const best = {
+            score: serialize(pickBest((row, champion) => row.score > champion.score)),
+            accuracy: serialize(pickBest((row, champion) => (row.accuracy ?? -1) > (champion.accuracy ?? -1))),
+            maxCombo: serialize(pickBest((row, champion) => row.maxCombo > champion.maxCombo)),
+            rank: serialize(pickBest((row, champion) => RANK_ORDER[row.rank] > RANK_ORDER[champion.rank])),
+        };
+
+        return res.json({ best });
+    } catch (error) { return next(error); }
+});
+
 function expectedRank(accuracy) {
     if (accuracy >= 95) return 'S';
     if (accuracy >= 85) return 'A';
