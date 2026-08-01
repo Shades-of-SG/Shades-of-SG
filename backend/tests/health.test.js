@@ -36,6 +36,26 @@ test('CORS rejects an unknown browser origin', async () => {
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
 });
 
+test('CORS preflight allows configured additional frontend origins', async () => {
+    const previous = process.env.FRONTEND_URLS;
+    process.env.FRONTEND_URLS = 'https://preview-one.vercel.app, https://preview-two.vercel.app/';
+
+    try {
+        const response = await request(app)
+            .options('/api/auth/register')
+            .set('Access-Control-Request-Headers', 'content-type')
+            .set('Access-Control-Request-Method', 'POST')
+            .set('Origin', 'https://preview-two.vercel.app');
+
+        expect(response.status).toBe(204);
+        expect(response.headers['access-control-allow-origin']).toBe('https://preview-two.vercel.app');
+        expect(response.headers['access-control-allow-methods']).toContain('POST');
+    } finally {
+        if (previous === undefined) delete process.env.FRONTEND_URLS;
+        else process.env.FRONTEND_URLS = previous;
+    }
+});
+
 test('production token creation requires a configured signing secret', () => {
     const previousNodeEnv = process.env.NODE_ENV;
     const previousAuthSecret = process.env.AUTH_TOKEN_SECRET;

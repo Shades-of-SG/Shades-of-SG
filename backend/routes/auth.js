@@ -1,10 +1,12 @@
+const crypto = require('crypto');
 const express = require('express');
+const { performance } = require('perf_hooks');
 const { Op, UniqueConstraintError } = require('sequelize');
 const { sequelize, User, UserProfile } = require('../models');
 const { requireAuth } = require('../middleware/auth');
 const { authRateKey, createRateLimit } = require('../middleware/rateLimit');
 const {
-    accountSuspensionMessage, createScopedToken, createToken, hashPassword, serializeUser,
+    accountSuspensionMessage, createScopedToken, createToken, hashPassword, hashPasswordAsync, serializeUser,
     verifyPassword, verifyScopedToken,
 } = require('../services/authService');
 const { consumeOtp, invalidateOtps, issueOtp, normalizeEmail } = require('../services/otpService');
@@ -25,6 +27,34 @@ function validPassword(password) {
 
 function validName(name) {
     return typeof name === 'string' && name.trim().length >= 2 && name.trim().length <= 255;
+}
+
+function createRegistrationTiming() {
+    const enabled = process.env.NODE_ENV !== 'test' || process.env.REGISTRATION_TIMING_LOGS === 'true';
+    const requestId = crypto.randomUUID();
+    const startedAt = performance.now();
+    let stageStartedAt = startedAt;
+
+    function write(stage, details = {}) {
+        const now = performance.now();
+        if (enabled) {
+            console.info('[Registration timing]', JSON.stringify({
+                durationMs: Math.round(now - stageStartedAt),
+                requestId,
+                stage,
+                totalMs: Math.round(now - startedAt),
+                ...details,
+            }));
+        }
+        stageStartedAt = now;
+    }
+
+    return { write };
+}
+
+function rejectRegistration(timing, res, statusCode, message, reason) {
+    timing.write('request_rejected', { reason, statusCode });
+    return res.status(statusCode).json({ message });
 }
 
 async function processOtp(values, onSuccess) {
@@ -67,17 +97,27 @@ router.post('/oauth/apple', oauthLimit, async (req, res, next) => {
 });
 
 router.post('/register', requestLimit, async (req, res, next) => {
+    const timing = createRegistrationTiming();
+    timing.write('request_received');
     try {
         const name = String(req.body.name || '').trim();
         const email = normalizeEmail(req.body.email);
         const password = req.body.password;
-        if (!validName(name)) return res.status(400).json({ message: 'Full name must be between 2 and 255 characters.' });
-        if (!EMAIL_PATTERN.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' });
-        if (!validPassword(password)) return res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
+        if (!validName(name)) return rejectRegistration(timing, res, 400, 'Full name must be between 2 and 255 characters.', 'invalid_name');
+        if (!EMAIL_PATTERN.test(email)) return rejectRegistration(timing, res, 400, 'Enter a valid email address.', 'invalid_email');
+        if (!validPassword(password)) return rejectRegistration(timing, res, 400, 'Password must be between 8 and 128 characters.', 'invalid_password');
         if (req.body.acceptTerms !== true || req.body.acceptPrivacy !== true) {
-            return res.status(400).json({ message: 'You must accept the Terms of Use and Privacy Policy.' });
+            return rejectRegistration(timing, res, 400, 'You must accept the Terms of Use and Privacy Policy.', 'agreements_missing');
         }
-        if (await User.findOne({ where: { email } })) return res.status(409).json({ message: 'An account with this email already exists.' });
+        timing.write('validation');
+        if (await User.findOne({ where: { email } })) {
+            timing.write('duplicate_lookup');
+            return rejectRegistration(timing, res, 409, 'An account with this email already exists.', 'duplicate_email');
+        }
+        timing.write('duplicate_lookup');
+
+        const passwordHash = await hashPasswordAsync(password);
+        timing.write('password_hash');
 
         let user;
         await sequelize.transaction(async (transaction) => {
@@ -85,18 +125,36 @@ router.post('/register', requestLimit, async (req, res, next) => {
                 email,
                 emailVerificationRequired: true,
                 name,
-                passwordHash: hashPassword(password),
+                passwordHash,
                 role: 'REGISTERED',
             }, { transaction });
-            await issueOtp({ email, name, purpose: 'REGISTRATION', requestIp: req.ip, transaction, userId: user.id });
+            timing.write('user_record_created');
+            await issueOtp({
+                email,
+                name,
+                onStage: (stage) => timing.write(stage),
+                purpose: 'REGISTRATION',
+                requestIp: req.ip,
+                transaction,
+                userId: user.id,
+            });
         });
+        timing.write('transaction_committed');
+        timing.write('response_sent', { statusCode: 201 });
         return res.status(201).json({
             email,
             message: 'Account created. Enter the six-digit code sent to your email.',
             resendCooldownSeconds: 60,
         });
     } catch (error) {
-        if (error instanceof UniqueConstraintError) return res.status(409).json({ message: 'An account with this email already exists.' });
+        if (error instanceof UniqueConstraintError) {
+            return rejectRegistration(timing, res, 409, 'An account with this email already exists.', 'duplicate_email_race');
+        }
+        timing.write('request_failed', {
+            errorCode: String(error.cause?.code || error.code || 'UNEXPECTED').slice(0, 64),
+            errorType: String(error.name || 'Error').slice(0, 64),
+            statusCode: error.statusCode || error.status || 500,
+        });
         return next(error);
     }
 });

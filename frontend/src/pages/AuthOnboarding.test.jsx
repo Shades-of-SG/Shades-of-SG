@@ -172,4 +172,49 @@ describe('authentication onboarding pages', () => {
     expect(values).not.toHaveProperty('role')
     expect(sessionStorage.getItem('pendingVerificationEmail')).toBe('mei@example.com')
   })
+
+  it('submits registration once while a request is in flight', async () => {
+    let resolveRequest
+    const fetchMock = vi.fn(() => new Promise((resolve) => { resolveRequest = resolve }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(
+      <MemoryRouter initialEntries={['/register']}>
+        <Routes>
+          <Route element={<Register />} path="/register" />
+          <Route element={<div>Verification destination</div>} path="/verify-email" />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Mei Lin' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mei-once@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
+    fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
+    const form = screen.getByRole('button', { name: 'Create account' }).closest('form')
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Creating account...' })).toBeDisabled()
+    resolveRequest(await response({ message: 'Verification code sent.' }, { status: 201 }))
+    expect(await screen.findByText('Verification destination')).toBeInTheDocument()
+  })
+
+  it('shows a temporary server message for 503 and always clears loading state', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => response({ message: 'Email delivery is temporarily unavailable.' }, { ok: false, status: 503 })))
+    render(<MemoryRouter><Register /></MemoryRouter>)
+
+    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Mei Lin' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mei-retry@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
+    fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('The account service is temporarily unavailable. Please wait a moment and try again.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled()
+  })
 })

@@ -22,6 +22,15 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
     return `pbkdf2$${HASH_ITERATIONS}$${salt}$${hash}`;
 }
 
+function hashPasswordAsync(password, salt = crypto.randomBytes(16).toString('hex')) {
+    return new Promise((resolve, reject) => {
+        crypto.pbkdf2(password, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, HASH_DIGEST, (error, derivedKey) => {
+            if (error) return reject(error);
+            return resolve(`pbkdf2$${HASH_ITERATIONS}$${salt}$${derivedKey.toString('hex')}`);
+        });
+    });
+}
+
 function verifyPassword(password, storedHash) {
     const [algorithm, iterations, salt, hash] = String(storedHash || '').split('$');
     const iterationCount = Number(iterations);
@@ -162,6 +171,7 @@ module.exports = {
     creatorSuspensionMessage,
     createScopedToken,
     hashPassword,
+    hashPasswordAsync,
     seedAdminAccount,
     serializeUser,
     verifyToken,

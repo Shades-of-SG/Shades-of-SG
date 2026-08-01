@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerAccount } from '../services/authApi'
@@ -9,28 +9,32 @@ export default function Register() {
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const submitInFlight = useRef(false)
   const update = (name, value) => setForm((current) => ({ ...current, [name]: value }))
 
   async function handleSubmit(event) {
     event.preventDefault(); setError('')
+    if (submitInFlight.current) return
     const email = form.email.trim().toLowerCase()
     if (form.password !== form.confirmPassword) return setError('Passwords do not match.')
     if (form.password.length < 8) return setError('Password must be at least 8 characters.')
     if (!form.acceptTerms || !form.acceptPrivacy) return setError('Accept the Terms of Use and Privacy Policy to continue.')
+    submitInFlight.current = true
     setIsSubmitting(true)
     try {
       await registerAccount({ acceptPrivacy: form.acceptPrivacy, acceptTerms: form.acceptTerms, email, name: form.name.trim(), password: form.password })
       sessionStorage.setItem('pendingVerificationEmail', email)
       navigate('/verify-email', { replace: true, state: { email } })
     } catch (nextError) {
+      const temporarilyUnavailable = !nextError.status || [502, 503, 504].includes(nextError.status)
       setError(nextError.status === 409
         ? 'An account with this email already exists.'
         : nextError.status === 429
           ? 'Too many attempts. Please wait and try again.'
-          : nextError.status === 503
-            ? 'Email verification is temporarily unavailable. Please try again later.'
+          : temporarilyUnavailable
+            ? 'The account service is temporarily unavailable. Please wait a moment and try again.'
             : nextError.message || 'We could not create your account. Check the form and try again.')
-    } finally { setIsSubmitting(false) }
+    } finally { submitInFlight.current = false; setIsSubmitting(false) }
   }
 
   return <form className="auth-form auth-form--register" onSubmit={handleSubmit}>

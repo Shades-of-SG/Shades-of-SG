@@ -41,13 +41,14 @@ function otpError(message, statusCode = 400, code = 'OTP_INVALID') {
     return error;
 }
 
-async function issueOtp({ email, name, purpose, requestIp, transaction, userId }) {
+async function issueOtp({ email, name, onStage, purpose, requestIp, transaction, userId }) {
     const normalizedEmail = normalizeEmail(email);
     const latest = await AuthOtp.findOne({
         where: { email: normalizedEmail, purpose },
         order: [['createdAt', 'DESC']],
         transaction,
     });
+    onStage?.('otp_lookup');
     if (latest && Date.now() - new Date(latest.createdAt).getTime() < RESEND_COOLDOWN_MS) {
         const retryAfter = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - new Date(latest.createdAt).getTime())) / 1000);
         const error = otpError(`Please wait ${retryAfter} seconds before requesting another code.`, 429, 'OTP_COOLDOWN');
@@ -59,6 +60,7 @@ async function issueOtp({ email, name, purpose, requestIp, transaction, userId }
     await AuthOtp.update({ usedAt: now }, {
         where: { email: normalizedEmail, purpose, usedAt: null }, transaction,
     });
+    onStage?.('otp_invalidation');
     const code = generateOtp();
     const otp = await AuthOtp.create({
         email: normalizedEmail,
@@ -68,7 +70,10 @@ async function issueOtp({ email, name, purpose, requestIp, transaction, userId }
         requestIpHash: hashIp(requestIp),
         userId: userId || null,
     }, { transaction });
+    onStage?.('otp_record_created');
+    onStage?.('email_delivery_started');
     await sendOtpEmail({ code, name, purpose, to: normalizedEmail });
+    onStage?.('email_delivery_finished');
     return otp;
 }
 

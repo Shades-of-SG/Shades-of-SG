@@ -65,6 +65,60 @@ test('registration creates only an unverified REGISTERED account and sends a has
     expect(getTestOutbox()).toHaveLength(1);
 });
 
+test('registration timing logs identify stages without submitted secrets or identity data', async () => {
+    const previous = process.env.REGISTRATION_TIMING_LOGS;
+    process.env.REGISTRATION_TIMING_LOGS = 'true';
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+
+    try {
+        const response = await request(app).post('/api/auth/register').send(registration('timing-private@example.com', {
+            name: 'Timing Private Name',
+            password: 'timing-private-password',
+        }));
+        expect(response.status).toBe(201);
+        const output = info.mock.calls.map((values) => values.join(' ')).join('\n');
+        expect(output).toContain('"stage":"password_hash"');
+        expect(output).toContain('"stage":"email_delivery_finished"');
+        expect(output).toContain('"stage":"transaction_committed"');
+        expect(output).not.toContain('timing-private@example.com');
+        expect(output).not.toContain('Timing Private Name');
+        expect(output).not.toContain('timing-private-password');
+        expect(output).not.toContain('246810');
+    } finally {
+        info.mockRestore();
+        if (previous === undefined) delete process.env.REGISTRATION_TIMING_LOGS;
+        else process.env.REGISTRATION_TIMING_LOGS = previous;
+    }
+});
+
+test('missing production SMTP configuration returns 503, logs a safe code, and rolls back registration data', async () => {
+    const variableNames = ['MAIL_FROM', 'NODE_ENV', 'SMTP_HOST', 'SMTP_PASS', 'SMTP_PORT', 'SMTP_USER'];
+    const previous = Object.fromEntries(variableNames.map((name) => [name, process.env[name]]));
+    const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+    const error = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    process.env.NODE_ENV = 'production';
+    for (const name of variableNames.filter((name) => name !== 'NODE_ENV')) delete process.env[name];
+    resetEmailTransportForTests();
+
+    try {
+        const response = await request(app).post('/api/auth/register').send(registration('smtp-rollback@example.com'));
+        expect(response.status).toBe(503);
+        expect(response.body.message).toMatch(/email delivery is temporarily unavailable/i);
+        expect(info.mock.calls.map((values) => values.join(' ')).join('\n')).toContain('SMTP_CONFIG_MISSING');
+        expect(await User.findOne({ where: { email: 'smtp-rollback@example.com' } })).toBeNull();
+        expect(await AuthOtp.findOne({ where: { email: 'smtp-rollback@example.com' } })).toBeNull();
+    } finally {
+        info.mockRestore();
+        error.mockRestore();
+        for (const name of variableNames) {
+            if (previous[name] === undefined) delete process.env[name];
+            else process.env[name] = previous[name];
+        }
+        resetEmailTransportForTests();
+    }
+});
+
 test('registration validates agreements and rejects duplicate normalized emails', async () => {
     expect((await request(app).post('/api/auth/register').send(registration('terms@example.com', { acceptTerms: false }))).status).toBe(400);
     expect((await request(app).post('/api/auth/register').send(registration('duplicate@example.com'))).status).toBe(201);

@@ -2,6 +2,13 @@ const nodemailer = require('nodemailer');
 
 let transport;
 const testOutbox = [];
+const DEFAULT_SMTP_TIMEOUT_MS = 10000;
+
+function smtpTimeoutMs() {
+    const configured = Number(process.env.SMTP_TIMEOUT_MS);
+    if (!Number.isFinite(configured)) return DEFAULT_SMTP_TIMEOUT_MS;
+    return Math.min(Math.max(Math.round(configured), 1000), 25000);
+}
 
 function isTestTransport() {
     return process.env.NODE_ENV === 'test'
@@ -13,6 +20,7 @@ function requireSmtpConfig() {
     const missing = required.filter((name) => !String(process.env[name] || '').trim());
     if (missing.length) {
         const error = new Error(`Email delivery is not configured. Missing: ${missing.join(', ')}.`);
+        error.code = 'SMTP_CONFIG_MISSING';
         error.statusCode = 503;
         throw error;
     }
@@ -28,15 +36,21 @@ function getTransport() {
     const port = Number(process.env.SMTP_PORT);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
         const error = new Error('SMTP_PORT must be a valid port number.');
+        error.code = 'SMTP_CONFIG_INVALID';
         error.statusCode = 503;
         throw error;
     }
+    const timeout = smtpTimeoutMs();
     transport = nodemailer.createTransport({
         auth: { pass: process.env.SMTP_PASS, user: process.env.SMTP_USER },
+        connectionTimeout: timeout,
+        dnsTimeout: timeout,
+        greetingTimeout: timeout,
         host: process.env.SMTP_HOST,
         port,
         secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true',
         requireTLS: String(process.env.SMTP_SECURE).toLowerCase() !== 'true',
+        socketTimeout: timeout,
     });
     return transport;
 }
