@@ -8,6 +8,11 @@ describe('score submission guard', () => {
     expect(canSubmitScore({ result, token: null, user: null })).toBe(false)
     expect(canSubmitScore({ result: { ...result, processedNotes: 1 }, token: 'token', user: { role: 'REGISTERED' } })).toBe(false)
   })
+  it('allows registered users and creators to save completed public runs', () => {
+    expect(canSubmitScore({ result, token: 'token', user: { role: 'REGISTERED' } })).toBe(true)
+    expect(canSubmitScore({ result, token: 'token', user: { role: 'CREATOR' } })).toBe(true)
+    expect(canSubmitScore({ result: { ...result, preview: true }, token: 'token', user: { role: 'CREATOR' } })).toBe(false)
+  })
   it('prevents duplicate submissions and permits an explicit retry', () => {
     const guard = createSubmissionGuard()
     expect(guard.begin(result)).toBe(true)
