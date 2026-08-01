@@ -22,17 +22,17 @@ const avatarUpload = multer({
 });
 
 const PROFILE_DEFAULTS = Object.freeze({
-    bio: 'This creator contributes original music that celebrates Singapore\'s shared identity and community stories.',
-    contentFocus: ['Heritage', 'Community', 'Storytelling'],
-    creatorTitle: 'Creator & Storyteller',
-    featuredQuote: 'Every song is a conversation with Singapore\'s memories.',
-    languages: ['English', 'Mandarin'],
-    location: 'Singapore',
-    showCommunityReflections: true,
-    socialLinks: {},
-    tagline: 'Turning Singapore\'s stories, sounds, and memories into music for everyone to explore.',
-    visibility: 'PUBLIC',
-});
+  bio: '',
+  contentFocus: [],
+  creatorTitle: '',
+  featuredQuote: '',
+  languages: [],
+  location: '',
+  showCommunityReflections: true,
+  socialLinks: {},
+  tagline: '',
+  visibility: 'PUBLIC',
+})
 
 function publicProfile(user, storedProfile, storedUserProfile = user.profile) {
     const value = storedProfile?.get ? storedProfile.get({ plain: true }) : storedProfile || {};

@@ -358,10 +358,6 @@ export default function CreatorProfile() {
       </div>
       <CreatorFeaturedQuote profile={profile} />
       <CreatorActivity error={errors.activity} jobs={summary.generationJobs || []} loading={loading} onRetry={load} />
-      <section className="creator-profile-account">
-        <div><Settings aria-hidden="true" /><span><strong>Account settings</strong><small>Manage password, security, notifications, and account preferences separately.</small></span></div>
-        <Link className="creator-profile-button creator-profile-button--secondary" to="/creator/settings">Open Settings</Link>
-      </section>
     </div>
   )
 }

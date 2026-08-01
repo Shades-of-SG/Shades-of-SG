@@ -61,10 +61,16 @@ export function AuthProvider({ children }) {
       setProfileLoading(false)
       return null
     }
+
     setProfileLoading(true)
+
     try {
       const data = await getMyUserProfile(requestedToken)
-      if (!data?.profile) throw new Error('Profile data is unavailable.')
+
+      if (!data?.profile) {
+        throw new Error('Profile data is unavailable.')
+      }
+
       setUserProfile(data)
       return data
     } finally {
@@ -73,12 +79,26 @@ export function AuthProvider({ children }) {
   }, [token])
 
   useEffect(() => {
+    if (!token) return
+
+    refreshProfile(token).catch((error) => {
+      console.error('[Profile refresh]', error)
+    })
+  }, [token, refreshProfile])
+
+  useEffect(() => {
     const profile = userProfile?.profile
     const root = document.documentElement
     const theme = profile?.theme?.toLowerCase() || 'system'
+
     root.dataset.userTheme = theme
-    root.dataset.userFontSize = profile?.fontSize?.toLowerCase() || 'medium'
-    root.classList.toggle('user-prefers-reduced-motion', Boolean(profile?.reducedMotion))
+    root.dataset.userFontSize =
+      profile?.fontSize?.toLowerCase() || 'medium'
+
+    root.classList.toggle(
+      'user-prefers-reduced-motion',
+      Boolean(profile?.reducedMotion)
+    )
   }, [userProfile])
 
   const value = useMemo(() => ({
