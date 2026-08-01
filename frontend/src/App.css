@@ -510,13 +510,13 @@
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 14px 16px;
 }
 
 .studio-stepper--compact {
   gap: 10px;
-  grid-template-columns: repeat(3, minmax(180px, 220px));
+  grid-template-columns: repeat(4, minmax(150px, 200px));
   justify-content: start;
   padding: 12px 14px;
   width: fit-content;

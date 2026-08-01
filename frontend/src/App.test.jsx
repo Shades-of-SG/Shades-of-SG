@@ -267,7 +267,21 @@ describe('App', () => {
     expect(screen.getByDisplayValue('Studio Artist')).toBeInTheDocument()
     expect(screen.getByText('Saved media: saved-track.mp3')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://media.example/saved-track.mp3')
-    expect(screen.getByRole('heading', { name: 'Rhythm Game' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Rhythm Game' })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Lyrics' })
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Beatmap' })
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Rhythm Game' })
+    ).toBeInTheDocument()
     expect(screen.getAllByText(`Draft last saved ${savedAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`).length).toBeGreaterThan(0)
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
@@ -293,6 +307,7 @@ describe('App', () => {
     expect(await screen.findByDisplayValue('Modal Song')).toBeInTheDocument()
     expect(screen.queryByText(/Publishing requirements remaining|videoUrl|status READY/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
+    fireEvent.click(screen.getByRole('button', {name: 'Next: Beatmap',}))
     fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
 
@@ -324,8 +339,15 @@ describe('App', () => {
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByDisplayValue('Uploaded Video Song')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'English' })).toBeChecked()
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Lyrics' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Beatmap' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Preview & Publish' })
+    )
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
 
     expect(await screen.findByText('Song published successfully.')).toBeInTheDocument()
@@ -356,8 +378,15 @@ describe('App', () => {
 
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByDisplayValue('Final Upload Song')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Lyrics' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Beatmap' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Preview & Publish' })
+    )
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
     const file = new File(['video'], 'final.mp4', { type: 'video/mp4' })
     fireEvent.change(await screen.findByLabelText('Upload finished video'), { target: { files: [file] } })
@@ -662,3 +691,4 @@ describe('App', () => {
     expect(screen.queryByText(/requested Song is unavailable/i)).not.toBeInTheDocument()
   })
 })
+

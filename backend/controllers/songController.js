@@ -446,14 +446,75 @@ async function deleteSong(req, res, next) {
 }
 
 async function extractAudio(req, res, next) {
+    let extracted;
+
     try {
-        if (!req.body.youtubeUrl) return res.status(400).json({ message: 'YouTube URL is required.' });
-        const extracted = await audioExtractionService.extractAudioFromYouTube(req.body.youtubeUrl);
-        try {
-            const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
-            return res.json({ success: true, ...uploaded });
-        } finally { await extracted.cleanup(); }
-    } catch (error) { return next(error); }
+        const youtubeUrl = String(req.body.youtubeUrl || '').trim();
+
+        if (!youtubeUrl) {
+            return res.status(400).json({
+                message: 'YouTube URL is required.',
+            });
+        }
+
+        const song = await findOwnedSong(req);
+
+        if (!song) {
+            return res.status(404).json({
+                message: 'Song not found.',
+            });
+        }
+
+        extracted =
+            await audioExtractionService.extractAudioFromYouTube(
+                youtubeUrl
+            );
+
+        const uploaded =
+            await aiStorageService.uploadAudioStream(
+                fs.createReadStream(extracted.filePath)
+            );
+
+        const uploadedDuration = Number(uploaded.duration);
+        const extractedDuration = Number(extracted.durationSecs);
+
+        const durationSecs =
+            Number.isFinite(uploadedDuration) &&
+            uploadedDuration > 0
+                ? Math.round(uploadedDuration)
+                : Number.isFinite(extractedDuration) &&
+                    extractedDuration > 0
+                  ? Math.round(extractedDuration)
+                  : null;
+
+        await song.update({
+            audioFileName: extracted.fileName,
+            audioPublicId: uploaded.audioPublicId,
+            audioUrl: uploaded.audioUrl,
+            durationSecs,
+            sourceYoutubeUrl: youtubeUrl,
+        });
+
+        await auditSong(
+            req,
+            'SONG_YOUTUBE_AUDIO_IMPORTED',
+            song,
+            {
+                youtubeVideoId: extracted.videoId,
+                youtubeTitle: extracted.title,
+            }
+        );
+
+        return res.json({
+            success: true,
+            message: 'YouTube audio imported successfully.',
+            song,
+        });
+    } catch (error) {
+        return next(error);
+    } finally {
+        await extracted?.cleanup?.();
+    }
 }
 
 module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
