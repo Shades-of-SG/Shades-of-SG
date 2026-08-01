@@ -83,6 +83,7 @@ export default function Studio() {
   const [studioStep, setStudioStep] = useState(1)
   const [lastSavedAt, setLastSavedAt] = useState(null)
   const [isLoading, setIsLoading] = useState(Boolean(routeSongId))
+  const [loadError, setLoadError] = useState('')
   const [isBusy, setIsBusy] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [publishPrompt, setPublishPrompt] = useState(null)
@@ -103,6 +104,7 @@ export default function Studio() {
     getCreatorSong(routeSongId, token)
       .then((loadedSong) => {
         if (!active) return
+        setLoadError('')
         const otherLanguages = loadedSong.otherLanguages || []
         setSong(loadedSong)
         setSongId(loadedSong.id)
@@ -130,7 +132,7 @@ export default function Studio() {
         setMediaType(isUploadedVideoMedia(loadedSong) ? 'video' : loadedSong.audioUrl ? 'audio' : '')
         setLastSavedAt(new Date(loadedSong.updatedAt))
       })
-      .catch((error) => active && setMessage({ type: 'error', text: error.message }))
+      .catch((error) => { if (active) setLoadError(error.message || 'The requested draft could not be loaded.') })
       .finally(() => active && setIsLoading(false))
     return () => { active = false }
   }, [routeSongId, token, location.state])
@@ -499,6 +501,8 @@ export default function Studio() {
   }
 
   if (isLoading) return <div className="studio-page"><p role="status">Loading saved draft…</p></div>
+
+  if (routeSongId && loadError) return <div className="studio-page"><section className="studio-card" role="alert"><h1>Draft unavailable</h1><p>{loadError}</p><div className="studio-page__error-actions"><button className="studio-button studio-button--secondary" onClick={() => navigate('/creator/songs')} type="button">Back to My Songs</button><button className="studio-button studio-button--primary" onClick={() => navigate('/creator/studio/new')} type="button">Create a New Song</button></div></section></div>
 
   return (
     <div className="studio-page">

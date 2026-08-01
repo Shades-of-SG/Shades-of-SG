@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '../components/PageHeader'
+import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -41,8 +41,11 @@ export default function CreatorFolders() {
     try { await updateSongPlacementProposal(id, { withdraw: true }, token); await refresh(); setMessage('Placement proposal withdrawn.') } catch (error) { setMessage(error.message) } finally { setBusy(false) }
   }
 
-  return <div className="creator-page">
-    <PageHeader eyebrow="Collections" title="Song collections" description="Creators propose folders and song placements; administrators control the platform catalogue." />
+  return <CreatorPageShell
+    breadcrumbs={['Collections']}
+    description="Creators propose folders and song placements; administrators control the platform catalogue."
+    title="Song collections"
+  >
     {message ? <p role="status">{message}</p> : null}{loading ? <p role="status">Loading collections...</p> : null}
     <SectionCard title="Propose a song placement"><form className="settings-form" onSubmit={submitPlacement}>
       <label>Song<select required value={selection.songId} onChange={(event) => setSelection({ ...selection, songId: event.target.value })}><option value="">Choose a song</option>{songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}</select></label>
@@ -53,5 +56,5 @@ export default function CreatorFolders() {
     <SectionCard title="Placement proposals">{placements.length ? placements.map((item) => <article className="dashboard-job-item" key={item.id}><strong>{item.song?.title} - {item.folder?.name}</strong><span>{item.status.replaceAll('_', ' ')}</span>{item.reviewNote ? <p>{item.reviewNote}</p> : null}{['PENDING', 'CHANGES_REQUESTED'].includes(item.status) ? <button disabled={busy} onClick={() => withdrawPlacement(item.id)} type="button">Withdraw</button> : null}</article>) : <p>No placement proposals yet.</p>}</SectionCard>
     <SectionCard title="Propose a new folder"><form className="settings-form" onSubmit={submitFolder}><label>Name<input required value={proposal.name} onChange={(event) => setProposal({ ...proposal, name: event.target.value })} /></label><label>Description<textarea value={proposal.description} onChange={(event) => setProposal({ ...proposal, description: event.target.value })} /></label><button className="studio-button studio-button--secondary" disabled={busy} type="submit">Send folder proposal</button></form></SectionCard>
     <SectionCard title="My folder proposals">{folderProposals.length ? folderProposals.map((folder) => <article className="dashboard-job-item" key={folder.id}><strong>{folder.name}</strong><span>{folder.status.replaceAll('_', ' ')}</span>{folder.reviewNote ? <p>{folder.reviewNote}</p> : null}</article>) : <p>No folder proposals yet.</p>}</SectionCard>
-  </div>
+  </CreatorPageShell>
 }

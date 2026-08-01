@@ -79,7 +79,7 @@ export default function GenerationProgress() {
             className="studio-button studio-button--secondary"
             style={{ marginTop: '2rem' }}
           >
-            Back to Dashboard
+            Back to Generation Jobs
           </button>
         </section>
       </CreatorPageShell>
