@@ -17,7 +17,7 @@ const steps = [
   {
     id: 'publish',
     label: 'Preview & Publish',
-    description: 'Review and publish',
+    description: 'Final review',
   },
 ]
 

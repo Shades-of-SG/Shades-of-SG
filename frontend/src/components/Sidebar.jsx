@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const creatorLinks = [
@@ -9,8 +9,6 @@ const creatorLinks = [
   { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
   { icon: 'music', label: 'Collections', to: '/creator/folders' },
   { icon: 'dashboard', label: 'Analytics', to: '/creator/analytics' },
-  { icon: 'profile', label: 'Profile', to: '/creator/profile' },
-  { icon: 'settings', label: 'Settings', to: '/settings' },
 ]
 
 function SidebarIcon({ type }) {
@@ -76,18 +74,6 @@ function SidebarIcon({ type }) {
 }
 
 export default function Sidebar() {
-  const navigate = useNavigate()
-  const { setActiveMode, signOut } = useAuth()
-
-  const handleLogout = () => {
-    signOut()
-    navigate('/login', { replace: true })
-  }
-
-  const switchToUserMode = () => {
-    setActiveMode('user')
-    navigate('/', { replace: true })
-  }
 
   return (
     <aside className="creator-sidebar">
@@ -139,31 +125,6 @@ export default function Sidebar() {
         className="creator-sidebar__art"
         aria-hidden="true"
       />
-
-      <div className="creator-sidebar__footer">
-        <button className="creator-sidebar__utility" onClick={switchToUserMode} type="button"><span className="creator-sidebar__utility-icon creator-sidebar__utility-icon--help" aria-hidden="true" /><span>Switch to User Mode</span></button>
-        <button
-          className="creator-sidebar__utility"
-          type="button"
-        >
-          <span
-            className="creator-sidebar__utility-icon creator-sidebar__utility-icon--help"
-            aria-hidden="true"
-          />
-          <span>Help &amp; Support</span>
-        </button>
-        <button
-          className="creator-sidebar__utility"
-          type="button"
-          onClick={handleLogout}
-        >
-          <span
-            className="creator-sidebar__utility-icon creator-sidebar__utility-icon--logout"
-            aria-hidden="true"
-          />
-          <span>Log out</span>
-        </button>
-      </div>
     </aside>
   )
 }

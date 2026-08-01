@@ -489,22 +489,49 @@ router.put('/:id', requireAuth, async (req, res, next) => {
 router.delete('/:id', requireAuth, async (req, res, next) => {
     try {
         const currentUser = req.authUserRecord;
-        const hasCreatorAccess = currentUser.role === 'CREATOR' && currentUser.creatorAccessStatus === 'ACTIVE';
-        const creatorId = hasCreatorAccess ? currentUser.id : null;
-        const reflection = await findReflection(req.params.id, { creatorId });
-        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
-        const isOwner = reflection.userId === currentUser.id;
-        const canModerate = currentUser.role === 'ADMIN' || hasCreatorAccess;
-        if (!isOwner && !canModerate) {
-            return res.status(403).json({ message: 'You can only delete your own reflections.' });
+
+        // Find the reflection without creator-song filtering first.
+        // An active creator may still be deleting their own personal reflection
+        // from a song owned by another creator.
+        const reflection = await findReflection(req.params.id);
+
+        if (!reflection) {
+            return res.status(404).json({
+                message: 'Reflection not found.',
+            });
         }
+
+        const isOwner = reflection.userId === currentUser.id;
+
+        const hasCreatorAccess =
+            currentUser.role === 'CREATOR' &&
+            currentUser.creatorAccessStatus === 'ACTIVE';
+
+        const canModerateOwnSong =
+            hasCreatorAccess &&
+            reflection.song?.creatorId === currentUser.id;
+
+        const canModerate =
+            currentUser.role === 'ADMIN' ||
+            canModerateOwnSong;
+
+        if (!isOwner && !canModerate) {
+            return res.status(403).json({
+                message: 'You can only delete your own reflections.',
+            });
+        }
+
         await sequelize.transaction(async (transaction) => {
             if (canModerate && !isOwner) {
                 await ModerationAction.create({
-                    actionType: 'REFLECTION_REJECTED', actorId: currentUser.id,
-                    songId: reflection.songId, targetId: reflection.id,
-                    targetType: 'REFLECTION', targetUserId: reflection.userId,
+                    actionType: 'REFLECTION_REJECTED',
+                    actorId: currentUser.id,
+                    songId: reflection.songId,
+                    targetId: reflection.id,
+                    targetType: 'REFLECTION',
+                    targetUserId: reflection.userId,
                 }, { transaction });
+
                 await reflection.update({
                     moderatedAt: new Date(),
                     moderatedBy: currentUser.id,
@@ -514,12 +541,22 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
             } else {
                 await reflection.destroy({ transaction });
             }
+
             await writeAudit({
-                action: canModerate && !isOwner ? 'REFLECTION_REJECTED' : 'REFLECTION_DELETED', actorId: currentUser.id,
-                creatorId: reflection.song.creatorId || creatorId, entityId: reflection.id, entityType: 'REFLECTION',
-                req, songId: reflection.songId, transaction,
+                action:
+                    canModerate && !isOwner
+                        ? 'REFLECTION_REJECTED'
+                        : 'REFLECTION_DELETED',
+                actorId: currentUser.id,
+                creatorId: reflection.song?.creatorId || null,
+                entityId: reflection.id,
+                entityType: 'REFLECTION',
+                req,
+                songId: reflection.songId,
+                transaction,
             });
         });
+
         return res.status(204).end();
     } catch (error) {
         return next(error);

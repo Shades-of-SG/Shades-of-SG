@@ -1,20 +1,49 @@
 import { API_URL } from './apiConfig'
+import { notifyAuthExpired } from '../utils/authEvents'
 
 export async function platformRequest(path, { token, ...options } = {}) {
   const headers = { ...(options.headers || {}) }
-  if (token) headers.Authorization = `Bearer ${token}`
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers })
-  const data = response.status === 204 ? null : await response.json().catch(() => ({}))
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  })
+
+  const data =
+    response.status === 204
+      ? null
+      : await response.json().catch(() => ({}))
+
+  if (response.status === 401 && token) {
+    notifyAuthExpired()
+  }
+
   if (!response.ok) {
-    const error = new Error(data?.message || 'Request failed.')
+    const error = new Error(
+      data?.message || 'Request failed.'
+    )
+
     error.code = data?.code
     error.reason = data?.reason
     error.status = response.status
+
     throw error
   }
+
   return data
 }
 
 export function jsonOptions(method, body, token) {
-  return { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' }, method, token }
+  return {
+    body: JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    method,
+    token,
+  }
 }

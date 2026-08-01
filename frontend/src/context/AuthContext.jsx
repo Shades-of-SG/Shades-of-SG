@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { hasActiveCreatorAccess, normalizeUserAccess } from '../utils/accessStatus'
 import { getMyUserProfile } from '../services/userProfileService'
-
+import { AUTH_EXPIRED_EVENT } from '../utils/authEvents'
 const AuthContext = createContext(null)
 const ACTIVE_MODE_KEY = 'activeMode'
 
@@ -54,6 +54,40 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(initialAuth.token)
   const [userProfile, setUserProfile] = useState(initialAuth.userProfile)
   const [profileLoading, setProfileLoading] = useState(false)
+
+  useEffect(() => {
+  function handleAuthExpired() {
+    const lastMode =
+      activeMode === 'creator'
+        ? 'creator'
+        : 'user'
+
+    localStorage.setItem(
+      ACTIVE_MODE_KEY,
+      lastMode
+    )
+
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authUser')
+
+    setUser(null)
+    setToken(null)
+    setUserProfile(null)
+    setProfileLoading(false)
+  }
+
+  window.addEventListener(
+    AUTH_EXPIRED_EVENT,
+    handleAuthExpired
+  )
+
+  return () => {
+    window.removeEventListener(
+      AUTH_EXPIRED_EVENT,
+      handleAuthExpired
+    )
+  }
+}, [activeMode])
 
   const refreshProfile = useCallback(async (requestedToken = token) => {
     if (!requestedToken) {
@@ -122,14 +156,17 @@ export function AuthProvider({ children }) {
       return nextMode
     },
     signOut() {
+      const lastMode =
+        activeMode === 'creator' ? 'creator' : 'user'
+
+      localStorage.setItem(ACTIVE_MODE_KEY, lastMode)
       localStorage.removeItem('authToken')
       localStorage.removeItem('authUser')
-      localStorage.removeItem(ACTIVE_MODE_KEY)
+
       setUser(null)
       setToken(null)
       setUserProfile(null)
       setProfileLoading(false)
-      setActiveModeState('user')
     },
     setActiveMode(nextMode) {
       if (!['user', 'creator'].includes(nextMode)) return false

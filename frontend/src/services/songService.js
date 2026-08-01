@@ -1,10 +1,15 @@
 import { API_URL } from './apiConfig'
+import { notifyAuthExpired, } from '../utils/authEvents'
 
 async function request(path, { token, ...options } = {}) {
   const headers = { ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
   const response = await fetch(`${API_URL}${path}`, { ...options, headers })
   const data = await response.json().catch(() => ({}))
+  if (response.status === 401) {
+    notifyAuthExpired()
+  }
+  
   if (!response.ok) {
     const error = new Error(data.message || data.error?.message || 'Song request failed.')
     error.status = response.status

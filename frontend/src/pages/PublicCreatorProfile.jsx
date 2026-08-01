@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowRight, CalendarDays, CheckCircle2, FolderHeart, Globe2, Languages, MapPin, Music2, Pencil, Quote, UserRound, UsersRound } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import '../Profile.css'
 import { useAuth } from '../context/AuthContext'
 import ProfileSectionHeader from '../components/profile/ProfileSectionHeader'
 import { formatProfileDate } from '../components/profile/profileUtils'
