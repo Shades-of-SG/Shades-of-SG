@@ -624,7 +624,7 @@ Codex
 
 ### Objective
 
-Connect the local seeded creator credential flow to the creator-side pages without exposing Violet's password in frontend code or tracked documentation.
+Connect the local seeded creator credential flow to the creator-side pages without exposing Rose's password in frontend code or tracked documentation.
 
 ### Prompt Summary
 
@@ -671,7 +671,7 @@ No direct user code modifications were made in this step.
 
 ### Final Outcome
 
-Violet can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
+Rose can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
 
 After successful login:
 

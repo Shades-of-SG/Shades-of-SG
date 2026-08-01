@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BookOpen, Drum, Headphones, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import BadgeShelf from '../components/BadgeShelf'
 import Carousel from '../components/Carousel'
@@ -12,6 +13,7 @@ import SongCard from '../components/SongCard'
 import StatCard from '../components/StatCard'
 import { useAuth } from '../context/AuthContext'
 import { getUserBadges } from '../services/badgeService'
+import Reveal from '../components/Reveal'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getReflections } from '../services/reflectionService'
 import { getMyBestScores } from '../services/scoreService'
@@ -75,77 +77,336 @@ export default function Landing() {
   const comboBest = bestScores?.maxCombo
   const rankBest = bestScores?.rank
 
-  return <div className="page-stack landing-page">
-    {user ? <p className="welcome-banner">Welcome, {user.name}</p> : null}
+  return (
+    <div className="page-stack landing-page">
+      {user ? <p className="welcome-banner">Welcome, {user.name}</p> : null}
 
-    <section className="hero-panel">
-      <PageHeader description="Explore Singapore stories through published songs, cultural learning, rhythm, and shared memories." eyebrow="Public Experience" title="Shades of SG" />
-      <div className="hero-actions"><Link className="primary-link" to="/songs">Browse Songs</Link><Link className="secondary-link" to="/rhythm-game">Play Rhythm Game</Link></div>
-    </section>
+      <section className="hero-panel">
+        <div className="hero-panel__content">
+          <PageHeader
+            description="Explore Singapore stories through published songs, cultural learning, rhythm, and shared memories."
+            eyebrow="Music • Memory • Culture"
+            title="Discover Singapore through music and memories"
+          />
+          <div className="hero-actions">
+            <Link className="primary-link" to="/songs">
+              Browse Songs
+            </Link>
+            <Link className="secondary-link" to="/rhythm-game">
+              Play Rhythm Game
+            </Link>
+          </div>
+        </div>
+      </section>
 
-    <section className="content-section">
-      <h2>What you can do</h2>
-      <div className="feature-row">
-        <FeatureCard description="Enjoy music videos with stories and cultural insights." icon="🎥" title="Watch & Learn" />
-        <FeatureCard description="Explore traditional instruments through playful activities." icon="🎹" title="Play Instruments" />
-        <FeatureCard description="Test your timing, beat your high score, and earn points." icon="🥁" title="Rhythm Challenges" />
-        <FeatureCard description="Share memories and read stories from the community." icon="📝" title="Share & Reflect" />
-      </div>
+      <section className="content-section journey-section" id="journey">
+        <Reveal as="header" className="section-heading landing-heading-reveal">
+          <h2>Your journey through Singapore&rsquo;s music</h2>
+          <p>Listen, learn, play and reflect through one connected cultural experience.</p>
+        </Reveal>
+        <div className="feature-row">
+          {[
+            {
+              description: 'Explore Singapore songs and the stories behind them.',
+              icon: <Headphones />,
+              title: 'Listen & Discover',
+              to: '/songs',
+            },
+            {
+              description: 'Discover cultural instruments, traditions and interactive activities.',
+              icon: <BookOpen />,
+              title: 'Learn & Play',
+              to: '/learning',
+            },
+            {
+              description: 'Play rhythm challenges inspired by featured songs.',
+              icon: <Drum />,
+              title: 'Test Your Rhythm',
+              to: '/rhythm-game',
+            },
+            {
+              description: 'Post a reflection and connect through shared experiences.',
+              icon: <MessageCircle />,
+              title: 'Share Your Memory',
+              to: '/reflections',
+            },
+          ].map((feature, index) => (
+            <Reveal className="landing-card-reveal" delay={index * 90} key={feature.title}>
+              <FeatureCard {...feature} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-section">
+        <Reveal as="header" className="landing-section-header landing-heading-reveal">
+          <div className="landing-section-header__row">
+            <h2>What you can do</h2>
+          </div>
+        </Reveal>
+        <div className="feature-row">
+          <FeatureCard description="Enjoy music videos with stories and cultural insights." icon="🎥" title="Watch & Learn" />
+          <FeatureCard description="Explore traditional instruments through playful activities." icon="🎹" title="Play Instruments" />
+          <FeatureCard description="Test your timing, beat your high score, and earn points." icon="🥁" title="Rhythm Challenges" />
+          <FeatureCard description="Share memories and read stories from the community." icon="📝" title="Share & Reflect" />
+        </div>
+
+        {user ? (
+          <div className="feature-row stats-row" aria-label="Your statistics">
+            <StatCard description="Keepsakes you've collected so far." icon="🏅" label="Badges Earned" value={userStats.badgesCount} />
+            <StatCard description="Trivia questions you've answered." icon="❓" label="Trivia Attempts" value={userStats.triviaAttemptsCount} />
+            <StatCard description="Rounds of the rhythm game you've played." icon="🎮" label="Rhythm Plays" value={userStats.gamePlaysCount} />
+          </div>
+        ) : (
+          <div className="feature-row stats-row" aria-label="Community statistics">
+            <StatCard description="Registered users exploring Shades of SG." icon="👥" label="Active Explorers" value={communityStats.usersCount} />
+            <StatCard description="Published songs available to explore." icon="🎶" label="Heritage Songs" value={communityStats.songsCount} />
+            <StatCard description="Community reflections approved and shared." icon="📖" label="Stories Shared" value={communityStats.reflectionsCount} />
+          </div>
+        )}
+      </section>
 
       {user ? (
-        <div className="feature-row stats-row" aria-label="Your statistics">
-          <StatCard description="Keepsakes you've collected so far." icon="🏅" label="Badges Earned" value={userStats.badgesCount} />
-          <StatCard description="Trivia questions you've answered." icon="❓" label="Trivia Attempts" value={userStats.triviaAttemptsCount} />
-          <StatCard description="Rounds of the rhythm game you've played." icon="🎮" label="Rhythm Plays" value={userStats.gamePlaysCount} />
-        </div>
-      ) : (
-        <div className="feature-row stats-row" aria-label="Community statistics">
-          <StatCard description="Registered users exploring Shades of SG." icon="👥" label="Active Explorers" value={communityStats.usersCount} />
-          <StatCard description="Published songs available to explore." icon="🎶" label="Heritage Songs" value={communityStats.songsCount} />
-          <StatCard description="Community reflections approved and shared." icon="📖" label="Stories Shared" value={communityStats.reflectionsCount} />
-        </div>
-      )}
-    </section>
+        <section className="content-section">
+          <h2>Your Badges</h2>
+          <BadgeShelf badges={badges} />
+        </section>
+      ) : null}
 
-    {user ? (
       <section className="content-section">
-        <h2>Your Badges</h2>
-        <BadgeShelf badges={badges} />
-      </section>
-    ) : null}
-
-    <section className="content-section">
-      <h2>Featured Songs</h2>
-      {loading ? <p role="status">Loading featured stories…</p> : null}
-      {error ? <div className="state-box" role="alert">{error}</div> : null}
-      {!loading && !error && songs.length === 0 ? <EmptyState description="Published songs will appear here." title="No featured songs yet" /> : null}
-      {!loading && !error && songs.length > 0
-        ? <Carousel ariaLabel="Featured songs" items={songs} renderItem={(song) => <SongCard song={song} />} />
-        : null}
-      {songs.length > 0 ? <Link className="inline-link" to="/songs">View all songs →</Link> : null}
-    </section>
-
-    {user ? (
-      <section className="content-section">
-        <h2>Best Rhythm Game Stats</h2>
-        <div className="feature-row rhythm-stats-row" aria-label="Your best rhythm game stats">
-          <RhythmStatCard difficulty={scoreBest?.difficulty} icon="🏆" label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
-          <RhythmStatCard difficulty={accuracyBest?.difficulty} icon="🎯" label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
-          <RhythmStatCard difficulty={comboBest?.difficulty} icon="🔥" label="Max Combo" loading={rhythmLoading} songTitle={comboBest?.songTitle} value={comboBest?.maxCombo ?? 0} />
-          <RhythmStatCard difficulty={rankBest?.difficulty} icon="🥇" isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '—'} />
+        <Reveal as="header" className="landing-section-header landing-heading-reveal">
+          <div className="landing-section-header__row">
+            <h2>Featured Songs</h2>
+            {songs.length > 0 ? (
+              <Link className="landing-section-link" to="/songs">
+                View all songs <span aria-hidden="true">&rarr;</span>
+              </Link>
+            ) : null}
+          </div>
+        </Reveal>
+        {loading ? <p role="status">Loading featured stories&hellip;</p> : null}
+        {error ? (
+          <div className="state-box" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {!loading && !error && songs.length === 0 ? (
+          <EmptyState
+            description="Published songs will appear here."
+            title="No featured songs yet"
+          />
+        ) : null}
+        <div className="responsive-grid">
+          {songs.map((song, index) => (
+            <Reveal
+              className="landing-card-reveal landing-song-reveal"
+              delay={index * 100}
+              key={song.id}
+            >
+              <SongCard song={song} />
+            </Reveal>
+          ))}
         </div>
       </section>
-    ) : null}
 
-    {!loading && !error && reflections.length > 0 ? <section className="content-section">
-      <h2>Featured Reflections</h2>
-      <Carousel ariaLabel="Featured reflections" items={reflections} renderItem={(reflection) => <ReflectionCard reflection={reflection} />} />
-      <Link className="inline-link" to="/reflections">View all reflections →</Link>
-    </section> : null}
+      {user ? (
+        <section className="content-section">
+          <h2>Best Rhythm Game Stats</h2>
+          <div className="feature-row rhythm-stats-row" aria-label="Your best rhythm game stats">
+            <RhythmStatCard difficulty={scoreBest?.difficulty} icon="🏆" label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
+            <RhythmStatCard difficulty={accuracyBest?.difficulty} icon="🎯" label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
+            <RhythmStatCard difficulty={comboBest?.difficulty} icon="🔥" label="Max Combo" loading={rhythmLoading} songTitle={comboBest?.songTitle} value={comboBest?.maxCombo ?? 0} />
+            <RhythmStatCard difficulty={rankBest?.difficulty} icon="🥇" isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '—'} />
+          </div>
+        </section>
+      ) : null}
 
-    <section className="content-section two-column">
-      <SectionCard title="Why Shades of SG" description="A shared base for music-led cultural discovery."><p>Begin with a published song and continue into its connected learning activities.</p></SectionCard>
-      <SectionCard title="Continue Exploring" description="Follow a real song into its cultural and interactive experiences."><Link className="inline-link" to="/learning">Open Learning Hub</Link></SectionCard>
-    </section>
-  </div>
+      {!loading && !error && reflections.length > 0 ? (
+        <section className="content-section">
+          <Reveal
+            as="header"
+            className="landing-section-header section-heading landing-heading-reveal"
+          >
+            <div className="landing-section-header__row">
+              <h2>Memories from the Community</h2>
+              <Link className="landing-section-link" to="/reflections">
+                View all reflections <span aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+            <p>
+              See how Singapore songs connect people to celebrations, milestones and everyday
+              memories.
+            </p>
+          </Reveal>
+          <div
+            className={`landing-reflections${reflections.length === 2 ? ' landing-reflections--two' : ''}`}
+          >
+            {reflections.map((reflection, index) => (
+              <Reveal
+                className="landing-card-reveal landing-reflection-reveal"
+                delay={index * 100}
+                key={reflection.id}
+              >
+                <ReflectionCard reflection={reflection} />
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <Reveal as="section" className="landing-cta landing-cta-reveal">
+        <div>
+          <h2>Every song carries a memory</h2>
+          <p>Discover the stories behind Singapore&rsquo;s music and share one of your own.</p>
+        </div>
+        <Link className="primary-link" to="/songs">
+          Start Exploring Songs
+        </Link>
+      </Reveal>
+    </div>
+  )
 }
+
+  return () => {
+    active = false
+  }, []
+
+  return (
+    <div className="page-stack landing-page">
+      <section className="hero-panel">
+        <div className="hero-panel__content">
+          <PageHeader
+            description="Explore local songs, uncover the stories behind them, play cultural activities, and share what the music means to you."
+            eyebrow="Music • Memory • Culture"
+            title="Discover Singapore through music and memories"
+          />
+          <div className="hero-actions">
+            <Link className="primary-link" to="/songs">
+              Explore Songs
+            </Link>
+            <a className="secondary-link" href="#journey">
+              Discover How It Works
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="content-section journey-section" id="journey">
+        <Reveal as="header" className="section-heading landing-heading-reveal">
+          <h2>Your journey through Singapore&rsquo;s music</h2>
+          <p>Listen, learn, play and reflect through one connected cultural experience.</p>
+        </Reveal>
+        <div className="feature-row">
+          {[
+            {
+              description: 'Explore Singapore songs and the stories behind them.',
+              icon: <Headphones />,
+              title: 'Listen & Discover',
+              to: '/songs',
+            },
+            {
+              description: 'Discover cultural instruments, traditions and interactive activities.',
+              icon: <BookOpen />,
+              title: 'Learn & Play',
+              to: '/learning',
+            },
+            {
+              description: 'Play rhythm challenges inspired by featured songs.',
+              icon: <Drum />,
+              title: 'Test Your Rhythm',
+              to: '/rhythm-game',
+            },
+            {
+              description: 'Post a reflection and connect through shared experiences.',
+              icon: <MessageCircle />,
+              title: 'Share Your Memory',
+              to: '/reflections',
+            },
+          ].map((feature, index) => (
+            <Reveal className="landing-card-reveal" delay={index * 90} key={feature.title}>
+              <FeatureCard {...feature} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-section">
+        <Reveal as="header" className="landing-section-header landing-heading-reveal">
+          <div className="landing-section-header__row">
+            <h2>Featured Songs</h2>
+            {songs.length > 0 ? (
+              <Link className="landing-section-link" to="/songs">
+                View all songs <span aria-hidden="true">&rarr;</span>
+              </Link>
+            ) : null}
+          </div>
+        </Reveal>
+        {loading ? <p role="status">Loading featured stories&hellip;</p> : null}
+        {error ? (
+          <div className="state-box" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {!loading && !error && songs.length === 0 ? (
+          <EmptyState
+            description="Published songs will appear here."
+            title="No featured songs yet"
+          />
+        ) : null}
+        <div className="responsive-grid">
+          {songs.map((song, index) => (
+            <Reveal
+              className="landing-card-reveal landing-song-reveal"
+              delay={index * 100}
+              key={song.id}
+            >
+              <SongCard song={song} />
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {!loading && !error && reflections.length > 0 ? (
+        <section className="content-section">
+          <Reveal
+            as="header"
+            className="landing-section-header section-heading landing-heading-reveal"
+          >
+            <div className="landing-section-header__row">
+              <h2>Memories from the Community</h2>
+              <Link className="landing-section-link" to="/reflections">
+                View all reflections <span aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+            <p>
+              See how Singapore songs connect people to celebrations, milestones and everyday
+              memories.
+            </p>
+          </Reveal>
+          <div
+            className={`landing-reflections${reflections.length === 2 ? ' landing-reflections--two' : ''}`}
+          >
+            {reflections.map((reflection, index) => (
+              <Reveal
+                className="landing-card-reveal landing-reflection-reveal"
+                delay={index * 100}
+                key={reflection.id}
+              >
+                <ReflectionCard reflection={reflection} />
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <Reveal as="section" className="landing-cta landing-cta-reveal">
+        <div>
+          <h2>Every song carries a memory</h2>
+          <p>Discover the stories behind Singapore&rsquo;s music and share one of your own.</p>
+        </div>
+        <Link className="primary-link" to="/songs">
+          Start Exploring Songs
+        </Link>
+      </Reveal>
+    </div>
+  )

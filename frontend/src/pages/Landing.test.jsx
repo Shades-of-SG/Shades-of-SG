@@ -11,14 +11,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../services/publicSongService', () => ({ getPublishedSongs: mocks.getPublishedSongs }))
 vi.mock('../services/reflectionService', () => ({ getReflections: mocks.getReflections }))
 
-describe('Landing community statistics', () => {
+describe('Landing page', () => {
   beforeEach(() => {
     mocks.getPublishedSongs.mockResolvedValue([])
     mocks.getReflections.mockResolvedValue([])
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      json: vi.fn().mockResolvedValue({ reflectionsCount: 9, songsCount: 6, usersCount: 14 }),
-      ok: true,
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue({ reflectionsCount: 9, songsCount: 6, usersCount: 14 }),
+        ok: true,
+      })
+    )
   })
 
   afterEach(() => {
@@ -26,12 +29,74 @@ describe('Landing community statistics', () => {
     cleanup()
   })
 
-  it('renders the latest statistics returned by the database API', async () => {
-    render(<MemoryRouter><Landing /></MemoryRouter>)
+  it('does not request admin-only platform analytics', async () => {
+    render(
+      <MemoryRouter>
+        <Landing />
+      </MemoryRouter>
+    )
 
-    expect(await screen.findByText('14 Active Explorers')).toBeInTheDocument()
-    expect(screen.getByText('6 Heritage Songs')).toBeInTheDocument()
-    expect(screen.getByText('9 Stories Shared')).toBeInTheDocument()
-    expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/stats$/))
+    expect(await screen.findByRole('heading', { name: /Discover Singapore through music/i })).toBeInTheDocument()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('renders the updated hero and linked journey cards', () => {
+    render(
+      <MemoryRouter>
+        <Landing />
+      </MemoryRouter>
+    )
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Discover Singapore through music and memories',
+      })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Explore Songs' })).toHaveAttribute('href', '/songs')
+    expect(screen.getByRole('link', { name: 'Discover How It Works' })).toHaveAttribute(
+      'href',
+      '#journey'
+    )
+    expect(screen.getByRole('link', { name: /Listen & Discover/ })).toHaveAttribute(
+      'href',
+      '/songs'
+    )
+    expect(screen.getByRole('link', { name: /Learn & Play/ })).toHaveAttribute('href', '/learning')
+    expect(screen.getByRole('link', { name: /Test Your Rhythm/ })).toHaveAttribute(
+      'href',
+      '/rhythm-game'
+    )
+    expect(screen.getByRole('link', { name: /Share Your Memory/ })).toHaveAttribute(
+      'href',
+      '/reflections'
+    )
+  })
+
+  it('places the view-all links in their section headers', async () => {
+    mocks.getPublishedSongs.mockResolvedValue([{ id: 'song-1', title: 'Home' }])
+    mocks.getReflections.mockResolvedValue([
+      {
+        content: 'A community memory.',
+        createdAt: '2026-07-01T10:00:00.000Z',
+        displayName: 'Listener',
+        id: 'reflection-1',
+        song: { title: 'Home' },
+      },
+    ])
+
+    render(
+      <MemoryRouter>
+        <Landing />
+      </MemoryRouter>
+    )
+
+    const songsLink = await screen.findByRole('link', { name: /View all songs/ })
+    const reflectionsLink = screen.getByRole('link', { name: /View all reflections/ })
+
+    expect(songsLink).toHaveAttribute('href', '/songs')
+    expect(songsLink.closest('header')).not.toBeNull()
+    expect(reflectionsLink).toHaveAttribute('href', '/reflections')
+    expect(reflectionsLink.closest('header')).not.toBeNull()
   })
 })

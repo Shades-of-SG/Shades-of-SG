@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
+import { API_URL } from '../services/apiConfig'
 
 /**
  * Extracts and flattens all frames from sceneSegments,
@@ -216,6 +217,7 @@ export default function VideoEditor() {
 
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [editorError, setEditorError] = useState('')
   const [frames, setFrames] = useState([])
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [audioUrl, setAudioUrl] = useState('')
@@ -255,12 +257,8 @@ export default function VideoEditor() {
   }, [])
 
   useEffect(() => {
-    if (!isPlaying) {
-      setShowControls(true)
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-    } else {
-      handleMouseMove()
-    }
+    const scheduled = setTimeout(handleMouseMove, 0)
+    return () => clearTimeout(scheduled)
   }, [isPlaying, handleMouseMove])
 
   useEffect(() => {
@@ -300,17 +298,27 @@ export default function VideoEditor() {
   }
 
   useEffect(() => {
-    fetch(`/api/generation/${id}/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
-      .then(res => res.json())
+    let active = true
+    fetch(`${API_URL}/generation/${encodeURIComponent(id)}/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
+      .then(async (res) => {
+        const result = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(result.message || 'The requested generation job could not be loaded.')
+        return result
+      })
       .then(result => {
+        if (!active) return
         if (result.success && result.data) {
           setJobData(result.data)
           setFrames(extractFrames(result.data.song))
           setAudioUrl(result.data.song?.audioUrl || '')
+          setEditorError('')
+          return
         }
+        throw new Error(result.message || 'The requested generation job is unavailable.')
       })
-      .catch(console.error)
-      .finally(() => setLoading(false))
+      .catch((error) => { if (active) setEditorError(error.message) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [id])
 
   const syncFrameToTime = useCallback((time) => {
@@ -401,7 +409,7 @@ export default function VideoEditor() {
     const currentFrame = frames[currentFrameIndex];
     setIsRegenerating(true);
     try {
-      const res = await fetch(`/api/generation/frame/${currentFrame.id}/regenerate`, {
+      const res = await fetch(`${API_URL}/generation/frame/${currentFrame.id}/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ userFeedback })
@@ -432,7 +440,7 @@ export default function VideoEditor() {
 
       // Heavy Lane: Run export API if edits exist or if no video is compiled yet
       if (hasEdits || !finalVideoUrl) {
-        const res = await fetch(`/api/generation/${id}/export`, { 
+        const res = await fetch(`${API_URL}/generation/${encodeURIComponent(id)}/export`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
           body: JSON.stringify({ burnCaptions: false }) 
@@ -487,7 +495,7 @@ export default function VideoEditor() {
       }
 
       // Heavy Lane: Request compilation from backend
-      const res = await fetch(`/api/generation/${id}/export`, { 
+      const res = await fetch(`${API_URL}/generation/${encodeURIComponent(id)}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ burnCaptions: showCaptions })
@@ -547,6 +555,21 @@ export default function VideoEditor() {
     )
   }
 
+  if (editorError || !jobData) {
+    return (
+      <CreatorPageShell breadcrumbs={['Generation Tasks', 'Video Editor']} title="Video Editor Unavailable" description="The requested job could not be opened.">
+        <section className="studio-card" role="alert" style={{ padding: '3rem', textAlign: 'center' }}>
+          <AlertCircle aria-hidden="true" style={{ color: '#ef4444', margin: '0 auto' }} />
+          <h2>Unable to load this editor</h2>
+          <p>{editorError || 'The requested generation job is unavailable.'}</p>
+          <button className="studio-button studio-button--secondary" onClick={() => navigate('/creator/generation')} type="button">
+            <ArrowLeft aria-hidden="true" /> Exit to Generation Jobs
+          </button>
+        </section>
+      </CreatorPageShell>
+    )
+  }
+
   return (
     <CreatorPageShell
       breadcrumbs={['Generation Tasks', 'Video Editor']}
@@ -556,7 +579,15 @@ export default function VideoEditor() {
         <div style={{ display: 'flex', gap: '16px' }}>
           <button
             className="studio-button studio-button--secondary"
+            onClick={() => navigate('/creator/generation')}
+            type="button"
+          >
+            <ArrowLeft aria-hidden="true" /> Exit Editor
+          </button>
+          <button
+            className="studio-button studio-button--secondary"
             onClick={() => navigate(`/creator/generation/${id}`)}
+            type="button"
           >
             Back to Job
           </button>
@@ -564,6 +595,7 @@ export default function VideoEditor() {
             className="studio-button studio-button--secondary"
             onClick={handlePublishToStudio}
             disabled={isPublishing || isExporting}
+            type="button"
           >
             {isPublishing ? 'Exporting Clean Video...' : 'Publish to Studio'}
           </button>
@@ -571,6 +603,7 @@ export default function VideoEditor() {
             className="studio-button studio-button--primary"
             onClick={handleExport}
             disabled={isExporting || isPublishing}
+            type="button"
           >
             {isExporting ? 'Exporting...' : 'Export Final Video'}
           </button>

@@ -1,9 +1,10 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
+const { writeAudit } = require('../services/auditService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -99,6 +100,19 @@ async function findOwnedSong(req) {
     return Song.findOne({ where: { id: req.params.id, creatorId: req.authUserRecord.id } });
 }
 
+function auditSong(req, action, song, metadata = {}) {
+    return writeAudit({
+        action,
+        actorId: req.authUserRecord.id,
+        creatorId: song.creatorId,
+        entityId: song.id,
+        entityType: 'SONG',
+        metadata,
+        req,
+        songId: song.id,
+    });
+}
+
 async function listPublicSongs(req, res, next) {
     try {
         const where = { 
@@ -107,7 +121,14 @@ async function listPublicSongs(req, res, next) {
             title: { [Op.ne]: 'Beatmap Song' }
         };
         if (req.query.theme) where.theme = req.query.theme;
-        const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
+        const songs = await Song.findAll({
+            where,
+            include: [{
+                model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+                include: [{ model: UserProfile, as: 'profile', attributes: ['displayName'], required: false }],
+            }],
+            order: [['publishedDate', 'DESC'], ['title', 'ASC']],
+        });
         const search = String(req.query.search || '').trim().toLowerCase();
         const language = String(req.query.language || '').trim().toLowerCase();
         const mood = String(req.query.mood || '').trim().toLowerCase();
@@ -120,16 +141,36 @@ async function listPublicSongs(req, res, next) {
                 && (!language || languages.includes(language))
                 && (!mood || moods.includes(mood));
         });
-        return res.json({ songs: filtered });
+        return res.json({ songs: filtered.map(withPublicCreator) });
     } catch (error) { return next(error); }
 }
 
 async function getPublicSong(req, res, next) {
     try {
-        const song = await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' } });
+        const song = await Song.findOne({
+            where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' },
+            include: [
+                { model: Instrument, as: 'instruments', required: false, through: { attributes: [] } },
+                { model: TriviaQuestion, as: 'triviaQuestions', required: false },
+                {
+                    model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+                    include: [{ model: UserProfile, as: 'profile', attributes: ['displayName'], required: false }],
+                },
+            ],
+        });
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        return res.json({ song });
+        return res.json({ song: withPublicCreator(song) });
     } catch (error) { return next(error); }
+}
+
+function withPublicCreator(song) {
+    const value = song.get({ plain: true });
+    const creator = value.creator;
+    value.creator = creator ? {
+        displayName: creator.profile?.displayName || creator.name,
+        id: creator.id,
+    } : null;
+    return value;
 }
 
 async function listCreatorSongs(req, res, next) {
@@ -214,6 +255,7 @@ async function createSong(req, res, next) {
             videoPublicId: uploadedMediaIsVideo ? audioPublicId : parsed.values.videoPublicId,
             videoUrl: uploadedMediaIsVideo ? audioUrl : parsed.values.videoUrl,
         });
+        await auditSong(req, 'SONG_CREATED', song);
         return res.status(201).json({ success: true, data: song, song });
     } catch (error) { return next(error); }
 }
@@ -225,6 +267,7 @@ async function updateSong(req, res, next) {
         const parsed = buildSongValues(req.body, { partial: true });
         if (parsed.error) return res.status(400).json({ message: parsed.error });
         await song.update(parsed.values);
+        await auditSong(req, 'SONG_METADATA_UPDATED', song, { fields: Object.keys(parsed.values) });
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -240,6 +283,7 @@ async function publishSong(req, res, next) {
         const missing = publishValidation(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
+        await auditSong(req, 'SONG_PUBLISHED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -265,6 +309,7 @@ async function uploadCoverImage(req, res, next) {
         const previousPublicId = song.coverImagePublicId;
         const uploaded = await cloudinaryService.uploadImageBuffer(req.file.buffer);
         await song.update({ coverImageUrl: uploaded.secure_url, coverImagePublicId: uploaded.public_id });
+        await auditSong(req, 'SONG_COVER_UPDATED', song);
         if (previousPublicId && previousPublicId !== uploaded.public_id) {
             await cloudinaryService.deleteImage(previousPublicId).catch((error) => {
                 console.error(`Unable to delete replaced cover ${previousPublicId}:`, error.message);
@@ -298,6 +343,7 @@ async function uploadSongAudio(req, res, next) {
                 videoUrl: uploaded.audioUrl,
             } : {}),
         });
+        await auditSong(req, 'SONG_AUDIO_UPDATED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -329,6 +375,7 @@ async function uploadSongVideo(req, res, next) {
                 audioUrl: uploaded.videoUrl,
             } : {}),
         });
+        await auditSong(req, 'SONG_VIDEO_UPDATED', song);
         if (previousPublicId && previousPublicId !== uploaded.videoPublicId && previousPublicId !== song.audioPublicId) {
             await cloudinaryService.deleteAsset(previousPublicId, 'video').catch((error) => {
                 console.error(`Unable to delete replaced video ${previousPublicId}:`, error.message);
@@ -344,6 +391,7 @@ async function unpublishSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status !== 'PUBLISHED') return res.status(409).json({ message: 'Only a published song can be unpublished.' });
         await song.update({ status: 'READY', publishedDate: null });
+        await auditSong(req, 'SONG_UNPUBLISHED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -354,6 +402,7 @@ async function archiveSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be archived.' });
         await song.update({ status: 'ARCHIVED', publishedDate: null });
+        await auditSong(req, 'SONG_ARCHIVED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -367,6 +416,7 @@ async function unarchiveSong(req, res, next) {
             status: song.videoUrl?.trim() ? 'READY' : 'DRAFT',
             publishedDate: null,
         });
+        await auditSong(req, 'SONG_UNARCHIVED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -387,6 +437,7 @@ async function deleteSong(req, res, next) {
             [song.videoPublicId, 'video'],
             ...segments.flatMap((segment) => segment.generatedFrames.map((frame) => [frame.cloudinaryId, 'image'])),
         ].filter(([publicId]) => publicId);
+        await auditSong(req, 'SONG_DELETED', song);
         await song.destroy();
         const cleanup = await Promise.allSettled(assets.map(([publicId, type]) => cloudinaryService.deleteAsset(publicId, type)));
         const cleanupFailures = cleanup.filter((result) => result.status === 'rejected').length;
@@ -395,14 +446,75 @@ async function deleteSong(req, res, next) {
 }
 
 async function extractAudio(req, res, next) {
+    let extracted;
+
     try {
-        if (!req.body.youtubeUrl) return res.status(400).json({ message: 'YouTube URL is required.' });
-        const extracted = await audioExtractionService.extractAudioFromYouTube(req.body.youtubeUrl);
-        try {
-            const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
-            return res.json({ success: true, ...uploaded });
-        } finally { await extracted.cleanup(); }
-    } catch (error) { return next(error); }
+        const youtubeUrl = String(req.body.youtubeUrl || '').trim();
+
+        if (!youtubeUrl) {
+            return res.status(400).json({
+                message: 'YouTube URL is required.',
+            });
+        }
+
+        const song = await findOwnedSong(req);
+
+        if (!song) {
+            return res.status(404).json({
+                message: 'Song not found.',
+            });
+        }
+
+        extracted =
+            await audioExtractionService.extractAudioFromYouTube(
+                youtubeUrl
+            );
+
+        const uploaded =
+            await aiStorageService.uploadAudioStream(
+                fs.createReadStream(extracted.filePath)
+            );
+
+        const uploadedDuration = Number(uploaded.duration);
+        const extractedDuration = Number(extracted.durationSecs);
+
+        const durationSecs =
+            Number.isFinite(uploadedDuration) &&
+            uploadedDuration > 0
+                ? Math.round(uploadedDuration)
+                : Number.isFinite(extractedDuration) &&
+                    extractedDuration > 0
+                  ? Math.round(extractedDuration)
+                  : null;
+
+        await song.update({
+            audioFileName: extracted.fileName,
+            audioPublicId: uploaded.audioPublicId,
+            audioUrl: uploaded.audioUrl,
+            durationSecs,
+            sourceYoutubeUrl: youtubeUrl,
+        });
+
+        await auditSong(
+            req,
+            'SONG_YOUTUBE_AUDIO_IMPORTED',
+            song,
+            {
+                youtubeVideoId: extracted.videoId,
+                youtubeTitle: extracted.title,
+            }
+        );
+
+        return res.json({
+            success: true,
+            message: 'YouTube audio imported successfully.',
+            song,
+        });
+    } catch (error) {
+        return next(error);
+    } finally {
+        await extracted?.cleanup?.();
+    }
 }
 
 module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

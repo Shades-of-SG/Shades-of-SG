@@ -3,10 +3,10 @@ import ProfileEmptyState from './ProfileEmptyState'
 import ProfileSectionHeader from './ProfileSectionHeader'
 import { formatProfileDate, scoreGrade } from './profileUtils'
 
-export default function ProfileMusicJourney({ error, loading, onRetry, scores }) {
+export default function ProfileMusicJourney({ error, loading, onRetry, scores, subtitle = 'Recent rhythm game scores', title = 'My Music Journey' }) {
   return (
     <section className="profile-section">
-      <ProfileSectionHeader subtitle="Recent rhythm game scores" title="My Music Journey" />
+      <ProfileSectionHeader subtitle={subtitle} title={title} />
       {loading ? <div className="profile-score-list">{[1, 2, 3].map((value) => <span className="profile-skeleton profile-skeleton--score" key={value} />)}</div> : null}
       {error ? <div className="profile-error" role="alert"><p>{error}</p><button onClick={onRetry} type="button">Retry</button></div> : null}
       {!loading && !error && !scores.length ? <ProfileEmptyState actionLabel="Play rhythm game" description="Choose a published song and complete a rhythm session to begin your journey." title="No rhythm scores yet" to="/rhythm-game" variant="music" /> : null}

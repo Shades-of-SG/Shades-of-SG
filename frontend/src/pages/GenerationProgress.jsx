@@ -79,7 +79,7 @@ export default function GenerationProgress() {
             className="studio-button studio-button--secondary"
             style={{ marginTop: '2rem' }}
           >
-            Back to Dashboard
+            Back to Generation Jobs
           </button>
         </section>
       </CreatorPageShell>
@@ -105,7 +105,7 @@ export default function GenerationProgress() {
     >
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 className="text-3xl font-bold text-white mb-1">{jobData?.song?.title || 'Unknown Project'}</h1>
-        <p className="text-violet-400 font-medium text-lg">{jobData?.song?.artist || 'Unknown Artist'}</p>
+        <p className="text-Rose-400 font-medium text-lg">{jobData?.song?.artist || 'Unknown Artist'}</p>
       </div>
 
       {/* 1. Status Card */}
@@ -146,7 +146,7 @@ export default function GenerationProgress() {
               </p>
               <Link 
                 to={`/creator/editor/${jobData.id}`} 
-                className="w-full block text-center bg-violet-600 hover:bg-violet-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all"
+                className="w-full block text-center bg-Rose-600 hover:bg-Rose-500 text-white font-bold py-4 rounded-lg shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all"
               >
                 Proceed to Video Editor
               </Link>

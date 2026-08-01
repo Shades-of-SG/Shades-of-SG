@@ -9,7 +9,7 @@ const Song = sequelize.define('Song', {
     },
     creatorId: {
         type: DataTypes.UUID,
-        allowNull: true,
+        allowNull: false,
         field: 'creator_id',
     },
     title: {

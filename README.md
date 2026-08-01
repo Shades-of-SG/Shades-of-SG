@@ -1,6 +1,6 @@
 # Shades of SG
 
-Shades of SG is a React/Vite public music experience with an authenticated creator Studio and an Express/Sequelize API. PostgreSQL (Supabase) is the production database and Cloudinary stores uploaded media.
+Shades of SG is a multi-creator React/Vite platform for Singapore National Day songs, with an authenticated creator Studio, an admin console, and an Express/Sequelize API. PostgreSQL (Supabase) is the production database and Cloudinary stores uploaded media.
 
 ## Authoritative workflows
 
@@ -14,7 +14,9 @@ Studio creates one persistent draft and keeps the same Song UUID through editing
 
 Guests may play Rhythm Game but do not create GameScore rows. Registered-player scores use the JWT-derived user and a published Song; creator sessions are not persisted as player scores. Rhythm charts are currently deterministic and duration-derived, not musically authored beatmaps.
 
-Every guest or registered-user reflection starts `PENDING`. Registered identity and ownership come from JWT authentication; anonymous display does not expose that identity. Only creator moderation can make content public. Public queries show approved, non-deleted reflections whose Song remains published.
+Every guest or registered-user reflection starts `PENDING`. Registered identity and ownership come from token authentication; anonymous display does not expose that identity. A creator may moderate only reflections attached to their own songs; administrators have explicit platform-wide authority. Public queries show approved reflections whose Song remains published.
+
+Creator ownership always derives from `songs.creator_id`. Generation jobs, scene segments, generated frames, lessons, trivia, scores/analytics, reflections, beatmaps, and collection links are authorised through that parent song. Frontend filtering is never an access-control boundary.
 
 ## Local setup
 
@@ -26,25 +28,9 @@ npm install --prefix frontend
 
 Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`. Do not commit real environment files.
 
-For local SQLite, leave `DATABASE_URL` unset. Apply PostgreSQL migrations in numeric order for Supabase:
+For local SQLite, leave `DATABASE_URL` unset. For Supabase, apply every numbered SQL file in `backend/migrations` in ascending order.
 
-```text
-001_initial_schema.sql
-002_guest_reflections.sql
-003_reflection_moderation.sql
-004_song_lifecycle.sql
-005_unique_active_generation_job.sql
-006_reflection_published_song_and_rejection.sql
-```
-
-Create the one creator account explicitly; server startup seeds no accounts or demo content:
-
-```bash
-cd backend
-npm run seed:creator
-```
-
-`SEED_CREATOR_EMAIL` and `SEED_CREATOR_PASSWORD` must be present. If the email exists, the command exits successfully without changing it. `seed:mock` is an optional development utility and is never required by the application.
+Apply every numbered migration explicitly before starting the corresponding application version. Server startup does not run `sequelize.sync`, alter tables, reset data, or seed demo content. The optional `SEED_ADMIN_*` settings bootstrap the first administrator; remove the bootstrap password after use. All normal creator accounts are produced by admin approval of a registered user's creator application. `seed:mock` is development-only.
 
 Run locally and verify from the repository root:
 
@@ -65,11 +51,17 @@ Backend:
 - `DB_STORAGE`: local SQLite path.
 - `AUTH_TOKEN_SECRET` or `JWT_SECRET`: strong signing secret; mandatory in production.
 - `FRONTEND_URL`: exact deployed Vercel origin allowed by CORS.
+- `FRONTEND_URLS`: optional comma-separated additional exact origins for approved Vercel previews.
+- `FRONTEND_URL_PATTERNS`: optional comma-separated HTTPS origin patterns containing one hostname wildcard for changing preview deployment hashes.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`: registration and password-reset email delivery.
+- `SMTP_TIMEOUT_MS`: SMTP network timeout in milliseconds; defaults to 10000 and is capped at 25000.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: media credentials.
 - `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: lyric transcription. Use `whisper-1` for the segment timestamps required by precise scene timing; GPT-4o transcription models return untimed lyrics and use the planner's fallback timing path.
 - `YT_DLP_PATH`: optional yt-dlp executable path.
 - `PLACEHOLDER_VIDEO_URL`: optional publicly reachable temporary MP4.
-- `SEED_CREATOR_EMAIL`, `SEED_CREATOR_PASSWORD`, `SEED_CREATOR_NAME`: explicit seed command only.
+- `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`: optional first-admin operational bootstrap.
+- `GOOGLE_CLIENT_ID`: Google Identity Services web client ID; enables Google sign-in when set.
+- `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_REDIRECT_URI`: complete Sign in with Apple web configuration. The redirect URI must be the registered HTTPS return URL.
 
 Frontend:
 
@@ -77,12 +69,14 @@ Frontend:
 
 ## Render, Vercel, Supabase, and Cloudinary
 
-1. Create Supabase PostgreSQL and apply migrations 001–006 in order.
+1. Create Supabase PostgreSQL and apply every numbered migration in `backend/migrations` in order, including the OAuth identity migration.
 2. Configure Render with the database URL, strong auth secret, exact `FRONTEND_URL`, Cloudinary credentials, and required AI/media variables.
 3. Deploy `backend` with `npm install` and `npm start`.
 4. Configure Vercel with `VITE_API_URL=https://<render-service>/api` and build `frontend` using `npm run build`.
-5. Run `npm run seed:creator` once, then remove the deployed seed password where operationally possible.
-6. Verify health, creator ownership, published-only access, guest score non-persistence, and pending reflection moderation.
+5. Bootstrap the first admin if needed, remove the deployed bootstrap password, and approve creators through the application workflow.
+6. Verify health, two-creator isolation, admin-only platform analytics, published-only access, guest score non-persistence, and song-scoped reflection moderation.
+
+Google and Apple buttons are hidden until their backend settings are complete. Provider tokens are verified server-side and are never stored. The first successful provider sign-in stores only the provider and its stable subject identifier. A safely verified matching email links to the existing account and preserves its role; otherwise a new `REGISTERED` account is created.
 
 A file in `frontend/public/videos` is served after Vercel deployment. Configure its production Vercel URL—not localhost—as Render's `PLACEHOLDER_VIDEO_URL`.
 
@@ -94,4 +88,4 @@ A file in `frontend/public/videos` is served after Vercel deployment. Configure 
 - Complete play analytics lack a play-event source, so no totals are fabricated.
 - Legacy `songs.language` and `songs.lyrics` remain for migration compatibility; current code uses `languages` and `raw_lyrics`.
 - `play_minutes` and `missing_fields` are not persisted schema columns; readiness is derived at request time.
-- Legacy databases may contain nullable `creator_id` rows. New writes require ownership and clean installs enforce it; audit old rows before adding a NOT NULL constraint to an existing database.
+- Existing song rows are preserved. Migration and model changes do not reset, reseed, or recreate the database.

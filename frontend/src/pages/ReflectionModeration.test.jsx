@@ -52,7 +52,7 @@ function response(reflections, overrides = {}) {
 
 function renderPage() {
   localStorage.setItem('authToken', 'creator-token')
-  localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+  localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
   return render(
     <MemoryRouter>
       <AuthProvider><ReflectionModeration /></AuthProvider>
@@ -72,7 +72,7 @@ describe('ReflectionModeration', () => {
     ))
     moderateReflection.mockImplementation((id, values) => Promise.resolve({
       ...(id === approvedReflection.id ? approvedReflection : pendingReflection),
-      moderator: { id: 'creator-1', name: 'Violet' },
+      moderator: { id: 'creator-1', name: 'Rose' },
       moderatedAt: '2026-07-11T05:00:00.000Z',
       moderatorNote: values.moderatorNote || null,
       status: values.status,

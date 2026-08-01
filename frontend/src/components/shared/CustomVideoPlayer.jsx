@@ -11,6 +11,7 @@ import { Play, Pause, SkipBack, SkipForward, Maximize, Minimize, Subtitles } fro
  * @param {string} [props.poster] - Poster image URL
  * @param {() => void} [props.onPlay] - Called when video starts playing
  * @param {() => void} [props.onPause] - Called when video pauses
+ * @param {() => void} [props.onEnded] - Called when playback completes
  */
 
 /* ── Inline style objects (mirroring VideoEditor dark-panel aesthetic) ── */
@@ -110,7 +111,7 @@ function formatTime(secs) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function CustomVideoPlayer({ src, transcriptionSegments = null, poster, onPlay, onPause }) {
+export default function CustomVideoPlayer({ src, transcriptionSegments = null, poster, onPlay, onPause, onEnded }) {
   const videoRef = useRef(null)
   const wrapperRef = useRef(null)
 
@@ -163,12 +164,10 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
   }, [])
 
   useEffect(() => {
-    if (!isPlaying) {
-      setShowControls(true)
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current)
-    } else if (isFullscreen) {
-      handleMouseMove()
-    }
+    const scheduled = setTimeout(() => {
+      if (!isPlaying || isFullscreen) handleMouseMove()
+    }, 0)
+    return () => clearTimeout(scheduled)
   }, [isPlaying, isFullscreen, handleMouseMove])
 
   // Cleanup timeout on unmount
@@ -254,7 +253,7 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
           onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setCurrentTime(0) }}
           onPlay={() => { setIsPlaying(true); onPlay?.() }}
           onPause={() => { setIsPlaying(false); onPause?.() }}
-          onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}
+          onEnded={() => { setIsPlaying(false); setCurrentTime(0); onEnded?.() }}
           style={{
             ...styles.video,
             ...(isFullscreen ? { height: '100vh', objectFit: 'contain' } : {}),

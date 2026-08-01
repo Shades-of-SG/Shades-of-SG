@@ -9,8 +9,9 @@ const { GenerationJob, SceneSegment, GeneratedFrame } = require('../models')
 const aiStorageService = require('./aiStorageService')
 const cloudinary = require('../config/cloudinary')
 
-// Initialize OpenAI client with explicit API key passing
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
 
 /**
  * Generates and stores frames for a specific job sequentially.
@@ -21,6 +22,7 @@ async function generateFrames(jobId, songId) {
   let job
 
   try {
+    const openai = getOpenAI()
     // 1. Database Fetching & Job Validation
     job = await GenerationJob.findByPk(jobId)
 
@@ -29,6 +31,9 @@ async function generateFrames(jobId, songId) {
     }
     if (job.status !== 'PROCESSING') {
       throw new Error(`GenerationJob is not in PROCESSING state. Current state: ${job.status}`)
+    }
+    if (job.songId !== songId) {
+      throw new Error('Generation job does not belong to the requested song.')
     }
 
     // Fetch scene segments ordered chronologically
@@ -130,7 +135,10 @@ async function generateFrames(jobId, songId) {
               openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link;
               if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0];
             }
-            if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`);
+            if (!openAiImageUrl) throw new Error(
+              `Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`,
+              { cause: openaiError }
+            );
           } catch (ultimateError) {
             console.warn(`[Ultimate Fallback] OpenAI generation failed completely (${ultimateError.message}). Using placeholder image to prevent FFmpeg crash.`)
             openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'

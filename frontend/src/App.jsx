@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import CreatorRoute from './components/CreatorRoute'
 import RhythmGame from './components/RhythmGame'
 import ScrollToTop from './components/ScrollToTop'
 import { useAuth } from './context/AuthContext'
@@ -19,12 +20,17 @@ import LearningHub from './pages/LearningHub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import Profile from './pages/Profile'
+import PublicCreatorProfile from './pages/PublicCreatorProfile'
+import PublicUserProfile from './pages/PublicUserProfile'
+import CreatorProfile from './components/profile/CreatorProfile'
+import CreatorProfileSettings from './pages/CreatorProfileSettings'
 import PrivacyPolicy from './pages/PrivacyPolicy'
-import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
 import Register from './pages/Register'
 import ResetPassword from './pages/ResetPassword'
+import OtpVerification from './pages/OtpVerification'
+import RegistrationSuccess from './pages/RegistrationSuccess'
 import RhythmHub from './pages/RhythmHub'
 import RhythmResults from './pages/RhythmResults'
 import Settings from './pages/Settings'
@@ -34,20 +40,41 @@ import Studio from './pages/Studio'
 import TriviaHub from './pages/TriviaHub'
 import TermsAndConditions from './pages/TermsAndConditions'
 import './App.css'
+import './SongsLibrary.css'
 import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import VideoEditor from './pages/VideoEditor'
+import CreatorApplication from './pages/CreatorApplication'
+import CreatorFolders from './pages/CreatorFolders'
+import CreatorAnalytics from './pages/CreatorAnalytics'
+import AdminLayout from './layouts/AdminLayout'
+import AdminActivityPage from './pages/AdminActivityPage'
+import AdminCommunityPage from './pages/AdminCommunityPage'
+import AdminContentPage from './pages/AdminContentPage'
+import AdminCreatorsPage from './pages/AdminCreatorsPage'
+import AdminOverview from './pages/AdminOverview'
+import { hasActiveAccount, hasActiveCreatorAccess } from './utils/accessStatus'
+import AccountAccessSuspended from './components/AccountAccessSuspended'
+import RhythmLeaderboard from './pages/RhythmLeaderboard'
 function MainExperience() {
   const { user } = useAuth()
 
-  return <MainLayout role={user ? 'user' : 'guest'} />
+  return <MainLayout role={user && hasActiveAccount(user) ? 'user' : 'guest'} />
 }
 
 function AuthExperience() {
-  const { user } = useAuth()
+  const { activeMode, user } = useAuth()
 
-  if (user?.role === 'CREATOR') {
+  if (user && !hasActiveAccount(user)) return <AccountAccessSuspended />
+
+  if (hasActiveCreatorAccess(user) && activeMode === 'creator') {
     return <Navigate replace to="/creator/dashboard" />
+  }
+
+  if (user?.role === 'CREATOR' && hasActiveAccount(user)) return <Navigate replace to="/" />
+
+  if (user?.role === 'ADMIN') {
+    return <Navigate replace to="/admin" />
   }
 
   if (user) {
@@ -59,13 +86,14 @@ function AuthExperience() {
 
 function App() {
   const { token, user } = useAuth()
-  const isCreator = Boolean(token && user?.role === 'CREATOR')
-  const isRegistered = Boolean(token && user?.role === 'REGISTERED')
+  const isNormalUser = Boolean(token && ['CREATOR', 'REGISTERED'].includes(user?.role) && hasActiveAccount(user))
+  const isRegistered = Boolean(token && user?.role === 'REGISTERED' && hasActiveAccount(user))
+  const isAdmin = Boolean(token && user?.role === 'ADMIN' && hasActiveAccount(user))
 
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Routes>
+      {token && user && !hasActiveAccount(user) ? <AccountAccessSuspended /> : <Routes>
         <Route element={<MainExperience />}>
           <Route element={<Landing />} path="/" />
           <Route element={<SongsLibrary />} path="/songs" />
@@ -77,9 +105,13 @@ function App() {
           <Route element={<InstrumentDiscoveryLab />} path="/learning/instrument-lab" />
           <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
+          <Route element={<RhythmLeaderboard />} path="/rhythm-game/leaderboard" />
           <Route element={<ReflectionWall />} path="/reflections" />
-          <Route element={<ProtectedRoute isAllowed={isRegistered}><Profile /></ProtectedRoute>} path="/profile" />
-          <Route element={<Settings />} path="/settings" />
+          <Route element={<PublicCreatorProfile />} path="/creators/:creatorId" />
+          <Route element={<PublicUserProfile />} path="/users/:userId" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Profile /></ProtectedRoute>} path="/profile" />
+          <Route element={<ProtectedRoute isAllowed={isRegistered}><CreatorApplication /></ProtectedRoute>} path="/apply/creator" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings /></ProtectedRoute>} path="/settings" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
@@ -89,9 +121,11 @@ function App() {
           <Route element={<Register />} path="/register" />
           <Route element={<ForgotPassword />} path="/forgot-password" />
           <Route element={<ResetPassword />} path="/reset-password" />
+          <Route element={<OtpVerification />} path="/verify-email" />
+          <Route element={<RegistrationSuccess />} path="/registration-success" />
         </Route>
 
-        <Route element={<ProtectedRoute isAllowed={isCreator} />}>
+        <Route element={<CreatorRoute />}>
           <Route element={<CreatorLayout />}>
             <Route element={<Navigate replace to="/creator/dashboard" />} path="/creator" />
             <Route element={<Dashboard />} path="/creator/dashboard" />
@@ -102,17 +136,35 @@ function App() {
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
             <Route element={<VideoEditor />} path="/creator/editor/:id" />
-            <Route element={<TotalPlays />} path="/creator/plays" />
+            <Route element={<Navigate replace to="/creator/analytics" />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
-            <Route element={<Profile />} path="/creator/profile" />
-            <Route element={<Settings />} path="/creator/settings" />
+            <Route element={<CreatorFolders />} path="/creator/folders" />
+            <Route element={<CreatorAnalytics />} path="/creator/analytics" />
+            <Route element={<CreatorProfile />} path="/creator/profile" />
+            <Route element={<CreatorProfileSettings />} path="/creator/profile/edit" />
+            <Route element={<Navigate replace to="/settings" />} path="/creator/settings" />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute isAllowed={isAdmin} />}>
+          <Route element={<AdminLayout />}>
+            <Route element={<AdminOverview />} path="/admin" />
+            <Route element={<AdminCreatorsPage />} path="/admin/creators" />
+            <Route element={<AdminContentPage />} path="/admin/content" />
+            <Route element={<AdminCommunityPage />} path="/admin/community" />
+            <Route element={<AdminActivityPage />} path="/admin/activity" />
+            <Route element={<Navigate replace to="/admin/creators?tab=applications" />} path="/admin/applications" />
+            <Route element={<Navigate replace to="/admin/content?tab=songs" />} path="/admin/songs" />
+            <Route element={<Navigate replace to="/admin/community?tab=reports" />} path="/admin/reflections" />
+            <Route element={<Navigate replace to="/admin/content?tab=collections" />} path="/admin/folders" />
+            <Route element={<Navigate replace to="/admin/activity" />} path="/admin/governance" />
           </Route>
         </Route>
 
         <Route element={<RhythmGame />} path="/game/:songId" />
         <Route element={<RhythmResults />} path="/game/:songId/results" />
         <Route element={<NotFound />} path="*" />
-      </Routes>
+      </Routes>}
     </BrowserRouter>
   )
 }

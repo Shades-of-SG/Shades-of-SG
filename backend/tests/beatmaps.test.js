@@ -24,8 +24,6 @@ beforeAll(async () => {
 })
 
 
-const { getOpenAIClient } = require('../services/openaiClient')
-
 jest.mock('../services/openaiClient', () => ({
   getOpenAIClient: jest.fn().mockReturnValue({
     chat: {

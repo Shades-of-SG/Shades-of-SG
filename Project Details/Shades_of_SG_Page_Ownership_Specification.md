@@ -123,7 +123,7 @@ Avatar Dropdown:
 - Settings
 - Logout
 
-3. Creator Navbar (Violet)
+3. Creator Navbar (Rose)
 Navigation:
 Dashboard
 Studio
@@ -262,7 +262,7 @@ Theme Selection Dropdown
 - Twilight: Purple & Navy 
 - Heritage: Green & Gold
 - Marina Bay: Blue, Cyan
-- Violet Tay Special (red, blue, white)
+- Rose Tay Special (red, blue, white)
 
 Mode Dropdown
 - Light Mode

@@ -48,7 +48,7 @@ const videoUpload = multer({
 router.get('/creator', requireCreator, songController.listCreatorSongs);
 router.get('/creator/dashboard/summary', requireCreator, songController.getCreatorDashboardSummary);
 router.get('/creator/:id', requireCreator, songController.getCreatorSong);
-router.post('/extract-audio', requireCreator, songController.extractAudio);
+router.post('/:id/extract-audio', requireCreator, songController.extractAudio);
 router.post('/', requireCreator, upload.single('audioFile'), songController.createSong);
 router.put('/:id/metadata', requireCreator, songController.updateSong);
 router.post('/:id/audio', requireCreator, upload.single('audioFile'), songController.uploadSongAudio);
@@ -66,7 +66,7 @@ router.get('/demo-song', (req, res) => res.json({
         theme: 'Heritage',
         title: 'Demo Rhythm Track',
         thumbnail_url: '',
-        video_url: '/videos/exploding-kittens-placeholder.mp4',
+        video_url: '/videos/placeholder-generation.mp4',
     },
 }));
 router.get('/', songController.listPublicSongs);

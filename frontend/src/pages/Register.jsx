@@ -1,42 +1,52 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
 import { registerAccount } from '../services/authApi'
-import { getPostLoginDestination } from '../services/postLoginIntent'
 
 export default function Register() {
   const navigate = useNavigate()
-  const { signIn } = useAuth()
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [form, setForm] = useState({ acceptPrivacy: false, acceptTerms: false, confirmPassword: '', email: '', name: '', password: '' })
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const submitInFlight = useRef(false)
+  const update = (name, value) => setForm((current) => ({ ...current, [name]: value }))
 
   async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
+    event.preventDefault(); setError('')
+    if (submitInFlight.current) return
+    const email = form.email.trim().toLowerCase()
+    if (form.password !== form.confirmPassword) return setError('Passwords do not match.')
+    if (form.password.length < 8) return setError('Password must be at least 8 characters.')
+    if (!form.acceptTerms || !form.acceptPrivacy) return setError('Accept the Terms of Use and Privacy Policy to continue.')
+    submitInFlight.current = true
     setIsSubmitting(true)
     try {
-      const data = await registerAccount(name, email, password)
-      signIn(data.user, data.token)
-      navigate(getPostLoginDestination('/'), { replace: true })
+      await registerAccount({ acceptPrivacy: form.acceptPrivacy, acceptTerms: form.acceptTerms, email, name: form.name.trim(), password: form.password })
+      sessionStorage.setItem('pendingVerificationEmail', email)
+      navigate('/verify-email', { replace: true, state: { email } })
     } catch (nextError) {
-      setError(nextError.message)
-    } finally {
-      setIsSubmitting(false)
-    }
+      const temporarilyUnavailable = !nextError.status || [502, 503, 504].includes(nextError.status)
+      setError(nextError.status === 409
+        ? 'An account with this email already exists.'
+        : nextError.status === 429
+          ? 'Too many attempts. Please wait and try again.'
+          : temporarilyUnavailable
+            ? 'The account service is temporarily unavailable. Please wait a moment and try again.'
+            : nextError.message || 'We could not create your account. Check the form and try again.')
+    } finally { submitInFlight.current = false; setIsSubmitting(false) }
   }
 
-  return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <p className="eyebrow">Join Shades of SG</p><h1>Register</h1>
-      <label className="field-stack"><span>Name</span><input onChange={(event) => setName(event.target.value)} placeholder="Your name" required value={name} /></label>
-      <label className="field-stack"><span>Email</span><input onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required type="email" value={email} /></label>
-      <label className="field-stack"><span>Password</span><input minLength="8" onChange={(event) => setPassword(event.target.value)} placeholder="Password" required type="password" value={password} /></label>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Creating account...' : 'Register'}</button>
-      <p><Link to="/login">Already have an account?</Link></p>
-    </form>
-  )
+  return <form className="auth-form auth-form--register" onSubmit={handleSubmit}>
+    <header className="auth-form__header"><p className="eyebrow">Join Shades of SG</p><h1>Create account</h1><p>Join a community that celebrates Singapore&rsquo;s vibrant music culture.</p></header>
+    <label className="field-stack"><span>Full name</span><input autoComplete="name" onChange={(event) => update('name', event.target.value)} placeholder="Enter your full name" required value={form.name} /></label>
+    <label className="field-stack"><span>Email</span><input autoComplete="email" onChange={(event) => update('email', event.target.value)} placeholder="Enter your email" required type="email" value={form.email} /></label>
+    <label className="field-stack"><span>Password</span><span className="password-field"><input autoComplete="new-password" minLength="8" onChange={(event) => update('password', event.target.value)} placeholder="Create a password" required type={showPassword ? 'text' : 'password'} value={form.password} /><button aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? <EyeOff aria-hidden="true" size={19} /> : <Eye aria-hidden="true" size={19} />}<span>{showPassword ? 'Hide' : 'Show'}</span></button></span></label>
+    <label className="field-stack"><span>Confirm password</span><input autoComplete="new-password" minLength="8" onChange={(event) => update('confirmPassword', event.target.value)} placeholder="Confirm your password" required type={showPassword ? 'text' : 'password'} value={form.confirmPassword} /></label>
+    <label className="auth-check"><input checked={form.acceptTerms} onChange={(event) => update('acceptTerms', event.target.checked)} type="checkbox" /><span>I accept the <Link to="/terms">Terms of Use</Link></span></label>
+    <label className="auth-check"><input checked={form.acceptPrivacy} onChange={(event) => update('acceptPrivacy', event.target.checked)} type="checkbox" /><span>I accept the <Link to="/privacy">Privacy Policy</Link></span></label>
+    {error ? <p className="form-error" role="alert">{error}</p> : null}
+    <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Creating account...' : 'Create account'}</button>
+    <p className="auth-switch auth-switch--center">Already have an account? <Link to="/login">Sign in</Link></p>
+  </form>
 }

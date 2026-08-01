@@ -28,10 +28,10 @@ test('registered user can update supported profile fields', async () => {
     const response = await request(app)
         .put('/api/auth/profile')
         .set(authorization(user))
-        .send({ email: 'updated@example.com', name: 'Updated Keeper' });
+        .send({ email: 'memory@example.com', name: 'Updated Keeper' });
 
     expect(response.status).toBe(200);
-    expect(response.body.user).toMatchObject({ email: 'updated@example.com', id: user.id, name: 'Updated Keeper', role: 'REGISTERED' });
+    expect(response.body.user).toMatchObject({ email: 'memory@example.com', id: user.id, name: 'Updated Keeper', role: 'REGISTERED' });
     expect(response.body.user.createdAt).toBeTruthy();
 });
 
