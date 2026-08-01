@@ -60,7 +60,8 @@ describe('creator Profile', () => {
     expect(screen.getByText('Creator since 2025')).toBeInTheDocument()
     expect(screen.getByText(/Every song is a conversation with Singapore's memories/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Edit Profile' })).toHaveAttribute('href', '/creator/profile/edit')
-    expect(screen.getByRole('link', { name: 'Open Settings' })).toHaveAttribute('href', '/creator/settings')
+    expect(screen.getByRole('link', { name: 'Public Preview' })).toHaveAttribute('href', '/creators/creator-1')
+    expect(screen.getByRole('link', { name: 'User Profile' })).toHaveAttribute('href', '/profile')
   })
 
   it('shows only saved social links in the private profile hero', async () => {
@@ -147,7 +148,7 @@ describe('creator Profile', () => {
     window.history.pushState({}, '', '/creator/profile')
     render(<AuthProvider><App /></AuthProvider>)
 
-    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
     expect(screen.queryByRole('heading', { name: 'Rose' })).not.toBeInTheDocument()
   })
 })

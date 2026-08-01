@@ -135,7 +135,8 @@ describe('App', () => {
     window.history.pushState({}, '', '/creator/reflections')
     render(<AuthProvider><App /></AuthProvider>)
 
-    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /reflection moderation/i })).not.toBeInTheDocument()
   })
 
@@ -444,6 +445,7 @@ describe('App', () => {
     const fetchMock = vi.fn(async (url) => {
       const path = String(url)
       if (path.includes('/transcriptions/status')) return { json: async () => ({ configured: true }), ok: true, status: 200 }
+      if (path.endsWith('/songs/creator/mp4-draft')) return { json: async () => ({ song: ready }), ok: true, status: 200 }
       if (path.endsWith('/songs')) return { json: async () => ({ song: draft }), ok: true, status: 201 }
       if (path.endsWith('/songs/mp4-draft/video')) return { json: async () => ({ song: ready }), ok: true, status: 200 }
       return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
@@ -534,7 +536,10 @@ describe('App', () => {
     })))
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByText('Play analytics')).toBeInTheDocument()
-    expect(screen.getByText('Unavailable')).toBeInTheDocument()
+    expect(screen.getByText('Playback starts')).toBeInTheDocument()
+    expect(screen.getByRole('link', {
+      name: 'View play analytics',
+    })).toHaveAttribute('href', '/creator/analytics')
     expect(screen.queryByText('1,240')).not.toBeInTheDocument()
     expect(screen.queryByText('Plays this week:')).not.toBeInTheDocument()
   })

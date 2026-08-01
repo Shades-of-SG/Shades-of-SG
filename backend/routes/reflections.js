@@ -84,21 +84,44 @@ function serializeModerationReflection(reflection, currentUserId) {
     };
 }
 
-function reflectionIncludes({ creatorId = null, includeModerator = false, publishedOnly = false } = {}) {
+function reflectionIncludes({
+    includeModerator = false,
+    publishedOnly = false,
+    creatorId = null,
+} = {}) {
     const songWhere = publishedOnly
         ? { creatorId: { [Op.ne]: null }, status: 'PUBLISHED' }
-        : creatorId ? { creatorId } : undefined;
+        : creatorId
+            ? { creatorId }
+            : undefined;
+
     const includes = [{
         model: Song,
         as: 'song',
         attributes: ['id', 'title', 'creatorId'],
-        include: [{ model: User, as: 'creator', attributes: ['id', 'name', 'email'], required: false }],
+        include: [{
+            model: User,
+            as: 'creator',
+            attributes: ['id', 'name', 'email'],
+            required: false,
+        }],
         ...(songWhere ? { required: true, where: songWhere } : {}),
     }];
 
     if (includeModerator) {
-        includes.push({ model: User, as: 'moderator', attributes: ['id', 'name', 'role'], required: false });
-        includes.push({ model: User, as: 'user', attributes: ['id', 'name', 'email', 'accountStatus'], required: false });
+        includes.push({
+            model: User,
+            as: 'moderator',
+            attributes: ['id', 'name', 'role'],
+            required: false,
+        });
+
+        includes.push({
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name', 'email', 'accountStatus'],
+            required: false,
+        });
     }
 
     return includes;
@@ -515,9 +538,24 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
             currentUser.role === 'ADMIN' ||
             canModerateOwnSong;
 
+        // Hide reflections belonging to another creator's songs.
+        // Returning 404 prevents creators from confirming another creator's
+        // private resource exists.
+        if (
+            !isOwner &&
+            hasCreatorAccess &&
+            !canModerateOwnSong
+        ) {
+            return res.status(404).json({
+                message: 'Reflection not found.'
+            });
+        }
+
+        // Normal users may only delete their own reflections.
+        // Admins and creators moderating their own songs may continue.
         if (!isOwner && !canModerate) {
             return res.status(403).json({
-                message: 'You can only delete your own reflections.',
+                message: 'You can only delete your own reflections.'
             });
         }
 

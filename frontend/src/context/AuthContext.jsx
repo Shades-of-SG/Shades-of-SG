@@ -113,11 +113,13 @@ export function AuthProvider({ children }) {
   }, [token])
 
   useEffect(() => {
-    if (!token) return
-
-    refreshProfile(token).catch((error) => {
-      console.error('[Profile refresh]', error)
-    })
+    if (!token) return undefined
+    const timer = window.setTimeout(() => {
+      refreshProfile(token).catch((error) => {
+        console.error('[Profile refresh]', error)
+      })
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [token, refreshProfile])
 
   useEffect(() => {
@@ -135,6 +137,51 @@ export function AuthProvider({ children }) {
     )
   }, [userProfile])
 
+  const signIn = useCallback((nextUser, nextToken) => {
+    const normalizedUser = normalizeUserAccess(nextUser)
+    const nextMode = resolveMode(normalizedUser)
+    localStorage.setItem('authToken', nextToken)
+    localStorage.setItem('authUser', JSON.stringify(normalizedUser))
+    localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
+    setUser(normalizedUser)
+    setToken(nextToken)
+    setUserProfile(initialProfileData(normalizedUser))
+    setActiveModeState(nextMode)
+    return nextMode
+  }, [])
+
+  const signOut = useCallback(() => {
+    const lastMode = activeMode === 'creator' ? 'creator' : 'user'
+    localStorage.setItem(ACTIVE_MODE_KEY, lastMode)
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authUser')
+    setUser(null)
+    setToken(null)
+    setUserProfile(null)
+    setProfileLoading(false)
+  }, [activeMode])
+
+  const setActiveMode = useCallback((nextMode) => {
+    if (!['user', 'creator'].includes(nextMode)) return false
+    if (nextMode === 'creator' && !hasActiveCreatorAccess(user)) return false
+    localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
+    setActiveModeState(nextMode)
+    return true
+  }, [user])
+
+  const updateUser = useCallback((nextUser) => {
+    const normalizedUser = normalizeUserAccess(nextUser)
+    const nextMode = resolveMode(normalizedUser, activeMode)
+    localStorage.setItem('authUser', JSON.stringify(normalizedUser))
+    localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
+    setUser(normalizedUser)
+    setActiveModeState(nextMode)
+  }, [activeMode])
+
+  const updateUserProfile = useCallback((nextProfileData) => {
+    setUserProfile((current) => ({ ...current, ...nextProfileData }))
+  }, [])
+
   const value = useMemo(() => ({
     activeMode,
     user,
@@ -143,50 +190,12 @@ export function AuthProvider({ children }) {
     profileLoading,
     refreshProfile,
     userProfile,
-    signIn(nextUser, nextToken) {
-      const normalizedUser = normalizeUserAccess(nextUser)
-      const nextMode = resolveMode(normalizedUser)
-      localStorage.setItem('authToken', nextToken)
-      localStorage.setItem('authUser', JSON.stringify(normalizedUser))
-      localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
-      setUser(normalizedUser)
-      setToken(nextToken)
-      setUserProfile(initialProfileData(normalizedUser))
-      setActiveModeState(nextMode)
-      return nextMode
-    },
-    signOut() {
-      const lastMode =
-        activeMode === 'creator' ? 'creator' : 'user'
-
-      localStorage.setItem(ACTIVE_MODE_KEY, lastMode)
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('authUser')
-
-      setUser(null)
-      setToken(null)
-      setUserProfile(null)
-      setProfileLoading(false)
-    },
-    setActiveMode(nextMode) {
-      if (!['user', 'creator'].includes(nextMode)) return false
-      if (nextMode === 'creator' && !hasActiveCreatorAccess(user)) return false
-      localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
-      setActiveModeState(nextMode)
-      return true
-    },
-    updateUser(nextUser) {
-      const normalizedUser = normalizeUserAccess(nextUser)
-      const nextMode = resolveMode(normalizedUser, activeMode)
-      localStorage.setItem('authUser', JSON.stringify(normalizedUser))
-      localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
-      setUser(normalizedUser)
-      setActiveModeState(nextMode)
-    },
-    updateUserProfile(nextProfileData) {
-      setUserProfile((current) => ({ ...current, ...nextProfileData }))
-    },
-  }), [activeMode, profileLoading, refreshProfile, user, userProfile, token])
+    setActiveMode,
+    signIn,
+    signOut,
+    updateUser,
+    updateUserProfile,
+  }), [activeMode, profileLoading, refreshProfile, setActiveMode, signIn, signOut, token, updateUser, updateUserProfile, user, userProfile])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
