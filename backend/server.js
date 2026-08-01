@@ -42,6 +42,35 @@ function allowedOrigins() {
     ].map(normalizeOrigin).filter(Boolean));
 }
 
+function normalizeOriginPattern(value) {
+    const pattern = String(value || '').trim();
+    if ((pattern.match(/\*/g) || []).length !== 1) return null;
+    const placeholder = 'cors-preview-wildcard';
+    try {
+        const url = new URL(pattern.replace('*', placeholder));
+        if (url.protocol !== 'https:' || url.origin !== pattern.replace('*', placeholder)) return null;
+        return url.origin.replace(placeholder, '*');
+    } catch {
+        return null;
+    }
+}
+
+function allowedOriginPatterns() {
+    return String(process.env.FRONTEND_URL_PATTERNS || '')
+        .split(',')
+        .map(normalizeOriginPattern)
+        .filter(Boolean);
+}
+
+function matchesAllowedOriginPattern(origin) {
+    return allowedOriginPatterns().some((pattern) => {
+        const expression = pattern
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            .replace('\\*', '[^.]+');
+        return new RegExp(`^${expression}$`).test(origin);
+    });
+}
+
 app.use(
     cors({
         origin(origin, callback) {
@@ -50,7 +79,7 @@ app.use(
                 return callback(null, true);
             }
 
-            if (allowedOrigins().has(origin)) {
+            if (allowedOrigins().has(origin) || matchesAllowedOriginPattern(origin)) {
                 return callback(null, true);
             }
 

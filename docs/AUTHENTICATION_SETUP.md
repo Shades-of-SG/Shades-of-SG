@@ -22,6 +22,7 @@ SMTP_PASS=your-provider-app-password
 MAIL_FROM=Shades of SG <no-reply@example.com>
 FRONTEND_URL=https://your-frontend.example.com
 FRONTEND_URLS=https://your-approved-preview.example.com
+FRONTEND_URL_PATTERNS=https://shades-of-*-your-team.vercel.app
 SMTP_TIMEOUT_MS=10000
 ```
 
