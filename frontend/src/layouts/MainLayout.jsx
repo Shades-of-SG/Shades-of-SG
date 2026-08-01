@@ -8,6 +8,7 @@ export default function MainLayout({ role = 'guest' }) {
   const isReflectionWall = pathname === '/reflections'
   const isProfile = pathname === '/profile'
   const isPublicCreatorProfile = pathname.startsWith('/creators/')
+  const isPublicUserProfile = pathname.startsWith('/users/')
   const isSongsLibrary = pathname === '/songs'
   const isAccountSettings = pathname === '/settings'
 
@@ -17,7 +18,7 @@ export default function MainLayout({ role = 'guest' }) {
 
       <main
         className={`site-main${
-          isReflectionWall || isProfile || isPublicCreatorProfile
+          isReflectionWall || isProfile || isPublicCreatorProfile || isPublicUserProfile
             ? ' site-main--wide'
             : ''
         }${

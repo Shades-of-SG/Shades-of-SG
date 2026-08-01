@@ -1,10 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
 
 const creatorLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/creator/dashboard' },
   { icon: 'music', label: 'My Songs', to: '/creator/songs' },
-  { icon: 'edit', label: 'Studio', to: '/creator/studio' },
+  { icon: 'edit', label: 'Studio', to: '/creator/studio/new' },
   { icon: 'jobs', label: 'Generation Jobs', to: '/creator/generation' },
   { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
   { icon: 'music', label: 'Collections', to: '/creator/folders' },
@@ -77,13 +76,17 @@ export default function Sidebar() {
 
   return (
     <aside className="creator-sidebar">
-      <div className="creator-sidebar__brand">
+      <NavLink
+        aria-label="Shades of SG creator dashboard"
+        className="creator-sidebar__brand"
+        to="/creator/dashboard"
+      >
         <img
           className="creator-sidebar__brand-image"
           src="/images/Brand%20Logo.png"
           alt="Shades of SG Creator"
         />
-      </div>
+      </NavLink>
 
       <div className="creator-sidebar__section-label">
         Creator Portal

@@ -25,7 +25,6 @@ import PublicUserProfile from './pages/PublicUserProfile'
 import CreatorProfile from './components/profile/CreatorProfile'
 import CreatorProfileSettings from './pages/CreatorProfileSettings'
 import PrivacyPolicy from './pages/PrivacyPolicy'
-import TotalPlays from './pages/TotalPlays'
 import ReflectionModeration from './pages/ReflectionModeration'
 import ReflectionWall from './pages/ReflectionWall'
 import Register from './pages/Register'
@@ -56,6 +55,7 @@ import AdminCreatorsPage from './pages/AdminCreatorsPage'
 import AdminOverview from './pages/AdminOverview'
 import { hasActiveAccount, hasActiveCreatorAccess } from './utils/accessStatus'
 import AccountAccessSuspended from './components/AccountAccessSuspended'
+import RhythmLeaderboard from './pages/RhythmLeaderboard'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -105,6 +105,7 @@ function App() {
           <Route element={<InstrumentDiscoveryLab />} path="/learning/instrument-lab" />
           <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
+          <Route element={<RhythmLeaderboard />} path="/rhythm-game/leaderboard" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<PublicCreatorProfile />} path="/creators/:creatorId" />
           <Route element={<PublicUserProfile />} path="/users/:userId" />
@@ -135,7 +136,7 @@ function App() {
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
             <Route element={<VideoEditor />} path="/creator/editor/:id" />
-            <Route element={<TotalPlays />} path="/creator/plays" />
+            <Route element={<Navigate replace to="/creator/analytics" />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
             <Route element={<CreatorFolders />} path="/creator/folders" />
             <Route element={<CreatorAnalytics />} path="/creator/analytics" />

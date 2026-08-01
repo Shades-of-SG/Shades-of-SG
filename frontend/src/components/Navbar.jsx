@@ -9,7 +9,7 @@ import { CREATOR_SUSPENSION_MESSAGE, hasActiveCreatorAccess, hasSuspendedCreator
 const navigationByRole = {
   creator: [
     { label: 'Dashboard', to: '/creator/dashboard' },
-    { label: 'Studio', to: '/creator/studio' },
+    { label: 'Studio', to: '/creator/studio/new' },
     { label: 'Songs', to: '/creator/songs' },
     { label: 'Reflection Moderation', to: '/creator/reflections' },
     { label: 'Profile', to: '/creator/profile' },

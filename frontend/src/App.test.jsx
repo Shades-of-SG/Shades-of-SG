@@ -161,6 +161,28 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/creator/reflections')
   })
 
+  it('redirects the legacy creator plays route to the main analytics page', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
+    window.history.pushState({}, '', '/creator/plays')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({
+        events: { SONG_PLAYBACK_STARTED: 3 }, generationJobs: {}, reflections: {}, rhythmScores: 2,
+        songs: { PUBLISHED: 1, total: 1 },
+      }),
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    await waitFor(() => expect(window.location.pathname).toBe('/creator/analytics'))
+    expect(await screen.findByRole('heading', { name: 'My song analytics' })).toBeInTheDocument()
+    expect(screen.getByText('Playback starts')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Total Plays' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Analytics' })).toHaveAttribute('href', '/creator/analytics')
+  })
+
   it('blocks a creator-suspended user from direct creator URLs while keeping regular-user navigation', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({
@@ -691,4 +713,3 @@ describe('App', () => {
     expect(screen.queryByText(/requested Song is unavailable/i)).not.toBeInTheDocument()
   })
 })
-
