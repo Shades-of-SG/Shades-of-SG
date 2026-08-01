@@ -15,6 +15,8 @@ import {
   Sparkles,
   UsersRound,
   WandSparkles,
+  Eye,
+  UserRound,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getBeatmapSummary } from '../../services/beatmapService'
@@ -78,7 +80,7 @@ function sortCollection(songs) {
     })
 }
 
-function CreatorProfileHero({ profile }) {
+function CreatorProfileHero({ onOpenUserProfile, profile, publicProfileTo }) {
   const initial =
     profile.displayName.trim().charAt(0).toUpperCase() || 'V'
 
@@ -156,13 +158,17 @@ function CreatorProfileHero({ profile }) {
         />
       </div>
 
-      <Link
-        className="creator-profile-button creator-profile-button--secondary creator-profile-hero__edit"
-        to="/creator/profile/edit"
-      >
-        <Pencil aria-hidden="true" />
-        Edit Profile
-      </Link>
+      <div className="creator-profile-hero__edit creator-profile-hero__actions">
+        <Link className="creator-profile-button creator-profile-button--secondary" to="/creator/profile/edit">
+          <Pencil aria-hidden="true" /> Edit Profile
+        </Link>
+        <Link className="creator-profile-button creator-profile-button--secondary" to={publicProfileTo}>
+          <Eye aria-hidden="true" /> Public Preview
+        </Link>
+        <Link className="creator-profile-button creator-profile-button--secondary" onClick={onOpenUserProfile} to="/profile">
+          <UserRound aria-hidden="true" /> User Profile
+        </Link>
+      </div>
 
       <svg
         aria-hidden="true"
@@ -799,6 +805,7 @@ function isAuthenticationError(
 
 export default function CreatorProfile() {
   const {
+    setActiveMode,
     signOut,
     token,
     user,
@@ -806,6 +813,10 @@ export default function CreatorProfile() {
 
   const location = useLocation()
   const navigate = useNavigate()
+
+  function openUserProfile() {
+    setActiveMode('user')
+  }
 
   const [summary, setSummary] =
     useState(EMPTY_SUMMARY)
@@ -1171,7 +1182,9 @@ export default function CreatorProfile() {
       ) : null}
 
       <CreatorProfileHero
+        onOpenUserProfile={openUserProfile}
         profile={profile}
+        publicProfileTo={`/creators/${encodeURIComponent(user.id)}`}
       />
 
       <CreatorProfileStats

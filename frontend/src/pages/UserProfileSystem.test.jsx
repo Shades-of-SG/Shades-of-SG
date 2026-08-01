@@ -17,7 +17,14 @@ const profilePayload = {
     showRhythmRanking: true, theme: 'DARK', userId: 'user-1',
   },
   reflections: [{ content: 'A memory of home.', createdAt: '2026-01-02', displayMode: 'PROFILE', id: 'reflection-1', song: { title: 'Home' }, songId: 'song-1', tags: ['Home'] }],
-  rhythm: { bestScore: 4321, gamesPlayed: 7, rank: 2, recentScores: [{ accuracy: 96, createdAt: '2026-01-03', difficulty: 'EASY', id: 'score-1', score: 4321, song: { title: 'Home' } }] },
+  rhythm: {
+    bestLeaderboardRank: { accuracy: 96, difficulty: 'EASY', position: 2, score: 4321, songId: 'song-1', songTitle: 'Home' },
+    bestScore: 4321,
+    gamesCompleted: 7,
+    gamesPlayed: 7,
+    rank: 2,
+    recentScores: [{ accuracy: 96, createdAt: '2026-01-03', difficulty: 'EASY', id: 'score-1', score: 4321, song: { title: 'Home' } }],
+  },
 }
 
 function authenticate(role = 'CREATOR') {
@@ -40,6 +47,9 @@ describe('shared user profile system', () => {
     expect(screen.getByText('First Memory')).toBeInTheDocument()
     expect(screen.getAllByText('4,321').length).toBeGreaterThan(0)
     expect(screen.getByText('#2')).toBeInTheDocument()
+    expect(screen.getByText('Best leaderboard rank')).toBeInTheDocument()
+    expect(screen.getByText('Home · Easy')).toBeInTheDocument()
+    expect(screen.getByText('4,321 points · 96.00%')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Creator profile/ })).toHaveAttribute('href', '/creator/profile')
     expect(screen.queryByText('Studio Activity')).not.toBeInTheDocument()
@@ -79,6 +89,17 @@ describe('shared user profile system', () => {
     expect(screen.getByRole('heading', { name: 'Reflections' })).toBeInTheDocument()
     expect(screen.getByText('A memory of home.')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Edit Profile' })).not.toBeInTheDocument()
+  })
+
+  it('explains when a public user has no ranked rhythm-game scores', async () => {
+    window.history.pushState({}, '', '/users/user-1')
+    vi.stubGlobal('fetch', vi.fn(() => response({
+      ...profilePayload,
+      isOwner: false,
+      rhythm: { bestLeaderboardRank: null, bestScore: 0, gamesCompleted: 0, gamesPlayed: 0, rank: null, recentScores: [] },
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+    expect(await screen.findByText('No ranked rhythm-game scores yet')).toBeInTheDocument()
   })
 
   it('uses a non-revealing unavailable state for private profiles', async () => {

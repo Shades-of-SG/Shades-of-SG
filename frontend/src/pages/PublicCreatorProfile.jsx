@@ -12,7 +12,7 @@ function PublicHero({ isOwner, profile }) {
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || 'C'
   return (
     <>
-      {isOwner ? <div className="creator-profile-owner-banner"><span>This is your public profile.</span><Link to="/creator/profile/edit"><Pencil aria-hidden="true" /> Edit Profile</Link></div> : null}
+      {isOwner ? <div className="creator-profile-owner-banner"><span>This is your public profile.</span><div><Link to="/creator/profile">Back to Creator Profile</Link><Link to="/creator/profile/edit"><Pencil aria-hidden="true" /> Edit Profile</Link></div></div> : null}
       <section className="creator-profile-hero">
         <div aria-label={`${profile.displayName} creator avatar`} className="creator-profile-avatar">{profile.avatarUrl ? <img alt={`${profile.displayName} creator portrait`} src={profile.avatarUrl} /> : <span>{initial}</span>}<i aria-hidden="true"><Music2 /></i></div>
         <div className="creator-profile-hero__copy">

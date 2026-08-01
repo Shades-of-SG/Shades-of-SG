@@ -8,7 +8,7 @@ process.env.DB_STORAGE = databasePath;
 const request = require('supertest');
 const app = require('../server');
 const {
-    Badge, GameScore, Reflection, sequelize, Song, User, UserProfile,
+    Badge, GameScore, Reflection, RhythmBeatmap, sequelize, Song, User, UserProfile,
 } = require('../models');
 const { createToken, hashPassword } = require('../services/authService');
 
@@ -27,6 +27,11 @@ beforeAll(async () => {
     });
     leader = await User.create({ email: 'leader-profile@example.com', name: 'Leader', passwordHash: hashPassword('password123'), role: 'REGISTERED' });
     song = await Song.create({ artist: 'Creator Account', creatorId: creator.id, status: 'PUBLISHED', title: 'Rhythm Song' });
+    await RhythmBeatmap.create({
+        difficulty: 'EASY', durationMs: 30000, generationSource: 'MANUAL',
+        notes: [{ id: 'note-1', lane: 0, startMs: 1000, type: 'tap' }],
+        songId: song.id, status: 'PUBLISHED', version: 1,
+    });
     await Promise.all([
         GameScore.create({ accuracy: 90, rank: 'A', score: 1000, songId: song.id, userId: listener.id }),
         GameScore.create({ accuracy: 85, rank: 'A', score: 800, songId: song.id, userId: listener.id }),
@@ -44,11 +49,14 @@ afterAll(async () => {
     if (fs.existsSync(databasePath)) fs.unlinkSync(databasePath);
 });
 
-test('authenticated profile returns shared identity and dense best-score ranking', async () => {
+test('authenticated profile returns shared identity and official best leaderboard position', async () => {
     const response = await request(app).get('/api/users/me/profile').set(authorization(listener));
     expect(response.status).toBe(200);
     expect(response.body.profile).toMatchObject({ displayName: 'Listener', profileVisibility: 'PUBLIC', userId: listener.id });
-    expect(response.body.rhythm).toMatchObject({ bestScore: 1000, gamesPlayed: 2, rank: 2 });
+    expect(response.body.rhythm).toMatchObject({ bestScore: 1000, gamesPlayed: 2, rank: 3 });
+    expect(response.body.rhythm.bestLeaderboardRank).toMatchObject({
+        difficulty: 'EASY', position: 3, score: 1000, songId: song.id,
+    });
     expect(response.body.rhythm.recentScores).toHaveLength(2);
     expect(response.body.badges).toHaveLength(1);
     expect(response.body.reflections).toHaveLength(3);

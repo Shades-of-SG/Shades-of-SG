@@ -1,7 +1,7 @@
-const { fn, col, Op } = require('sequelize');
 const {
-    Badge, GameScore, Reflection, Song, User, UserProfile,
+    Badge, Reflection, Song, UserProfile,
 } = require('../models');
+const { userRhythmSummary } = require('./rhythmRankingService');
 
 const DEFAULTS = Object.freeze({
     bio: '', fontSize: 'MEDIUM', location: '', preferredLanguage: '',
@@ -50,33 +50,7 @@ async function findOrCreateProfile(user, transaction) {
     return profile;
 }
 
-async function rhythmSummary(userId) {
-    const [recentScores, gamesPlayed, bestScoreValue, grouped] = await Promise.all([
-        GameScore.findAll({
-            attributes: ['id', 'songId', 'score', 'accuracy', 'difficulty', 'rank', 'createdAt'],
-            include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'coverImageUrl'], required: false }],
-            limit: 10, order: [['createdAt', 'DESC']], where: { userId },
-        }),
-        GameScore.count({ where: { userId, score: { [Op.gte]: 0 } } }),
-        GameScore.max('score', { where: { userId, score: { [Op.gte]: 0 } } }),
-        GameScore.findAll({
-            attributes: ['userId', [fn('MAX', col('score')), 'bestScore']],
-            group: ['userId'], raw: true,
-            where: { score: { [Op.gte]: 0 }, userId: { [Op.ne]: null } },
-        }),
-    ]);
-
-    const activeUsers = await User.findAll({
-        attributes: ['id'],
-        where: { accountStatus: 'ACTIVE', id: { [Op.in]: grouped.map((row) => row.userId) }, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } },
-    });
-    const activeIds = new Set(activeUsers.map((user) => user.id));
-    const scores = grouped.filter((row) => activeIds.has(row.userId)).map((row) => Number(row.bestScore));
-    const bestScore = Number(bestScoreValue) || 0;
-    const rank = gamesPlayed ? 1 + new Set(scores.filter((score) => score > bestScore)).size : null;
-
-    return { bestScore, gamesPlayed, rank, recentScores };
-}
+const rhythmSummary = userRhythmSummary;
 
 async function activityFor(userId, { publicView = false, profile } = {}) {
     const includeBadges = !publicView || profile.showBadges;

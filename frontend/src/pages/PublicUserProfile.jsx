@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import ProfileBadges from '../components/profile/ProfileBadges'
 import ProfileHero from '../components/profile/ProfileHero'
 import ProfileMemories from '../components/profile/ProfileMemories'
@@ -25,11 +25,12 @@ export default function PublicUserProfile() {
   }, [token, userId])
 
   if (loading) return <div className="profile-page"><span className="profile-skeleton profile-skeleton--hero" role="status" /></div>
-  if (error || !data) return <div className="profile-page"><div className="profile-empty" role="status"><h1>Profile unavailable</h1><p>{error}</p></div></div>
+  if (error || !data) return <div className="profile-page"><div className="profile-empty" role="status"><h1>Profile unavailable</h1><p>{error}</p><Link className="profile-button profile-button--soft" to="/songs">Explore published songs</Link></div></div>
 
   const { badges = [], profile, reflections = [], rhythm } = data
   return (
     <div className="profile-page" data-theme="dark">
+      {data.isOwner ? <div className="profile-owner-banner"><span>This is your public-profile preview.</span><div><Link className="profile-button profile-button--soft" to="/profile">Back to Profile</Link><Link className="profile-button profile-button--soft" to="/settings#profile">Edit Profile</Link></div></div> : null}
       <ProfileHero editable={false} isCreator={profile.isCreator} profile={profile} />
       {rhythm || badges.length ? <ProfileStats badges={data.visibleSections?.badges === false ? null : badges.length} loading={{ badges: false, scores: false }} rhythm={data.visibleSections?.rhythm === false ? null : rhythm} /> : null}
       {reflections.length ? <ProfileMemories loading={false} memories={reflections} subtitle={`Public reflections from ${profile.displayName}`} title="Reflections" /> : null}

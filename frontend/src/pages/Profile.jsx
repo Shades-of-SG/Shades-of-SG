@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import MemoryEditModal from '../components/profile/MemoryEditModal'
 import ProfileBadges from '../components/profile/ProfileBadges'
@@ -12,7 +11,6 @@ import { deleteReflection, updateReflection } from '../services/reflectionServic
 
 export default function Profile() {
   const { profileLoading, refreshProfile, setActiveMode, token, user, userProfile } = useAuth()
-  const navigate = useNavigate()
   const [editingMemory, setEditingMemory] = useState(null)
   const [savingMemory, setSavingMemory] = useState(false)
   const [memoryError, setMemoryError] = useState('')
@@ -62,11 +60,10 @@ export default function Profile() {
 
   function openCreatorProfile() {
     setActiveMode('creator')
-    navigate('/creator/profile')
   }
   return (
     <div className="profile-page" data-theme={theme}>
-      <ProfileHero isCreator={hasActiveCreatorAccess(user)} onOpenCreatorProfile={openCreatorProfile} profile={profile} />
+      <ProfileHero isCreator={hasActiveCreatorAccess(user)} onOpenCreatorProfile={openCreatorProfile} profile={profile} publicProfileTo={`/users/${encodeURIComponent(profile.userId || user.id)}`} />
       <ProfileStats badges={badges.length} loading={loading} rhythm={rhythm} />
       <div aria-live="polite" className="profile-feedback" role="status">{feedback}</div>
       <ProfileMemories error={loadError} loading={profileLoading} memories={memories} onDelete={removeMemory} onEdit={(memory) => { setMemoryError(''); setEditingMemory(memory) }} onRetry={reload} />

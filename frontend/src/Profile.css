@@ -111,6 +111,9 @@
 .profile-page button,
 .profile-page a { -webkit-tap-highlight-color: transparent; }
 
+.profile-owner-banner { align-items:center; background:var(--pf-paper); border:1px solid var(--pf-border); border-radius:14px; box-shadow:var(--pf-shadow); display:flex; font-weight:800; gap:16px; justify-content:space-between; padding:14px 18px; }
+.profile-owner-banner > div,.creator-profile-owner-banner > div { display:flex; flex-wrap:wrap; gap:8px; }
+
 .profile-page button:focus-visible,
 .profile-page a:focus-visible,
 .profile-page [tabindex]:focus-visible,
@@ -211,13 +214,17 @@
 .profile-hero__stamp { border: 2px solid color-mix(in srgb, var(--pf-accent) 30%, transparent); bottom: 24px; color: var(--pf-accent); font-size: .55rem; font-weight: 900; letter-spacing: .12em; opacity: .58; padding: 6px 8px; position: absolute; right: 26px; text-align: center; transform: rotate(-7deg); }
 
 .profile-stats { display: grid; gap: 18px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.profile-stats article { align-items: center; border-radius: 9px 16px 8px 13px; box-shadow: 0 10px 24px rgba(73, 50, 49, .08); display: grid; gap: 2px 16px; grid-template-columns: 54px 1fr; min-height: 108px; padding: 18px 22px; }
+.profile-stats article { align-items: center; border-radius: 9px 16px 8px 13px; box-shadow: 0 10px 24px rgba(73, 50, 49, .08); display: grid; gap: 2px 16px; grid-template-columns: 54px minmax(0, 1fr); min-height: 108px; padding: 18px 22px; }
 .profile-stats article:nth-child(1) { background: var(--pf-rose); }
 .profile-stats article:nth-child(2) { background: var(--pf-lavender); }
 .profile-stats article:nth-child(3) { background: var(--pf-gold); }
-.profile-stats svg { background: color-mix(in srgb, var(--pf-paper) 68%, transparent); border-radius: 50%; color: var(--pf-accent-strong); grid-row: span 2; height: 44px; padding: 11px; width: 44px; }
+.profile-stats svg { background: color-mix(in srgb, var(--pf-paper) 68%, transparent); border-radius: 50%; color: var(--pf-accent-strong); height: 44px; padding: 11px; width: 44px; }
+.profile-stat__copy { display: grid; gap: 3px; min-width: 0; }
 .profile-stats strong { color: var(--pf-ink); font-family: Georgia, serif; font-size: 2.1rem; line-height: 1; }
-.profile-stats article > span:last-child { color: var(--pf-muted); font-size: .8rem; font-weight: 800; grid-column: 2; }
+.profile-stat__copy > span:not(.profile-skeleton) { color: var(--pf-muted); font-size: .8rem; font-weight: 800; }
+.profile-stat__copy small { color: var(--pf-muted); font-size: .68rem; line-height: 1.35; overflow-wrap: anywhere; }
+.profile-stat__copy small:last-child:not(:first-of-type) { color: var(--pf-accent-strong); }
+.profile-stat--detailed { min-height: 132px !important; }
 .profile-feedback { background: color-mix(in srgb, var(--pf-accent) 9%, var(--pf-paper)); border-left: 3px solid var(--pf-accent); border-radius: 6px; color: var(--pf-ink); font-size: .84rem; margin-block: -30px; padding: 10px 13px; }
 .profile-feedback:empty { display: none; }
 
@@ -479,6 +486,7 @@
 .creator-profile-tags { display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
 .creator-profile-tags span { background:rgba(196,181,253,.1); border:1px solid rgba(196,181,253,.2); border-radius:999px; color:#ddd6fe; font-size:.72rem; font-weight:800; padding:5px 10px; }
 .creator-profile-hero__edit { align-self:start; position:relative; z-index:2; }
+.creator-profile-hero__actions { display:flex; flex-direction:column; gap:8px; }
 .creator-profile-skyline { bottom:-14px; color:#d8b4fe; fill:none; height:150px; opacity:.1; position:absolute; right:-24px; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; stroke-width:3; width:520px; }
 
 .creator-profile-button {
@@ -704,6 +712,7 @@
   .creator-profile-account { align-items:flex-start; flex-direction:column; gap:16px; }
   .creator-profile-account > a { width:100%; }
   .creator-profile-owner-banner { align-items:flex-start; flex-direction:column; gap:8px; }
+  .profile-owner-banner { align-items:flex-start; flex-direction:column; }
   .creator-profile-settings__section { padding:21px 17px; }
   .creator-profile-avatar-editor { align-items:flex-start; flex-direction:column; }
   .creator-profile-settings__actions button { flex:1; }
