@@ -1,158 +1,277 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Play, Search } from 'lucide-react'
+import { Play, Search, SlidersHorizontal } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../context/AuthContext'
-import { getPublishedSongs } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
-import { getMyScores, getMyRhythmSummary } from '../services/scoreService'
-import { getUserBadges } from '../services/badgeService'
+import { getPublishedSongs } from '../services/publicSongService'
+import { getMyRhythmProgress } from '../services/scoreService'
 
 const DIFFICULTY_ORDER = ['EASY', 'MEDIUM', 'HARD']
-const difficultyLabel = (value) => value[0] + value.slice(1).toLowerCase()
+const EMPTY_PROGRESS = { bestScores: [], scores: [] }
 
-function formatDuration(value) {
-  const seconds = Math.floor(Number(value))
-  if (!Number.isFinite(seconds) || seconds <= 0) return ''
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+function difficultyLabel(difficulty) {
+  return difficulty[0] + difficulty.slice(1).toLowerCase()
+}
+
+function formatDuration(durationSecs) {
+  const totalSeconds = Math.floor(Number(durationSecs))
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return ''
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`
+}
+
+function formatScore(score) {
+  return Number(score).toLocaleString()
+}
+
+function sortSongs(songs, sortBy) {
+  return [...songs].sort((left, right) => {
+    if (sortBy === 'title') return String(left.title || '').localeCompare(String(right.title || ''))
+    if (sortBy === 'artist') {
+      return String(left.artist || '').localeCompare(String(right.artist || ''))
+        || String(left.title || '').localeCompare(String(right.title || ''))
+    }
+    const leftDate = Date.parse(left.publishedDate) || 0
+    const rightDate = Date.parse(right.publishedDate) || 0
+    return rightDate - leftDate
+  })
 }
 
 function groupPublishedBeatmapsBySong(entries) {
-  const grouped = new Map()
-  entries.forEach(({ beatmaps, song }) => beatmaps.filter((map) => map.status === 'PUBLISHED').forEach((map) => {
-    const item = grouped.get(song.id) || { ...song, difficulties: [] }
-    if (!item.difficulties.some(({ difficulty }) => difficulty === map.difficulty)) item.difficulties.push(map)
-    grouped.set(song.id, item)
-  }))
-  return [...grouped.values()].map((song) => ({
-    ...song,
-    difficulties: song.difficulties.sort((a, b) => DIFFICULTY_ORDER.indexOf(a.difficulty) - DIFFICULTY_ORDER.indexOf(b.difficulty)),
-  }))
-}
+  const songsById = new Map()
 
-function bestScores(scores) {
-  const result = new Map()
-  scores.forEach((score) => {
-    const key = `${score.songId}:${score.difficulty}`
-    if (!result.has(key) || Number(score.score) > Number(result.get(key).score)) result.set(key, score)
+  entries.forEach(({ beatmaps, song }) => {
+    beatmaps
+      .filter((beatmap) => beatmap.status === 'PUBLISHED')
+      .forEach((beatmap) => {
+        const groupedSong = songsById.get(song.id) || { ...song, difficulties: [] }
+        if (!groupedSong.difficulties.some((item) => item.difficulty === beatmap.difficulty)) {
+          groupedSong.difficulties.push(beatmap)
+        }
+        songsById.set(song.id, groupedSong)
+      })
   })
-  return result
+
+  return [...songsById.values()].map((song) => ({
+    ...song,
+    difficulties: song.difficulties.sort(
+      (left, right) => DIFFICULTY_ORDER.indexOf(left.difficulty) - DIFFICULTY_ORDER.indexOf(right.difficulty),
+    ),
+  }))
 }
 
 export default function RhythmHub() {
-  const { token, user } = useAuth()
+  const { token, user, userProfile } = useAuth()
+  const isAuthenticated = Boolean(token && user)
   const [songs, setSongs] = useState([])
-  const [scores, setScores] = useState([])
-  const [summary, setSummary] = useState(null)
-  const [badgeCount, setBadgeCount] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [error, setError] = useState('')
+  const [loadVersion, setLoadVersion] = useState(0)
+  const [progress, setProgress] = useState(EMPTY_PROGRESS)
+  const [progressLoading, setProgressLoading] = useState(isAuthenticated)
+  const [progressError, setProgressError] = useState(false)
+  const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('newest')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [category, setCategory] = useState('')
+  const [language, setLanguage] = useState('')
+  const [difficulty, setDifficulty] = useState('')
+  const [playStatus, setPlayStatus] = useState('')
 
   useEffect(() => {
     let active = true
     getPublishedSongs()
-      .then((data) => Promise.all(data.filter((song) => song.audioUrl && Number(song.durationSecs) >= 5)
-        .map(async (song) => ({ beatmaps: await getBeatmapSummary(song.id).catch(() => []), song }))))
+      .then(async (data) => Promise.all(
+        data
+          .filter((song) => song.audioUrl && Number(song.durationSecs) >= 5)
+          .map(async (song) => ({ beatmaps: await getBeatmapSummary(song.id), song })),
+      ))
       .then((entries) => active && setSongs(groupPublishedBeatmapsBySong(entries)))
-      .catch(() => active && setError(true))
+      .catch(() => active && setError('Rhythm games could not be loaded right now. Please try again.'))
       .finally(() => active && setLoading(false))
     return () => { active = false }
-  }, [])
+  }, [loadVersion])
 
   useEffect(() => {
-    if (!user || !token) return undefined
     let active = true
-    Promise.allSettled([getMyScores(token), getMyRhythmSummary(user.id, token), getUserBadges(user.id, token)])
-      .then(([scoreResult, summaryResult, badgeResult]) => {
-        if (!active) return
-        if (scoreResult.status === 'fulfilled') setScores(scoreResult.value)
-        if (summaryResult.status === 'fulfilled') setSummary(summaryResult.value)
-        if (badgeResult.status === 'fulfilled') setBadgeCount(badgeResult.value.length)
+    if (!isAuthenticated) return () => { active = false }
+    Promise.resolve()
+      .then(() => {
+        if (!active) return EMPTY_PROGRESS
+        setProgressLoading(true)
+        setProgressError(false)
+        return getMyRhythmProgress(token)
       })
+      .then((data) => active && setProgress(data))
+      .catch(() => active && setProgressError(true))
+      .finally(() => active && setProgressLoading(false))
     return () => { active = false }
-  }, [token, user])
+  }, [isAuthenticated, token])
 
-  const personalBests = useMemo(() => bestScores(scores), [scores])
+  const bestScoresByChart = useMemo(() => new Map(
+    progress.bestScores.map((score) => [`${score.songId}:${score.difficulty}`, score]),
+  ), [progress.bestScores])
+  const playedSongIds = useMemo(() => new Set(progress.bestScores.map((score) => score.songId)), [progress.bestScores])
+  const categories = useMemo(() => [...new Set(songs.map((song) => song.theme).filter(Boolean))].sort(), [songs])
+  const languages = useMemo(() => [...new Set(songs.flatMap((song) => song.languages || []).filter(Boolean))].sort(), [songs])
+  const progressReady = isAuthenticated && !progressLoading && !progressError
   const visibleSongs = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-    return [...songs].filter((song) => {
-      if (normalized && !`${song.title || ''} ${song.artist || ''}`.toLowerCase().includes(normalized)) return false
-      if (filter.startsWith('difficulty:') && !song.difficulties.some((map) => map.difficulty === filter.split(':')[1])) return false
-      if (filter.startsWith('language:') && !(song.languages || []).includes(filter.split(':')[1])) return false
-      if (filter === 'played' && !scores.some((score) => score.songId === song.id)) return false
-      if (filter === 'unplayed' && scores.some((score) => score.songId === song.id)) return false
-      return true
-    }).sort((a, b) => {
-      if (sortBy === 'title') return String(a.title || '').localeCompare(String(b.title || ''))
-      if (sortBy === 'artist') return String(a.artist || '').localeCompare(String(b.artist || '')) || String(a.title || '').localeCompare(String(b.title || ''))
-      return (Date.parse(b.publishedDate) || 0) - (Date.parse(a.publishedDate) || 0)
+    const query = search.trim().toLowerCase()
+    const filtered = songs.filter((song) => {
+      const searchable = [song.title, song.artist, song.creator?.displayName].filter(Boolean).join(' ').toLowerCase()
+      const hasDifficulty = !difficulty || song.difficulties.some((item) => item.difficulty === difficulty)
+      const hasLanguage = !language || (song.languages || []).includes(language)
+      const isPlayed = playedSongIds.has(song.id)
+      return (!query || searchable.includes(query))
+        && (!category || song.theme === category)
+        && hasLanguage
+        && hasDifficulty
+        && (!playStatus || (playStatus === 'played' ? isPlayed : !isPlayed))
     })
-  }, [filter, query, scores, songs, sortBy])
+    return sortSongs(filtered, sortBy)
+  }, [category, difficulty, language, playStatus, playedSongIds, search, songs, sortBy])
 
-  const languages = useMemo(() => [...new Set(songs.flatMap((song) => song.languages || []))].sort(), [songs])
-  const lastScore = scores[0]
-  const lastSong = lastScore && songs.find((song) => song.id === lastScore.songId)
-  const songsPlayed = new Set(scores.map((score) => score.songId)).size
+  const recentScore = progressReady
+    ? progress.scores.find((score) => songs.some((song) => (
+        song.id === score.songId && song.difficulties.some((item) => item.difficulty === score.difficulty)
+      )))
+    : null
+  const recentSong = recentScore ? songs.find((song) => song.id === recentScore.songId) : null
+  const recentBest = recentScore ? bestScoresByChart.get(`${recentScore.songId}:${recentScore.difficulty}`) : null
+  const summaryItems = isAuthenticated ? [
+    playedSongIds.size > 0 ? { label: 'Songs played', value: playedSongIds.size } : null,
+    (userProfile?.badges?.length || 0) > 0 ? { label: 'Badges earned', value: userProfile.badges.length } : null,
+    userProfile?.rhythm?.bestLeaderboardRank?.position
+      ? { label: 'Best leaderboard rank', value: `#${userProfile.rhythm.bestLeaderboardRank.position}` }
+      : null,
+  ].filter(Boolean) : []
+  const filtersActive = Boolean(category || language || difficulty || playStatus)
+
+  function clearFilters() {
+    setCategory('')
+    setLanguage('')
+    setDifficulty('')
+    setPlayStatus('')
+  }
 
   return <div className="page-stack rhythm-hub">
-    <PageHeader description="Play Singapore’s stories through rhythm." eyebrow="Rhythm Game" title="Rhythm Game" />
+    <PageHeader
+      description="Play Singapore’s stories through rhythm."
+      eyebrow="Rhythm Game"
+      title="Rhythm Game"
+    />
 
-    {user ? <>
-      {(songsPlayed > 0 || badgeCount > 0 || summary?.bestLeaderboardRank) ? <dl aria-label="Your rhythm progress" className="rhythm-progress-summary">
-        {songsPlayed > 0 ? <div><dt>Songs played</dt><dd>{songsPlayed}</dd></div> : null}
-        {badgeCount > 0 ? <div><dt>Badges earned</dt><dd>{badgeCount}</dd></div> : null}
-        {summary?.bestLeaderboardRank ? <div><dt>Best leaderboard rank</dt><dd>#{summary.bestLeaderboardRank.position}</dd></div> : null}
-      </dl> : null}
-    </> : <p className="rhythm-guest-note">Playing as a guest — scores will not be saved. <Link to="/login">Log in</Link> to save progress, earn badges and join the leaderboard.</p>}
+    {!isAuthenticated ? <aside className="rhythm-guest-notice">
+      <strong>Playing as a guest</strong>
+      <span>You can play any song. <Link to="/login">Log in</Link> to save future scores, track personal bests and join the leaderboard.</span>
+    </aside> : null}
 
-    {user && lastSong ? <section aria-labelledby="continue-rhythm-title" className="rhythm-continue">
-      <div><p className="eyebrow">Continue Playing</p><h2 id="continue-rhythm-title">{lastSong.title}</h2>
-        <p>{difficultyLabel(lastScore.difficulty)} · Personal best: {Number(personalBests.get(`${lastSong.id}:${lastScore.difficulty}`)?.score || 0).toLocaleString()}</p></div>
-      <Link className="rhythm-leaderboard-action rhythm-leaderboard-action--primary" to={`/game/${lastSong.id}?difficulty=${lastScore.difficulty}`}>Play again</Link>
+    {summaryItems.length > 0 ? <dl aria-label="Your rhythm progress" className="rhythm-progress-summary">
+      {summaryItems.map((item) => <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
+    </dl> : null}
+
+    {recentSong && recentScore ? <section aria-labelledby="continue-playing-title" className="rhythm-continue-card">
+      <div>
+        <p className="eyebrow">Continue Playing</p>
+        <h2 id="continue-playing-title">{recentSong.title}</h2>
+        <p>{difficultyLabel(recentScore.difficulty)} · Personal best {formatScore(recentBest?.score ?? recentScore.score)}</p>
+      </div>
+      <Link className="rhythm-continue-action" to={`/game/${recentSong.id}?difficulty=${recentScore.difficulty}`}>Play again <Play aria-hidden="true" size={16} /></Link>
     </section> : null}
 
-    {songs.length > 0 ? <div aria-label="Find and filter rhythm games" className="rhythm-list-toolbar">
-      <label className="rhythm-search"><span>Search songs</span><div><Search aria-hidden="true" size={17} /><input onChange={(event) => setQuery(event.target.value)} placeholder="Song title or artist" type="search" value={query} /></div></label>
-      <label><span>Filters</span><select onChange={(event) => setFilter(event.target.value)} value={filter}>
-        <option value="all">All songs</option>
-        {user ? <><option value="played">Played</option><option value="unplayed">Unplayed</option></> : null}
-        {DIFFICULTY_ORDER.map((difficulty) => <option key={difficulty} value={`difficulty:${difficulty}`}>{difficultyLabel(difficulty)} available</option>)}
-        {languages.map((language) => <option key={language} value={`language:${language}`}>{language}</option>)}
-      </select></label>
-      <label><span>Sort by</span><select id="rhythm-sort" onChange={(event) => setSortBy(event.target.value)} value={sortBy}><option value="newest">Newest</option><option value="title">Title</option><option value="artist">Artist</option></select></label>
-      <Link className="rhythm-leaderboard-action" to="/rhythm-game/leaderboard">View Leaderboard</Link>
+    {!loading && !error && songs.length > 0 ? <section aria-label="Find rhythm games" className="rhythm-controls">
+      <div className="rhythm-controls__primary">
+        <label className="rhythm-search" htmlFor="rhythm-search">
+          <span className="sr-only">Search by song title or artist</span>
+          <Search aria-hidden="true" size={18} />
+          <input id="rhythm-search" onChange={(event) => setSearch(event.target.value)} placeholder="Search title or artist" type="search" value={search} />
+        </label>
+        <button aria-expanded={filtersOpen} className={filtersActive ? 'is-active' : ''} onClick={() => setFiltersOpen((open) => !open)} type="button">
+          <SlidersHorizontal aria-hidden="true" size={17} /> Filters{filtersActive ? ' · On' : ''}
+        </button>
+        <label className="rhythm-sort" htmlFor="rhythm-sort">
+          <span>Sort by</span>
+          <select id="rhythm-sort" onChange={(event) => setSortBy(event.target.value)} value={sortBy}>
+            <option value="newest">Newest</option>
+            <option value="title">Title</option>
+            <option value="artist">Artist</option>
+          </select>
+        </label>
+        <Link className="rhythm-leaderboard-action rhythm-leaderboard-action--primary" to="/rhythm-game/leaderboard">View Leaderboard</Link>
+      </div>
+      {filtersOpen ? <div className="rhythm-filter-panel">
+        <label><span>Category</span><select onChange={(event) => setCategory(event.target.value)} value={category}><option value="">All categories</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label><span>Language</span><select onChange={(event) => setLanguage(event.target.value)} value={language}><option value="">All languages</option>{languages.map((item) => <option key={item}>{item}</option>)}</select></label>
+        <label><span>Difficulty</span><select onChange={(event) => setDifficulty(event.target.value)} value={difficulty}><option value="">Any difficulty</option>{DIFFICULTY_ORDER.map((item) => <option key={item} value={item}>{difficultyLabel(item)}</option>)}</select></label>
+        {isAuthenticated && progressReady ? <label><span>Progress</span><select onChange={(event) => setPlayStatus(event.target.value)} value={playStatus}><option value="">Played or unplayed</option><option value="played">Played</option><option value="unplayed">Not played</option></select></label> : null}
+        {filtersActive ? <button className="rhythm-clear-filters" onClick={clearFilters} type="button">Clear filters</button> : null}
+      </div> : null}
+    </section> : null}
+
+    {loading ? <div aria-live="polite" className="rhythm-loading-state" role="status"><span />Loading rhythm games…</div> : null}
+    {error ? <div className="state-box rhythm-error-state" role="alert"><strong>Rhythm games unavailable</strong><p>{error}</p><button onClick={() => { setLoading(true); setError(''); setLoadVersion((value) => value + 1) }} type="button">Try again</button></div> : null}
+    {!loading && !error && songs.length === 0 ? <EmptyState description="Published songs with a playable rhythm track will appear here." title="No published rhythm games yet" /> : null}
+    {!loading && !error && songs.length > 0 && visibleSongs.length === 0 ? <div className="state-box rhythm-search-empty">
+      <strong>No songs match your search</strong>
+      <p>Try another title or artist, or clear the active filters.</p>
+      <button onClick={() => { setSearch(''); clearFilters() }} type="button">Clear search and filters</button>
     </div> : null}
 
-    {loading ? <div className="rhythm-loading" role="status"><span />Loading rhythm games…</div> : null}
-    {error ? <div className="state-box" role="alert"><strong>Rhythm games are unavailable</strong><span>Please try again in a moment.</span></div> : null}
-    {!loading && !error && songs.length === 0 ? <EmptyState description="Published songs with rhythm tracks will appear here." title="No rhythm games yet" /> : null}
-    {!loading && !error && songs.length > 0 && visibleSongs.length === 0 ? <EmptyState description="Try another title, artist, or filter." title="No songs match your search" /> : null}
+    {progressError ? <p className="rhythm-progress-error" role="status">Your saved progress is temporarily unavailable. You can still choose a song and play.</p> : null}
 
-    {visibleSongs.length > 0 ? <section aria-label="Published rhythm games" className="rhythm-song-list">{visibleSongs.map((song) => {
-      const titleId = `rhythm-song-${song.id}`
-      const metadata = [song.theme, (song.languages || []).join(', '), formatDuration(song.durationSecs)].filter(Boolean)
-      return <article aria-labelledby={titleId} className="rhythm-song-row" key={song.id}>
-        <div className="rhythm-song-cover">{song.coverImageUrl ? <img alt={`${song.title} cover artwork`} src={song.coverImageUrl} /> : <div aria-label={`No cover artwork available for ${song.title}`} className="rhythm-song-cover__fallback" role="img">No cover</div>}</div>
-        <div className="rhythm-song-info"><h2 id={titleId}>{song.title}</h2><p className="rhythm-song-artist">{song.artist || 'Artist unavailable'}</p>
-          {song.creator ? <Link aria-label={`View ${song.creator.displayName}'s creator profile`} className="rhythm-song-creator" to={`/creators/${song.creator.id}`}>
-            <img alt="" src={song.creator.avatarUrl || '/images/Default_pfp.jpg'} /><span>Experience by <strong>{song.creator.displayName}</strong></span>
-          </Link> : null}
-          <p className="rhythm-song-context">{metadata.map((item, index) => <span key={item}>{index ? <span aria-hidden="true" className="rhythm-song-context__separator">•</span> : null}{item}</span>)}</p>
-          <p className="rhythm-song-summary">{user ? (scores.some((score) => score.songId === song.id) ? 'Played' : 'Not played') : 'Scores not saved for guests'}</p>
-        </div>
-        <div aria-label={`Available difficulties for ${song.title}`} className="rhythm-song-actions">{song.difficulties.map((beatmap) => {
-          const difficulty = difficultyLabel(beatmap.difficulty)
-          const count = beatmap.published?.noteCount ?? beatmap.noteCount
-          const best = personalBests.get(`${song.id}:${beatmap.difficulty}`)
-          return <Link aria-label={`Play ${song.title} on ${difficulty} difficulty`} className={`rhythm-difficulty-link is-${beatmap.difficulty.toLowerCase()}`} key={beatmap.difficulty} to={`/game/${song.id}?difficulty=${beatmap.difficulty}`}>
-            <span>{difficulty}</span><small>{Number.isFinite(Number(count)) ? `${Number(count)} notes` : 'Notes unavailable'}</small><small className="rhythm-difficulty-best">{user ? (best ? `Best: ${Number(best.score).toLocaleString()}` : 'Not played') : 'Play as guest'}</small><Play aria-hidden="true" size={16} />
-          </Link>
-        })}</div>
-      </article>
-    })}</section> : null}
+    {visibleSongs.length > 0 ? <section aria-label="Published rhythm games" className="rhythm-song-list">
+      {visibleSongs.map((song) => {
+        const titleId = `rhythm-song-${song.id}`
+        const duration = formatDuration(song.durationSecs)
+        const metadata = [song.theme, (song.languages || []).join(', '), duration].filter(Boolean)
+        const playedDifficulties = song.difficulties.filter((item) => bestScoresByChart.has(`${song.id}:${item.difficulty}`)).length
+        const summary = !progressReady
+          ? progressLoading ? 'Loading progress…' : 'Progress unavailable'
+          : playedDifficulties > 0 ? `${playedDifficulties} of ${song.difficulties.length} played` : 'Not played'
+        return <article aria-labelledby={titleId} className="rhythm-song-row" key={song.id}>
+          <div className="rhythm-song-cover">
+            {song.coverImageUrl
+              ? <img alt={`${song.title} cover artwork`} src={song.coverImageUrl} />
+              : <div aria-label={`No cover artwork available for ${song.title}`} className="rhythm-song-cover__fallback" role="img">No cover</div>}
+          </div>
+          <div className="rhythm-song-info">
+            <h2 id={titleId}>{song.title}</h2>
+            <p className="rhythm-song-artist">{song.artist || 'Performing artist unavailable'}</p>
+            {song.creator ? <div className="rhythm-song-creator">
+              <img alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/images/Default_pfp.jpg' }} src={song.creator.avatarUrl || '/images/Default_pfp.jpg'} />
+              <span>Experience by <Link aria-label={`View ${song.creator.displayName}’s creator profile`} to={`/creators/${song.creator.id}`}>{song.creator.displayName}</Link></span>
+            </div> : null}
+            <p className="rhythm-song-context">
+              {metadata.map((item, index) => <span key={`${index}:${item}`}>
+                {index > 0 ? <span aria-hidden="true" className="rhythm-song-context__separator">•</span> : null}
+                {item}
+              </span>)}
+            </p>
+            {isAuthenticated ? <p className="rhythm-song-summary">{summary}</p> : null}
+          </div>
+          <div aria-label={`Available difficulties for ${song.title}`} className="rhythm-song-actions">
+            {song.difficulties.map((beatmap) => {
+              const label = difficultyLabel(beatmap.difficulty)
+              const noteCount = beatmap.published?.noteCount ?? beatmap.noteCount
+              const noteLabel = Number.isFinite(Number(noteCount)) ? `${Number(noteCount)} notes` : 'Notes unavailable'
+              const best = bestScoresByChart.get(`${song.id}:${beatmap.difficulty}`)
+              const scoreLabel = progressReady ? (best ? `Best: ${formatScore(best.score)}` : 'Not played') : ''
+              return <Link
+                aria-label={`Play ${song.title} on ${label} difficulty`}
+                className={`rhythm-difficulty-link is-${beatmap.difficulty.toLowerCase()}`}
+                key={beatmap.difficulty}
+                to={`/game/${song.id}?difficulty=${beatmap.difficulty}`}
+              >
+                <span>{label}</span>
+                <small>{noteLabel}</small>
+                {scoreLabel ? <small className="rhythm-difficulty-progress">{scoreLabel}</small> : null}
+                <Play aria-hidden="true" size={16} />
+              </Link>
+            })}
+          </div>
+        </article>
+      })}
+    </section> : null}
   </div>
 }

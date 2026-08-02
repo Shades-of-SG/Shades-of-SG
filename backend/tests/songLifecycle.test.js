@@ -7,7 +7,7 @@ process.env.DB_STORAGE = testDatabasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { sequelize, GenerationJob, Instrument, Song, TriviaQuestion, User } = require('../models');
+const { sequelize, GenerationJob, Instrument, Song, TriviaQuestion, User, UserProfile } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
 const aiStorageService = require('../services/aiStorageService');
@@ -36,6 +36,11 @@ beforeAll(async () => {
     creator = await User.create({
         email: 'song-creator@example.com', name: 'Song Creator',
         passwordHash: hashPassword('password123'), role: 'CREATOR',
+    });
+    await UserProfile.create({
+        avatarUrl: 'https://media.example/creator-avatar.jpg',
+        displayName: 'Song Experience Studio',
+        userId: creator.id,
     });
     otherCreator = await User.create({
         email: 'other-creator@example.com', name: 'Other Creator',
@@ -144,7 +149,13 @@ test('publish succeeds for an owned READY song with complete media', async () =>
     expect(response.status).toBe(200);
     expect(response.body.song.status).toBe('PUBLISHED');
     expect(response.body.song.publishedDate).toBeTruthy();
-    expect((await request(app).get('/api/songs')).body.songs.map((item) => item.id)).toContain(song.id);
+    const publicSongs = (await request(app).get('/api/songs')).body.songs;
+    expect(publicSongs.map((item) => item.id)).toContain(song.id);
+    expect(publicSongs.find((item) => item.id === song.id).creator).toEqual({
+        avatarUrl: 'https://media.example/creator-avatar.jpg',
+        displayName: 'Song Experience Studio',
+        id: creator.id,
+    });
 });
 
 test('a complete archived song with an uploaded video can be published directly', async () => {
