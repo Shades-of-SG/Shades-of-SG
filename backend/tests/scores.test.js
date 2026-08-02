@@ -23,6 +23,19 @@ const validPayload = () => ({
     accuracy: 90, difficulty: 'medium', maxCombo: 8, rank: 'S',
     score: 8000, songId: publishedSong.id, totalNotes: 10,
 });
+const validClaimPayload = (overrides = {}) => ({
+    ...validPayload(),
+    badHits: 1,
+    claimId: '11111111-1111-4111-8111-111111111111',
+    earlyReleases: 0,
+    goodHits: 1,
+    greatHits: 2,
+    holdCompletions: 0,
+    misses: 0,
+    perfectHits: 6,
+    playedAt: new Date().toISOString(),
+    ...overrides,
+});
 const authorization = (user) => ({ Authorization: `Bearer ${createToken(user)}` });
 const leaderboardUrl = (song = publishedSong, difficulty = 'MEDIUM', period = 'all-time') => (
     `/api/scores/leaderboard?songId=${song.id}&difficulty=${difficulty}&period=${period}`
@@ -81,11 +94,67 @@ test('authenticated registered score is saved for the JWT user and ignores suppl
     expect((await GameScore.findOne()).userId).toBe(player.id);
 });
 
+test('an authenticated guest claim is owned by the JWT user and remains idempotent on retry', async () => {
+    const payload = validClaimPayload({ userId: otherPlayer.id });
+    const first = await request(app).post('/api/scores').set(authorization(player)).send(payload);
+    const retry = await request(app).post('/api/scores').set(authorization(player)).send(payload);
+
+    expect(first.status).toBe(201);
+    expect(first.body.score).toMatchObject({ claimId: payload.claimId, userId: player.id });
+    expect(retry.status).toBe(200);
+    expect(retry.body).toMatchObject({ alreadyClaimed: true, score: { userId: player.id } });
+    expect(await GameScore.count({ where: { claimId: payload.claimId } })).toBe(1);
+});
+
+test('a claim ID cannot be attached to a second account', async () => {
+    const payload = validClaimPayload();
+    await request(app).post('/api/scores').set(authorization(player)).send(payload);
+    const response = await request(app).post('/api/scores').set(authorization(otherPlayer)).send(payload);
+
+    expect(response.status).toBe(409);
+    expect(await GameScore.count({ where: { claimId: payload.claimId, userId: player.id } })).toBe(1);
+    expect(await GameScore.count({ where: { userId: otherPlayer.id } })).toBe(0);
+});
+
+test('expired and internally inconsistent guest claims are rejected', async () => {
+    const expired = await request(app).post('/api/scores').set(authorization(player)).send(validClaimPayload({
+        playedAt: new Date(Date.now() - (61 * 60 * 1000)).toISOString(),
+    }));
+    const inconsistent = await request(app).post('/api/scores').set(authorization(player)).send(validClaimPayload({
+        claimId: '22222222-2222-4222-8222-222222222222', perfectHits: 5,
+    }));
+
+    expect(expired.status).toBe(400);
+    expect(expired.body.message).toMatch(/expired/i);
+    expect(inconsistent.status).toBe(400);
+    expect(inconsistent.body.message).toMatch(/hit counts/i);
+    expect(await GameScore.count()).toBe(0);
+});
+
 test('creator token retains normal registered-user rhythm access', async () => {
     const response = await request(app).post('/api/scores').set(authorization(creator)).send(validPayload());
     expect(response.status).toBe(201);
     expect(response.body.score).toMatchObject({ userId: creator.id, songId: publishedSong.id });
     expect(await GameScore.count()).toBe(1);
+});
+
+test('my scores returns recent attempts and the personal best for each song and difficulty', async () => {
+    await Promise.all([
+        scoreFor(player, { difficulty: 'EASY', score: 7000 }),
+        scoreFor(player, { difficulty: 'EASY', score: 9000 }),
+        scoreFor(player, { difficulty: 'MEDIUM', score: 8000 }),
+        scoreFor(otherPlayer, { difficulty: 'EASY', score: 12000 }),
+    ]);
+
+    const response = await request(app).get('/api/scores/mine').set(authorization(player));
+
+    expect(response.status).toBe(200);
+    expect(response.body.scores).toHaveLength(3);
+    expect(response.body.bestScores).toHaveLength(2);
+    expect(response.body.bestScores).toEqual(expect.arrayContaining([
+        expect.objectContaining({ difficulty: 'EASY', score: 9000, songId: publishedSong.id }),
+        expect.objectContaining({ difficulty: 'MEDIUM', score: 8000, songId: publishedSong.id }),
+    ]));
 });
 
 test('a completed run persists and updates own profile, public profile, and leaderboard data', async () => {
@@ -97,12 +166,12 @@ test('a completed run persists and updates own profile, public profile, and lead
     expect(ownProfile.status).toBe(200);
     expect(ownProfile.body.rhythm).toMatchObject({ bestScore: 8000, gamesPlayed: 1, rank: 1 });
     expect(ownProfile.body.rhythm.bestLeaderboardRank).toMatchObject({ difficulty: 'MEDIUM', position: 1, songId: publishedSong.id });
-    expect(ownProfile.body.rhythm.recentScores[0]).toMatchObject({ score: 8000, songId: publishedSong.id });
+    expect(ownProfile.body.rhythm.topScores[0]).toMatchObject({ score: 8000, songId: publishedSong.id });
 
     const publicProfile = await request(app).get(`/api/users/${player.id}/profile`).set(authorization(otherPlayer));
     expect(publicProfile.status).toBe(200);
     expect(publicProfile.body.rhythm).toMatchObject({ bestScore: 8000, gamesPlayed: 1, rank: 1 });
-    expect(publicProfile.body.rhythm.recentScores[0]).toMatchObject({ score: 8000, songId: publishedSong.id });
+    expect(publicProfile.body.rhythm.topScores[0]).toMatchObject({ score: 8000, songId: publishedSong.id });
 
     const leaderboard = await request(app).get(`/api/scores/leaderboard?songId=${publishedSong.id}&difficulty=MEDIUM&period=all-time`);
     expect(leaderboard.status).toBe(200);
@@ -236,6 +305,28 @@ test('user summary reports the best leaderboard position across all song and dif
         songTitle: 'Second Song',
         totalRankedPlayers: 2,
     });
+});
+
+test('user summary returns the three highest chart personal bests in descending order', async () => {
+    await Promise.all([
+        scoreFor(player, { difficulty: 'EASY', score: 7000 }),
+        scoreFor(player, { difficulty: 'EASY', score: 6000 }),
+        scoreFor(player, { difficulty: 'MEDIUM', score: 9000 }),
+        scoreFor(player, { difficulty: 'HARD', score: 8000 }),
+        scoreFor(player, { difficulty: 'EASY', score: 10000, songId: secondSong.id }),
+        scoreFor(otherPlayer, { difficulty: 'MEDIUM', score: 14000 }),
+    ]);
+
+    const response = await request(app).get(`/api/scores/user/${player.id}/summary`).set(authorization(player));
+
+    expect(response.status).toBe(200);
+    expect(response.body.summary.topScores).toHaveLength(3);
+    expect(response.body.summary.topScores.map((entry) => entry.score)).toEqual([10000, 9000, 8000]);
+    expect(response.body.summary.topScores.every((entry) => entry.song && entry.difficulty && entry.rank)).toBe(true);
+    expect(response.body.summary.topScores).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ score: 14000 }),
+        expect.objectContaining({ score: 7000 }),
+    ]));
 });
 
 test('leaderboard returns clear empty and unavailable-difficulty states', async () => {

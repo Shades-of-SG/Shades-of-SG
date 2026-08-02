@@ -30,7 +30,9 @@ test('repairs a legacy game_scores table idempotently', async () => {
 
     expect(columns.max_combo).toMatchObject({ allowNull: false });
     expect(columns.rank).toMatchObject({ allowNull: false });
+    expect(columns.claim_id).toMatchObject({ allowNull: true });
     expect(indexes.map((index) => index.name)).toContain('game_scores_user_created_at_idx');
+    expect(indexes.map((index) => index.name)).toContain('game_scores_claim_id_unique_idx');
 });
 
 test('repairs a legacy generation_jobs table idempotently', async () => {
