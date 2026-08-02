@@ -71,22 +71,70 @@ test('creator with suspended creator access retains their normal user profile', 
 test('owner updates shared identity and public activity obeys privacy preferences', async () => {
     const updated = await request(app).patch('/api/users/me/profile').set(authorization(listener)).send({
         bio: '  I collect music memories.  ', displayName: '  Melody Keeper  ', location: ' Singapore ',
+        interestTags: ['National Day', 'Community Stories'],
         preferredLanguage: 'English', showBadges: false, showReflections: true,
         showRhythmRanking: false, theme: 'DARK',
     });
     expect(updated.status).toBe(200);
-    expect(updated.body.profile).toMatchObject({ bio: 'I collect music memories.', displayName: 'Melody Keeper', theme: 'DARK' });
+    expect(updated.body.profile).toMatchObject({
+        bio: 'I collect music memories.', displayName: 'Melody Keeper',
+        interestTags: ['National Day', 'Community Stories'], theme: 'DARK',
+    });
     expect((await User.findByPk(listener.id)).name).toBe('Melody Keeper');
 
     const publicResponse = await request(app).get(`/api/users/${listener.id}/profile`).set(authorization(leader));
     expect(publicResponse.status).toBe(200);
-    expect(publicResponse.body.profile).toMatchObject({ displayName: 'Melody Keeper', userId: listener.id });
+    expect(publicResponse.body.profile).toMatchObject({
+        displayName: 'Melody Keeper', interestTags: ['National Day', 'Community Stories'], userId: listener.id,
+    });
     expect(publicResponse.body.badges).toEqual([]);
     expect(publicResponse.body.rhythm).toBeNull();
     expect(publicResponse.body.reflections.map((reflection) => reflection.content)).toEqual(['Public memory']);
     expect(JSON.stringify(publicResponse.body)).not.toContain('Anonymous memory');
     expect(JSON.stringify(publicResponse.body)).not.toContain('Pending memory');
     expect(JSON.stringify(publicResponse.body)).not.toContain('listener-profile@example.com');
+});
+
+test('optional bio and canonical interest tags persist across profile reloads', async () => {
+    const interestTags = [
+        'National Day', 'Racial Harmony Day', 'Chinese Culture',
+        'Malay Culture', 'Community Stories', 'Singapore History',
+    ];
+    const submittedTags = interestTags.map((tag, index) => index === 0 ? `  ${tag}  ` : tag);
+    const updated = await request(app).patch('/api/users/me/profile').set(authorization(listener)).send({ bio: '   ', interestTags: submittedTags });
+    const restored = await request(app).get('/api/users/me/profile').set(authorization(listener));
+    const restoredSession = await request(app).get('/api/auth/me').set(authorization(listener));
+    const login = await request(app).post('/api/auth/login').send({ email: listener.email, password: 'password123' });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body.profile).toMatchObject({ bio: '', interestTags });
+    expect(restored.status).toBe(200);
+    expect(restored.body.profile).toMatchObject({ bio: '', interestTags });
+    expect(restoredSession.status).toBe(200);
+    expect(restoredSession.body.user.sharedProfile).toMatchObject({ bio: '', interestTags });
+    expect(login.status).toBe(200);
+    expect(login.body.user.sharedProfile).toMatchObject({ bio: '', interestTags });
+    expect((await UserProfile.findByPk(listener.id)).interestTags).toEqual(interestTags);
+});
+
+test('profile rejects overlong bios and malformed interest selections', async () => {
+    const cases = [
+        { body: { bio: 'x'.repeat(501) }, message: /500 characters or fewer/i },
+        { body: { interestTags: 'National Day' }, message: /must be an array/i },
+        { body: { interestTags: ['National Day', 'Unknown Interest'] }, message: /not supported/i },
+        { body: { interestTags: ['National Day', 'National Day'] }, message: /duplicates/i },
+        { body: { interestTags: ['National Day', '  National Day  '] }, message: /duplicates/i },
+        {
+            body: { interestTags: ['National Day', 'Racial Harmony Day', 'Total Defence Day', 'Chinese Culture', 'Malay Culture', 'Indian Culture', 'Peranakan Heritage'] },
+            message: /no more than 6/i,
+        },
+    ];
+
+    for (const { body, message } of cases) {
+        const response = await request(app).patch('/api/users/me/profile').set(authorization(listener)).send(body);
+        expect(response.status).toBe(400);
+        expect(response.body.message).toMatch(message);
+    }
 });
 
 test('private profile is hidden from guests and other users but visible to its owner', async () => {

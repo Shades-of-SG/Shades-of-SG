@@ -10,6 +10,7 @@ const aiStorageService = require('../services/aiStorageService')
 const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
 const { transcribeMediaBuffer } = require('../services/transcriptionService')
 const { writeAudit } = require('../services/auditService')
+const { isUuid } = require('../middleware/validateUuid')
 
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
@@ -96,6 +97,11 @@ const startGeneration = async (req, res, next) => {
 
     if (!songId) {
       const error = new Error('Song ID is required.')
+      error.statusCode = 400
+      throw error
+    }
+    if (!isUuid(songId)) {
+      const error = new Error('Song ID must be a valid UUID.')
       error.statusCode = 400
       throw error
     }

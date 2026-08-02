@@ -57,6 +57,36 @@ afterAll(async () => {
 
 function auth(token) { return { Authorization: `Bearer ${token}` }; }
 
+test('malformed public song IDs return 400 before querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findOne');
+    const response = await request(app).get('/api/songs/song-1');
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Song ID must be a valid UUID.');
+    expect(songLookup).not.toHaveBeenCalled();
+    songLookup.mockRestore();
+});
+
+test('valid missing song UUIDs return 404 after querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findOne');
+    const response = await request(app).get('/api/songs/11111111-1111-4111-8111-111111111111');
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe('Song not found.');
+    expect(songLookup).toHaveBeenCalled();
+    songLookup.mockRestore();
+});
+
+test('malformed nested beatmap song IDs return 400 before querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findByPk');
+    const response = await request(app).get('/api/songs/song-1/beatmaps');
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Song ID must be a valid UUID.');
+    expect(songLookup).not.toHaveBeenCalled();
+    songLookup.mockRestore();
+});
+
 test.each(['DRAFT', 'READY'])('%s songs are not publicly visible', async (status) => {
     const song = await Song.create({ creatorId: creator.id, status, title: `${status} Song` });
     const list = await request(app).get('/api/songs');

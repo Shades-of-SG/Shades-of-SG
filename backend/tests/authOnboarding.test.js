@@ -121,8 +121,19 @@ test('missing production SMTP configuration returns 503, logs a safe code, and r
 
 test('registration validates agreements and rejects duplicate normalized emails', async () => {
     expect((await request(app).post('/api/auth/register').send(registration('terms@example.com', { acceptTerms: false }))).status).toBe(400);
+    expect((await request(app).post('/api/auth/register').send(registration('privacy@example.com', { acceptPrivacy: false }))).status).toBe(400);
     expect((await request(app).post('/api/auth/register').send(registration('duplicate@example.com'))).status).toBe(201);
-    expect((await request(app).post('/api/auth/register').send(registration(' DUPLICATE@example.com '))).status).toBe(409);
+    const duplicate = await request(app).post('/api/auth/register').send(registration(' DUPLICATE@example.com '));
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.message).toBe('This email cannot be used. Continue to sign in or recover your account.');
+});
+
+test('registration validates the submitted name on the server', async () => {
+    const tooShort = await request(app).post('/api/auth/register').send(registration('short-name@example.com', { name: 'A' }));
+    const tooLong = await request(app).post('/api/auth/register').send(registration('long-name@example.com', { name: 'A'.repeat(256) }));
+    expect(tooShort.status).toBe(400);
+    expect(tooLong.status).toBe(400);
+    expect(tooShort.body.message).toMatch(/between 2 and 255 characters/i);
 });
 
 test('unverified users cannot log in or use a forged bearer session', async () => {
@@ -136,14 +147,51 @@ test('unverified users cannot log in or use a forged bearer session', async () =
 
 test('correct registration OTP verifies email and permits login with database role data', async () => {
     await request(app).post('/api/auth/register').send(registration('verify-success@example.com'));
-    expect((await request(app).post('/api/auth/verify-email').send({ code: '246810', email: 'verify-success@example.com' })).status).toBe(200);
+    const verification = await request(app).post('/api/auth/verify-email').send({ code: '246810', email: 'verify-success@example.com' });
+    expect(verification.status).toBe(200);
+    expect(verification.body.token).toEqual(expect.any(String));
+    expect(verification.body.user).toMatchObject({
+        email: 'verify-success@example.com',
+        emailVerified: true,
+        role: 'REGISTERED',
+    });
+    expect(verification.body.user).not.toHaveProperty('passwordHash');
     const user = await User.findOne({ where: { email: 'verify-success@example.com' } });
     expect(user.emailVerificationRequired).toBe(false);
     expect(user.emailVerifiedAt).toBeTruthy();
+    const restored = await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${verification.body.token}` });
+    expect(restored.status).toBe(200);
+    expect(restored.body.user).toMatchObject({ emailVerified: true, role: 'REGISTERED' });
     const login = await request(app).post('/api/auth/login').send({ email: 'VERIFY-SUCCESS@example.com', password: 'password123' });
     expect(login.status).toBe(200);
     expect(login.body.user).toMatchObject({ emailVerified: true, role: 'REGISTERED' });
     expect(login.body.user).not.toHaveProperty('passwordHash');
+});
+
+test('login validates input and does not reveal whether a valid email is registered', async () => {
+    const user = await createVerifiedUser({ email: 'login-errors@example.com' });
+    const invalidEmail = await request(app).post('/api/auth/login').send({ email: 'not-an-email', password: 'password123' });
+    const invalidPassword = await request(app).post('/api/auth/login').send({ email: user.email, password: 'short' });
+    const unknown = await request(app).post('/api/auth/login').send({ email: 'unknown-login@example.com', password: 'password123' });
+    const incorrect = await request(app).post('/api/auth/login').send({ email: user.email, password: 'incorrect-password' });
+
+    expect(invalidEmail.status).toBe(400);
+    expect(invalidEmail.body.message).toMatch(/valid email/i);
+    expect(invalidPassword.status).toBe(400);
+    expect(invalidPassword.body.message).toMatch(/between 8 and 128/i);
+    expect(unknown.status).toBe(401);
+    expect(incorrect.status).toBe(401);
+    expect(unknown.body).toEqual(incorrect.body);
+});
+
+test('login rate limiting controls repeated attempts by IP and normalized email', async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const response = await request(app).post('/api/auth/login').send({ email: 'rate-limit-login@example.com', password: 'password123' });
+        expect(response.status).toBe(401);
+    }
+    const limited = await request(app).post('/api/auth/login').send({ email: ' RATE-LIMIT-LOGIN@example.com ', password: 'password123' });
+    expect(limited.status).toBe(429);
+    expect(limited.headers['retry-after']).toBeTruthy();
 });
 
 test('incorrect and expired OTPs are rejected', async () => {

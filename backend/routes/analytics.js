@@ -4,6 +4,7 @@ const {
     AnalyticsEvent, Folder, GenerationJob, GameScore, Reflection, Song,
 } = require('../models');
 const { optionalAuth, requireCreator } = require('../middleware/auth');
+const { isUuid } = require('../middleware/validateUuid');
 
 const router = express.Router();
 const EVENT_TYPES = new Set([
@@ -65,6 +66,9 @@ router.post('/events', optionalAuth, async (req, res, next) => {
             if (!folder) return res.status(404).json({ message: 'Folder not found.' });
             folderId = folder.id;
         } else {
+            if (!isUuid(req.body.songId)) {
+                return res.status(400).json({ message: 'songId must be a valid song ID.' });
+            }
             const song = await Song.findOne({
                 where: { id: req.body.songId, creatorId: { [Op.ne]: null }, status: 'PUBLISHED' },
                 attributes: ['id'],
@@ -89,6 +93,9 @@ router.get('/creator', requireCreator, async (req, res, next) => {
     try {
         const creatorId = req.authUserRecord.id;
         const songId = String(req.query.songId || '').trim() || null;
+        if (songId && !isUuid(songId)) {
+            return res.status(400).json({ message: 'songId must be a valid song ID.' });
+        }
         if (songId) {
             const ownedSong = await Song.findOne({ where: { creatorId, id: songId }, attributes: ['id'] });
             if (!ownedSong) return res.status(404).json({ message: 'Song not found.' });

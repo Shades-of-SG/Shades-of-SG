@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useAuth } from './AuthContext'
 
 const SESSION_STORAGE_KEY = 'shadesOfSgGuestSession'
 const SessionContext = createContext(null)
@@ -17,7 +18,13 @@ function loadGuestSession() {
   const existingSession = localStorage.getItem(SESSION_STORAGE_KEY)
 
   if (existingSession) {
-    return JSON.parse(existingSession)
+    try {
+      const parsedSession = JSON.parse(existingSession)
+      if (parsedSession?.type === 'guest' && parsedSession.id) return parsedSession
+    } catch {
+      // Replace unreadable guest data with a new isolated session below.
+    }
+    localStorage.removeItem(SESSION_STORAGE_KEY)
   }
 
   const guestSession = createGuestSession()
@@ -26,18 +33,35 @@ function loadGuestSession() {
 }
 
 export function SessionProvider({ children }) {
-  const [session, setSession] = useState(loadGuestSession)
+  const { user } = useAuth()
+  const [guestSession, setGuestSession] = useState(() => (user ? null : loadGuestSession()))
+
+  useEffect(() => {
+    if (user) localStorage.removeItem(SESSION_STORAGE_KEY)
+    const timer = window.setTimeout(() => {
+      setGuestSession((currentSession) => {
+        if (user) return null
+        return currentSession || loadGuestSession()
+      })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [user])
+
+  const session = user ? null : guestSession
 
   const value = useMemo(() => ({
     session,
     updateSession(updater) {
-      setSession((currentSession) => {
-        const nextSession = typeof updater === 'function' ? updater(currentSession) : updater
-        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+      if (user) return
+      setGuestSession((currentSession) => {
+        const baseSession = currentSession || loadGuestSession()
+        const nextSession = typeof updater === 'function' ? updater(baseSession) : updater
+        if (nextSession) localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession))
+        else localStorage.removeItem(SESSION_STORAGE_KEY)
         return nextSession
       })
     },
-  }), [session])
+  }), [session, user])
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

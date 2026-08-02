@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { Song } = require('../models');
 const { requireCreator } = require('../middleware/auth');
+const { isUuid } = require('../middleware/validateUuid');
 const {
     extractAudioFromYouTube,
     getAudioExtractionConfigStatus,
@@ -47,6 +48,7 @@ router.post('/lyrics', requireCreator, async (req, res, next) => {
         }
 
         if (songId && !mediaBase64) {
+            if (!isUuid(songId)) return res.status(400).json({ message: 'Song ID must be a valid UUID.' });
             const song = await Song.findOne({ where: { creatorId: req.authUserRecord.id, id: songId } });
             if (!song) return res.status(404).json({ message: 'Song not found.' });
             const mediaUrl = song.videoUrl || song.audioUrl;

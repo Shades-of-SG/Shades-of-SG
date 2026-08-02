@@ -138,6 +138,7 @@ function serializeUser(user) {
         emailVerified: !user.emailVerificationRequired,
         sharedProfile: profile ? {
             avatarUrl: profile.avatarUrl || '', bio: profile.bio || '', displayName: profile.displayName,
+            interestTags: Array.isArray(profile.interestTags) ? profile.interestTags : [],
             fontSize: profile.fontSize, location: profile.location || '', preferredLanguage: profile.preferredLanguage || '',
             profileVisibility: profile.profileVisibility, reducedMotion: profile.reducedMotion,
             showBadges: profile.showBadges, showReflections: profile.showReflections,

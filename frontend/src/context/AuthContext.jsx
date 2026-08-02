@@ -4,6 +4,14 @@ import { getMyUserProfile } from '../services/userProfileService'
 import { AUTH_EXPIRED_EVENT } from '../utils/authEvents'
 const AuthContext = createContext(null)
 const ACTIVE_MODE_KEY = 'activeMode'
+const AUTH_TOKEN_KEY = 'authToken'
+const AUTH_USER_KEY = 'authUser'
+const GUEST_SESSION_KEY = 'shadesOfSgGuestSession'
+
+function clearStoredAuth() {
+  localStorage.removeItem(AUTH_TOKEN_KEY)
+  localStorage.removeItem(AUTH_USER_KEY)
+}
 
 function readStoredMode() {
   const mode = localStorage.getItem(ACTIVE_MODE_KEY)
@@ -17,17 +25,28 @@ function resolveMode(user, requestedMode = readStoredMode()) {
 }
 
 function readInitialAuth() {
-  const storedUser = localStorage.getItem('authUser')
+  const storedToken = localStorage.getItem(AUTH_TOKEN_KEY)
+  const storedUser = localStorage.getItem(AUTH_USER_KEY)
   let user = null
-  try {
-    user = storedUser ? normalizeUserAccess(JSON.parse(storedUser)) : null
-  } catch {
-    localStorage.removeItem('authUser')
+
+  if (storedToken && storedUser) {
+    try {
+      const parsedUser = JSON.parse(storedUser)
+      if (!parsedUser || typeof parsedUser !== 'object' || Array.isArray(parsedUser) || !parsedUser.id || !parsedUser.role) {
+        throw new Error('Stored auth user is invalid.')
+      }
+      user = normalizeUserAccess(parsedUser)
+    } catch {
+      clearStoredAuth()
+    }
+  } else if (storedToken || storedUser) {
+    clearStoredAuth()
   }
+
   const storedMode = readStoredMode()
   const activeMode = resolveMode(user, storedMode)
   if (user || storedMode) localStorage.setItem(ACTIVE_MODE_KEY, activeMode)
-  return { activeMode, token: localStorage.getItem('authToken'), user, userProfile: initialProfileData(user) }
+  return { activeMode, token: user ? storedToken : null, user, userProfile: initialProfileData(user) }
 }
 
 function initialProfileData(user) {
@@ -39,6 +58,7 @@ function initialProfileData(user) {
       avatarUrl: shared.avatarUrl || user.avatarUrl || '', bio: shared.bio || user.bio || '',
       createdAt: user.createdAt, displayName: shared.displayName || user.name || 'Account',
       fontSize: shared.fontSize || 'MEDIUM', location: shared.location || '',
+      interestTags: Array.isArray(shared.interestTags) ? shared.interestTags : [],
       preferredLanguage: shared.preferredLanguage || '', profileVisibility: shared.profileVisibility || 'PUBLIC',
       reducedMotion: shared.reducedMotion || false, showBadges: shared.showBadges ?? true,
       showReflections: shared.showReflections ?? true, showRhythmRanking: shared.showRhythmRanking ?? true,
@@ -56,38 +76,25 @@ export function AuthProvider({ children }) {
   const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => {
-  function handleAuthExpired() {
-    const lastMode =
-      activeMode === 'creator'
-        ? 'creator'
-        : 'user'
+    function handleAuthExpired() {
+      const lastMode = activeMode === 'creator' ? 'creator' : 'user'
+      localStorage.setItem(ACTIVE_MODE_KEY, lastMode)
+      clearStoredAuth()
+      setUser(null)
+      setToken(null)
+      setUserProfile(null)
+      setProfileLoading(false)
+    }
 
-    localStorage.setItem(
-      ACTIVE_MODE_KEY,
-      lastMode
-    )
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired)
 
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('authUser')
-
-    setUser(null)
-    setToken(null)
-    setUserProfile(null)
-    setProfileLoading(false)
-  }
-
-  window.addEventListener(
-    AUTH_EXPIRED_EVENT,
-    handleAuthExpired
-  )
-
-  return () => {
-    window.removeEventListener(
+    return () => {
+      window.removeEventListener(
       AUTH_EXPIRED_EVENT,
       handleAuthExpired
-    )
-  }
-}, [activeMode])
+      )
+    }
+  }, [activeMode])
 
   const refreshProfile = useCallback(async (requestedToken = token) => {
     if (!requestedToken) {
@@ -140,9 +147,10 @@ export function AuthProvider({ children }) {
   const signIn = useCallback((nextUser, nextToken) => {
     const normalizedUser = normalizeUserAccess(nextUser)
     const nextMode = resolveMode(normalizedUser)
-    localStorage.setItem('authToken', nextToken)
-    localStorage.setItem('authUser', JSON.stringify(normalizedUser))
+    localStorage.setItem(AUTH_TOKEN_KEY, nextToken)
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(normalizedUser))
     localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
+    localStorage.removeItem(GUEST_SESSION_KEY)
     setUser(normalizedUser)
     setToken(nextToken)
     setUserProfile(initialProfileData(normalizedUser))
@@ -153,8 +161,7 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(() => {
     const lastMode = activeMode === 'creator' ? 'creator' : 'user'
     localStorage.setItem(ACTIVE_MODE_KEY, lastMode)
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('authUser')
+    clearStoredAuth()
     setUser(null)
     setToken(null)
     setUserProfile(null)
@@ -172,7 +179,7 @@ export function AuthProvider({ children }) {
   const updateUser = useCallback((nextUser) => {
     const normalizedUser = normalizeUserAccess(nextUser)
     const nextMode = resolveMode(normalizedUser, activeMode)
-    localStorage.setItem('authUser', JSON.stringify(normalizedUser))
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(normalizedUser))
     localStorage.setItem(ACTIVE_MODE_KEY, nextMode)
     setUser(normalizedUser)
     setActiveModeState(nextMode)
@@ -186,7 +193,7 @@ export function AuthProvider({ children }) {
     activeMode,
     user,
     token,
-    isAuthenticated: Boolean(token),
+    isAuthenticated: Boolean(token && user),
     profileLoading,
     refreshProfile,
     userProfile,
