@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { resendRegistrationOtp, verifyRegistrationOtp } from '../services/authApi'
 
 export default function OtpVerification() {
   const location = useLocation(); const navigate = useNavigate()
+  const { signIn } = useAuth()
   const email = location.state?.email || sessionStorage.getItem('pendingVerificationEmail') || ''
   const [code, setCode] = useState('')
   const [cooldown, setCooldown] = useState(60)
@@ -13,7 +15,15 @@ export default function OtpVerification() {
   useEffect(() => { if (!cooldown) return undefined; const timer = window.setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000); return () => window.clearInterval(timer) }, [cooldown])
   async function verify(event) {
     event.preventDefault(); setError(''); setBusy(true)
-    try { await verifyRegistrationOtp(email, code); sessionStorage.removeItem('pendingVerificationEmail'); navigate('/registration-success', { replace: true }) } catch (nextError) { setError(nextError.status === 429 ? 'Too many incorrect attempts. Request a new code.' : 'The code is invalid or expired.') } finally { setBusy(false) }
+    try {
+      const data = await verifyRegistrationOtp(email, code)
+      if (!data?.token || !data?.user) throw new Error('The verification response was incomplete.')
+      signIn(data.user, data.token)
+      sessionStorage.removeItem('pendingVerificationEmail')
+      navigate('/registration-success', { replace: true })
+    } catch (nextError) {
+      setError(nextError.status === 429 ? 'Too many incorrect attempts. Request a new code.' : 'The code is invalid or expired.')
+    } finally { setBusy(false) }
   }
   async function resend() {
     setError(''); setMessage(''); setBusy(true)
