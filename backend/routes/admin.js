@@ -6,6 +6,7 @@ const {
     Reflection, Song, SongFolder, User, UserWarning, sequelize,
 } = require('../models');
 const { requireAdmin } = require('../middleware/auth');
+const { isUuid, validateUuidParam } = require('../middleware/validateUuid');
 const { writeAudit } = require('../services/auditService');
 const { sendApplicationEmail } = require('../services/emailService');
 
@@ -271,7 +272,7 @@ router.get('/songs', async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
-router.post('/songs/:id/unpublish', async (req, res, next) => {
+router.post('/songs/:id/unpublish', validateUuidParam('id', 'Song ID must be a valid UUID.'), async (req, res, next) => {
     try {
         const reason = accessReason(req.body.reason, 2000);
         if (reason === undefined) return res.status(400).json({ message: 'Unpublish reason must be 2000 characters or fewer.' });
@@ -445,7 +446,7 @@ router.patch('/folder-song-proposals/:id', async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
-router.put('/folders/:folderId/songs/:songId', async (req, res, next) => {
+router.put('/folders/:folderId/songs/:songId', validateUuidParam('songId', 'Song ID must be a valid UUID.'), async (req, res, next) => {
     try {
         const [folder, song] = await Promise.all([
             Folder.findOne({ where: { id: req.params.folderId, status: 'APPROVED' } }),
@@ -461,7 +462,7 @@ router.put('/folders/:folderId/songs/:songId', async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
-router.delete('/folders/:folderId/songs/:songId', async (req, res, next) => {
+router.delete('/folders/:folderId/songs/:songId', validateUuidParam('songId', 'Song ID must be a valid UUID.'), async (req, res, next) => {
     try {
         const song = await Song.findByPk(req.params.songId);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
@@ -592,7 +593,10 @@ router.get('/audit-logs', async (req, res, next) => {
         if (req.query.action) where.action = { [Op.eq]: String(req.query.action) };
         if (req.query.entityId) where.entityId = String(req.query.entityId);
         if (req.query.entityType) where.entityType = String(req.query.entityType);
-        if (req.query.songId) where.songId = req.query.songId;
+        if (req.query.songId) {
+            if (!isUuid(req.query.songId)) return res.status(400).json({ message: 'songId must be a valid UUID.' });
+            where.songId = req.query.songId;
+        }
         const { count, rows } = await AuditLog.findAndCountAll({
             include: [
                 { model: User, as: 'actor', attributes: ['id', 'name', 'email', 'role'], required: false },

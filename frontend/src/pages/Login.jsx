@@ -71,7 +71,7 @@ export default function Login() {
     const allowedRequested = requested
       && ((data.user.role === 'ADMIN' && requestedPath.startsWith('/admin'))
         || (hasActiveCreatorAccess(data.user) && activeMode === 'creator' && requestedPath.startsWith('/creator'))
-        || (data.user.role === 'CREATOR' && requestedPath.startsWith('/profile'))
+        || (data.user.role === 'CREATOR' && ['/profile', '/settings'].some((path) => requestedPath.startsWith(path)))
         || (data.user.role === 'REGISTERED' && ['/profile', '/apply/creator', '/settings'].some((path) => requestedPath.startsWith(path))))
     navigate(allowedRequested ? requested : roleDestination(data.user, activeMode), { replace: true })
   }, [location.state, navigate, signIn])

@@ -125,6 +125,9 @@ function App() {
           <Route element={<ForgotPassword />} path="/forgot-password" />
           <Route element={<ResetPassword />} path="/reset-password" />
           <Route element={<OtpVerification />} path="/verify-email" />
+        </Route>
+
+        <Route element={<AuthLayout />}>
           <Route element={<RegistrationSuccess />} path="/registration-success" />
         </Route>
 

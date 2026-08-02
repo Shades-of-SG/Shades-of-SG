@@ -34,6 +34,7 @@ function renderLogin(fetchImplementation, initialEntry = '/login') {
             <Route element={<div>Creator destination</div>} path="/creator/dashboard" />
             <Route element={<div>Profile destination</div>} path="/profile" />
             <Route element={<LocationProbe label="Settings destination" />} path="/settings" />
+            <Route element={<LocationProbe label="Profile settings destination" />} path="/settings/profile" />
             <Route element={<div>Public destination</div>} path="/" />
             <Route element={<div>Verification destination</div>} path="/verify-email" />
           </Routes>
@@ -135,6 +136,22 @@ describe('authentication onboarding pages', () => {
 
     expect(await screen.findByText('Settings destination: /settings?tab=privacy#alerts')).toBeInTheDocument()
     expect(localStorage.getItem('shadesOfSgGuestSession')).toBeNull()
+  })
+
+  it('restores a creator to requested normal-user profile settings', async () => {
+    const fetchMock = vi.fn((url) => String(url).endsWith('/auth/config')
+      ? response({ appleAuthEnabled: false })
+      : response({ token: 'creator-token', user: { email: 'creator@example.com', id: 'creator-1', role: 'CREATOR' } }))
+    renderLogin(fetchMock, {
+      pathname: '/login',
+      state: { from: { pathname: '/settings/profile' } },
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'creator@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(await screen.findByText('Profile settings destination: /settings/profile')).toBeInTheDocument()
   })
 
   it('redirects unverified accounts and shows restricted-account errors', async () => {

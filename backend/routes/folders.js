@@ -2,9 +2,11 @@ const express = require('express');
 const { Op } = require('sequelize');
 const { Folder, FolderSongProposal, Song, SongFolder } = require('../models');
 const { optionalAuth, requireCreator } = require('../middleware/auth');
+const { isUuid, validateUuidParam } = require('../middleware/validateUuid');
 const { writeAudit } = require('../services/auditService');
 
 const router = express.Router();
+router.param('songId', validateUuidParam('songId', 'Song ID must be a valid UUID.'));
 
 function slugify(name) {
     return String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 180);
@@ -115,6 +117,7 @@ async function createPlacementProposal(req, res, next) {
         const body = req.body || {};
         const songId = body.songId || req.params.songId;
         const folderId = body.folderId || req.params.folderId;
+        if (!isUuid(songId)) return res.status(400).json({ message: 'Song ID must be a valid UUID.' });
         const song = await Song.findOne({ where: { id: songId, creatorId: req.authUserRecord.id } });
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         const folder = await Folder.findOne({ where: { id: folderId, status: 'APPROVED' } });

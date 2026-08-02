@@ -26,6 +26,17 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /explore songs/i })).toBeInTheDocument()
   })
 
+  it('keeps registration success reachable after verification signs the user in', () => {
+    localStorage.setItem('authToken', 'registered-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'user-1', name: 'Bellen', role: 'REGISTERED' }))
+    window.history.pushState({}, '', '/registration-success')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(screen.getByRole('heading', { name: 'Email verified' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Continue to your profile' })).toHaveAttribute('href', '/profile')
+  })
+
   it('preserves an authenticated creator in User Mode across a direct root refresh', () => {
     localStorage.setItem('activeMode', 'user')
     localStorage.setItem('authToken', 'creator-token')

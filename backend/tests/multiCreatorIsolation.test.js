@@ -150,13 +150,41 @@ test('analytics derives the user from auth and creator song filters cannot cross
 
 test('analytics rejects malformed song IDs before querying songs', async () => {
     const songLookup = jest.spyOn(Song, 'findOne');
-    const response = await request(app).post('/api/analytics/events')
+    const eventResponse = await request(app).post('/api/analytics/events')
         .send({ eventType: 'RHYTHM_GAME_STARTED', songId: 'song-1' });
+    const filterResponse = await request(app).get('/api/analytics/creator')
+        .set('Authorization', `Bearer ${tokens['Creator A']}`).query({ songId: 'song-1' });
 
-    expect(response.status).toBe(400);
-    expect(response.body.message).toBe('songId must be a valid song ID.');
+    expect(eventResponse.status).toBe(400);
+    expect(eventResponse.body.message).toBe('songId must be a valid song ID.');
+    expect(filterResponse.status).toBe(400);
+    expect(filterResponse.body.message).toBe('songId must be a valid song ID.');
     expect(songLookup).not.toHaveBeenCalled();
     songLookup.mockRestore();
+});
+
+test('all external song lookup entry points reject malformed IDs before querying songs', async () => {
+    const findOne = jest.spyOn(Song, 'findOne');
+    const findByPk = jest.spyOn(Song, 'findByPk');
+    const creatorAuth = { Authorization: `Bearer ${tokens['Creator A']}` };
+    const adminAuth = { Authorization: `Bearer ${tokens.ADMIN}` };
+
+    const responses = await Promise.all([
+        request(app).post('/api/transcriptions/lyrics').set(creatorAuth).send({ songId: 'song-1' }),
+        request(app).post('/api/generation/start').set(creatorAuth).send({ songId: 'song-1' }),
+        request(app).get('/api/folders/song/song-1'),
+        request(app).post('/api/folders/placements').set(creatorAuth).send({ folderId: 'folder-1', songId: 'song-1' }),
+        request(app).post('/api/admin/songs/song-1/unpublish').set(adminAuth).send({ reason: 'Review' }),
+        request(app).put('/api/admin/folders/folder-1/songs/song-1').set(adminAuth).send({ songOrder: 0 }),
+        request(app).delete('/api/admin/folders/folder-1/songs/song-1').set(adminAuth),
+        request(app).get('/api/admin/audit-logs').set(adminAuth).query({ songId: 'song-1' }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual(Array(8).fill(400));
+    expect(findOne).not.toHaveBeenCalled();
+    expect(findByPk).not.toHaveBeenCalled();
+    findOne.mockRestore();
+    findByPk.mockRestore();
 });
 
 test('creator warnings are limited to registered authors on reflections attached to owned songs', async () => {
