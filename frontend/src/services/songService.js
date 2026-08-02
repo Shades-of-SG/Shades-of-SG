@@ -127,3 +127,17 @@ export function retryGenerationJob(jobId, token) {
     token,
   })
 }
+
+export function generateSongArticle(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/curation/generate-article`, {
+    method: 'POST',
+    token,
+  }).then((data) => data.data)
+}
+
+export function generateSongTrivia(songId, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/curation/generate-trivia`, {
+    method: 'POST',
+    token,
+  }).then((data) => data.data)
+}

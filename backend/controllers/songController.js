@@ -4,6 +4,7 @@ const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQue
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
+const aiCurationPlanner = require('../services/aiCurationPlanner');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -427,10 +428,13 @@ async function getCurationDetails(req, res, next) {
             order: [['name', 'ASC']],
         });
 
+        const latestJob = await GenerationJob.findOne({ where: { songId: id }, order: [['createdAt', 'DESC']] });
+
         return res.json({
             success: true,
             data: {
                 song,
+                latestJobId: latestJob?.id || null,
                 aiSummary: song.aiSummary || song.description || '',
                 description: song.description || '',
                 triviaQuestions,
@@ -493,10 +497,13 @@ async function updateCurationDetails(req, res, next) {
             order: [['createdAt', 'ASC']],
         });
 
+        const latestJob = await GenerationJob.findOne({ where: { songId: id }, order: [['createdAt', 'DESC']] });
+
         return res.json({
             success: true,
             data: {
                 song: updatedSong,
+                latestJobId: latestJob?.id || null,
                 aiSummary: updatedSong.aiSummary || updatedSong.description || '',
                 description: updatedSong.description,
                 triviaQuestions: updatedTrivia,
@@ -506,4 +513,24 @@ async function updateCurationDetails(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getCurationDetails, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateCurationDetails, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+async function generateArticle(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const result = await aiCurationPlanner.generateSongArticle(id);
+        return res.json({ success: true, data: result });
+    } catch (error) { return next(error); }
+}
+
+async function generateTrivia(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const result = await aiCurationPlanner.generateSongTrivia(id);
+        return res.json({ success: true, data: result });
+    } catch (error) { return next(error); }
+}
+
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getCurationDetails, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateCurationDetails, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo, generateArticle, generateTrivia };

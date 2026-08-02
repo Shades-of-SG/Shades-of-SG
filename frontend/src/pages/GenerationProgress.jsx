@@ -22,9 +22,11 @@ export default function GenerationProgress() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   
-  const [isPhase2Expanded, setIsPhase2Expanded] = useState(true)
-  const [isPhase3Expanded, setIsPhase3Expanded] = useState(true)
-  const [isPhase4Expanded, setIsPhase4Expanded] = useState(true)
+  const [isPhase1Expanded, setIsPhase1Expanded] = useState(false)
+  const [isPhase2Expanded, setIsPhase2Expanded] = useState(false)
+  const [isPhase3Expanded, setIsPhase3Expanded] = useState(false)
+  const [isPhase4Expanded, setIsPhase4Expanded] = useState(false)
+  const [isPhase5Expanded, setIsPhase5Expanded] = useState(false)
 
   useEffect(() => {
     let timeoutId
@@ -89,6 +91,63 @@ export default function GenerationProgress() {
   const status = jobData?.status || 'QUEUED'
   const sceneSegments = jobData?.song?.sceneSegments || []
 
+  const renderStatusTag = (label, type = 'waiting') => {
+    const styles = {
+      completed: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981', icon: <CheckCircle className="w-3 h-3" /> },
+      processing: { bg: 'rgba(99, 102, 241, 0.1)', text: '#818cf8', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+      waiting: { bg: 'rgba(100, 116, 139, 0.1)', text: '#94a3b8', icon: null },
+      failed: { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444', icon: <AlertCircle className="w-3 h-3" /> },
+    }
+    const s = styles[type]
+    return (
+      <span style={{ 
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', 
+        borderRadius: '9999px', backgroundColor: s.bg, color: s.text,
+        marginLeft: '12px'
+      }}>
+        {s.icon}
+        {label}
+      </span>
+    )
+  }
+
+  const getPhaseStatus = (phaseNum) => {
+    const hasScenes = sceneSegments && sceneSegments.length > 0;
+    const totalFrames = sceneSegments?.length || 0;
+    const generatedFrames = sceneSegments?.filter(s => s.generatedFrames && s.generatedFrames.length > 0).length || 0;
+    const framesDone = totalFrames > 0 && generatedFrames === totalFrames;
+
+    if (phaseNum === 1) {
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
+      return renderStatusTag('Completed', 'completed');
+    }
+    if (phaseNum === 2) {
+      if (hasScenes) return renderStatusTag('Completed', 'completed');
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
+      return renderStatusTag('Processing...', 'processing');
+    }
+    if (phaseNum === 3) {
+      if (framesDone) return renderStatusTag('Completed', 'completed');
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
+      if (hasScenes) return renderStatusTag(`${generatedFrames}/${totalFrames} Frames`, 'processing');
+      return renderStatusTag('Waiting', 'waiting');
+    }
+    if (phaseNum === 4) {
+      if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed');
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
+      if (framesDone) return renderStatusTag('Stitching...', 'processing');
+      return renderStatusTag('Waiting', 'waiting');
+    }
+    if (phaseNum === 5) {
+      if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed');
+      if (status === 'FAILED') return renderStatusTag('Skipped', 'failed');
+      if (framesDone) return renderStatusTag('Generating...', 'processing');
+      return renderStatusTag('Waiting', 'waiting');
+    }
+    return null;
+  }
+
   return (
     <CreatorPageShell
       breadcrumbs={['Generation Tasks', 'Progress']}
@@ -110,7 +169,7 @@ export default function GenerationProgress() {
 
       {/* 1. Status Card */}
       <section style={{ 
-        marginBottom: '2.5rem', 
+        marginBottom: '1rem', 
         background: 'linear-gradient(to right, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1))',
         border: '1px solid rgba(139, 92, 246, 0.3)',
         borderRadius: '16px',
@@ -185,264 +244,303 @@ export default function GenerationProgress() {
         </div>
       </section>
 
-      {/* Static Phase 1 */}
-      <section className="studio-card studio-form-card" style={{ marginBottom: '2rem', padding: '1.5rem 30px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <CheckCircle className="w-8 h-8 text-emerald-500" />
-        <div>
-          <h3 className="text-white font-bold text-lg">Initialization Phase: Audio & Lyric Extraction</h3>
-          <p className="text-emerald-400 text-sm">Successfully completed.</p>
-        </div>
-      </section>
-
-      {/* Phase 2 Accordion */}
-      <section className="studio-card studio-form-card">
-        <header 
-          className="studio-card__header studio-card__header--spread"
+      {/* ─── Phases Group Container (12px gap) ─── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* Phase 1 Accordion */}
+        <section 
+          className="studio-card studio-form-card" 
           style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase2Expanded(!isPhase2Expanded)}
+          onClick={() => setIsPhase1Expanded(!isPhase1Expanded)}
         >
-          <div className="studio-card__title">
-            <span aria-hidden="true">📝</span>
-            <h2>Phase 2: AI Scene Planning</h2>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase2Expanded ? 'Collapse' : 'Expand'}</span>
-            {isPhase2Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-          </div>
-        </header>
+          <header className="studio-card__header studio-card__header--spread">
+            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">🎧</span>
+              <h2>Phase 1: Audio & Lyric Extraction</h2>
+              {getPhaseStatus(1)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase1Expanded ? 'Collapse' : 'Expand'}</span>
+              {isPhase1Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
+          </header>
 
-        {isPhase2Expanded && (
-          <div style={{ padding: '20px 30px' }}>
-            {sceneSegments && sceneSegments.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {sceneSegments.map((segment, idx) => (
-                  <div key={segment.id} style={{ 
-                    backgroundColor: 'rgba(30, 41, 59, 0.5)', 
-                    border: '1px solid rgba(51, 65, 85, 0.5)', 
-                    borderRadius: '12px', 
-                    padding: '1rem' 
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <strong style={{ color: '#818cf8', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        Scene {idx + 1}
-                      </strong>
-                      <span style={{ 
-                        fontSize: '0.75rem', 
-                        fontFamily: 'monospace', 
-                        backgroundColor: 'rgba(15, 23, 42, 0.8)', 
-                        color: '#94a3b8', 
-                        padding: '2px 8px', 
-                        borderRadius: '4px' 
-                      }}>
-                        {segment.startTime}s - {segment.endTime}s
-                      </span>
-                    </div>
-
-                    {segment.lyrics && (
-                      <p style={{ color: '#cbd5e1', fontStyle: 'italic', fontSize: '0.875rem', marginBottom: '0.75rem', paddingLeft: '0.5rem', borderLeft: '2px solid rgba(99, 102, 241, 0.3)' }}>
-                        "{segment.lyrics}"
-                      </p>
-                    )}
-
-                    <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(51, 65, 85, 0.4)' }}>
-                      <span style={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', marginBottom: '0.25rem', fontWeight: 700 }}>
-                        Visual Prompt
-                      </span>
-                      <p style={{ color: '#f8fafc', fontSize: '0.875rem', lineHeight: 1.5 }}>
-                        {segment.visualPrompt}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
-                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for AI Scene Generation...</p>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Phase 3 Accordion */}
-      <section className="studio-card studio-form-card" style={{ marginTop: '2rem' }}>
-        <header 
-          className="studio-card__header studio-card__header--spread"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase3Expanded(!isPhase3Expanded)}
-        >
-          <div className="studio-card__title">
-            <span aria-hidden="true">🖼️</span>
-            <h2>Phase 3: Image Generation</h2>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase3Expanded ? 'Collapse' : 'Expand'}</span>
-            {isPhase3Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-          </div>
-        </header>
-
-        {isPhase3Expanded && (
-          <div style={{ padding: '20px 30px' }}>
-            {sceneSegments && sceneSegments.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
-                {sceneSegments.map((segment, idx) => {
-                  const frames = segment.generatedFrames || [];
-                  return (
-                    <div key={`p3-${segment.id}`} style={{
-                      backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                      border: '1px solid rgba(51, 65, 85, 0.5)',
-                      borderRadius: '12px',
-                      padding: '1rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.75rem'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 700, letterSpacing: '0.05em' }}>
-                          SCENE {idx + 1}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: '2px 6px', borderRadius: '4px' }}>
-                          {frames.length} Frame(s)
-                        </span>
-                      </div>
-                      
-                      {frames.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {frames.map(frame => (
-                            <div key={frame.id} style={{
-                              width: '100%',
-                              aspectRatio: '16/9',
-                              borderRadius: '6px',
-                              overflow: 'hidden',
-                              backgroundColor: '#0f172a',
-                              position: 'relative',
-                              border: '1px solid rgba(139, 92, 246, 0.2)'
-                            }}>
-                              <img src={frame.imageUrl} alt={`Scene ${idx + 1} Frame`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div style={{
-                          width: '100%',
-                          aspectRatio: '16/9',
-                          borderRadius: '6px',
-                          backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '1px dashed rgba(99, 102, 241, 0.3)',
-                          gap: '0.5rem'
-                        }}>
-                          {status === 'COMPLETED' || status === 'FAILED' ? (
-                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>No frames</span>
-                          ) : (
-                            <>
-                              <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-                              <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Generating...</span>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
-                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for scenes before generating frames...</p>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Phase 4 Accordion */}
-      <section className="studio-card studio-form-card" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-        <header 
-          className="studio-card__header studio-card__header--spread"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase4Expanded(!isPhase4Expanded)}
-        >
-          <div className="studio-card__title">
-            <span aria-hidden="true">🎞️</span>
-            <h2>Phase 4: Video Assembly</h2>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase4Expanded ? 'Collapse' : 'Expand'}</span>
-            {isPhase4Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-          </div>
-        </header>
-
-        {isPhase4Expanded && (
-          <div style={{ padding: '20px 30px' }}>
-            {status === 'COMPLETED' ? (
+          {isPhase1Expanded && (
+            <div style={{ padding: '20px 30px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <CheckCircle className="w-8 h-8 text-emerald-500" />
                 <div>
-                  <h3 className="text-white font-bold text-lg">FFmpeg Assembly Complete</h3>
-                  <p className="text-emerald-400 text-sm">Video has been successfully stitched and is ready.</p>
+                  <h3 className="text-white font-bold text-lg">Audio & Lyric Extraction Complete</h3>
+                  <p className="text-emerald-400 text-sm">Audio stream uploaded and timed lyric transcription segments successfully created.</p>
                 </div>
               </div>
-            ) : status === 'FAILED' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <AlertCircle className="w-8 h-8 text-red-500" />
-                <div>
-                  <h3 className="text-white font-bold text-lg">Assembly Failed</h3>
-                  <p className="text-red-400 text-sm">There was an error stitching the video.</p>
-                </div>
-              </div>
-            ) : (sceneSegments.length > 0 && sceneSegments.every(seg => seg.generatedFrames && seg.generatedFrames.length > 0)) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
-                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Stitching MP4 with FFmpeg...</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
-                <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
-                <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for image generation to complete...</p>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Phase 5 Section */}
-      <section className="studio-card studio-form-card" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-        <header className="studio-card__header studio-card__header--spread">
-          <div className="studio-card__title">
-            <span aria-hidden="true"><Sparkles className="w-5 h-5" style={{ color: '#a78bfa', display: 'inline' }} /></span>
-            <h2>Phase 5: Cultural Curation & Trivia</h2>
-          </div>
-        </header>
-        <div style={{ padding: '20px 30px' }}>
-          {status === 'COMPLETED' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <CheckCircle className="w-8 h-8 text-emerald-500" />
-              <div>
-                <h3 className="text-white font-bold text-lg">Curation Complete</h3>
-                <p className="text-emerald-400 text-sm">Cultural summary, trivia questions, and instrument matches have been generated.</p>
-              </div>
-            </div>
-          ) : status === 'FAILED' ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <AlertCircle className="w-8 h-8 text-amber-500" />
-              <div>
-                <h3 className="text-white font-bold text-lg">Curation Skipped</h3>
-                <p className="text-amber-400 text-sm">Pipeline failed before curation could complete. Retry the generation to generate curation details.</p>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
-              <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-              <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Generating cultural summary, trivia, & instrument matches...</p>
             </div>
           )}
-        </div>
-      </section>
+        </section>
+
+        {/* Phase 2 Accordion */}
+        <section 
+          className="studio-card studio-form-card"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setIsPhase2Expanded(!isPhase2Expanded)}
+        >
+          <header className="studio-card__header studio-card__header--spread">
+            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">📝</span>
+              <h2>Phase 2: AI Scene Planning</h2>
+              {getPhaseStatus(2)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase2Expanded ? 'Collapse' : 'Expand'}</span>
+              {isPhase2Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
+          </header>
+
+          {isPhase2Expanded && (
+            <div style={{ padding: '20px 30px' }}>
+              {sceneSegments && sceneSegments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {sceneSegments.map((segment, idx) => (
+                    <div key={segment.id} style={{ 
+                      backgroundColor: 'rgba(30, 41, 59, 0.5)', 
+                      border: '1px solid rgba(51, 65, 85, 0.5)', 
+                      borderRadius: '12px', 
+                      padding: '1rem' 
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <strong style={{ color: '#818cf8', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Scene {idx + 1}
+                        </strong>
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          fontFamily: 'monospace', 
+                          backgroundColor: 'rgba(15, 23, 42, 0.8)', 
+                          color: '#94a3b8', 
+                          padding: '2px 8px', 
+                          borderRadius: '4px' 
+                        }}>
+                          {segment.startTime}s - {segment.endTime}s
+                        </span>
+                      </div>
+
+                      {segment.lyrics && (
+                        <p style={{ color: '#cbd5e1', fontStyle: 'italic', fontSize: '0.875rem', marginBottom: '0.75rem', paddingLeft: '0.5rem', borderLeft: '2px solid rgba(99, 102, 241, 0.3)' }}>
+                          "{segment.lyrics}"
+                        </p>
+                      )}
+
+                      <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(51, 65, 85, 0.4)' }}>
+                        <span style={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', marginBottom: '0.25rem', fontWeight: 700 }}>
+                          Visual Prompt
+                        </span>
+                        <p style={{ color: '#f8fafc', fontSize: '0.875rem', lineHeight: 1.5 }}>
+                          {segment.visualPrompt}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
+                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for AI Scene Generation...</p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Phase 3 Accordion */}
+        <section 
+          className="studio-card studio-form-card"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setIsPhase3Expanded(!isPhase3Expanded)}
+        >
+          <header className="studio-card__header studio-card__header--spread">
+            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">🖼️</span>
+              <h2>Phase 3: Image Generation</h2>
+              {getPhaseStatus(3)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase3Expanded ? 'Collapse' : 'Expand'}</span>
+              {isPhase3Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
+          </header>
+
+          {isPhase3Expanded && (
+            <div style={{ padding: '20px 30px' }}>
+              {sceneSegments && sceneSegments.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                  {sceneSegments.map((segment, idx) => {
+                    const frames = segment.generatedFrames || [];
+                    return (
+                      <div key={`p3-${segment.id}`} style={{
+                        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                        border: '1px solid rgba(51, 65, 85, 0.5)',
+                        borderRadius: '12px',
+                        padding: '1rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 700, letterSpacing: '0.05em' }}>
+                            SCENE {idx + 1}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: '2px 6px', borderRadius: '4px' }}>
+                            {frames.length} Frame(s)
+                          </span>
+                        </div>
+                        
+                        {frames.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {frames.map(frame => (
+                              <div key={frame.id} style={{
+                                width: '100%',
+                                aspectRatio: '16/9',
+                                borderRadius: '6px',
+                                overflow: 'hidden',
+                                backgroundColor: '#0f172a',
+                                position: 'relative',
+                                border: '1px solid rgba(139, 92, 246, 0.2)'
+                              }}>
+                                <img src={frame.imageUrl} alt={`Scene ${idx + 1} Frame`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{
+                            width: '100%',
+                            aspectRatio: '16/9',
+                            borderRadius: '6px',
+                            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px dashed rgba(99, 102, 241, 0.3)',
+                            gap: '0.5rem'
+                          }}>
+                            {status === 'COMPLETED' || status === 'FAILED' ? (
+                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>No frames</span>
+                            ) : (
+                              <>
+                                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Generating...</span>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
+                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for scenes before generating frames...</p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Phase 4 Accordion */}
+        <section 
+          className="studio-card studio-form-card"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setIsPhase4Expanded(!isPhase4Expanded)}
+        >
+          <header className="studio-card__header studio-card__header--spread">
+            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true">🎞️</span>
+              <h2>Phase 4: Video Assembly</h2>
+              {getPhaseStatus(4)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase4Expanded ? 'Collapse' : 'Expand'}</span>
+              {isPhase4Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
+          </header>
+
+          {isPhase4Expanded && (
+            <div style={{ padding: '20px 30px' }}>
+              {status === 'COMPLETED' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <CheckCircle className="w-8 h-8 text-emerald-500" />
+                  <div>
+                    <h3 className="text-white font-bold text-lg">FFmpeg Assembly Complete</h3>
+                    <p className="text-emerald-400 text-sm">Video has been successfully stitched and is ready.</p>
+                  </div>
+                </div>
+              ) : status === 'FAILED' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <AlertCircle className="w-8 h-8 text-red-500" />
+                  <div>
+                    <h3 className="text-white font-bold text-lg">Assembly Failed</h3>
+                    <p className="text-red-400 text-sm">There was an error stitching the video.</p>
+                  </div>
+                </div>
+              ) : (sceneSegments.length > 0 && sceneSegments.every(seg => seg.generatedFrames && seg.generatedFrames.length > 0)) ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
+                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Stitching MP4 with FFmpeg...</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
+                  <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
+                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for image generation to complete...</p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Phase 5 Section */}
+        <section 
+          className="studio-card studio-form-card"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setIsPhase5Expanded(!isPhase5Expanded)}
+        >
+          <header className="studio-card__header studio-card__header--spread">
+            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
+              <span aria-hidden="true"><Sparkles className="w-5 h-5" style={{ color: '#a78bfa', display: 'inline' }} /></span>
+              <h2>Phase 5: Cultural Curation & Trivia</h2>
+              {getPhaseStatus(5)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase5Expanded ? 'Collapse' : 'Expand'}</span>
+              {isPhase5Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
+          </header>
+          {isPhase5Expanded && (
+            <div style={{ padding: '20px 30px' }}>
+              {status === 'COMPLETED' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <CheckCircle className="w-8 h-8 text-emerald-500" />
+                  <div>
+                    <h3 className="text-white font-bold text-lg">Curation Complete</h3>
+                    <p className="text-emerald-400 text-sm">Cultural summary, trivia questions, and instrument matches have been generated.</p>
+                  </div>
+                </div>
+              ) : status === 'FAILED' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <AlertCircle className="w-8 h-8 text-amber-500" />
+                  <div>
+                    <h3 className="text-white font-bold text-lg">Curation Skipped</h3>
+                    <p className="text-amber-400 text-sm">Pipeline failed before curation could complete. Retry the generation to generate curation details.</p>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
+                  <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
+                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Generating cultural summary, trivia, & instrument matches...</p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </CreatorPageShell>
   )
 }

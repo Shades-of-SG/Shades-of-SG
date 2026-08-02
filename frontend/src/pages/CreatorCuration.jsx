@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import { useAuth } from '../context/AuthContext'
-import { getSongCuration, updateSongCuration } from '../services/songService'
+import { getSongCuration, updateSongCuration, generateSongArticle, generateSongTrivia } from '../services/songService'
 
 export default function CreatorCuration() {
   const { songId } = useParams()
@@ -21,6 +21,10 @@ export default function CreatorCuration() {
   const [triviaQuestions, setTriviaQuestions] = useState([])
   const [allInstruments, setAllInstruments] = useState([])
   const [selectedInstrumentIds, setSelectedInstrumentIds] = useState([])
+  const [latestJobId, setLatestJobId] = useState(null)
+  
+  const [generatingArticle, setGeneratingArticle] = useState(false)
+  const [generatingTrivia, setGeneratingTrivia] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -55,6 +59,7 @@ export default function CreatorCuration() {
         setAllInstruments(data.allInstruments || [])
         const associatedIds = (data.associatedInstruments || []).map((inst) => inst.id)
         setSelectedInstrumentIds(associatedIds)
+        if (data.latestJobId) setLatestJobId(data.latestJobId)
       } catch (err) {
         if (isMounted) setError(err.message || 'Failed to load curation details.')
       } finally {
@@ -138,11 +143,61 @@ export default function CreatorCuration() {
 
       const res = await updateSongCuration(songId, payload, token)
       setSong(res.song)
-      showToast('success', 'Curation details saved successfully!')
+      const targetJobId = res.latestJobId || latestJobId
+      if (targetJobId) {
+        navigate(`/creator/generation/${targetJobId}`)
+      } else {
+        navigate('/creator/generation')
+      }
     } catch (err) {
       showToast('error', err.message || 'Failed to save curation changes.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleRegenerateArticle = async () => {
+    try {
+      setGeneratingArticle(true)
+      const res = await generateSongArticle(songId, token)
+      setAiSummary(res.aiSummary || '')
+      if (res.matchedInstrumentIds) {
+        setSelectedInstrumentIds(res.matchedInstrumentIds)
+      }
+      showToast('success', 'Article regenerated successfully!')
+    } catch (err) {
+      showToast('error', err.message || 'Failed to regenerate article.')
+    } finally {
+      setGeneratingArticle(false)
+    }
+  }
+
+  const handleRegenerateTrivia = async () => {
+    try {
+      setGeneratingTrivia(true)
+      const res = await generateSongTrivia(songId, token)
+      setTriviaQuestions(
+        Array.isArray(res.trivia) && res.trivia.length > 0
+          ? res.trivia.map((q, idx) => ({
+              id: q.id || idx,
+              prompt: q.prompt || '',
+              options: Array.isArray(q.options) && q.options.length === 4
+                ? q.options
+                : [
+                    q.options?.[0] || '',
+                    q.options?.[1] || '',
+                    q.options?.[2] || '',
+                    q.options?.[3] || '',
+                  ],
+              correctAnswer: q.correctAnswer || q.options?.[0] || '',
+            }))
+          : []
+      )
+      showToast('success', 'Trivia regenerated successfully!')
+    } catch (err) {
+      showToast('error', err.message || 'Failed to regenerate trivia.')
+    } finally {
+      setGeneratingTrivia(false)
     }
   }
 
@@ -268,11 +323,21 @@ export default function CreatorCuration() {
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         {/* Section A: AI Cultural Mini-Article */}
         <section className="studio-card studio-form-card">
-          <header className="studio-card__header">
+          <header className="studio-card__header studio-card__header--spread">
             <div className="studio-card__title">
               <Sparkles className="w-5 h-5 text-amber-400" />
               <h2>AI Cultural Mini-Article</h2>
             </div>
+            <button
+              type="button"
+              onClick={handleRegenerateArticle}
+              disabled={generatingArticle}
+              className="studio-button studio-button--secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
+            >
+              {generatingArticle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-400" />}
+              {generatingArticle ? 'Regenerating...' : 'Regenerate Article'}
+            </button>
           </header>
           <div style={{ padding: '1.5rem 2rem' }}>
             <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
@@ -305,14 +370,26 @@ export default function CreatorCuration() {
               <BookOpen className="w-5 h-5 text-indigo-400" />
               <h2>Interactive Trivia Questions ({triviaQuestions.length})</h2>
             </div>
-            <button
-              type="button"
-              onClick={handleAddQuestion}
-              className="studio-button studio-button--secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
-            >
-              <Plus className="w-4 h-4" /> Add Question
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={handleRegenerateTrivia}
+                disabled={generatingTrivia}
+                className="studio-button studio-button--secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
+              >
+                {generatingTrivia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-400" />}
+                {generatingTrivia ? 'Regenerating...' : 'Regenerate Trivia'}
+              </button>
+              <button
+                type="button"
+                onClick={handleAddQuestion}
+                className="studio-button studio-button--secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
+              >
+                <Plus className="w-4 h-4" /> Add Question
+              </button>
+            </div>
           </header>
 
           <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

@@ -57,6 +57,8 @@ router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), song
 router.get('/:id/readiness', requireCreator, songController.getPublishReadiness);
 router.get('/:id/curation', requireCreator, songController.getCurationDetails);
 router.put('/:id/curation', requireCreator, songController.updateCurationDetails);
+router.post('/:id/curation/generate-article', requireCreator, songController.generateArticle);
+router.post('/:id/curation/generate-trivia', requireCreator, songController.generateTrivia);
 router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);

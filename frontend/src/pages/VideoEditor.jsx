@@ -34,8 +34,10 @@ const styles = {
   editorShell: {
     display: 'grid',
     gridTemplateRows: '1fr auto auto',
-    height: 'calc(100vh - 140px)',
-    minHeight: '480px',
+    height: 'calc(100vh - 120px)',
+    minHeight: '500px',
+    width: '100%',
+    maxWidth: '100%',
     background: '#0a0a1a',
     borderRadius: '12px',
     overflow: 'hidden',
@@ -49,14 +51,17 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     background: '#000',
+    width: '100%',
+    height: '100%',
     minHeight: 0, // critical for grid/flex shrinking
+    aspectRatio: '16 / 9',
   },
   previewImg: {
     display: 'block',
+    width: '100%',
+    height: '100%',
     maxWidth: '100%',
     maxHeight: '100%',
-    width: 'auto',
-    height: 'auto',
     objectFit: 'contain',
   },
   lyricsOverlay: {
@@ -227,6 +232,7 @@ export default function VideoEditor() {
   const [frames, setFrames] = useState([])
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [audioUrl, setAudioUrl] = useState('')
+  const [transcriptionSegments, setTranscriptionSegments] = useState([])
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -315,6 +321,7 @@ export default function VideoEditor() {
           setJobData(result.data)
           setFrames(extractFrames(result.data.song))
           setAudioUrl(result.data.song?.audioUrl || '')
+          setTranscriptionSegments(result.data.song?.transcriptionSegments || [])
         }
       })
       .catch(console.error)
@@ -574,6 +581,7 @@ export default function VideoEditor() {
       breadcrumbs={['Generation Tasks', 'Video Editor']}
       title="Timeline Editor"
       description="Refine your scenes, adjust timings, and export the final masterpiece."
+      className="px-2 md:px-4"
       actions={
         <div style={{ display: 'flex', gap: '16px' }}>
           <button
@@ -728,18 +736,27 @@ export default function VideoEditor() {
             )}
           </div>
 
-          {/* Lyrics overlay */}
-          {showCaptions && frames[currentFrameIndex]?.lyrics && (
-            <div style={{ 
-              ...styles.lyricsOverlay, 
-              bottom: (isFullscreen && showControls) ? '80px' : '20px',
-              transition: 'bottom 0.3s ease' 
-            }}>
-              <p style={styles.lyricsText}>
-                {frames[currentFrameIndex].lyrics}
-              </p>
-            </div>
-          )}
+          {/* Lyrics / Granular Whisper Captions Overlay */}
+          {(() => {
+            const activeWhisperSeg = Array.isArray(transcriptionSegments) && transcriptionSegments.find((seg) => {
+              const start = seg.start ?? seg.startTime ?? 0
+              const end = seg.end ?? seg.endTime ?? 0
+              return currentTime >= start && currentTime <= end
+            })
+            const captionText = activeWhisperSeg ? activeWhisperSeg.text : frames[currentFrameIndex]?.lyrics
+
+            return showCaptions && captionText ? (
+              <div style={{ 
+                ...styles.lyricsOverlay, 
+                bottom: (isFullscreen && showControls) ? '80px' : '20px',
+                transition: 'bottom 0.3s ease' 
+              }}>
+                <p style={styles.lyricsText}>
+                  {captionText}
+                </p>
+              </div>
+            ) : null
+          })()}
         </div>
 
         {/* ═══════ ROW 2: Playback Controls ═══════ */}
