@@ -7,7 +7,9 @@ const {
   deleteJob,
   exportVideo,
   regenerateFrame,
-  retryGeneration
+  retryGeneration,
+  confirmScenes,
+  regenerateSingleScenePrompt
 } = require('../controllers/generationController')
 const { requireCreator } = require('../middleware/auth')
 
@@ -26,5 +28,11 @@ router.post('/:jobId/export', requireCreator, exportVideo)
 
 // Regenerate single frame
 router.post('/frame/:frameId/regenerate', requireCreator, regenerateFrame)
+
+// Scene Approval: Regenerate a single scene's visual prompt (must be BEFORE /:id param routes)
+router.post('/scene/regenerate-prompt', requireCreator, regenerateSingleScenePrompt)
+
+// Scene Approval: Confirm edited scenes and resume pipeline
+router.post('/:id/confirm-scenes', requireCreator, confirmScenes)
 
 module.exports = router

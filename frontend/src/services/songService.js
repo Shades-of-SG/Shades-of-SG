@@ -141,3 +141,24 @@ export function generateSongTrivia(songId, token) {
     token,
   }).then((data) => data.data)
 }
+
+export function confirmScenes(jobId, scenes, transcriptionSegments, token) {
+  return request(`/generation/${encodeURIComponent(jobId)}/confirm-scenes`, {
+    body: JSON.stringify({ scenes, transcriptionSegments }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    token,
+  })
+}
+
+// Named alias for clarity at call sites
+export const confirmGenerationScenes = confirmScenes
+
+export function regenerateScenePrompt(songId, lyrics, token) {
+  return request('/generation/scene/regenerate-prompt', {
+    body: JSON.stringify({ songId, lyrics }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    token,
+  })
+}

@@ -48,14 +48,15 @@ async function generateFrames(jobId, songId) {
 
     /**
      * Aggressively normalizes a lyrics string for cache key comparison.
-     * Strips timestamps, section markers like [Chorus], punctuation, and collapses whitespace.
+     * Strips section headers like [Chorus], punctuation, and collapses whitespace.
      */
     const normalizeCacheKey = (str) => {
+      if (!str || typeof str !== 'string') return ''
       return str
         .toLowerCase()
-        .replace(/\[.*?\]/g, '')        // Strip [Chorus], [0:30], [Instrumental], etc.
+        .replace(/\[.*?\]/g, '')        // Remove section headers like [Chorus]
         .replace(/[^a-z0-9\s]/g, '')    // Strip all punctuation
-        .replace(/\s+/g, ' ')           // Collapse multiple spaces into one
+        .replace(/\s+/g, ' ')           // Collapse extra whitespace
         .trim()
     }
 
@@ -66,10 +67,12 @@ async function generateFrames(jobId, songId) {
     for (const segment of segments) {
       const cacheKey = segment.lyrics && segment.lyrics.trim() !== ''
         ? normalizeCacheKey(segment.lyrics)
-        : segment.visualPrompt
-      
+        : normalizeCacheKey(segment.visualPrompt)
+
       segmentToCacheKey.set(segment.id, cacheKey)
-      
+
+      console.log('[Cache Check] Segment ID:', segment.id, '| Key:', cacheKey)
+
       if (!uniqueGenerationTasks.has(cacheKey)) {
         uniqueGenerationTasks.set(cacheKey, segment)
       } else {

@@ -136,7 +136,7 @@ const startGeneration = async (req, res, next) => {
     }
 
     const activeJob = await GenerationJob.findOne({
-      where: { songId, status: ['QUEUED', 'PROCESSING'] },
+      where: { songId, status: ['QUEUED', 'PROCESSING', 'AWAITING_REVIEW'] },
     })
     if (activeJob) {
       const error = new Error('This song already has an active generation job.')
@@ -316,15 +316,52 @@ const runGenerationPipeline = async (jobId) => {
     }
     await assertGenerationIsActive(jobId)
 
-    // ─── Phase 2: Scene Planning (skip if scenes exist) ───
-    const existingSceneCount = await SceneSegment.count({ where: { songId: job.songId } })
-    if (existingSceneCount > 0) {
-      console.log(`[Phase 2] Skipped. ${existingSceneCount} SceneSegments already exist.`)
+    // ─── Phase 2: Scene Planning (skip if valid 6-9s scenes exist) ───
+    const existingSegments = await SceneSegment.findAll({ where: { songId: job.songId } })
+    const hasMicroScenes = existingSegments.length > 0 && existingSegments.slice(0, -1).some(s => (s.endTime - s.startTime) < 5.0)
+    if (existingSegments.length > 0 && !hasMicroScenes) {
+      console.log(`[Phase 2] Skipped. ${existingSegments.length} valid SceneSegments already exist.`)
     } else {
-      console.log(`[Phase 2] Generating Scene Plan...`)
+      if (hasMicroScenes) {
+        console.log(`[Phase 2] Found ${existingSegments.length} outdated micro-scenes (<5.0s). Regenerating scene plan with 6-9s target duration...`)
+      } else {
+        console.log(`[Phase 2] Generating Scene Plan...`)
+      }
       await generateScenePlan(jobId, job.songId)
     }
     await assertGenerationIsActive(jobId)
+
+    // ─── Pipeline Pause: Await Creator Review ───
+    console.log(`[Phase 2 → Pause] Scene plan ready. Setting status to AWAITING_REVIEW for Job ${jobId}.`)
+    await job.update({ status: 'AWAITING_REVIEW' })
+    // Pipeline halts here. Phases 3-5 will resume when the creator confirms scenes via confirmScenes().
+    return
+
+  } catch (error) {
+    console.error(`[Generation Pipeline Error] Job ${jobId}:`, error)
+
+    // ERROR BOUNDARY
+    try {
+      if (jobId) {
+        await failGeneration(jobId, error)
+        await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
+      }
+    } catch (fallbackError) {
+      console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
+    }
+  }
+}
+
+// ==========================================
+// Phases 3-5: Resumed after scene confirmation
+// ==========================================
+
+const resumeFromPhase3 = async (jobId) => {
+  console.log(`[Background Worker] Resuming pipeline from Phase 3 for Job ID: ${jobId}...`)
+
+  try {
+    const job = await GenerationJob.findByPk(jobId)
+    if (!job) throw new Error(`Job ${jobId} not found in database.`)
 
     // ─── Phase 3: Frame Generation (skip if all segments have frames) ───
     const allSegments = await SceneSegment.findAll({
@@ -368,13 +405,12 @@ const runGenerationPipeline = async (jobId) => {
     await cleanupJobFiles(jobId)
     console.log(`[Background Worker] Pipeline COMPLETED successfully for Job ID: ${jobId}`)
   } catch (error) {
-    console.error(`[Generation Pipeline Error] Job ${jobId}:`, error)
+    console.error(`[Resume Pipeline Error] Job ${jobId}:`, error)
 
-    // ERROR BOUNDARY
     try {
       if (jobId) {
         await failGeneration(jobId, error)
-        await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
+        await cleanupJobFiles(jobId)
       }
     } catch (fallbackError) {
       console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
@@ -594,6 +630,210 @@ const regenerateFrame = async (req, res, next) => {
   }
 }
 
+// ==========================================
+// Scene Approval Endpoints
+// ==========================================
+
+const generatePromptForScene = async (song, lyrics) => {
+  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    const theme = song.theme || 'Singaporean Heritage'
+    const lyricSnippet = lyrics?.trim() ? ` depicting: "${lyrics.trim()}"` : ''
+    return `Cinematic music video scene${lyricSnippet}. Theme: ${theme}, vibrant cultural atmosphere, dramatic lighting, shot on 35mm lens, 8k resolution.`
+  }
+
+  try {
+    const baseURL = process.env.DEEPSEEK_API_KEY
+      ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com')
+      : undefined
+    const model = process.env.DEEPSEEK_API_KEY
+      ? (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+      : 'gpt-4o-mini'
+
+    const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
+
+    const systemPrompt = `You are an expert cinematic music video director.
+Given the song's metadata and lyrics, generate a single detailed visual prompt suitable for image generation.
+Return ONLY a JSON object: { "visualPrompt": "..." }`
+
+    const userMessage = `Song Title: ${song.title}
+Artist: ${song.artist || 'Unknown'}
+Theme: ${song.theme || 'Singaporean Heritage'}
+Lyrics to visualize:
+${(lyrics || '').trim() || 'Instrumental segment'}`
+
+    const response = await openai.chat.completions.create({
+      model,
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    })
+
+    const responseText = (response.choices[0]?.message?.content || '').trim()
+    let cleanedText = responseText.replace(/```json|```/g, '').trim()
+    cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ')
+
+    const parsed = JSON.parse(cleanedText)
+    const prompt = parsed.visualPrompt || parsed.visual_prompt || cleanedText
+    if (prompt && typeof prompt === 'string' && prompt.trim()) {
+      return prompt.trim()
+    }
+  } catch (err) {
+    console.warn(`[confirmScenes] Auto-generating missing scene prompt fallback:`, err.message)
+  }
+
+  const theme = song.theme || 'Singaporean Heritage'
+  const lyricSnippet = lyrics?.trim() ? ` depicting: "${lyrics.trim()}"` : ''
+  return `Cinematic music video scene${lyricSnippet}. Theme: ${theme}, vibrant cultural atmosphere, dramatic lighting, shot on 35mm lens, 8k resolution.`
+}
+
+const confirmScenes = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { scenes, transcriptionSegments } = req.body
+
+    if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
+      const error = new Error('scenes array is required and must not be empty.')
+      error.statusCode = 400
+      throw error
+    }
+
+    // Fetch job and validate ownership
+    const job = await GenerationJob.findOne({
+      where: { id },
+      include: [{
+        model: Song,
+        as: 'song',
+        where: { creatorId: req.authUserRecord.id },
+      }],
+    })
+
+    if (!job) {
+      const error = new Error('Generation job not found.')
+      error.statusCode = 404
+      throw error
+    }
+
+    if (job.status !== 'AWAITING_REVIEW') {
+      const error = new Error('This job is not awaiting scene review.')
+      error.statusCode = 409
+      throw error
+    }
+
+    const song = job.song
+
+    // Auto-fill missing visual prompts before creating SceneSegment records
+    const processedScenes = await Promise.all(
+      scenes.map(async (scene) => {
+        let visualPrompt = scene.visual_prompt ?? scene.visualPrompt
+        if (!visualPrompt || !visualPrompt.trim()) {
+          console.log(`[confirmScenes] Found scene with missing visual prompt. Auto-generating prompt on the fly...`)
+          visualPrompt = await generatePromptForScene(song, scene.lyrics)
+        }
+        return {
+          songId: song.id,
+          startTime: scene.start_time ?? scene.startTime,
+          endTime: scene.end_time ?? scene.endTime,
+          lyrics: scene.lyrics || null,
+          visualPrompt: visualPrompt,
+        }
+      })
+    )
+
+    // Overwrite existing SceneSegment records with the user-approved scenes
+    await SceneSegment.destroy({ where: { songId: song.id } })
+    await SceneSegment.bulkCreate(processedScenes)
+
+    // Update transcription segments if the creator edited them
+    if (transcriptionSegments && Array.isArray(transcriptionSegments)) {
+      await song.update({ transcriptionSegments })
+    }
+
+    // Resume pipeline
+    await job.update({ status: 'PROCESSING' })
+
+    // Fire Phases 3-5 asynchronously
+    if (process.env.NODE_ENV !== 'test') resumeFromPhase3(job.id).catch(console.error)
+
+    return res.json({
+      success: true,
+      message: 'Scenes confirmed. Image generation has resumed.',
+      data: { jobId: job.id, status: 'PROCESSING', scenesConfirmed: sceneRecords.length },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+const regenerateSingleScenePrompt = async (req, res, next) => {
+  try {
+    const { songId, lyrics } = req.body
+
+    if (!songId || !lyrics?.trim()) {
+      const error = new Error('songId and lyrics are required.')
+      error.statusCode = 400
+      throw error
+    }
+
+    const song = await Song.findOne({ where: { id: songId, creatorId: req.authUserRecord.id } })
+    if (!song) {
+      const error = new Error('Song not found.')
+      error.statusCode = 404
+      throw error
+    }
+
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+    const baseURL = process.env.DEEPSEEK_API_KEY
+      ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com')
+      : undefined
+    const model = process.env.DEEPSEEK_API_KEY
+      ? (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+      : 'gpt-4o-mini'
+
+    const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
+
+    const systemPrompt = `You are an expert cinematic music video director.
+Given the song's metadata and a specific set of lyrics, generate a single detailed visual prompt suitable for DALL-E image generation.
+The prompt should vividly describe the subject, lighting, atmosphere, camera angle, and how it ties into the song's theme.
+Return ONLY a JSON object: { "visualPrompt": "..." }`
+
+    const userMessage = `Song Title: ${song.title}
+Artist: ${song.artist || 'Unknown'}
+Theme: ${song.theme || 'Singaporean Heritage'}
+Lyrics to visualize:
+${lyrics.trim()}`
+
+    const response = await openai.chat.completions.create({
+      model,
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    })
+
+    const responseText = (response.choices[0]?.message?.content || '').trim()
+    let cleanedText = responseText.replace(/```json|```/g, '').trim()
+    cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ')
+
+    const parsed = JSON.parse(cleanedText)
+
+    return res.json({
+      success: true,
+      visualPrompt: parsed.visualPrompt || parsed.visual_prompt || cleanedText,
+    })
+  } catch (error) {
+    console.error('[regenerateSingleScenePrompt Error]:', error)
+    next(error)
+  }
+}
+
 module.exports = {
   startGeneration,
   getGenerationStatus,
@@ -602,7 +842,10 @@ module.exports = {
   exportVideo,
   regenerateFrame,
   retryGeneration,
+  confirmScenes,
+  regenerateSingleScenePrompt,
   runGenerationPipeline,
+  resumeFromPhase3,
   completeGeneration,
   failGeneration,
   usePlaceholderVideo,

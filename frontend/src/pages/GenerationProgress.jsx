@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle, RefreshCw, Sparkles } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle, RefreshCw, Sparkles, GripVertical, Pencil, Plus, Trash2, Check, X, Eye } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
 import { useAuth } from '../context/AuthContext'
-import { getGenerationJob, retryGenerationJob } from '../services/songService'
+import { getGenerationJob, retryGenerationJob, confirmGenerationScenes, regenerateScenePrompt } from '../services/songService'
 
 /*
 TODO - Htet
@@ -13,6 +13,552 @@ Implement generation status polling.
 Implement progress timeline.
 Implement logs view.
 */
+
+// ─────────────────────────────────────────
+// Scene Block Editor Sub-Component
+// ─────────────────────────────────────────
+
+function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, songId, jobId, token, onConfirmed, onConfirming }) {
+  const [editingScenes, setEditingScenes] = useState(() => {
+    const segments = (initialSegments || []).map((seg, i) => ({ ...seg, _key: `seg-${i}-${Date.now()}` }))
+    const scenes = initialScenes.map((s, i) => ({
+      _key: `scene-${i}-${Date.now()}`,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      lyrics: s.lyrics || '',
+      visualPrompt: s.visualPrompt || '',
+      pills: [],
+    }))
+
+    // Assign segments (pills) to scenes based on time overlap during initialization
+    if (segments.length > 0 && scenes.length > 0) {
+      const assigned = new Set()
+      scenes.forEach(scene => {
+        scene.pills = segments.filter(seg => {
+          if (assigned.has(seg._key)) return false
+          const segMid = (seg.start + seg.end) / 2
+          return segMid >= scene.startTime && segMid <= scene.endTime
+        })
+        scene.pills.forEach(p => assigned.add(p._key))
+      })
+
+      // Any unassigned segments go to the last scene
+      const unassigned = segments.filter(seg => !assigned.has(seg._key))
+      if (unassigned.length > 0) {
+        scenes[scenes.length - 1].pills = [...scenes[scenes.length - 1].pills, ...unassigned]
+      }
+    }
+
+    return scenes
+  })
+  const [editingSegments, setEditingSegments] = useState(() =>
+    (initialSegments || []).map((seg, i) => ({ ...seg, _key: `seg-${i}-${Date.now()}` }))
+  )
+  const [editingPillKey, setEditingPillKey] = useState(null)
+  const [editingPillText, setEditingPillText] = useState('')
+  const [regeneratingIdx, setRegeneratingIdx] = useState(null)
+  const [confirming, setConfirming] = useState(false)
+  const [isGeneratingMissing, setIsGeneratingMissing] = useState(false)
+  const [dragState, setDragState] = useState(null) // { pillKey, fromSceneIdx }
+  const [dropTarget, setDropTarget] = useState(null)
+
+  // ─── Recalculate scene start/end times from pills ───
+  const recalcTimes = useCallback((scenes) => {
+    return scenes.map(scene => {
+      if (scene.pills.length === 0) return scene
+      const starts = scene.pills.map(p => p.start)
+      const ends = scene.pills.map(p => p.end)
+      return { ...scene, startTime: Math.min(...starts), endTime: Math.max(...ends) }
+    })
+  }, [])
+
+  // ─── Drag Handlers ───
+  const handleDragStart = (e, pillKey, sceneIdx) => {
+    setDragState({ pillKey, fromSceneIdx: sceneIdx })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', pillKey)
+  }
+
+  const handleDragOver = (e, targetIdx) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropTarget(targetIdx)
+  }
+
+  const handleDragLeave = () => {
+    setDropTarget(null)
+  }
+
+  const handleDrop = (e, targetSceneIdx) => {
+    e.preventDefault()
+    setDropTarget(null)
+    if (!dragState) return
+    const { pillKey, fromSceneIdx } = dragState
+    if (fromSceneIdx === targetSceneIdx) { setDragState(null); return }
+
+    setEditingScenes(prev => {
+      const updated = prev.map((scene, idx) => {
+        if (idx === fromSceneIdx) {
+          return { ...scene, pills: scene.pills.filter(p => p._key !== pillKey) }
+        }
+        if (idx === targetSceneIdx) {
+          const pill = prev[fromSceneIdx].pills.find(p => p._key === pillKey)
+          if (!pill) return scene
+          // Insert in time order
+          const newPills = [...scene.pills, pill].sort((a, b) => a.start - b.start)
+          return { ...scene, pills: newPills }
+        }
+        return scene
+      })
+      return recalcTimes(updated)
+    })
+    setDragState(null)
+  }
+
+  // ─── Inline Lyric Editing ───
+  const startEditPill = (pill) => {
+    setEditingPillKey(pill._key)
+    setEditingPillText(pill.text)
+  }
+
+  const saveEditPill = () => {
+    const key = editingPillKey
+    const newText = editingPillText
+
+    // Update in segments state
+    setEditingSegments(prev => prev.map(seg =>
+      seg._key === key ? { ...seg, text: newText } : seg
+    ))
+
+    // Update in scene pills
+    setEditingScenes(prev => prev.map(scene => ({
+      ...scene,
+      pills: scene.pills.map(p => p._key === key ? { ...p, text: newText } : p)
+    })))
+
+    setEditingPillKey(null)
+    setEditingPillText('')
+  }
+
+  const cancelEditPill = () => {
+    setEditingPillKey(null)
+    setEditingPillText('')
+  }
+
+  // ─── Visual Prompt Editing ───
+  const updatePrompt = (sceneIdx, newPrompt) => {
+    setEditingScenes(prev => prev.map((s, i) => i === sceneIdx ? { ...s, visualPrompt: newPrompt } : s))
+  }
+
+  // ─── Regenerate Single Prompt ───
+  const handleRegeneratePrompt = async (sceneIdx) => {
+    const scene = editingScenes[sceneIdx]
+    const lyrics = scene.pills.map(p => p.text).join(' ') || scene.lyrics
+    if (!lyrics?.trim()) return
+
+    setRegeneratingIdx(sceneIdx)
+    try {
+      const result = await regenerateScenePrompt(songId, lyrics, token)
+      updatePrompt(sceneIdx, result.visualPrompt)
+    } catch (err) {
+      console.error('Regenerate prompt failed:', err)
+      alert('Failed to regenerate prompt. Please try again.')
+    } finally {
+      setRegeneratingIdx(null)
+    }
+  }
+
+  // ─── Add Scene ───
+  const addSceneAfter = (afterIdx) => {
+    setEditingScenes(prev => {
+      const newScene = {
+        _key: `scene-new-${Date.now()}`,
+        startTime: afterIdx >= 0 ? prev[afterIdx].endTime : 0,
+        endTime: afterIdx >= 0 ? prev[afterIdx].endTime : 0,
+        lyrics: '',
+        visualPrompt: '',
+        pills: [],
+      }
+      const updated = [...prev]
+      updated.splice(afterIdx + 1, 0, newScene)
+      return updated
+    })
+  }
+
+  // ─── Delete Scene (only if empty) ───
+  const deleteScene = (sceneIdx) => {
+    const scene = editingScenes[sceneIdx]
+    if (scene.pills.length > 0) return
+    setEditingScenes(prev => prev.filter((_, i) => i !== sceneIdx))
+  }
+
+  // ─── Confirm & Send ───
+  const handleConfirm = async () => {
+    const hasEmptyPrompt = editingScenes.some(s => !s.visualPrompt || !s.visualPrompt.trim())
+    setIsGeneratingMissing(hasEmptyPrompt)
+    setConfirming(true)
+    if (onConfirming) onConfirming(true)
+    try {
+      const scenesPayload = editingScenes.map(scene => ({
+        start_time: scene.startTime,
+        end_time: scene.endTime,
+        lyrics: scene.pills.map(p => p.text).join(' ') || scene.lyrics,
+        visual_prompt: scene.visualPrompt,
+      }))
+
+      const segmentsPayload = editingSegments.map(seg => ({
+        start: seg.start,
+        end: seg.end,
+        text: seg.text,
+      }))
+
+      await confirmGenerationScenes(jobId, scenesPayload, segmentsPayload, token)
+      onConfirmed()
+    } catch (err) {
+      console.error('Confirm scenes failed:', err)
+      alert('Failed to confirm scenes. Please try again.')
+      if (onConfirming) onConfirming(false)
+    } finally {
+      setConfirming(false)
+      setIsGeneratingMissing(false)
+    }
+  }
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60)
+    const s = (secs % 60).toFixed(1)
+    return `${m}:${s.padStart(4, '0')}`
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} onClick={e => e.stopPropagation()}>
+      {/* Header Bar */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '0.75rem 1rem',
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1))',
+        borderRadius: '10px', border: '1px solid rgba(139, 92, 246, 0.25)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Eye className="w-4 h-4" style={{ color: '#a78bfa' }} />
+          <span style={{ color: '#e2e8f0', fontSize: '0.875rem', fontWeight: 600 }}>
+            Review & Edit Scene Plan
+          </span>
+          <span style={{
+            fontSize: '0.7rem', padding: '2px 8px', borderRadius: '9999px',
+            backgroundColor: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24', fontWeight: 600,
+          }}>
+            {editingScenes.length} scenes
+          </span>
+        </div>
+        <button
+          onClick={handleConfirm}
+          disabled={confirming || editingScenes.length === 0}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.5rem 1.25rem', borderRadius: '8px', fontWeight: 600,
+            fontSize: '0.875rem', border: 'none', cursor: confirming ? 'wait' : 'pointer',
+            background: confirming
+              ? 'rgba(100, 116, 139, 0.3)'
+              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            color: '#fff',
+            boxShadow: confirming ? 'none' : '0 4px 14px rgba(99, 102, 241, 0.4)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {confirming ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> {isGeneratingMissing ? 'Generating missing descriptions & saving...' : 'Submitting scenes...'}</>
+          ) : (
+            <><Check className="w-4 h-4" /> Confirm & Generate Images</>
+          )}
+        </button>
+      </div>
+
+      {/* Add Scene at the top */}
+      <AddSceneButton onClick={() => addSceneAfter(-1)} />
+
+      {/* Scene Blocks */}
+      {editingScenes.map((scene, sceneIdx) => (
+        <div key={scene._key}>
+          <div
+            onDragOver={(e) => handleDragOver(e, sceneIdx)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, sceneIdx)}
+            style={{
+              backgroundColor: dropTarget === sceneIdx
+                ? 'rgba(99, 102, 241, 0.15)'
+                : 'rgba(30, 41, 59, 0.5)',
+              border: dropTarget === sceneIdx
+                ? '2px dashed rgba(129, 140, 248, 0.6)'
+                : '1px solid rgba(51, 65, 85, 0.5)',
+              borderRadius: '12px',
+              padding: '1rem',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {/* Scene Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <strong style={{ color: '#818cf8', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Scene {sceneIdx + 1}
+                </strong>
+                <span style={{
+                  fontSize: '0.7rem', fontFamily: 'monospace',
+                  backgroundColor: 'rgba(15, 23, 42, 0.8)', color: '#94a3b8',
+                  padding: '2px 8px', borderRadius: '4px',
+                }}>
+                  {formatTime(scene.startTime)} – {formatTime(scene.endTime)}
+                </span>
+              </div>
+              <button
+                onClick={() => deleteScene(sceneIdx)}
+                disabled={scene.pills.length > 0}
+                title={scene.pills.length > 0 ? 'Move all lyric pills out before deleting' : 'Delete empty scene'}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                  padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem',
+                  fontWeight: 600, border: 'none', cursor: scene.pills.length > 0 ? 'not-allowed' : 'pointer',
+                  backgroundColor: scene.pills.length > 0
+                    ? 'rgba(100, 116, 139, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: scene.pills.length > 0 ? '#475569' : '#f87171',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <Trash2 className="w-3 h-3" /> Delete
+              </button>
+            </div>
+
+            {/* Lyric Pills Zone */}
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: '6px',
+              minHeight: '40px', padding: '0.5rem',
+              backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: '8px',
+              border: '1px dashed rgba(99, 102, 241, 0.2)',
+              marginBottom: '0.75rem',
+            }}>
+              {scene.pills.length === 0 && (
+                <span style={{ color: '#475569', fontSize: '0.75rem', fontStyle: 'italic', padding: '0.25rem' }}>
+                  Drag lyric pills here...
+                </span>
+              )}
+              {scene.pills.map(pill => (
+                <LyricPill
+                  key={pill._key}
+                  pill={pill}
+                  sceneIdx={sceneIdx}
+                  isEditing={editingPillKey === pill._key}
+                  editText={editingPillText}
+                  onDragStart={handleDragStart}
+                  onStartEdit={startEditPill}
+                  onSaveEdit={saveEditPill}
+                  onCancelEdit={cancelEditPill}
+                  onChangeEditText={setEditingPillText}
+                />
+              ))}
+            </div>
+
+            {/* Visual Prompt */}
+            <div style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '0.75rem',
+              borderRadius: '8px', border: '1px solid rgba(51, 65, 85, 0.4)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <span style={{
+                  fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em',
+                  color: '#64748b', fontWeight: 700,
+                }}>
+                  Visual Prompt
+                </span>
+                <button
+                  onClick={() => handleRegeneratePrompt(sceneIdx)}
+                  disabled={regeneratingIdx === sceneIdx}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    padding: '3px 10px', borderRadius: '6px', fontSize: '0.7rem',
+                    fontWeight: 600, border: 'none',
+                    cursor: regeneratingIdx === sceneIdx ? 'wait' : 'pointer',
+                    backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {regeneratingIdx === sceneIdx ? (
+                    <><Loader2 className="w-3 h-3 animate-spin" /> Regenerating...</>
+                  ) : (
+                    <><Sparkles className="w-3 h-3" /> Regenerate</>
+                  )}
+                </button>
+              </div>
+              <textarea
+                value={scene.visualPrompt}
+                onChange={(e) => updatePrompt(sceneIdx, e.target.value)}
+                rows={3}
+                style={{
+                  width: '100%', backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  color: '#f8fafc', fontSize: '0.8rem', lineHeight: 1.5,
+                  padding: '0.5rem', borderRadius: '6px',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                }}
+                placeholder="Describe the visual scene for image generation..."
+              />
+            </div>
+          </div>
+
+          {/* Add Scene button between scenes */}
+          <AddSceneButton onClick={() => addSceneAfter(sceneIdx)} />
+        </div>
+      ))}
+
+      {/* ─── Bottom CTA Banner ─── */}
+      <div style={{
+        marginTop: '0.5rem', padding: '1.25rem',
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
+        border: '1px solid rgba(139, 92, 246, 0.3)',
+        borderRadius: '12px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem',
+        textAlign: 'center',
+      }}>
+        <div>
+          <p style={{ color: '#e2e8f0', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>
+            Ready to generate images?
+          </p>
+          <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '4px 0 0 0' }}>
+            Once confirmed, AI will generate cinematic frames for each scene. This cannot be undone.
+          </p>
+        </div>
+        <button
+          onClick={handleConfirm}
+          disabled={confirming || editingScenes.length === 0}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.75rem 2rem', borderRadius: '10px', fontWeight: 700,
+            fontSize: '0.95rem', border: 'none',
+            cursor: confirming ? 'wait' : 'pointer',
+            background: confirming
+              ? 'rgba(100, 116, 139, 0.3)'
+              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            color: '#fff',
+            boxShadow: confirming ? 'none' : '0 6px 20px rgba(99, 102, 241, 0.45)',
+            transition: 'all 0.2s ease',
+            letterSpacing: '0.01em',
+          }}
+        >
+          {confirming ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> {isGeneratingMissing ? 'Generating missing descriptions & saving...' : 'Submitting scenes...'}</>
+          ) : (
+            <><Sparkles className="w-4 h-4" /> Approve Scenes & Start Image Generation</>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Lyric Pill Atom ───
+function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEdit, onSaveEdit, onCancelEdit, onChangeEditText }) {
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) inputRef.current.focus()
+  }, [isEditing])
+
+  if (isEditing) {
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        padding: '3px 6px', borderRadius: '6px',
+        backgroundColor: 'rgba(99, 102, 241, 0.25)',
+        border: '1px solid rgba(129, 140, 248, 0.5)',
+      }}>
+        <input
+          ref={inputRef}
+          value={editText}
+          onChange={(e) => onChangeEditText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSaveEdit()
+            if (e.key === 'Escape') onCancelEdit()
+          }}
+          style={{
+            backgroundColor: 'transparent', border: 'none', color: '#e2e8f0',
+            fontSize: '0.75rem', outline: 'none', width: `${Math.max(editText.length * 7, 60)}px`,
+            minWidth: '60px',
+          }}
+        />
+        <button onClick={onSaveEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+          <Check className="w-3 h-3" style={{ color: '#34d399' }} />
+        </button>
+        <button onClick={onCancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
+          <X className="w-3 h-3" style={{ color: '#f87171' }} />
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <span
+      draggable
+      onDragStart={(e) => onDragStart(e, pill._key, sceneIdx)}
+      onDoubleClick={() => onStartEdit(pill)}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '4px',
+        padding: '4px 8px', borderRadius: '6px',
+        backgroundColor: 'rgba(99, 102, 241, 0.12)',
+        border: '1px solid rgba(99, 102, 241, 0.25)',
+        color: '#cbd5e1', fontSize: '0.75rem',
+        cursor: 'grab', userSelect: 'none',
+        transition: 'all 0.15s',
+      }}
+      title="Drag to move • Double-click to edit"
+    >
+      <GripVertical className="w-3 h-3" style={{ color: '#475569', flexShrink: 0 }} />
+      <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {pill.text}
+      </span>
+      <button
+        onClick={(e) => { e.stopPropagation(); onStartEdit(pill) }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}
+      >
+        <Pencil className="w-3 h-3" style={{ color: '#64748b' }} />
+      </button>
+    </span>
+  )
+}
+
+// ─── Add Scene Button ───
+function AddSceneButton({ onClick }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
+      <button
+        onClick={onClick}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '4px',
+          padding: '4px 12px', borderRadius: '9999px', fontSize: '0.7rem',
+          fontWeight: 600, border: '1px dashed rgba(99, 102, 241, 0.3)',
+          backgroundColor: 'transparent', color: '#64748b',
+          cursor: 'pointer', transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.1)'
+          e.currentTarget.style.color = '#818cf8'
+          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.backgroundColor = 'transparent'
+          e.currentTarget.style.color = '#64748b'
+          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)'
+        }}
+      >
+        <Plus className="w-3 h-3" /> Add Scene
+      </button>
+    </div>
+  )
+}
+
+
+// ─────────────────────────────────────────
+// Main Page Component
+// ─────────────────────────────────────────
+
 export default function GenerationProgress() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -21,12 +567,16 @@ export default function GenerationProgress() {
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [pollTrigger, setPollTrigger] = useState(0)
   
   const [isPhase1Expanded, setIsPhase1Expanded] = useState(false)
   const [isPhase2Expanded, setIsPhase2Expanded] = useState(false)
   const [isPhase3Expanded, setIsPhase3Expanded] = useState(false)
   const [isPhase4Expanded, setIsPhase4Expanded] = useState(false)
   const [isPhase5Expanded, setIsPhase5Expanded] = useState(false)
+
+  // Auto-expand Phase 2 when AWAITING_REVIEW is first detected
+  const hasAutoExpandedPhase2 = useRef(false)
 
   useEffect(() => {
     let timeoutId
@@ -39,7 +589,13 @@ export default function GenerationProgress() {
 
         setJobData(data)
         setError(null)
-        if (data.status !== 'COMPLETED' && data.status !== 'FAILED') {
+        // Auto-expand Phase 2 when AWAITING_REVIEW is first detected
+        if (data.status === 'AWAITING_REVIEW' && !hasAutoExpandedPhase2.current) {
+          hasAutoExpandedPhase2.current = true
+          setIsPhase2Expanded(true)
+        }
+        // Stop polling when complete, failed, or awaiting user review
+        if (data.status !== 'COMPLETED' && data.status !== 'FAILED' && data.status !== 'AWAITING_REVIEW') {
           timeoutId = window.setTimeout(fetchStatus, 3000)
         }
       } catch (err) {
@@ -56,7 +612,7 @@ export default function GenerationProgress() {
       isMounted = false
       window.clearTimeout(timeoutId)
     }
-  }, [id, token])
+  }, [id, token, pollTrigger])
 
   if (loading) {
     return (
@@ -90,11 +646,13 @@ export default function GenerationProgress() {
 
   const status = jobData?.status || 'QUEUED'
   const sceneSegments = jobData?.song?.sceneSegments || []
+  const isAwaitingReview = status === 'AWAITING_REVIEW'
 
   const renderStatusTag = (label, type = 'waiting') => {
     const styles = {
       completed: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981', icon: <CheckCircle className="w-3 h-3" /> },
       processing: { bg: 'rgba(99, 102, 241, 0.1)', text: '#818cf8', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+      review: { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24', icon: <Pencil className="w-3 h-3" /> },
       waiting: { bg: 'rgba(100, 116, 139, 0.1)', text: '#94a3b8', icon: null },
       failed: { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444', icon: <AlertCircle className="w-3 h-3" /> },
     }
@@ -123,29 +681,39 @@ export default function GenerationProgress() {
       return renderStatusTag('Completed', 'completed');
     }
     if (phaseNum === 2) {
+      if (isAwaitingReview) return renderStatusTag('Awaiting Review', 'review');
       if (hasScenes) return renderStatusTag('Completed', 'completed');
       if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
       return renderStatusTag('Processing...', 'processing');
     }
     if (phaseNum === 3) {
+      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting');
       if (framesDone) return renderStatusTag('Completed', 'completed');
       if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
       if (hasScenes) return renderStatusTag(`${generatedFrames}/${totalFrames} Frames`, 'processing');
       return renderStatusTag('Waiting', 'waiting');
     }
     if (phaseNum === 4) {
+      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting');
       if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed');
       if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
       if (framesDone) return renderStatusTag('Stitching...', 'processing');
       return renderStatusTag('Waiting', 'waiting');
     }
     if (phaseNum === 5) {
+      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting');
       if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed');
       if (status === 'FAILED') return renderStatusTag('Skipped', 'failed');
       if (framesDone) return renderStatusTag('Generating...', 'processing');
       return renderStatusTag('Waiting', 'waiting');
     }
     return null;
+  }
+
+  const handleScenesConfirmed = () => {
+    // Smoothly transition: update local state to PROCESSING and restart the polling loop
+    setJobData(prev => prev ? { ...prev, status: 'PROCESSING' } : prev)
+    setPollTrigger(t => t + 1)
   }
 
   return (
@@ -216,6 +784,26 @@ export default function GenerationProgress() {
             </div>
           )}
 
+          {isAwaitingReview && (
+            <div style={{
+              padding: '1rem',
+              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.05))',
+              border: '1px solid rgba(251, 191, 36, 0.25)',
+              borderRadius: '8px', marginBottom: '1rem',
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+            }}>
+              <Pencil className="w-5 h-5" style={{ color: '#fbbf24', flexShrink: 0 }} />
+              <div>
+                <p style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
+                  Scene plan is ready for your review
+                </p>
+                <p style={{ color: '#d4a017', fontSize: '0.8rem', margin: '4px 0 0 0' }}>
+                  Expand Phase 2 below to review, edit, and confirm your scenes before image generation begins.
+                </p>
+              </div>
+            </div>
+          )}
+
           {status === 'COMPLETED' ? (
             <div style={{ textAlign: 'center', padding: '1rem 0' }}>
               <p style={{ color: '#34d399', fontWeight: 500, fontSize: '1.1rem', marginBottom: '1.5rem' }}>
@@ -238,9 +826,9 @@ export default function GenerationProgress() {
                 </Link>
               </div>
             </div>
-          ) : (
+          ) : !isAwaitingReview ? (
             <p style={{ color: '#94a3b8' }}>Video is currently processing...</p>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -250,9 +838,8 @@ export default function GenerationProgress() {
         <section 
           className="studio-card studio-form-card" 
           style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase1Expanded(!isPhase1Expanded)}
         >
-          <header className="studio-card__header studio-card__header--spread">
+          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase1Expanded(!isPhase1Expanded)}>
             <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
               <span aria-hidden="true">🎧</span>
               <h2>Phase 1: Audio & Lyric Extraction</h2>
@@ -280,10 +867,14 @@ export default function GenerationProgress() {
         {/* Phase 2 Accordion */}
         <section 
           className="studio-card studio-form-card"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase2Expanded(!isPhase2Expanded)}
+          style={{
+            ...(isAwaitingReview ? {
+              border: '1px solid rgba(251, 191, 36, 0.3)',
+              boxShadow: '0 0 20px rgba(251, 191, 36, 0.08)',
+            } : {})
+          }}
         >
-          <header className="studio-card__header studio-card__header--spread">
+          <header className="studio-card__header studio-card__header--spread" style={{ cursor: 'pointer' }} onClick={() => setIsPhase2Expanded(!isPhase2Expanded)}>
             <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
               <span aria-hidden="true">📝</span>
               <h2>Phase 2: AI Scene Planning</h2>
@@ -297,7 +888,18 @@ export default function GenerationProgress() {
 
           {isPhase2Expanded && (
             <div style={{ padding: '20px 30px' }}>
-              {sceneSegments && sceneSegments.length > 0 ? (
+              {/* ─── Scene Block Editor (AWAITING_REVIEW mode) ─── */}
+              {isAwaitingReview && sceneSegments.length > 0 ? (
+                <SceneBlockEditor
+                  scenes={sceneSegments}
+                  segments={jobData?.song?.transcriptionSegments}
+                  songId={jobData?.songId || jobData?.song?.id}
+                  jobId={jobData?.id}
+                  token={token}
+                  onConfirmed={handleScenesConfirmed}
+                  onConfirming={() => { /* spinner state is managed internally */ }}
+                />
+              ) : sceneSegments && sceneSegments.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {sceneSegments.map((segment, idx) => (
                     <div key={segment.id} style={{ 
@@ -353,9 +955,8 @@ export default function GenerationProgress() {
         <section 
           className="studio-card studio-form-card"
           style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase3Expanded(!isPhase3Expanded)}
         >
-          <header className="studio-card__header studio-card__header--spread">
+          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase3Expanded(!isPhase3Expanded)}>
             <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
               <span aria-hidden="true">🖼️</span>
               <h2>Phase 3: Image Generation</h2>
@@ -449,9 +1050,8 @@ export default function GenerationProgress() {
         <section 
           className="studio-card studio-form-card"
           style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase4Expanded(!isPhase4Expanded)}
         >
-          <header className="studio-card__header studio-card__header--spread">
+          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase4Expanded(!isPhase4Expanded)}>
             <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
               <span aria-hidden="true">🎞️</span>
               <h2>Phase 4: Video Assembly</h2>
@@ -500,9 +1100,8 @@ export default function GenerationProgress() {
         <section 
           className="studio-card studio-form-card"
           style={{ cursor: 'pointer' }}
-          onClick={() => setIsPhase5Expanded(!isPhase5Expanded)}
         >
-          <header className="studio-card__header studio-card__header--spread">
+          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase5Expanded(!isPhase5Expanded)}>
             <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
               <span aria-hidden="true"><Sparkles className="w-5 h-5" style={{ color: '#a78bfa', display: 'inline' }} /></span>
               <h2>Phase 5: Cultural Curation & Trivia</h2>

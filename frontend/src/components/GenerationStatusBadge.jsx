@@ -1,8 +1,8 @@
-import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertCircle, Clock, Pencil } from 'lucide-react'
 
 /**
  * A pure, stateless component for displaying generation job status.
- * Expects exactly one of the four ENUM states from the database.
+ * Expects exactly one of the five ENUM states from the database.
  */
 export default function GenerationStatusBadge({ status, errorMessage, className = '' }) {
   if (status === 'QUEUED' || status === 'NOT_STARTED') {
@@ -21,6 +21,16 @@ export default function GenerationStatusBadge({ status, errorMessage, className 
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 ${className}`}
       >
         <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...
+      </span>
+    )
+  }
+
+  if (status === 'AWAITING_REVIEW') {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 ${className}`}
+      >
+        <Pencil className="w-3.5 h-3.5" /> Awaiting Review
       </span>
     )
   }

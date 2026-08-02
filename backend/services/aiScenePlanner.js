@@ -1,18 +1,96 @@
 const { OpenAI } = require('openai')
 const { Song, GenerationJob, SceneSegment } = require('../models')
 
-async function generateScenePlan(jobId, songId) {
-  try {
-    const apiKey = process.env.DEEPSEEK_API_KEY
-    if (!apiKey) {
-      throw new Error('DEEPSEEK_API_KEY is missing in process.env.')
+/**
+ * Deterministically groups transcription or scene segments into cinematic scene blocks
+ * targeting minDuration (default 5.0s) and targetDuration (default 7.5s).
+ * Ensures scene durations hit 6.0s - 9.0s and produces ~25-32 scenes for a 3-minute track.
+ */
+function groupSegmentsByTargetDuration(transcriptionSegments, minDuration = 5.0, targetDuration = 7.5) {
+  if (!Array.isArray(transcriptionSegments) || transcriptionSegments.length === 0) {
+    return []
+  }
+
+  const grouped = []
+  let currentGroup = []
+
+  for (let i = 0; i < transcriptionSegments.length; i++) {
+    const seg = transcriptionSegments[i]
+    const segStart = seg.start ?? seg.startTime ?? 0
+    const segEnd = seg.end ?? seg.endTime ?? segStart
+
+    if (currentGroup.length === 0) {
+      currentGroup.push(seg)
+      continue
     }
 
-    const openai = new OpenAI({
-      baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
-      apiKey,
-    })
+    const groupStart = currentGroup[0].start ?? currentGroup[0].startTime ?? 0
+    const currentLastEnd = currentGroup[currentGroup.length - 1].end ?? currentGroup[currentGroup.length - 1].endTime ?? groupStart
+    const currentDuration = currentLastEnd - groupStart
+    const potentialDuration = segEnd - groupStart
 
+    // If current group duration is under minDuration, keep adding segments
+    if (currentDuration < minDuration) {
+      currentGroup.push(seg)
+    } 
+    // If adding this segment keeps total duration <= 9.0s and current duration < targetDuration
+    else if (currentDuration < targetDuration && potentialDuration <= 9.0) {
+      currentGroup.push(seg)
+    } 
+    // Otherwise, finalize current group and start a new group with seg
+    else {
+      grouped.push(createSceneFromGroup(currentGroup))
+      currentGroup = [seg]
+    }
+  }
+
+  if (currentGroup.length > 0) {
+    grouped.push(createSceneFromGroup(currentGroup))
+  }
+
+  return grouped
+}
+
+function createSceneFromGroup(group) {
+  const first = group[0]
+  const last = group[group.length - 1]
+  const startTime = Number((first.start ?? first.startTime ?? 0).toFixed(2))
+  const endTime = Number((last.end ?? last.endTime ?? startTime).toFixed(2))
+
+  const lyricsParts = group
+    .map(s => (s.text || s.lyrics || '').trim())
+    .filter(Boolean)
+
+  const lyrics = lyricsParts.join(' ').replace(/\s+/g, ' ')
+
+  const promptParts = group
+    .map(s => (s.visualPrompt || s.visual_prompt || '').trim())
+    .filter(Boolean)
+
+  const visualPrompt = promptParts.length > 0 ? promptParts.join(' ') : null
+
+  return {
+    startTime,
+    endTime,
+    lyrics,
+    ...(visualPrompt ? { visualPrompt } : {}),
+  }
+}
+
+function buildDefaultVisualPrompt(song, lyrics) {
+  const theme = song.theme || 'Singaporean Heritage'
+  const lyricSnippet = lyrics ? ` depicting: "${lyrics}"` : ''
+  return `Cinematic music video scene${lyricSnippet}. Theme: ${theme}, vibrant cultural atmosphere, dramatic lighting, shot on 35mm lens, 8k resolution.`
+}
+
+const sanitizeLyrics = (raw) => {
+  if (!raw || typeof raw !== 'string') return null
+  const cleaned = raw.replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim()
+  return cleaned.length > 0 ? cleaned : null
+}
+
+async function generateScenePlan(jobId, songId) {
+  try {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
@@ -23,14 +101,26 @@ async function generateScenePlan(jobId, songId) {
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song with ID ${songId} not found.`)
-    
-    // Read pre-extracted timings instead of re-transcribing audio on the fly!
+
     let rawSegments = song.transcriptionSegments || []
-    
-    let systemPrompt, userMessage;
-    
-    if (rawSegments.length > 0) {
-      systemPrompt = `You are an expert cinematic music video director and visual storyteller.
+    let scenesToSave = []
+
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+    if (apiKey) {
+      try {
+        const baseURL = process.env.DEEPSEEK_API_KEY
+          ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com')
+          : undefined
+        const model = process.env.DEEPSEEK_API_KEY
+          ? (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+          : 'gpt-4o-mini'
+
+        const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
+
+        let systemPrompt, userMessage
+
+        if (rawSegments.length > 0) {
+          systemPrompt = `You are an expert cinematic music video director and visual storyteller.
 Your task is to analyze chronological audio transcription segments and group them into cinematic scenes.
 
 <project_context>
@@ -38,35 +128,21 @@ Theme: ${song.theme || 'Singaporean Heritage'}
 Focus: Singapore's rich heritage, community history, and local context.
 </project_context>
 
+<canonical_chorus_rules>
+- CANONICAL CHORUS RULE (HIGHEST PRIORITY):
+  1. Before grouping segments into scenes, scan the song's True Lyrics to identify all repeating stanzas/choruses.
+  2. Establish a CANONICAL LINE GROUPING for the first occurrence of a chorus (e.g., Line 1 + Line 2 = Scene Block Alpha, Line 3 + Line 4 = Scene Block Beta).
+  3. FOR EVERY SUBSEQUENT REPEAT OF THIS CHORUS, YOU MUST USE THE EXACT SAME LYRICAL LINE GROUPINGS. Do NOT change line splits between Chorus 1, Chorus 2, or Chorus 3.
+  4. Require exact string matching between True Lyrics and segment outputs for repeated sections.
+- PACING EXEMPTION FOR REPEATED CHORUS UNITS:
+  The 6.0s - 9.0s target pacing rule is strictly secondary to the Canonical Chorus Rule. If a locked chorus line grouping evaluates to 4.5s or 10.0s in a repeated section, ACCEPT THE TIMING VARIANCE. Maintaining identical lyric string outputs across choruses is MANDATORY for video frame caching.
+</canonical_chorus_rules>
+
 <pacing_and_duration_rules>
-- TARGET PACING: Aim for scenes between 6 to 9 seconds long.
-- THE SEGMENT COUNT RULE: To hit this target pacing, NEVER group more than 2 to 3 Whisper segments into a single scene block. If you group 4 or more segments together, YOU ARE FAILING.
-- CACHE SYNCING (CRITICAL): If you encounter repeating lyrics (like a chorus), you MUST split them using the EXACT same lyrical chunks every single time they occur. If you split a chorus into "Part A" and "Part B" at the 1:00 mark, you MUST split it into "Part A" and "Part B" at the 3:00 mark. Do NOT combine them into "Part A + B" later, or you will break the video caching engine!
+- TARGET PACING: Aim for scenes between 6.0 to 9.0 seconds long.
+- STRICT DURATION RULE: NEVER output a scene with a total duration shorter than 5.0 seconds unless it is the final trailing silence/outro of the song or a locked canonical chorus unit.
+- GROUPING RULE: You MUST group 2 to 3 consecutive Whisper segments into a single scene block to hit the 6.0s to 9.0s duration per scene. Do NOT output a separate scene for every single Whisper segment!
 </pacing_and_duration_rules>
-
-<lyrical_grouping_rules>
-- SPLITTING: Split at natural pauses (end of a line, comma, or clear pause). If a sentence or chorus exceeds 9 seconds, you MUST split it into multiple scenes. It is perfectly fine to split a long sentence if necessary to obey the 9-second limit.
-- The starting time of your block must match the start time of the first segment you included.
-- The ending time of your block must match the end time of the last segment you included.
-- All provided segments must be accounted for chronologically. Do not skip any segments.
-- MISSING LYRICS: The "True Lyrics" are the absolute source of truth. If the provided Whisper segments missed lines (e.g., an instrumental intro with faint vocals), YOU MUST STILL include those missing lyrics. Create a scene starting at 0.00s and estimate the duration up to the first valid Whisper segment.
-</lyrical_grouping_rules>
-
-<example_split>
-Given a chorus consisting of 4 Whisper segments:
-[49.44s - 52.40s]: Cause tomorrow's here today
-[52.40s - 55.40s]: Dream away
-[55.40s - 61.40s]: Take the world by the hand
-[61.40s - 66.94s]: Cause tomorrow's here today
-
-CORRECT (Grouped by 1-2 segments, ~6s-9s each):
-Scene 1 (49.44 - 55.40s): Cause tomorrow's here today Dream away
-Scene 2 (55.40 - 61.40s): Take the world by the hand
-Scene 3 (61.40 - 66.94s): Cause tomorrow's here today (Exact lyric match triggers cache!)
-
-INCORRECT (Grouped 4 segments, violates rules):
-Scene 1 (49.44 - 66.94s): Cause tomorrow's here today Dream away Take the world by the hand Cause tomorrow's here today
-</example_split>
 
 <visual_prompt_requirements>
 For each scene block, your visualPrompt must specify:
@@ -81,147 +157,125 @@ You must return ONLY a JSON object with a "scenes" array following this exact sc
 {
   "scenes": [
     {
-      "startTime": <number, exact start time of the first segment, 2 decimal places>,
-      "endTime": <number, exact end time of the last segment, 2 decimal places>,
-      "lyrics": "<string, the EXACT corresponding lyrics from True Lyrics>",
+      "startTime": <number, exact start time of first segment in block, 2 decimal places>,
+      "endTime": <number, exact end time of last segment in block, 2 decimal places>,
+      "lyrics": "<string, corresponding lyrics>",
       "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. NO NEWLINES>"
     }
   ]
 }
-CRITICAL: The output must be valid JSON. Do not round timestamps.
-CRITICAL SYNTAX: Never use literal newlines or line breaks inside string values (lyrics or visualPrompt). Keep every string value strictly on a single line.
-Never use double quotes (") inside string values; use single quotes (') instead.
+CRITICAL: Every scene (except the last scene or locked chorus repeats) MUST have (endTime - startTime) >= 5.0.
+CRITICAL SYNTAX: Never use literal newlines or line breaks inside string values.
 Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
-      let segmentsStr = rawSegments.map((s) => 
-        `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`
-      ).join('\n');
+          let segmentsStr = rawSegments.map((s) =>
+            `[${(s.start ?? s.startTime ?? 0).toFixed(2)}s - ${(s.end ?? s.endTime ?? 0).toFixed(2)}s]: ${(s.text || s.lyrics || '').trim()}`
+          ).join('\n')
 
-      userMessage = `Title: ${song.title}
+          userMessage = `Title: ${song.title}
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 True Lyrics:
 ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}
 
-Raw Whisper Transcription Segments (USE THESE ONLY FOR TIMING, THEY MAY CONTAIN ERRORS):
+Raw Whisper Transcription Segments:
 ${segmentsStr}`
-    } else {
-      // Legacy prompt fallback
-      systemPrompt = `You are an expert cinematic music video director and visual storyteller. 
+        } else {
+          systemPrompt = `You are an expert cinematic music video director and visual storyteller.
 Your task is to analyze the provided song's lyrics, theme, title, and artist, and break the song down into a chronological sequence of highly visual scenes.
 
-<project_context>
-Theme: ${song.theme || 'Singaporean Heritage'}
-Focus: Singapore's rich heritage, community history, and local context.
-</project_context>
+<canonical_chorus_rules>
+- CANONICAL CHORUS RULE (HIGHEST PRIORITY):
+  1. Before grouping segments into scenes, scan the song's True Lyrics to identify all repeating stanzas/choruses.
+  2. Establish a CANONICAL LINE GROUPING for the first occurrence of a chorus (e.g., Line 1 + Line 2 = Scene Block Alpha, Line 3 + Line 4 = Scene Block Beta).
+  3. FOR EVERY SUBSEQUENT REPEAT OF THIS CHORUS, YOU MUST USE THE EXACT SAME LYRICAL LINE GROUPINGS. Do NOT change line splits between Chorus 1, Chorus 2, or Chorus 3.
+  4. Require exact string matching between True Lyrics and segment outputs for repeated sections.
+- PACING EXEMPTION FOR REPEATED CHORUS UNITS:
+  The 6.0s - 9.0s target pacing rule is strictly secondary to the Canonical Chorus Rule. If a locked chorus line grouping evaluates to 4.5s or 10.0s in a repeated section, ACCEPT THE TIMING VARIANCE. Maintaining identical lyric string outputs across choruses is MANDATORY for video frame caching.
+</canonical_chorus_rules>
 
 <pacing_and_duration_rules>
-- TARGET PACING: Aim for scenes between 6 to 9 seconds long.
-- THE SEGMENT COUNT RULE: To hit this target pacing, NEVER group more than 2 to 3 Whisper segments into a single scene block. If you group 4 or more segments together, YOU ARE FAILING.
-- CACHE SYNCING (CRITICAL): If you encounter repeating lyrics (like a chorus), you MUST split them using the EXACT same lyrical chunks every single time they occur. If you split a chorus into "Part A" and "Part B" at the 1:00 mark, you MUST split it into "Part A" and "Part B" at the 3:00 mark. Do NOT combine them into "Part A + B" later, or you will break the video caching engine!
+- TARGET PACING: Aim for scenes between 6.0 to 9.0 seconds long.
+- STRICT DURATION RULE: NEVER output a scene with a total duration shorter than 5.0 seconds unless it is the final trailing silence/outro of the song or a locked canonical chorus unit.
 </pacing_and_duration_rules>
 
-<lyrical_grouping_rules>
-- SPLITTING: Split at natural pauses (end of a line, comma, or clear pause). If a sentence or chorus exceeds 9 seconds, you MUST split it into multiple scenes. It is perfectly fine to split a long sentence if necessary to obey the 9-second limit.
-</lyrical_grouping_rules>
-
-<example_split>
-Given a chorus consisting of 4 Whisper segments:
-[49.44s - 52.40s]: Cause tomorrow's here today
-[52.40s - 55.40s]: Dream away
-[55.40s - 61.40s]: Take the world by the hand
-[61.40s - 66.94s]: Cause tomorrow's here today
-
-CORRECT (Grouped by 1-2 segments, ~6s-9s each):
-Scene 1 (49.44 - 55.40s): Cause tomorrow's here today Dream away
-Scene 2 (55.40 - 61.40s): Take the world by the hand
-Scene 3 (61.40 - 66.94s): Cause tomorrow's here today (Exact lyric match triggers cache!)
-
-INCORRECT (Grouped 4 segments, violates rules):
-Scene 1 (49.44 - 66.94s): Cause tomorrow's here today Dream away Take the world by the hand Cause tomorrow's here today
-</example_split>
-
-<visual_prompt_requirements>
-For each scene block, your visualPrompt must specify:
-1. Subject matter and key elements.
-2. Lighting, atmosphere, and mood.
-3. Camera angle or cinematic style.
-4. Integration of the song's theme.
-</visual_prompt_requirements>
-
 <output_format>
-You must return ONLY a JSON object with a "scenes" array following this exact schema:
 {
   "scenes": [
     {
       "startTime": <number, starting second of the scene>,
       "endTime": <number, ending second of the scene>,
       "lyrics": "<string, lyrics for this scene>",
-      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. NO NEWLINES>"
+      "visualPrompt": "<string, detailed image generation prompt. NO NEWLINES>"
     }
   ]
 }
-CRITICAL SYNTAX: Never use literal newlines or line breaks inside string values (lyrics or visualPrompt). Keep every string value strictly on a single line.
-Never use double quotes (") inside string values; use single quotes (') instead.
-Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
-      userMessage = `Title: ${song.title}
+          userMessage = `Title: ${song.title}
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
 Lyrics:
 ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
+        }
+
+        const response = await openai.chat.completions.create({
+          model,
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 8192,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+        })
+
+        const responseText = (response.choices[0]?.message?.content || '').trim()
+        let cleanedText = responseText.replace(/```json|```/g, '').trim()
+        cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ')
+
+        if (cleanedText) {
+          const parsedData = JSON.parse(cleanedText)
+          if (parsedData.scenes && Array.isArray(parsedData.scenes) && parsedData.scenes.length > 0) {
+            scenesToSave = parsedData.scenes
+          }
+        }
+      } catch (llmError) {
+        console.warn(`[aiScenePlanner] LLM scene planning failed or unavailable. Falling back to programmatic grouping:`, llmError.message)
+      }
     }
 
-    const response = await openai.chat.completions.create({
-      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 8192,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
+    // Check if LLM output scenes need duration enforcement / grouping
+    if (scenesToSave.length > 0) {
+      const hasShortScenes = scenesToSave.slice(0, -1).some(s => (s.endTime - s.startTime) < 5.0)
+      if (hasShortScenes) {
+        console.log(`[aiScenePlanner] LLM generated short scenes (<5.0s). Applying groupSegmentsByTargetDuration...`)
+        scenesToSave = groupSegmentsByTargetDuration(scenesToSave, 5.0, 7.5)
+      }
+    }
+
+    // Fallback: If no scenes from LLM, use raw Whisper segments through groupSegmentsByTargetDuration
+    if (scenesToSave.length === 0) {
+      console.log(`[aiScenePlanner] Applying deterministic fallback grouping on raw transcription segments...`)
+      scenesToSave = groupSegmentsByTargetDuration(rawSegments, 5.0, 7.5)
+    }
+
+    // Map to final SceneSegment model objects
+    const sceneRecords = scenesToSave.map((scene) => {
+      const lyrics = sanitizeLyrics(scene.lyrics || scene.text)
+      return {
+        jobId: jobId,
+        songId: songId,
+        startTime: Number(Number(scene.startTime).toFixed(2)),
+        endTime: Number(Number(scene.endTime).toFixed(2)),
+        lyrics: lyrics,
+        visualPrompt: scene.visualPrompt || buildDefaultVisualPrompt(song, lyrics),
+      }
     })
 
-    const responseText = (response.choices[0]?.message?.content || '').trim()
-    let cleanedText = responseText.replace(/```json|```/g, '').trim()
-    // Replace raw literal newlines, tabs, and carriage returns with spaces to prevent JSON parse errors
-    cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ')
-
-    if (!cleanedText) {
-      throw new Error('AI completion returned empty response.')
-    }
-
-    let parsedData
-    try {
-      parsedData = JSON.parse(cleanedText)
-    } catch (parseError) {
-      throw new Error(`Failed to parse AI JSON response: ${parseError.message}`, { cause: parseError })
-    }
-
-    if (!parsedData.scenes || !Array.isArray(parsedData.scenes)) {
-      throw new Error('OpenAI response did not contain a valid "scenes" array.')
-    }
-
-    // The LLM will now provide the true lyrics directly based on the True Lyrics passed in the prompt.
-
-    const sanitizeLyrics = (raw) => {
-      if (!raw || typeof raw !== 'string') return null
-      const cleaned = raw.replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim()
-      return cleaned.length > 0 ? cleaned : null
-    }
-
-    const sceneRecords = parsedData.scenes.map((scene) => ({
-      jobId: jobId,
-      songId: songId,
-      startTime: scene.startTime,
-      endTime: scene.endTime,
-      lyrics: sanitizeLyrics(scene.lyrics || scene.text),
-      visualPrompt: scene.visualPrompt,
-    }))
-
+    // Wipe out existing SceneSegments for this song to ensure no old micro-scenes remain
+    await SceneSegment.destroy({ where: { songId: songId } })
     await SceneSegment.bulkCreate(sceneRecords)
     return sceneRecords
   } catch (error) {
@@ -240,4 +294,4 @@ ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}`
   }
 }
 
-module.exports = { generateScenePlan }
+module.exports = { generateScenePlan, groupSegmentsByTargetDuration }
