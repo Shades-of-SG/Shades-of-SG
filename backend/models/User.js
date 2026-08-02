@@ -27,6 +27,31 @@ const User = sequelize.define('User', {
         allowNull: false,
         defaultValue: 'REGISTERED',
     },
+    bio: { //lia added this after just adding a row in supabase
+        type: DataTypes.STRING,
+        allowNull: false,
+        defaultValue: 'This is my bio',
+    },
+    interestTags: {
+        type: DataTypes.JSON,
+        allowNull: false,
+        defaultValue: [], //idk man..
+        field: 'interest_tags', //name from supabase
+    },
+    enable2fa: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+        field: 'enable_2fa',
+    },
+
+    isBanned: {     //Can prob remove this column since now got account status UNLESS you want to use for permanent ban but that is a different table
+        type: DataTypes.BOOLEAN, 
+        defaultValue: false,
+        allowNull: false,
+        field: 'is_banned',
+    },
+
     accountStatus: {
         type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
         allowNull: false,

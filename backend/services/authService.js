@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const User = require('../models/User');
+const jwt = require("jsonwebtoken");
 
 const HASH_ITERATIONS = 120000;
 const HASH_KEY_LENGTH = 64;
@@ -128,7 +129,12 @@ function serializeUser(user) {
         email: user.email,
         id: user.id,
         name: user.name,
+        email: user.email,
         role: user.role,
+        bio: user.bio,
+        interestTags: user.interestTags,
+        enable2fa: user.enable2fa,
+        isBanned: user.isBanned,
         accountStatus: user.accountStatus,
         userStatus: user.accountStatus,
         accountSuspensionReason: user.accountSuspensionReason,

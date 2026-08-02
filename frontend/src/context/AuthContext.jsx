@@ -197,15 +197,28 @@ export function AuthProvider({ children }) {
     updateUserProfile,
   }), [activeMode, profileLoading, refreshProfile, setActiveMode, signIn, signOut, token, updateUser, updateUserProfile, user, userProfile])
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    localStorage.setItem("user", JSON.stringify(mergedUser));
+    localStorage.setItem("token", nextToken);
+
+    // ✅ Clear guest session once logged in
+    localStorage.removeItem(GUEST_SESSION_KEY);
+
+    setAuth({ token: nextToken, user: mergedUser });
+  }
+
+  function signOut() {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    setAuth({ token: null, user: null });
+  }
+
+  return (
+    <AuthContext.Provider value={{ signIn, signOut, token: auth.token, user: auth.user }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
-
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider')
-  }
-
-  return context
+  return useContext(AuthContext);
 }

@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const errorHandler = require('./middleware/errorHandler');
 const sequelize = require('./config/database');
-const authRouter = require('./routes/auth');
+//const authRouter = require('./routes/auth');
 const scoresRouter = require('./routes/scores');
 const songsRouter = require('./routes/songs');
 const reflectionsRouter = require('./routes/reflections');
@@ -21,7 +21,10 @@ const usersRouter = require('./routes/users');
 const { seedAdminAccount } = require('./services/authService');
 const { GenerationJob, Song } = require('./models');
 
+
 const app = express();
+app.use(cors());
+app.use(express.json()); // parse JSON bodies
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
 
@@ -90,6 +93,15 @@ app.use(
         credentials: true,
     })
 );
+
+//Lia added the folowing for authentication
+//const authRoutes = require("./routes/authRoutes");
+
+//app.use("/auth", authRoutes); //gg bruh this was commented then i dah uncomment baru boleh work sia..
+//app.use("/api/auth", authRoutes); // ✅ mount under /api/auth
+//End of Lia auth added code
+
+//app.use(cors());
 
 app.use(express.json({ limit: '40mb' }));
 

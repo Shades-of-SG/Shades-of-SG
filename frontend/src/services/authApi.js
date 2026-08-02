@@ -36,3 +36,19 @@ export async function updateProfile(values, token) {
   const data = await authRequest('/profile', jsonRequest('PUT', values, token))
   return data.user
 }
+
+// Availability checks (I just copy over idk if it still works)
+export async function checkNameAvailability(name) {
+  const response = await fetch(`${API_URL}/auth/check-name/${encodeURIComponent(name)}`)
+  return response.json()
+}
+
+export async function checkEmailAvailability(email) {
+  const response = await fetch(`${API_URL}/auth/check-email/${encodeURIComponent(email)}`)
+  return response.json()
+}
+
+export async function checkEmailExists(email) {
+  const response = await fetch(`${API_URL}/auth/check-email-exists/${encodeURIComponent(email)}`)
+  return response.json()
+}

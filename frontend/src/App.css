@@ -5140,6 +5140,16 @@ textarea {
   width: 100%;
 }
 
+/* Tick boxes must not stretch to the full field width — otherwise the label
+   they belong to is pushed to the far edge of the row. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+  height: 18px;
+  padding: 0;
+  width: 18px;
+}
+
 textarea {
   resize: vertical;
 }

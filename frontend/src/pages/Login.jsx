@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
 import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle } from '../services/authApi'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
@@ -38,8 +39,6 @@ export default function Login() {
   const { signIn, signOut } = useAuth()
   const [config, setConfig] = useState({ appleAuthEnabled: false, googleAuthEnabled: false })
   const [email, setEmail] = useState('')
-  const [error, setError] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [googleReady, setGoogleReady] = useState(false)
