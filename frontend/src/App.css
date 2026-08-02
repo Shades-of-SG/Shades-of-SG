@@ -11703,6 +11703,9 @@ textarea {
 }
 
 .badge-shelf-icon {
+  align-items: center;
+  color: #b45309;
+  display: flex;
   font-size: 1.8rem;
 }
 

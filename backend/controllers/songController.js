@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -113,14 +113,22 @@ function auditSong(req, action, song, metadata = {}) {
     });
 }
 
+function parseMultiValue(rawValue) {
+    return String(rawValue || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+}
+
 async function listPublicSongs(req, res, next) {
     try {
-        const where = { 
-            creatorId: { [Op.ne]: null }, 
+        const where = {
+            creatorId: { [Op.ne]: null },
             status: 'PUBLISHED',
             title: { [Op.ne]: 'Beatmap Song' }
         };
-        if (req.query.theme) where.theme = req.query.theme;
+        const themes = parseMultiValue(req.query.theme);
+        if (themes.length) where.theme = { [Op.in]: themes };
         const songs = await Song.findAll({
             where,
             include: [{
@@ -130,18 +138,21 @@ async function listPublicSongs(req, res, next) {
             order: [['publishedDate', 'DESC'], ['title', 'ASC']],
         });
         const search = String(req.query.search || '').trim().toLowerCase();
-        const language = String(req.query.language || '').trim().toLowerCase();
-        const mood = String(req.query.mood || '').trim().toLowerCase();
+        const languages = parseMultiValue(req.query.language).map((value) => value.toLowerCase());
+        const moods = parseMultiValue(req.query.mood).map((value) => value.toLowerCase());
         const filtered = songs.filter((song) => {
-            const searchable = [song.title, song.artist, song.description, song.theme, ...(song.languages || [])]
-                .filter(Boolean).join(' ').toLowerCase();
-            const languages = (song.languages || []).map((value) => String(value).toLowerCase());
-            const moods = (song.moodTags || []).map((value) => String(value).toLowerCase());
+            const searchable = [song.title, song.artist].filter(Boolean).join(' ').toLowerCase();
+            const songLanguages = (song.languages || []).map((value) => String(value).toLowerCase());
+            const songMoods = (song.moodTags || []).map((value) => String(value).toLowerCase());
             return (!search || searchable.includes(search))
-                && (!language || languages.includes(language))
-                && (!mood || moods.includes(mood));
+                && (!languages.length || languages.some((value) => songLanguages.includes(value)))
+                && (!moods.length || moods.some((value) => songMoods.includes(value)));
         });
-        return res.json({ songs: filtered.map(withPublicCreator) });
+        const bookmarkedIds = req.authUser?.id
+            ? new Set((await SongBookmark.findAll({ where: { userId: req.authUser.id }, attributes: ['songId'] }))
+                .map((row) => row.songId))
+            : new Set();
+        return res.json({ songs: filtered.map((song) => withPublicCreator(song, bookmarkedIds)) });
     } catch (error) { return next(error); }
 }
 
@@ -163,14 +174,30 @@ async function getPublicSong(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-function withPublicCreator(song) {
+function withPublicCreator(song, bookmarkedIds = new Set()) {
     const value = song.get({ plain: true });
     const creator = value.creator;
     value.creator = creator ? {
         displayName: creator.profile?.displayName || creator.name,
         id: creator.id,
     } : null;
+    value.bookmarked = bookmarkedIds.has(value.id);
     return value;
+}
+
+async function toggleBookmark(req, res, next) {
+    try {
+        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const bookmarked = Boolean(req.body.bookmarked);
+        const userId = req.authUserRecord.id;
+        if (bookmarked) {
+            await SongBookmark.findOrCreate({ where: { userId, songId: song.id } });
+        } else {
+            await SongBookmark.destroy({ where: { userId, songId: song.id } });
+        }
+        return res.json({ bookmarked });
+    } catch (error) { return next(error); }
 }
 
 async function listCreatorSongs(req, res, next) {
@@ -517,4 +544,4 @@ async function extractAudio(req, res, next) {
     }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, toggleBookmark, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

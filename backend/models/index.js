@@ -27,6 +27,7 @@ const AuthOtp = require('./AuthOtp');
 const AuthIdentity = require('./AuthIdentity');
 const CreatorProfile = require('./CreatorProfile');
 const UserProfile = require('./UserProfile');
+const SongBookmark = require('./SongBookmark');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -139,6 +140,11 @@ AuditLog.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 AuditLog.belongsTo(User, { foreignKey: 'creatorId', as: 'creator' });
 AuditLog.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 
+User.hasMany(SongBookmark, { foreignKey: 'userId', as: 'songBookmarks' });
+SongBookmark.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Song.hasMany(SongBookmark, { foreignKey: 'songId', as: 'bookmarks' });
+SongBookmark.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+
 Song.hasMany(AnalyticsEvent, { foreignKey: 'songId', as: 'analyticsEvents' });
 AnalyticsEvent.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 Folder.hasMany(AnalyticsEvent, { foreignKey: 'folderId', as: 'analyticsEvents' });
@@ -176,4 +182,5 @@ module.exports = {
     AuthIdentity,
     CreatorProfile,
     UserProfile,
+    SongBookmark,
 };

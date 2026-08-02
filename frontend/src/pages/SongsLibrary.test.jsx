@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import SongsLibrary from './SongsLibrary'
+import { AuthProvider } from '../context/AuthContext'
 
 const mocks = vi.hoisted(() => ({
   getBeatmapSummary: vi.fn(),
@@ -54,10 +55,13 @@ const songs = [
 function filteredSongs(filters = {}) {
   return songs.filter((song) => {
     const search = filters.search?.toLowerCase()
-    return (!filters.theme || song.theme === filters.theme)
-      && (!filters.language || song.languages.includes(filters.language))
-      && (!filters.mood || song.moodTags.includes(filters.mood))
-      && (!search || [song.title, song.artist, song.theme, ...song.languages].join(' ').toLowerCase().includes(search))
+    const themes = filters.theme || []
+    const languages = filters.language || []
+    const moods = filters.mood || []
+    return (!themes.length || themes.includes(song.theme))
+      && (!languages.length || languages.some((value) => song.languages.includes(value)))
+      && (!moods.length || moods.some((value) => song.moodTags.includes(value)))
+      && (!search || [song.title, song.artist].join(' ').toLowerCase().includes(search))
   })
 }
 
@@ -79,10 +83,12 @@ describe('Songs Library', () => {
 
   function renderPage() {
     return render(
-      <MemoryRouter initialEntries={['/songs']}>
-        <SongsLibrary />
-        <LocationProbe />
-      </MemoryRouter>,
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/songs']}>
+          <SongsLibrary />
+          <LocationProbe />
+        </MemoryRouter>
+      </AuthProvider>,
     )
   }
 
@@ -132,13 +138,14 @@ describe('Songs Library', () => {
     renderPage()
     await screen.findByText('3 songs available')
 
-    fireEvent.change(screen.getByLabelText('Theme'), { target: { value: 'Community' } })
+    fireEvent.click(screen.getByRole('button', { name: 'All themes' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Community' }))
 
     await waitFor(() => expect(mocks.getPublishedSongs).toHaveBeenLastCalledWith({
-      language: '', mood: '', search: '', theme: 'Community',
-    }))
+      language: [], mood: [], search: '', theme: ['Community'],
+    }, null))
     expect(await screen.findByText('Showing 1–1 of 1 songs')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove Community filter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Theme: Community filter' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(await screen.findByText('Showing 1–3 of 3 songs')).toBeInTheDocument()

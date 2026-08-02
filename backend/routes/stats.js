@@ -1,10 +1,10 @@
 const express = require("express");
 const { getStats, getUserStats } = require("../services/statsService");
-const { requireAuth, requireAdmin } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-router.get("/", requireAdmin, async (req, res, next) => {
+router.get("/", async (req, res, next) => {
     try {
         const stats = await getStats();
         res.json(stats);

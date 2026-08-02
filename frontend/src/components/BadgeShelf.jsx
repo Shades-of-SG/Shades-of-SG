@@ -1,3 +1,5 @@
+import { Award } from 'lucide-react'
+
 export default function BadgeShelf({ badges }) {
   const isLoading = badges === null
   const list = badges || []
@@ -12,7 +14,7 @@ export default function BadgeShelf({ badges }) {
         ) : (
           list.map((badge) => (
             <div className="badge-shelf-item" key={badge.id}>
-              <span aria-hidden="true" className="badge-shelf-icon">🏅</span>
+              <span aria-hidden="true" className="badge-shelf-icon"><Award size={20} /></span>
               <span className="badge-shelf-name">{badge.name}</span>
             </div>
           ))

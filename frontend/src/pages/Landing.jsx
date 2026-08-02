@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Drum, Headphones, MessageCircle } from 'lucide-react'
+import { Award, BookOpen, Drum, Flame, Gamepad2, HelpCircle, Headphones, Medal, MessageCircle, Music, Target, Trophy, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import BadgeShelf from '../components/BadgeShelf'
 import Carousel from '../components/Carousel'
@@ -149,15 +149,15 @@ export default function Landing() {
 
         {user ? (
           <div className="feature-row stats-row" aria-label="Your statistics">
-            <StatCard description="Keepsakes you've collected so far." icon="🏅" label="Badges Earned" value={userStats.badgesCount} />
-            <StatCard description="Trivia questions you've answered." icon="❓" label="Trivia Attempts" value={userStats.triviaAttemptsCount} />
-            <StatCard description="Rounds of the rhythm game you've played." icon="🎮" label="Rhythm Plays" value={userStats.gamePlaysCount} />
+            <StatCard description="Keepsakes you've collected so far." icon={<Award />} label="Badges Earned" value={userStats.badgesCount} />
+            <StatCard description="Trivia questions you've answered." icon={<HelpCircle />} label="Trivia Attempts" value={userStats.triviaAttemptsCount} />
+            <StatCard description="Rounds of the rhythm game you've played." icon={<Gamepad2 />} label="Rhythm Plays" value={userStats.gamePlaysCount} />
           </div>
         ) : (
           <div className="feature-row stats-row" aria-label="Community statistics">
-            <StatCard description="Registered users exploring Shades of SG." icon="👥" label="Active Explorers" value={communityStats.usersCount} />
-            <StatCard description="Published songs available to explore." icon="🎶" label="Heritage Songs" value={communityStats.songsCount} />
-            <StatCard description="Community reflections approved and shared." icon="📖" label="Stories Shared" value={communityStats.reflectionsCount} />
+            <StatCard description="Registered users exploring Shades of SG." icon={<Users />} label="Active Explorers" value={communityStats.usersCount} />
+            <StatCard description="Published songs available to explore." icon={<Music />} label="Heritage Songs" value={communityStats.songsCount} />
+            <StatCard description="Community reflections approved and shared." icon={<BookOpen />} label="Stories Shared" value={communityStats.reflectionsCount} />
           </div>
         )}
       </section>
@@ -192,8 +192,10 @@ export default function Landing() {
             title="No featured songs yet"
           />
         ) : null}
-        <div className="responsive-grid">
-          {songs.map((song, index) => (
+        <Carousel
+          ariaLabel="Featured songs"
+          items={songs}
+          renderItem={(song, index) => (
             <Reveal
               className="landing-card-reveal landing-song-reveal"
               delay={index * 100}
@@ -201,18 +203,25 @@ export default function Landing() {
             >
               <SongCard song={song} />
             </Reveal>
-          ))}
-        </div>
+          )}
+        />
       </section>
 
       {user ? (
         <section className="content-section">
-          <h2>Best Rhythm Game Stats</h2>
+          <div className="landing-section-header__row">
+            <h2>Best Rhythm Game Stats</h2>
+              <Link className="landing-section-link" to="/rhythm-game">
+                Play rhythm game <span aria-hidden="true">&rarr;</span>
+              </Link>
+          </div>
+
+          
           <div className="feature-row rhythm-stats-row" aria-label="Your best rhythm game stats">
-            <RhythmStatCard difficulty={scoreBest?.difficulty} icon="🏆" label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
-            <RhythmStatCard difficulty={accuracyBest?.difficulty} icon="🎯" label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
-            <RhythmStatCard difficulty={comboBest?.difficulty} icon="🔥" label="Max Combo" loading={rhythmLoading} songTitle={comboBest?.songTitle} value={comboBest?.maxCombo ?? 0} />
-            <RhythmStatCard difficulty={rankBest?.difficulty} icon="🥇" isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '—'} />
+            <RhythmStatCard difficulty={scoreBest?.difficulty} icon={<Trophy />} label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
+            <RhythmStatCard difficulty={accuracyBest?.difficulty} icon={<Target />} label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
+            <RhythmStatCard difficulty={comboBest?.difficulty} icon={<Flame />} label="Max Combo" loading={rhythmLoading} songTitle={comboBest?.songTitle} value={comboBest?.maxCombo ?? 0} />
+            <RhythmStatCard difficulty={rankBest?.difficulty} icon={<Medal />} isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '—'} />
           </div>
         </section>
       ) : null}
@@ -234,10 +243,10 @@ export default function Landing() {
               memories.
             </p>
           </Reveal>
-          <div
-            className={`landing-reflections${reflections.length === 2 ? ' landing-reflections--two' : ''}`}
-          >
-            {reflections.map((reflection, index) => (
+          <Carousel
+            ariaLabel="Community reflections"
+            items={reflections}
+            renderItem={(reflection, index) => (
               <Reveal
                 className="landing-card-reveal landing-reflection-reveal"
                 delay={index * 100}
@@ -245,8 +254,8 @@ export default function Landing() {
               >
                 <ReflectionCard reflection={reflection} />
               </Reveal>
-            ))}
-          </div>
+            )}
+          />
         </section>
       ) : null}
 

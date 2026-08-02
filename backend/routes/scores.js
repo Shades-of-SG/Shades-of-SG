@@ -32,7 +32,7 @@ router.get('/best', requireAuth, async (req, res, next) => {
     try {
         const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
-        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required.' });
+        if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required.' });
 
         const rows = await GameScore.findAll({
             where: { userId: user.id },
