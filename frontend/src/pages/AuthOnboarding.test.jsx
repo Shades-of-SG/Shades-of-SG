@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
+import { SessionProvider } from '../context/SessionContext'
 import Login from './Login'
 import OtpVerification from './OtpVerification'
 import Register from './Register'
@@ -16,20 +17,28 @@ function response(data, { ok = true, status = 200 } = {}) {
   })
 }
 
-function renderLogin(fetchImplementation) {
+function LocationProbe({ label }) {
+  const location = useLocation()
+  return <div>{label}: {location.pathname}{location.search}{location.hash}</div>
+}
+
+function renderLogin(fetchImplementation, initialEntry = '/login') {
   vi.stubGlobal('fetch', vi.fn(fetchImplementation))
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={['/login']}>
-        <Routes>
-          <Route element={<Login />} path="/login" />
-          <Route element={<div>Admin destination</div>} path="/admin" />
-          <Route element={<div>Creator destination</div>} path="/creator/dashboard" />
-          <Route element={<div>Profile destination</div>} path="/profile" />
-          <Route element={<div>Public destination</div>} path="/" />
-          <Route element={<div>Verification destination</div>} path="/verify-email" />
-        </Routes>
-      </MemoryRouter>
+      <SessionProvider>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route element={<Login />} path="/login" />
+            <Route element={<div>Admin destination</div>} path="/admin" />
+            <Route element={<div>Creator destination</div>} path="/creator/dashboard" />
+            <Route element={<div>Profile destination</div>} path="/profile" />
+            <Route element={<LocationProbe label="Settings destination" />} path="/settings" />
+            <Route element={<div>Public destination</div>} path="/" />
+            <Route element={<div>Verification destination</div>} path="/verify-email" />
+          </Routes>
+        </MemoryRouter>
+      </SessionProvider>
     </AuthProvider>,
   )
 }
@@ -79,6 +88,75 @@ describe('authentication onboarding pages', () => {
     const loginRequest = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/auth/login'))
     expect(JSON.parse(loginRequest[1].body)).toEqual({ email: 'admin@example.com', password: 'correct horse battery staple' })
     expect(JSON.parse(localStorage.getItem('authUser'))).toMatchObject({ role: 'ADMIN' })
+  })
+
+  it('validates login fields and prevents duplicate submissions while a request is pending', async () => {
+    let resolveLogin
+    const fetchMock = vi.fn((url) => String(url).endsWith('/auth/config')
+      ? response({ appleAuthEnabled: false })
+      : new Promise((resolve) => { resolveLogin = resolve }))
+    const view = renderLogin(fetchMock)
+    const form = view.container.querySelector('form')
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'invalid-email' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'short' } })
+    fireEvent.submit(form)
+    expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument()
+    expect(screen.getByText('Password must be between 8 and 128 characters.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/auth/login'))).toHaveLength(0)
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'listener@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.submit(form)
+    fireEvent.submit(form)
+
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/auth/login'))).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Signing in...' })).toBeDisabled()
+
+    await act(async () => {
+      resolveLogin(await response({ token: 'user-token', user: { email: 'listener@example.com', id: 'user-1', role: 'REGISTERED' } }))
+    })
+    expect(await screen.findByText('Profile destination')).toBeInTheDocument()
+  })
+
+  it('clears a guest session and preserves the requested protected location after login', async () => {
+    localStorage.setItem('shadesOfSgGuestSession', JSON.stringify({ createdAt: '2026-01-01', id: 'guest-1', rhythmScores: [], triviaScores: [], type: 'guest' }))
+    const fetchMock = vi.fn((url) => String(url).endsWith('/auth/config')
+      ? response({ appleAuthEnabled: false })
+      : response({ token: 'user-token', user: { email: 'listener@example.com', id: 'user-1', role: 'REGISTERED' } }))
+    renderLogin(fetchMock, {
+      pathname: '/login',
+      state: { from: { hash: '#alerts', pathname: '/settings', search: '?tab=privacy' } },
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'listener@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(await screen.findByText('Settings destination: /settings?tab=privacy#alerts')).toBeInTheDocument()
+    expect(localStorage.getItem('shadesOfSgGuestSession')).toBeNull()
+  })
+
+  it('redirects unverified accounts and shows restricted-account errors', async () => {
+    const unverified = vi.fn((url) => String(url).endsWith('/auth/config')
+      ? response({ appleAuthEnabled: false })
+      : response({ code: 'EMAIL_UNVERIFIED', message: 'Verify your email before signing in.' }, { ok: false, status: 403 }))
+    renderLogin(unverified)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pending@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText('Verification destination')).toBeInTheDocument()
+    expect(sessionStorage.getItem('pendingVerificationEmail')).toBe('pending@example.com')
+
+    cleanup()
+    const restricted = vi.fn((url) => String(url).endsWith('/auth/config')
+      ? response({ appleAuthEnabled: false })
+      : response({ code: 'ACCOUNT_SUSPENDED', message: 'Your account has been suspended.' }, { ok: false, status: 403 }))
+    renderLogin(restricted)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'restricted@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your account has been suspended.')
   })
 
   it('renders Google Identity Services and signs in from its verified credential callback', async () => {

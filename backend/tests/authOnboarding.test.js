@@ -168,6 +168,32 @@ test('correct registration OTP verifies email and permits login with database ro
     expect(login.body.user).not.toHaveProperty('passwordHash');
 });
 
+test('login validates input and does not reveal whether a valid email is registered', async () => {
+    const user = await createVerifiedUser({ email: 'login-errors@example.com' });
+    const invalidEmail = await request(app).post('/api/auth/login').send({ email: 'not-an-email', password: 'password123' });
+    const invalidPassword = await request(app).post('/api/auth/login').send({ email: user.email, password: 'short' });
+    const unknown = await request(app).post('/api/auth/login').send({ email: 'unknown-login@example.com', password: 'password123' });
+    const incorrect = await request(app).post('/api/auth/login').send({ email: user.email, password: 'incorrect-password' });
+
+    expect(invalidEmail.status).toBe(400);
+    expect(invalidEmail.body.message).toMatch(/valid email/i);
+    expect(invalidPassword.status).toBe(400);
+    expect(invalidPassword.body.message).toMatch(/between 8 and 128/i);
+    expect(unknown.status).toBe(401);
+    expect(incorrect.status).toBe(401);
+    expect(unknown.body).toEqual(incorrect.body);
+});
+
+test('login rate limiting controls repeated attempts by IP and normalized email', async () => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const response = await request(app).post('/api/auth/login').send({ email: 'rate-limit-login@example.com', password: 'password123' });
+        expect(response.status).toBe(401);
+    }
+    const limited = await request(app).post('/api/auth/login').send({ email: ' RATE-LIMIT-LOGIN@example.com ', password: 'password123' });
+    expect(limited.status).toBe(429);
+    expect(limited.headers['retry-after']).toBeTruthy();
+});
+
 test('incorrect and expired OTPs are rejected', async () => {
     await request(app).post('/api/auth/register').send(registration('otp-errors@example.com'));
     expect((await request(app).post('/api/auth/verify-email').send({ code: '111111', email: 'otp-errors@example.com' })).status).toBe(400);
