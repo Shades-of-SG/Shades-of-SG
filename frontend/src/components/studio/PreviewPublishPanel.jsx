@@ -342,6 +342,51 @@ export default function PreviewPublishPanel({
           </div>
         </section>
 
+        <section className="studio-card studio-publish-explore">
+          <header className="studio-card__header">
+            <h2>Explore & Learn</h2>
+          </header>
+
+          <div className="studio-publish-explore__grid">
+            <article className="studio-publish-feature studio-publish-feature--Rose">
+              <h3>Instruments</h3>
+              <p>Discover the instruments in this song and their cultural significance.</p>
+              <button className="studio-button studio-button--ghost" type="button">
+                Explore Instruments
+              </button>
+            </article>
+
+            <article className="studio-publish-feature studio-publish-feature--rose">
+              <h3>Trivia Quiz</h3>
+              <p>Test your knowledge about Singapore&apos;s culture and the stories behind it.</p>
+              <button className="studio-button studio-button--ghost" type="button">
+                Start Quiz
+              </button>
+            </article>
+
+            <article className="studio-publish-feature studio-publish-feature--blue">
+              <h3>Rhythm Game</h3>
+              <p>Play along to the beat and improve your timing and reflexes.</p>
+              <button className="studio-button studio-button--ghost" type="button">
+                Play Game
+              </button>
+            </article>
+
+            <article className="studio-publish-feature studio-publish-feature--gold studio-publish-feature--wide">
+              <h3>Reflection Wall</h3>
+              <p>What does this song remind you of in Singapore? Share a memory, a place, or a feeling, then browse what others contributed.</p>
+              <div className="studio-publish-feature__actions">
+                <button className="studio-button studio-button--ghost" type="button">
+                  Share Reflection
+                </button>
+                <button className="studio-button studio-button--ghost" type="button">
+                  View Reflections
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+
       </div>
     </section>
   )

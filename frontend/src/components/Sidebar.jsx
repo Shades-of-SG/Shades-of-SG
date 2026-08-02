@@ -1,14 +1,13 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { NavLink } from 'react-router-dom'
 
 const creatorLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/creator/dashboard' },
   { icon: 'music', label: 'My Songs', to: '/creator/songs' },
-  { icon: 'edit', label: 'Studio', to: '/creator/studio' },
+  { icon: 'edit', label: 'Studio', to: '/creator/studio/new' },
   { icon: 'jobs', label: 'Generation Jobs', to: '/creator/generation' },
-  { badge: '12', icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
-  { icon: 'profile', label: 'Profile', to: '/creator/profile' },
-  { icon: 'settings', label: 'Settings', to: '/creator/settings' },
+  { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
+  { icon: 'music', label: 'Collections', to: '/creator/folders' },
+  { icon: 'dashboard', label: 'Analytics', to: '/creator/analytics' },
 ]
 
 function SidebarIcon({ type }) {
@@ -74,23 +73,20 @@ function SidebarIcon({ type }) {
 }
 
 export default function Sidebar() {
-  const navigate = useNavigate()
-  const { signOut } = useAuth()
-
-  const handleLogout = () => {
-    signOut()
-    navigate('/login', { replace: true })
-  }
 
   return (
     <aside className="creator-sidebar">
-      <div className="creator-sidebar__brand">
+      <NavLink
+        aria-label="Shades of SG creator dashboard"
+        className="creator-sidebar__brand"
+        to="/creator/dashboard"
+      >
         <img
           className="creator-sidebar__brand-image"
           src="/images/Brand%20Logo.png"
           alt="Shades of SG Creator"
         />
-      </div>
+      </NavLink>
 
       <div className="creator-sidebar__section-label">
         Creator Portal
@@ -132,30 +128,6 @@ export default function Sidebar() {
         className="creator-sidebar__art"
         aria-hidden="true"
       />
-
-      <div className="creator-sidebar__footer">
-        <button
-          className="creator-sidebar__utility"
-          type="button"
-        >
-          <span
-            className="creator-sidebar__utility-icon creator-sidebar__utility-icon--help"
-            aria-hidden="true"
-          />
-          <span>Help &amp; Support</span>
-        </button>
-        <button
-          className="creator-sidebar__utility"
-          type="button"
-          onClick={handleLogout}
-        >
-          <span
-            className="creator-sidebar__utility-icon creator-sidebar__utility-icon--logout"
-            aria-hidden="true"
-          />
-          <span>Log out</span>
-        </button>
-      </div>
     </aside>
   )
 }

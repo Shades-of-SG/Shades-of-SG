@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { readStoredResult } from '../game/results'
 import { fetchSongDetails } from '../game/songDetailsApi'
+import { queuePendingScore, removePendingScore, saveScore } from '../game/scoresApi'
+import { canSubmitScore, createSubmissionGuard } from '../game/scoreSubmission'
+import { useAuth } from '../context/AuthContext'
 
 function getInitials(title) {
   return title
@@ -14,15 +17,40 @@ function getInitials(title) {
 }
 
 export default function RhythmResults() {
-  const { songId = 'demo-song' } = useParams()
+  const { songId } = useParams()
   const location = useLocation()
+  const { refreshProfile, token, user } = useAuth()
   const result = location.state?.result || readStoredResult(songId)
   const [songDetails, setSongDetails] = useState(null)
+  const [saveState, setSaveState] = useState('idle')
+  const [saveError, setSaveError] = useState('')
+  const guardRef = useRef(createSubmissionGuard())
+
+  const submitScore = useCallback(async () => {
+    if (!canSubmitScore({ result, token, user }) || !guardRef.current.begin(result)) return
+    setSaveState('saving')
+    setSaveError('')
+    try {
+      await saveScore(result, token)
+      removePendingScore(result)
+      setSaveState('saved')
+      refreshProfile().catch((error) => console.error('[Rhythm profile refresh]', error))
+    } catch (error) {
+      queuePendingScore(result)
+      setSaveError(error.message)
+      setSaveState('error')
+    }
+  }, [refreshProfile, result, token, user])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(submitScore, 0)
+    return () => window.clearTimeout(timeout)
+  }, [submitScore])
 
   useEffect(() => {
     let ignore = false
 
-    fetchSongDetails(songId)
+    fetchSongDetails(songId, { preview: Boolean(result?.preview), token })
       .then((song) => {
         if (!ignore) {
           setSongDetails(song)
@@ -30,19 +58,14 @@ export default function RhythmResults() {
       })
       .catch(() => {
         if (!ignore) {
-          setSongDetails({
-            id: songId,
-            theme: 'Heritage',
-            thumbnailUrl: '',
-            title: 'Demo Rhythm Track',
-          })
+          setSongDetails({ id: songId, theme: '', thumbnailUrl: '', title: 'Published song unavailable' })
         }
       })
 
     return () => {
       ignore = true
     }
-  }, [songId])
+  }, [result?.preview, songId, token])
 
   const breakdown = useMemo(() => {
     if (!result) {
@@ -50,13 +73,16 @@ export default function RhythmResults() {
     }
 
     const totalNotes = result.totalNotes || 0
-    const estimatedHits = Math.round((totalNotes * result.accuracy) / 100)
     const perfectHits = result.perfectHits ?? 0
-    const goodHits = result.goodHits ?? Math.max(estimatedHits - perfectHits, 0)
-    const misses = result.misses ?? Math.max(totalNotes - estimatedHits, 0)
+    const greatHits = result.greatHits ?? 0
+    const goodHits = result.goodHits ?? 0
+    const badHits = result.badHits ?? 0
+    const misses = result.misses ?? Math.max(totalNotes - perfectHits - greatHits - goodHits - badHits, 0)
 
     return {
       goodHits,
+      greatHits,
+      badHits,
       misses,
       perfectHits,
       totalNotes,
@@ -71,13 +97,14 @@ export default function RhythmResults() {
           <h1>No score yet</h1>
           <p>Play the chart first, then your result will appear here.</p>
           <Link to={`/game/${songId}`}>Start game</Link>
+          <Link to="/rhythm-game">Return to rhythm games</Link>
         </section>
       </main>
     )
   }
 
-  const title = songDetails?.title || 'Demo Rhythm Track'
-  const theme = songDetails?.theme || 'Heritage'
+  const title = songDetails?.title || 'Published song unavailable'
+  const theme = songDetails?.theme || 'Unavailable'
 
   return (
     <main className="results-page">
@@ -124,17 +151,37 @@ export default function RhythmResults() {
             <strong>{breakdown.perfectHits}</strong>
           </div>
           <div>
+            <span>Great hits</span>
+            <strong>{breakdown.greatHits}</strong>
+          </div>
+          <div>
             <span>Good hits</span>
             <strong>{breakdown.goodHits}</strong>
+          </div>
+          <div>
+            <span>Bad hits</span>
+            <strong>{breakdown.badHits}</strong>
           </div>
           <div>
             <span>Misses</span>
             <strong>{breakdown.misses}</strong>
           </div>
           <div>
-            <span>Accuracy</span>
-            <strong>{result.accuracy}%</strong>
+            <span>Holds completed</span>
+            <strong>{result.holdCompletions || 0}</strong>
           </div>
+          <div>
+            <span>Early releases</span>
+            <strong>{result.earlyReleases || 0}</strong>
+          </div>
+        </section>
+
+        <section className="score-save-status" aria-live="polite">
+          {saveState === 'saving' && <p>Saving your score…</p>}
+          {saveState === 'saved' && <p>Score saved to your profile.</p>}
+          {saveState === 'error' && <p>Score is queued locally. {saveError} <button onClick={() => { guardRef.current.retry(result); submitScore() }} type="button">Retry now</button></p>}
+          {result.preview && <p>Draft Preview — this result was not saved and does not affect player statistics.</p>}
+          {!result.preview && !token && <p>Your result is saved on this device. Sign in before your next run to save scores to your profile.</p>}
         </section>
 
         <section className="reflection-cta">
@@ -145,8 +192,39 @@ export default function RhythmResults() {
         </section>
 
         <div className="result-actions">
-          <Link to={`/game/${songId}`}>Play Again</Link>
-          <Link to={`/songs/${songId}`}>Back to Song</Link>
+          <Link
+            to={
+              result.preview
+                ? `/game/${songId}?difficulty=${result.difficulty}&preview=1`
+                : `/game/${songId}`
+            }
+          >
+            Play Again
+          </Link>
+
+          {!result.preview ? (
+            <Link
+              to={`/rhythm-game/leaderboard?songId=${encodeURIComponent(songId)}&difficulty=${encodeURIComponent(result.difficulty)}`}
+            >
+              View Leaderboard
+            </Link>
+          ) : null}
+
+          <Link
+            to={
+              result.preview
+                ? `/creator/studio/${songId}`
+                : `/songs/${songId}`
+            }
+          >
+            {result.preview ? 'Back to Studio' : 'Back to Song'}
+          </Link>
+
+          {!result.preview ? (
+            <Link to="/rhythm-game">
+              Return to Rhythm Games
+            </Link>
+          ) : null}
         </div>
       </section>
     </main>

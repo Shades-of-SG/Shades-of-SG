@@ -1,5 +1,17 @@
 # HIGH LEVEL DESIGN — Shades of SG
 
+> **Phase 8 authoritative integration note:** This section supersedes conflicting historical diagrams and examples later in this document.
+>
+> - Song: `DRAFT -> GENERATING -> READY -> PUBLISHED -> ARCHIVED`.
+> - GenerationJob: `QUEUED -> PROCESSING -> COMPLETED | FAILED`.
+> - Studio owns one creator-owned Song UUID through editing and generation.
+> - Completion sets the Song to `READY` and never publishes it; publishing is explicit and owner-only.
+> - Public Song endpoints and public Song experiences expose only `PUBLISHED` Songs.
+> - Guest rhythm play creates no GameScore; registered scores use JWT identity.
+> - Every reflection starts `PENDING`; creators moderate only their own songs and admins have explicit platform authority.
+> - Multi-creator ownership for nested resources is enforced through `songs.creator_id`; current schema changes are numbered through migration `014` and startup does not mutate schema.
+> - Temporary MP4 media and duration-derived rhythm charts are MVP limitations. Missing learning content is reported as unavailable.
+
 > SCCCI AI Challenge | Team: Unpaid Interns
 
 ---
@@ -14,7 +26,7 @@ Shades of SG follows a **Modular Monolith** architecture with a strict client-se
 │                                                                 │
 │   ┌─────────────────────┐    ┌──────────────────────────────┐  │
 │   │  Creator Dashboard  │    │     Public Experience        │  │
-│   │  (Violet Portal)    │    │     (Trojan Horse App)       │  │
+│   │  (Rose Portal)    │    │     (Trojan Horse App)       │  │
 │   └─────────┬───────────┘    └────────────┬─────────────────┘  │
 │             │  React + Vite (SPA)          │                    │
 └─────────────┼──────────────────────────────┼────────────────────┘
@@ -455,7 +467,7 @@ Shades-of-SG/
         │
         └── pages/                   # Route-level page views (PascalCase)
             ├── Login.jsx            # Creator login
-            ├── Dashboard.jsx        # Creator dashboard (Violet)
+            ├── Dashboard.jsx        # Creator dashboard (Rose)
             ├── Studio.jsx           # AI video generation studio
             ├── EducatorView.jsx     # Educator/admin analytics view
             ├── MemoryWall.jsx       # Public Reflection Wall

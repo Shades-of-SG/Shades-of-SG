@@ -21,7 +21,7 @@ create table if not exists sessions (
 
 create table if not exists songs (
     id uuid primary key default gen_random_uuid(),
-    creator_id uuid references users(id) on delete set null,
+    creator_id uuid not null references users(id) on delete restrict,
     title varchar(255) not null,
     artist varchar(255),
     theme varchar(255),
@@ -85,11 +85,20 @@ create table if not exists reflections (
     user_id uuid references users(id) on delete set null,
     song_id uuid not null references songs(id) on delete cascade,
     display_name varchar(255),
+    display_mode varchar(32) not null default 'ANONYMOUS' check (display_mode in ('PROFILE', 'ANONYMOUS')),
+    guest_submission boolean not null default false,
     content text not null,
-    status varchar(32) not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'FLAGGED')),
+    tags jsonb not null default '[]'::jsonb,
+    status varchar(32) not null default 'PENDING' check (status in ('PENDING', 'APPROVED', 'FLAGGED', 'REJECTED')),
+    moderated_by uuid references users(id) on delete set null,
+    moderated_at timestamptz,
+    moderator_note text,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
+
+create index if not exists reflections_status_created_at_idx
+    on reflections (status, created_at desc);
 
 create table if not exists badges (
     id uuid primary key default gen_random_uuid(),

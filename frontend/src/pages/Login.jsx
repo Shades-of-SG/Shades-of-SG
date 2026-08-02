@@ -1,191 +1,146 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
-import { loginWithEmail, checkEmailExists, sendEmailOtp, verifyLoginOtp } from '../services/authApi'
+import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle } from '../services/authApi'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
+
+const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client'
+const APPLE_SCRIPT = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js'
+
+function loadScript(src) {
+  const existing = document.querySelector(`script[src="${src}"]`)
+  if (existing?.dataset.loaded === 'true') return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const script = existing || document.createElement('script')
+    const loaded = () => { script.dataset.loaded = 'true'; resolve() }
+    script.addEventListener('load', loaded, { once: true })
+    script.addEventListener('error', () => reject(new Error('The sign-in provider could not be loaded.')), { once: true })
+    if (!existing) {
+      script.async = true
+      script.defer = true
+      script.src = src
+      document.head.appendChild(script)
+    }
+  })
+}
+
+function roleDestination(user, activeMode) {
+  if (user.role === 'ADMIN') return '/admin'
+  if (hasActiveCreatorAccess(user) && activeMode === 'creator') return '/creator/dashboard'
+  if (user.role === 'CREATOR') return '/'
+  return '/profile'
+}
 
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { signIn } = useAuth()
-
+  const { signIn, signOut } = useAuth()
+  const [config, setConfig] = useState({ appleAuthEnabled: false, googleAuthEnabled: false })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  // Carries over the confirmation from a completed password reset.
-  const [success, setSuccess] = useState(location.state?.notice ?? '');
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [googleReady, setGoogleReady] = useState(false)
+  const googleButtonRef = useRef(null)
 
-  // Email existence check
-  const [emailExists, setEmailExists] = useState(true)
-  const [checkingEmail, setCheckingEmail] = useState(false);
-  // A ref, not a local — a local is re-created every render so the pending
-  // timeout would never actually be cleared.
-  const emailTimer = useRef(null);
+  const completeSignIn = useCallback((data) => {
+    const activeMode = signIn(data.user, data.token)
+    const requested = location.state?.from?.pathname
+    const allowedRequested = requested
+      && ((data.user.role === 'ADMIN' && requested.startsWith('/admin'))
+        || (hasActiveCreatorAccess(data.user) && activeMode === 'creator' && requested.startsWith('/creator'))
+        || (data.user.role === 'CREATOR' && requested.startsWith('/profile'))
+        || (data.user.role === 'REGISTERED' && ['/profile', '/apply/creator', '/settings'].some((path) => requested.startsWith(path))))
+    navigate(allowedRequested ? requested : roleDestination(data.user, activeMode), { replace: true })
+  }, [location.state, navigate, signIn])
 
-  // Add state for OTP handling
-  const [otpRequired, setOtpRequired] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [pendingEmail, setPendingEmail] = useState('');
+  useEffect(() => { getAuthConfig().then(setConfig).catch(() => {}) }, [])
 
-
-  async function handleEmailChange(event) {
-    const newEmail = event.target.value;
-    setEmail(newEmail);
-
-    clearTimeout(emailTimer.current);
-    if (newEmail.includes("@")) {
-      setCheckingEmail(true);
-      emailTimer.current = setTimeout(async () => {
-        const res = await checkEmailExists(newEmail);
-        setEmailExists(res.exists);
-        setError(res.exists ? '' : "Email not registered. Please create an account.");
-        setCheckingEmail(false);
-      }, 400); //Should I lowkey increase the debounce?? //Yas, increase from 300 to 400
-    } else {
-      setCheckingEmail(false);
-    }
-  }
-
+  useEffect(() => {
+    if (!config.googleAuthEnabled || !config.googleClientId || !googleButtonRef.current) return undefined
+    let active = true
+    getOauthChallenge('GOOGLE')
+      .then(async ({ nonce }) => {
+        await loadScript(GOOGLE_SCRIPT)
+        if (!active || !window.google?.accounts?.id || !googleButtonRef.current) return
+        window.google.accounts.id.initialize({
+          callback: async ({ credential }) => {
+            setError(''); setIsSubmitting(true)
+            try { completeSignIn(await loginWithGoogle(credential, nonce)) }
+            catch (nextError) { setError(nextError.message || 'Google sign-in failed. Please try again.') }
+            finally { setIsSubmitting(false) }
+          },
+          client_id: config.googleClientId,
+          nonce,
+        })
+        googleButtonRef.current.replaceChildren()
+        const buttonWidth = Math.min(400, Math.max(240, googleButtonRef.current.clientWidth || 400))
+        window.google.accounts.id.renderButton(googleButtonRef.current, { shape: 'rectangular', size: 'large', text: 'continue_with', theme: 'filled_black', width: buttonWidth })
+        setGoogleReady(true)
+      })
+      .catch((nextError) => active && setError(nextError.message || 'Google sign-in is unavailable.'))
+    return () => { active = false }
+  }, [completeSignIn, config.googleAuthEnabled, config.googleClientId])
 
   async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
-    setIsSubmitting(true)
-
+    event.preventDefault(); setError(''); setIsSubmitting(true)
     try {
-      const data = await loginWithEmail(email, password)
-
-      if (data.requireOtp) {
-        // ✅ OTP required
-        setOtpRequired(true);
-        setPendingEmail(data.email);
-
-        // Call backend /send-email-otp route
-        const res = await sendEmailOtp(data.email);
-        if (!res.success) {
-          setError(res.message || "Failed to send OTP");
-        } else {
-          setSuccess("OTP sent to your email. Please verify.");
-        }
-
-        setIsSubmitting(false);
-        return;
-      }
-
-      //Normal login
-      // ✅ signIn persists token + user and clears any guest session
-      signIn(data.user, data.token)
-
-      const fallbackPath = data.user.role === 'CREATOR' ? '/creator/dashboard' : '/'
-      navigate(location.state?.from?.pathname || fallbackPath, { replace: true })
+      const data = await loginWithEmail(email.trim().toLowerCase(), password)
+      completeSignIn(data)
     } catch (nextError) {
-      setError(nextError.message || 'Login failed')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-
-  async function handleVerifyOtp() {
-    setError('')
-
-    try {
-      const res = await verifyLoginOtp(pendingEmail, otpCode);
-      if (res.success) {
-        signIn(res.user, res.token);
-
-        const fallbackPath = res.user.role === 'CREATOR' ? '/creator/dashboard' : '/';
-        navigate(fallbackPath, { replace: true });
-      } else {
-        setError(res.message || "OTP verification failed");
+      if (nextError.code === 'EMAIL_UNVERIFIED') {
+        sessionStorage.setItem('pendingVerificationEmail', email.trim().toLowerCase())
+        navigate('/verify-email', { state: { email: email.trim().toLowerCase() } })
+        return
       }
-    } catch (err) {
-      setError(err.message || "OTP verification failed");
-    }
+      setError(nextError.status === 403 ? nextError.message : nextError.status === 401 ? 'Email or password is incorrect.' : 'We could not sign you in. Please try again.')
+    } finally { setIsSubmitting(false) }
   }
 
+  async function handleAppleSignIn() {
+    setError(''); setIsSubmitting(true)
+    try {
+      const [{ nonce, state }] = await Promise.all([getOauthChallenge('APPLE'), loadScript(APPLE_SCRIPT)])
+      if (!window.AppleID?.auth) throw new Error('Apple sign-in is unavailable.')
+      window.AppleID.auth.init({
+        clientId: config.appleClientId,
+        nonce,
+        redirectURI: config.appleRedirectUri,
+        scope: 'name email',
+        state,
+        usePopup: true,
+      })
+      const result = await window.AppleID.auth.signIn()
+      const returnedState = result.authorization?.state || result.state
+      if (returnedState && returnedState !== state) throw new Error('Apple returned an invalid sign-in state.')
+      completeSignIn(await loginWithApple({
+        code: result.authorization?.code,
+        nonce,
+        state: returnedState || state,
+        user: result.user,
+      }))
+    } catch (nextError) {
+      if (nextError?.error !== 'popup_closed_by_user') setError(nextError.message || 'Apple sign-in failed. Please try again.')
+    } finally { setIsSubmitting(false) }
+  }
 
-  return (
-    <form className="auth-form" onSubmit={handleSubmit}>
-      <p className="eyebrow">Welcome Back</p>
-      <h1>Login</h1>
+  function continueAsGuest() {
+    signOut()
+    navigate('/', { replace: true })
+  }
 
-      <label className="field-stack">
-        <span>Email</span>
-        <input
-          type="email"
-          placeholder="name@example.com"
-          value={email}
-          onChange={handleEmailChange}
-          required
-        />
-        {checkingEmail && <span className="field-hint">Checking email…</span>}
-        {!emailExists && !checkingEmail && (
-          <span className="field-hint field-hint--error">
-            Email not registered. Please create an account.
-          </span>
-        )}
-        {emailExists && !checkingEmail && email.includes("@") && (
-          <span className="field-hint field-hint--ok">Email registered</span>
-        )}
-      </label>
-
-
-
-      <label className="field-stack">
-        <span>Password</span>
-        <div className="input-with-action">
-          <input
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            required
-          />
-          <PasswordToggle
-            isVisible={showPassword}
-            onToggle={() => setShowPassword(!showPassword)}
-          />
-        </div>
-      </label>
-
-      {/* Render an OTP input if otpRequired is true */}
-      {otpRequired && (
-        <label className="field-stack">
-          <span>One-time code</span>
-          <div className="input-with-action">
-            <input
-              autoComplete="one-time-code"
-              inputMode="numeric"
-              maxLength={6}
-              onChange={(e) => setOtpCode(e.target.value)}
-              placeholder="Enter 6-digit OTP"
-              type="text"
-              value={otpCode}
-            />
-            <button className="field-action" onClick={handleVerifyOtp} type="button">
-              Verify
-            </button>
-          </div>
-        </label>
-      )}
-
-
-
-      {error && <p className="form-error" role="alert">{error}</p>}
-      {success && <p className="form-success" role="status">{success}</p>}
-
-
-      <button className="primary-button" disabled={isSubmitting} type="submit">
-        {isSubmitting ? 'Logging in...' : 'Login'}
-      </button>
-
-      <p className="auth-form__links">
-        <Link to="/forgot-password">Forgot password?</Link>{' '}
-        <Link to="/register">Create account</Link>
-      </p>
-    </form>
-  )
+  return <form className="auth-form auth-form--login" onSubmit={handleSubmit}>
+    <header className="auth-form__header"><p className="eyebrow">Welcome back</p><h1>Sign in</h1><p>Use the same login for registered, creator, and administrator accounts.</p></header>
+    <label className="field-stack"><span>Email</span><span className="auth-input-shell"><Mail aria-hidden="true" size={19} /><input autoComplete="email" onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required type="email" value={email} /></span></label>
+    <label className="field-stack"><span>Password</span><span className="password-field auth-input-shell"><LockKeyhole aria-hidden="true" size={19} /><input autoComplete="current-password" onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required type={showPassword ? 'text' : 'password'} value={password} /><button aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? <EyeOff aria-hidden="true" size={19} /> : <Eye aria-hidden="true" size={19} />}<span>{showPassword ? 'Hide' : 'Show'}</span></button></span></label>
+    {error ? <p className="form-error" role="alert">{error}</p> : null}
+    <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Signing in...' : 'Sign in'}</button>
+    {config.googleAuthEnabled || config.appleAuthEnabled ? <div className="auth-divider"><span>or continue with</span></div> : null}
+    {config.googleAuthEnabled ? <div className="oauth-google-slot">{!googleReady ? <button className="oauth-google-placeholder" disabled type="button"><span aria-hidden="true">G</span>Continue with Google</button> : null}<div aria-label="Continue with Google" className="oauth-google-button" ref={googleButtonRef} role="group" /></div> : null}
+    {config.appleAuthEnabled ? <button className="oauth-provider-button oauth-provider-button--apple" disabled={isSubmitting} onClick={handleAppleSignIn} type="button">Continue with Apple</button> : null}
+    <button className="auth-guest-button" onClick={continueAsGuest} type="button"><UserRound aria-hidden="true" size={20} />Continue as guest</button>
+    <p className="auth-forgot"><Link to="/forgot-password">Forgot password?</Link></p>
+    <p className="auth-switch">New here? <Link to="/register">Create an account</Link></p>
+  </form>
 }

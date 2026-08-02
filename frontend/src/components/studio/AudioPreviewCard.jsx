@@ -89,57 +89,91 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
 
   if (videoUrl) {
     return (
-      <div className="studio-audio-card studio-audio-card--video" data-status={status}>
-        <video className="studio-audio-card__video" src={videoUrl} controls playsInline />
+      <div
+        className="studio-audio-card studio-audio-card--video"
+        data-status={status}
+      >
+        <video
+          className="studio-audio-card__video"
+          src={videoUrl}
+          controls
+          playsInline
+        />
+      </div>
+    )
+  }
+
+  if (youtubeEmbedUrl) {
+    return (
+      <div
+        className="studio-audio-card studio-audio-card--video"
+        data-status={status}
+      >
+        <iframe
+          className="studio-audio-card__video"
+          src={youtubeEmbedUrl}
+          title="YouTube song preview"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
       </div>
     )
   }
 
   if (!audioUrl) {
-    if (youtubeEmbedUrl) {
-      return (
-        <div className="studio-audio-card studio-audio-card--video" data-status={status}>
-          <iframe
-            className="studio-audio-card__video"
-            src={youtubeEmbedUrl}
-            title="YouTube song preview"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-          />
-        </div>
-      )
-    }
-
     if (youtubeUrl.trim()) {
       return (
-        <div className="studio-audio-card studio-audio-card--linked" data-status={status}>
-          <div className="studio-audio-card__empty-icon" aria-hidden="true">
+        <div
+          className="studio-audio-card studio-audio-card--linked"
+          data-status={status}
+        >
+          <div
+            className="studio-audio-card__empty-icon"
+            aria-hidden="true"
+          >
             {'\u266a'}
           </div>
+
           <div className="studio-audio-card__linked-copy">
             <strong>YouTube link added</strong>
-            <p>Lyrics can be extracted from this link. Upload an MP3 for in-browser playback preview.</p>
+            <p>
+              Lyrics can be extracted from this link.
+              Upload an MP3 for in-browser playback preview.
+            </p>
           </div>
         </div>
       )
     }
 
     return (
-      <div className="studio-audio-card studio-audio-card--empty" data-status={status}>
-        <div className="studio-audio-card__empty-icon" aria-hidden="true">
+      <div
+        className="studio-audio-card studio-audio-card--empty"
+        data-status={status}
+      >
+        <div
+          className="studio-audio-card__empty-icon"
+          aria-hidden="true"
+        >
           {'\u266a'}
         </div>
-        <p>Upload an MP3 or YouTube link to preview your song.</p>
+
+        <p>
+          Upload an MP3 or YouTube link to preview your song.
+        </p>
       </div>
     )
   }
 
   return (
     <div className="studio-audio-card" data-status={status}>
-      <div className={`studio-vinyl ${isPlaying ? 'is-playing' : ''}`} aria-label={`${displayTitle} by ${displayArtist}`}>
+      <div
+        className={`studio-vinyl ${isPlaying ? 'is-playing' : ''}`}
+        aria-label={`${displayTitle} by ${displayArtist}`}
+      >
         <div className="studio-vinyl__disc">
           <span className="studio-vinyl__highlight studio-vinyl__highlight--top" />
           <span className="studio-vinyl__highlight studio-vinyl__highlight--side" />
+
           <div className="studio-vinyl__label">
             <span className="studio-vinyl__bars" aria-hidden="true" />
             <strong>{displayTitle}</strong>
@@ -163,6 +197,7 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
           <strong>{formatPlaybackTime(currentTime)}</strong>
           <span>{formatPlaybackTime(duration)}</span>
         </div>
+
         <input
           aria-label="Audio preview progress"
           max={duration || 0}
@@ -195,8 +230,11 @@ export default function AudioPreviewCard({ title = '', artist = '', audioUrl = '
         }}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
-        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+        onTimeUpdate={(event) => {
+          setCurrentTime(event.currentTarget.currentTime)
+        }}
       />
     </div>
   )
 }
+

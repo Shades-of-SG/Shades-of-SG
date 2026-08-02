@@ -2,3 +2,5 @@
 database.sqlite
 database.sqlite-journal
 *.db
+storage
+cookies.txt

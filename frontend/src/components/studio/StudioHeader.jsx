@@ -16,6 +16,13 @@ const stepContent = {
     title: 'Studio - Lyrics',
   },
   3: {
+    breadcrumb: 'Rhythm Beatmap',
+    primaryAction: 'Save Draft',
+    secondaryAction: 'Generate Video',
+    subtitle: 'Generate and review the rhythm gameplay for this song.',
+    title: 'Studio - Beatmap',
+  },
+  4: {
     breadcrumb: 'Preview & Publish',
     primaryAction: 'Publish Song',
     secondaryAction: 'Save Draft',
@@ -32,10 +39,12 @@ export default function StudioHeader({
   onPublishSong,
   onSaveDraft,
   showMenuButton = false,
+  isBusy = false,
 }) {
   const content = stepContent[activeStep] || stepContent[1]
-  const handleSecondaryAction = activeStep === 3 ? onSaveDraft : onGenerateVideo
-  const handlePrimaryAction = activeStep === 3 ? onPublishSong : onSaveDraft
+  const isPublishStep = activeStep === 4
+  const handleSecondaryAction = isPublishStep ? onSaveDraft : onGenerateVideo
+  const handlePrimaryAction = isPublishStep ? onPublishSong : onSaveDraft
 
   return (
     <header className="studio-header">
@@ -61,15 +70,15 @@ export default function StudioHeader({
       <div className="studio-header__actions">
         <CreatorAccountWidget />
         <div className="studio-header__button-row">
-          {activeStep === 3 && (
+          {activeStep === 4 && (
             <button className="studio-button studio-button--ghost" onClick={onBackToLyrics} type="button">
               Back to Lyrics
             </button>
           )}
-          <button className="studio-button studio-button--secondary" onClick={handleSecondaryAction} type="button">
+          <button className="studio-button studio-button--secondary" disabled={isBusy} onClick={handleSecondaryAction} type="button">
             {content.secondaryAction}
           </button>
-          <button className="studio-button studio-button--primary" onClick={handlePrimaryAction} type="button">
+          <button className="studio-button studio-button--primary" disabled={isBusy} onClick={handlePrimaryAction} type="button">
             {content.primaryAction}
           </button>
         </div>

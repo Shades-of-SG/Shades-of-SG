@@ -23,7 +23,7 @@ const User = sequelize.define('User', {
         field: 'password_hash',
     },
     role: {
-        type: DataTypes.ENUM('CREATOR', 'REGISTERED'),
+        type: DataTypes.ENUM('ADMIN', 'CREATOR', 'REGISTERED'),
         allowNull: false,
         defaultValue: 'REGISTERED',
     },
@@ -44,14 +44,31 @@ const User = sequelize.define('User', {
         allowNull: false,
         field: 'enable_2fa',
     },
-    isBanned: {
-        type: DataTypes.BOOLEAN,
+
+    isBanned: {     //Can prob remove this column since now got account status UNLESS you want to use for permanent ban but that is a different table
+        type: DataTypes.BOOLEAN, 
         defaultValue: false,
         allowNull: false,
         field: 'is_banned',
-    }
+    },
 
-
+    accountStatus: {
+        type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
+        allowNull: false,
+        defaultValue: 'ACTIVE',
+        field: 'account_status',
+    },
+    accountSuspensionReason: { type: DataTypes.TEXT, allowNull: true, field: 'account_suspension_reason' },
+    creatorAccessStatus: {
+        type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
+        allowNull: false,
+        defaultValue: 'ACTIVE',
+        field: 'creator_access_status',
+    },
+    creatorSuspensionReason: { type: DataTypes.TEXT, allowNull: true, field: 'creator_suspension_reason' },
+    emailVerifiedAt: { type: DataTypes.DATE, allowNull: true, field: 'email_verified_at' },
+    emailVerificationRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'email_verification_required' },
+    authVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'auth_version' },
 }, {
     tableName: 'users',
     underscored: true,

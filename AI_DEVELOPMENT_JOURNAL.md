@@ -624,7 +624,7 @@ Codex
 
 ### Objective
 
-Connect the local seeded creator credential flow to the creator-side pages without exposing Violet's password in frontend code or tracked documentation.
+Connect the local seeded creator credential flow to the creator-side pages without exposing Rose's password in frontend code or tracked documentation.
 
 ### Prompt Summary
 
@@ -671,7 +671,7 @@ No direct user code modifications were made in this step.
 
 ### Final Outcome
 
-Violet can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
+Rose can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
 
 After successful login:
 
@@ -1570,3 +1570,84 @@ AI was used to:
 ## Verification
 * `npm.cmd run lint --prefix frontend`
 * `npm.cmd run build --prefix frontend`
+
+---
+
+## Date
+2026-07-21
+
+## Task
+Re-implement database-backed landing page statistics, correct rhythm-game hold-note motion and completion, normalize rhythm-game statistic value sizes, and include the date in the Creator Studio draft-saved label.
+
+## Prompt Summary
+The requested restoration covered four user-facing regressions:
+* Landing statistic cards must display current database counts instead of remaining at zero.
+* A hold note must remain visible after its corresponding lane is pressed and show the remaining duration of the hold.
+* All live rhythm-game statistic values must use the same font size.
+* The draft last-saved label must show both the date and time.
+* All work must be recorded as a new entry in the AI development journal.
+
+## Files Created
+* `backend/tests/stats.test.js`
+* `backend/tests/statsService.test.js`
+* `frontend/src/game/rhythmRenderer.js`
+* `frontend/src/pages/Landing.test.jsx`
+
+## Files Modified
+* `backend/config/database.js`
+* `backend/server.js`
+* `backend/tests/health.test.js`
+* `frontend/src/App.css`
+* `frontend/src/App.test.jsx`
+* `frontend/src/components/RhythmGame.jsx`
+* `frontend/src/components/RhythmGame.test.jsx`
+* `frontend/src/pages/Studio.jsx`
+* `AI_DEVELOPMENT_JOURNAL.md`
+
+## Features Implemented
+* Restored the public `GET /api/stats` route by mounting the existing statistics router in the backend server.
+* Kept landing statistics database-backed through the existing statistics service:
+  * Active Explorers counts users with the `REGISTERED` role.
+  * Heritage Songs counts songs with the `PUBLISHED` status.
+  * Stories Shared counts reflections with the `APPROVED` status.
+* Added route, service, and landing-page tests to verify that database values reach the three rendered cards.
+* Restored test database isolation so `NODE_ENV=test` always uses SQLite and cannot connect to a configured Supabase/PostgreSQL database.
+* Added a dedicated hold-note geometry helper used by the canvas renderer.
+* Anchored an actively held note head to the hit line instead of allowing it to travel below the visible board.
+* Kept the hold body and tail visible while the remaining duration moves toward the hit line.
+* Automatically completes a hold successfully when the player keeps the lane pressed through the note end.
+* Preserved early-release scoring when the lane is released before the hold duration finishes.
+* Applied one shared `rhythm-stat-value` class and typography rule to Hit Rate, Combo, Score, Max combo, and Misses.
+* Changed the Studio draft label to use a localized medium date and short time, for example `Draft last saved Jul 20, 2026, 10:34 PM`.
+
+## AI Assistance
+AI was used to:
+* trace the zero landing statistics to an unmounted backend router rather than the card markup
+* verify the exact database filters used for each public statistic
+* analyze canvas note motion and identify that active hold heads were being clipped below the hit line
+* separate reusable hold rendering geometry from the React component for testability and Fast Refresh compatibility
+* add regression coverage for sustained holds, statistic typography, database statistics, and localized draft timestamps
+* restore test database isolation before running backend verification
+
+## Decisions Made
+* Reused the existing database statistics service and route instead of duplicating counting logic in the frontend.
+* Kept public counts restricted to published or approved content so drafts and pending reflections remain private.
+* Treated a key held through the note end as a successful completed hold; releasing early continues to use the existing timing and sustain-ratio rules.
+* Anchored only notes in the `holding` state, leaving normal falling-note movement unchanged.
+* Used one explicit CSS class for every statistic value so later markup changes cannot accidentally reintroduce mismatched sizes.
+* Used `toLocaleString` with `dateStyle: medium` and `timeStyle: short` so the saved label includes a readable date while respecting the user's locale.
+* Added the test database guard as a verification safety requirement so automated tests cannot modify production Supabase data.
+
+## Verification
+* Backend focused statistics and health tests: 3 suites passed, 7 tests passed.
+* Backend complete suite: 10 suites passed, 89 tests passed.
+* Frontend focused landing, rhythm-game, and Studio tests: 3 suites passed, 33 tests passed before the final hold integration case was added.
+* Frontend complete suite: 16 files passed, 98 tests passed.
+* Changed backend files passed ESLint.
+* Changed frontend files passed ESLint with no errors; one pre-existing `Studio.jsx` hook dependency warning remains.
+* `npm.cmd run build` completed successfully for the frontend.
+* `git diff --check` passed.
+
+## Remaining Work
+* Deploy both the backend and frontend so the restored `/api/stats` route and UI changes reach production.
+* After deployment, verify the landing counts against Supabase records and play one hold note through its full duration on keyboard and touch controls.

@@ -82,7 +82,7 @@ Jun 13 ────────────────────────�
 
 ---
 
-### 🟪 Violet Task 1 — AI Music Video Generation *(Htet)*
+### 🟪 Rose Task 1 — AI Music Video Generation *(Htet)*
 
 **Dates:** Jun 16 – Jul 6
 
@@ -110,7 +110,7 @@ Jun 13 ────────────────────────�
 
 ---
 
-### 🟪 Violet Task 2 — Creator Dashboard & Song Management *(Shermaine)*
+### 🟪 Rose Task 2 — Creator Dashboard & Song Management *(Shermaine)*
 
 **Dates:** Jun 16 – Jul 6
 
@@ -133,7 +133,7 @@ Jun 13 ────────────────────────�
 
 ---
 
-### 🟪 Violet Task 3 — Song Metadata & Publishing *(Ferlyn)*
+### 🟪 Rose Task 3 — Song Metadata & Publishing *(Ferlyn)*
 
 **Dates:** Jun 16 – Jul 6
 
@@ -152,7 +152,7 @@ Jun 13 ────────────────────────�
 
 ---
 
-### 🟪 Violet Task 4 — Global Error Handling & Guest Architecture *(Lia)*
+### 🟪 Rose Task 4 — Global Error Handling & Guest Architecture *(Lia)*
 
 **Dates:** Jun 16 – Jul 6
 
@@ -265,10 +265,10 @@ Jun 13 ────────────────────────�
 ### Tasks
 
 **Cross-Feature Integration (Jul 7–8)**
-- [ ] Wire Creator Dashboard → Studio → AI Generation pipeline end-to-end (Violet 1 + 2 + 3)
-- [ ] Confirm publish toggle exposes songs to public library correctly (Violet 3 → Public Task 1)
-- [ ] Integrate guest vs registered session state across all public pages (Violet 4 + all Public Tasks)
-- [ ] Verify Reflection Wall moderation flow works from creator dashboard (Violet 2 + Public Task 4)
+- [ ] Wire Creator Dashboard → Studio → AI Generation pipeline end-to-end (Rose 1 + 2 + 3)
+- [ ] Confirm publish toggle exposes songs to public library correctly (Rose 3 → Public Task 1)
+- [ ] Integrate guest vs registered session state across all public pages (Rose 4 + all Public Tasks)
+- [ ] Verify Reflection Wall moderation flow works from creator dashboard (Rose 2 + Public Task 4)
 - [ ] Confirm trivia attempt and rhythm game score persistence for registered users (Public Task 2 + 4)
 
 **Testing (Jul 8–9) — target: 80% coverage minimum**
@@ -328,13 +328,13 @@ Jun 13 ────────────────────────�
 
 | Feature | Owner | Phase 1 Branch |
 |---------|-------|---------------|
-| AI Video Generation Pipeline | Htet | `feat/violet-task-1` |
+| AI Video Generation Pipeline | Htet | `feat/Rose-task-1` |
 | Song Experience & Consumption | Htet | `feat/public-task-2` |
-| Creator Dashboard & Auth | Shermaine | `feat/violet-task-2` |
+| Creator Dashboard & Auth | Shermaine | `feat/Rose-task-2` |
 | Interactive Learning Playground | Shermaine | `feat/public-task-3` |
-| Song Metadata & Publishing | Ferlyn | `feat/violet-task-3` |
+| Song Metadata & Publishing | Ferlyn | `feat/Rose-task-3` |
 | Rhythm Game & Reflection Wall | Ferlyn | `feat/public-task-4` |
-| Error Handling & Guest Architecture | Lia | `feat/violet-task-4` |
+| Error Handling & Guest Architecture | Lia | `feat/Rose-task-4` |
 | Song Discovery & Exploration | Lia | `feat/public-task-1` |
 
 ---
