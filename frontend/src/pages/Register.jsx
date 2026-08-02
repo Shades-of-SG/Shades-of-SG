@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import PasswordToggle from '../components/PasswordToggle'
 import { registerAccount } from '../services/authApi'
+import { markNewAccountScoreClaim, readRegistrationReturn, safeReturnPath, storeRegistrationReturn } from '../services/safeReturnPath'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -36,6 +37,8 @@ function validateRegistration(values) {
 
 export default function Register() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnPath = safeReturnPath(location.state?.from) || readRegistrationReturn()
   const [form, setForm] = useState({ acceptPrivacy: false, acceptTerms: false, confirmPassword: '', email: '', name: '', password: '' })
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
@@ -43,6 +46,9 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const submitInFlight = useRef(false)
+  useEffect(() => {
+    if (returnPath) storeRegistrationReturn(returnPath)
+  }, [returnPath])
   const update = (name, value) => {
     setForm((current) => ({ ...current, [name]: value }))
     setFieldErrors((current) => ({ ...current, [name]: '' }))
@@ -63,7 +69,9 @@ export default function Register() {
     try {
       await registerAccount({ acceptPrivacy: form.acceptPrivacy, acceptTerms: form.acceptTerms, email, name: form.name.trim(), password: form.password })
       sessionStorage.setItem('pendingVerificationEmail', email)
-      navigate('/verify-email', { replace: true, state: { email } })
+      if (returnPath) storeRegistrationReturn(returnPath)
+      markNewAccountScoreClaim(returnPath)
+      navigate('/verify-email', { replace: true, state: { email, from: returnPath } })
     } catch (nextError) {
       const temporarilyUnavailable = !nextError.status || [502, 503, 504].includes(nextError.status)
       if (nextError.status === 409) {
@@ -89,6 +97,6 @@ export default function Register() {
     <div><label className="auth-check"><input aria-describedby={fieldErrors.acceptPrivacy ? 'register-privacy-error' : undefined} aria-invalid={Boolean(fieldErrors.acceptPrivacy)} checked={form.acceptPrivacy} onChange={(event) => update('acceptPrivacy', event.target.checked)} type="checkbox" /><span>I accept the <Link to="/privacy">Privacy Policy</Link></span></label>{fieldErrors.acceptPrivacy ? <span className="field-hint field-hint--error" id="register-privacy-error">{fieldErrors.acceptPrivacy}</span> : null}</div>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Creating account...' : 'Create account'}</button>
-    <p className="auth-switch auth-switch--center">Already have an account? <Link to="/login">Sign in</Link></p>
+    <p className="auth-switch auth-switch--center">Already have an account? <Link state={{ from: returnPath }} to="/login">Sign in</Link></p>
   </form>
 }
