@@ -125,7 +125,7 @@ async function listPublicSongs(req, res, next) {
             where,
             include: [{
                 model: User, as: 'creator', attributes: ['id', 'name'], required: true,
-                include: [{ model: UserProfile, as: 'profile', attributes: ['displayName'], required: false }],
+                include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
             }],
             order: [['publishedDate', 'DESC'], ['title', 'ASC']],
         });
@@ -154,7 +154,7 @@ async function getPublicSong(req, res, next) {
                 { model: TriviaQuestion, as: 'triviaQuestions', required: false },
                 {
                     model: User, as: 'creator', attributes: ['id', 'name'], required: true,
-                    include: [{ model: UserProfile, as: 'profile', attributes: ['displayName'], required: false }],
+                    include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
                 },
             ],
         });
@@ -167,6 +167,7 @@ function withPublicCreator(song) {
     const value = song.get({ plain: true });
     const creator = value.creator;
     value.creator = creator ? {
+        avatarUrl: creator.profile?.avatarUrl || null,
         displayName: creator.profile?.displayName || creator.name,
         id: creator.id,
     } : null;

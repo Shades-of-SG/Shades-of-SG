@@ -4711,7 +4711,7 @@ h1 {
 
 .song-art,
 .rhythm-hub {
-  gap: 22px;
+  gap: 16px;
   margin: 0 auto;
   max-width: 1180px;
   padding-bottom: 36px;
@@ -4719,33 +4719,61 @@ h1 {
 }
 
 .rhythm-list-toolbar {
-  align-items: center;
-  display: flex;
+  align-items: end;
+  display: grid;
   gap: 10px;
-  justify-content: flex-start;
+  grid-template-columns: minmax(220px, 1fr) 160px 160px auto;
 }
 
-.rhythm-list-toolbar label {
+.rhythm-list-toolbar label,
+.rhythm-search {
   color: var(--muted);
+  display: grid;
   font-size: 0.82rem;
   font-weight: 800;
+  gap: 5px;
 }
 
-.rhythm-list-toolbar select {
+.rhythm-list-toolbar select,
+.rhythm-search div {
   background: rgba(30, 41, 59, 0.92);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
   cursor: pointer;
-  flex: 0 0 200px;
   font: inherit;
   font-size: 0.84rem;
   font-weight: 800;
   max-width: 100%;
   min-height: 40px;
   padding: 7px 34px 7px 11px;
-  width: 200px;
+  width: 100%;
 }
+
+.rhythm-search div { align-items: center; display: flex; padding: 0 11px; }
+.rhythm-search input { background: transparent; border: 0; color: var(--text); font: inherit; min-width: 0; outline: 0; padding: 8px; width: 100%; }
+.rhythm-search input::placeholder { color: #929bb0; }
+.rhythm-search div:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.rhythm-guest-note,
+.rhythm-continue,
+.rhythm-progress-summary {
+  background: rgba(91, 75, 138, 0.12);
+  border: 1px solid rgba(216, 180, 254, 0.18);
+  border-radius: 10px;
+  color: var(--muted);
+  padding: 12px 16px;
+}
+.rhythm-guest-note a { color: #e9d5ff; font-weight: 850; }
+.rhythm-progress-summary { display: flex; flex-wrap: wrap; gap: 12px 34px; margin: 0; }
+.rhythm-progress-summary div { display: flex; gap: 9px; }
+.rhythm-progress-summary dt { color: var(--muted); }
+.rhythm-progress-summary dd { color: var(--text); font-weight: 900; margin: 0; }
+.rhythm-continue { align-items: center; display: flex; justify-content: space-between; }
+.rhythm-continue h2 { font-size: 1.15rem; margin: 2px 0; }
+.rhythm-continue p:last-child { color: var(--muted); font-size: .84rem; }
+.rhythm-loading { align-items: center; color: var(--muted); display: flex; gap: 10px; padding: 20px 4px; }
+.rhythm-loading span { animation: spin .8s linear infinite; border: 2px solid rgba(216,180,254,.25); border-radius: 50%; border-top-color: #d8b4fe; height: 20px; width: 20px; }
 
 .rhythm-list-toolbar select:hover {
   border-color: rgba(216, 180, 254, 0.5);
@@ -4842,6 +4870,11 @@ h1 {
   margin-top: 5px;
 }
 
+.rhythm-song-creator { align-items: center; color: #c4b5fd; display: inline-flex; font-size: .8rem; gap: 7px; margin-top: 7px; text-decoration: none; }
+.rhythm-song-creator:hover { color: #f3e8ff; text-decoration: underline; }
+.rhythm-song-creator:focus-visible { border-radius: 4px; outline: 3px solid #fff; outline-offset: 3px; }
+.rhythm-song-creator img { border: 1px solid rgba(255,255,255,.25); border-radius: 50%; height: 24px; object-fit: cover; width: 24px; }
+
 .rhythm-song-context {
   align-items: center;
   color: var(--muted);
@@ -4887,11 +4920,11 @@ h1 {
   display: grid;
   gap: 1px 8px;
   grid-template-columns: 1fr auto;
-  min-height: 56px;
+  min-height: 70px;
   padding: 8px 10px 8px 12px;
   text-decoration: none;
   transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
-  width: 132px;
+  width: 140px;
 }
 
 .rhythm-difficulty-link > span {
@@ -4906,6 +4939,7 @@ h1 {
   grid-column: 1;
   white-space: nowrap;
 }
+.rhythm-difficulty-link .rhythm-difficulty-best { color: currentColor; font-size: .65rem; grid-column: 1 / 3; margin-top: 3px; }
 
 .rhythm-difficulty-link svg {
   grid-column: 2;
@@ -4944,6 +4978,8 @@ h1 {
 }
 
 @media (max-width: 980px) {
+  .rhythm-list-toolbar { grid-template-columns: minmax(220px, 1fr) 1fr 1fr; }
+  .rhythm-list-toolbar > a { justify-self: start; }
   .rhythm-song-row {
     grid-template-columns: 144px minmax(0, 1fr);
   }
@@ -4960,8 +4996,13 @@ h1 {
 
 @media (max-width: 640px) {
   .rhythm-list-toolbar {
-    justify-content: flex-start;
+    align-items: stretch;
+    grid-template-columns: 1fr 1fr;
   }
+
+  .rhythm-search { grid-column: 1 / -1; }
+  .rhythm-list-toolbar > a { grid-column: 1 / -1; justify-content: center; width: 100%; }
+  .rhythm-continue { align-items: stretch; flex-direction: column; gap: 12px; }
 
   .rhythm-list-toolbar select {
     min-height: 44px;
@@ -4979,13 +5020,20 @@ h1 {
   }
 
   .rhythm-song-actions {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-column: 1;
   }
 
   .rhythm-difficulty-link {
+    min-width: 0;
+    padding: 8px;
     width: 100%;
   }
+}
+
+@media (max-width: 430px) {
+  .rhythm-song-actions { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
