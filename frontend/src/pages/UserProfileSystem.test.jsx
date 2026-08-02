@@ -24,7 +24,7 @@ const profilePayload = {
     gamesCompleted: 7,
     gamesPlayed: 7,
     rank: 2,
-    recentScores: [{ accuracy: 96, createdAt: '2026-01-03', difficulty: 'EASY', id: 'score-1', score: 4321, song: { title: 'Home' } }],
+    topScores: [{ accuracy: 96, createdAt: '2026-01-03', difficulty: 'EASY', id: 'score-1', rank: 'S', score: 4321, song: { title: 'Home' } }],
   },
 }
 
@@ -52,6 +52,7 @@ describe('shared user profile system', () => {
     expect(screen.getByText('Home · Easy')).toBeInTheDocument()
     expect(screen.getByText('4,321 points · 96.00%')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
+    expect(screen.getByText('Top rhythm game scores')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Creator profile/ })).toHaveAttribute('href', '/creator/profile')
     expect(screen.queryByText('Studio Activity')).not.toBeInTheDocument()
   })
@@ -177,7 +178,7 @@ describe('shared user profile system', () => {
     vi.stubGlobal('fetch', vi.fn(() => response({
       ...profilePayload,
       isOwner: false,
-      rhythm: { bestLeaderboardRank: null, bestScore: 0, gamesCompleted: 0, gamesPlayed: 0, rank: null, recentScores: [] },
+      rhythm: { bestLeaderboardRank: null, bestScore: 0, gamesCompleted: 0, gamesPlayed: 0, rank: null, topScores: [] },
     })))
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByText('No ranked rhythm-game scores yet')).toBeInTheDocument()
