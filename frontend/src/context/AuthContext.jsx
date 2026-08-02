@@ -58,6 +58,7 @@ function initialProfileData(user) {
       avatarUrl: shared.avatarUrl || user.avatarUrl || '', bio: shared.bio || user.bio || '',
       createdAt: user.createdAt, displayName: shared.displayName || user.name || 'Account',
       fontSize: shared.fontSize || 'MEDIUM', location: shared.location || '',
+      interestTags: Array.isArray(shared.interestTags) ? shared.interestTags : [],
       preferredLanguage: shared.preferredLanguage || '', profileVisibility: shared.profileVisibility || 'PUBLIC',
       reducedMotion: shared.reducedMotion || false, showBadges: shared.showBadges ?? true,
       showReflections: shared.showReflections ?? true, showRhythmRanking: shared.showRhythmRanking ?? true,

@@ -2,9 +2,11 @@ const {
     Badge, Reflection, Song, UserProfile,
 } = require('../models');
 const { userRhythmSummary } = require('./rhythmRankingService');
+const { ALLOWED_INTEREST_TAGS } = require('./profileInterests');
 
 const DEFAULTS = Object.freeze({
     bio: '', fontSize: 'MEDIUM', location: '', preferredLanguage: '',
+    interestTags: [],
     profileVisibility: 'PUBLIC', reducedMotion: false, showBadges: true,
     showReflections: true, showRhythmRanking: true, theme: 'SYSTEM',
 });
@@ -16,6 +18,9 @@ function profileValues(user, storedProfile) {
         bio: value.bio ?? DEFAULTS.bio,
         displayName: value.displayName || user.name,
         fontSize: value.fontSize || DEFAULTS.fontSize,
+        interestTags: Array.isArray(value.interestTags)
+            ? value.interestTags.filter((tag) => ALLOWED_INTEREST_TAGS.has(tag))
+            : DEFAULTS.interestTags,
         location: value.location ?? DEFAULTS.location,
         preferredLanguage: value.preferredLanguage ?? DEFAULTS.preferredLanguage,
         profileVisibility: value.profileVisibility || DEFAULTS.profileVisibility,
@@ -35,6 +40,7 @@ function publicIdentity(user, storedProfile) {
         bio: profile.bio,
         createdAt: user.createdAt,
         displayName: profile.displayName,
+        interestTags: profile.interestTags,
         isCreator: user.role === 'CREATOR',
         location: profile.location,
         userId: user.id,

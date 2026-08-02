@@ -112,6 +112,9 @@ function App() {
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Profile /></ProtectedRoute>} path="/profile" />
           <Route element={<ProtectedRoute isAllowed={isRegistered}><CreatorApplication /></ProtectedRoute>} path="/apply/creator" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings /></ProtectedRoute>} path="/settings" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="profile" /></ProtectedRoute>} path="/settings/profile" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="account-security" /></ProtectedRoute>} path="/settings/account-security" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="data-privacy" /></ProtectedRoute>} path="/settings/data-privacy" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
@@ -142,7 +145,7 @@ function App() {
             <Route element={<CreatorAnalytics />} path="/creator/analytics" />
             <Route element={<CreatorProfile />} path="/creator/profile" />
             <Route element={<CreatorProfileSettings />} path="/creator/profile/edit" />
-            <Route element={<Navigate replace to="/settings" />} path="/creator/settings" />
+            <Route element={<Navigate replace to="/settings/profile" />} path="/creator/settings" />
           </Route>
         </Route>
 

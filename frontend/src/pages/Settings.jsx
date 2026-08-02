@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Accessibility, Camera, Eye, ImageOff, Languages, LockKeyhole, Save, Shield, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import InterestTagsAccordion from '../components/InterestTagsAccordion'
+import SettingsNav from '../components/SettingsNav'
 import { useAuth } from '../context/AuthContext'
+import { ALLOWED_INTEREST_TAGS, MAX_INTEREST_TAGS } from '../data/profileInterests'
 import { removeUserAvatar, updateMyUserProfile, uploadUserAvatar } from '../services/userProfileService'
 import '../Settings.css'
 
 const EMPTY_FORM = {
   bio: '', displayName: '', fontSize: 'MEDIUM', location: '', preferredLanguage: '',
+  interestTags: [],
   profileVisibility: 'PUBLIC', reducedMotion: false, showBadges: true,
   showReflections: true, showRhythmRanking: true, theme: 'SYSTEM',
 }
@@ -23,6 +27,9 @@ function validate(form, avatarFile) {
   if (form.bio.length > 500) errors.bio = 'Use 500 characters or fewer.'
   if (form.location.length > 100) errors.location = 'Use 100 characters or fewer.'
   if (form.preferredLanguage.length > 40) errors.preferredLanguage = 'Use 40 characters or fewer.'
+  if (!Array.isArray(form.interestTags) || form.interestTags.some((tag) => !ALLOWED_INTEREST_TAGS.has(tag))) errors.interestTags = 'Choose supported interest tags.'
+  else if (new Set(form.interestTags).size !== form.interestTags.length) errors.interestTags = 'Choose each interest only once.'
+  else if (form.interestTags.length > MAX_INTEREST_TAGS) errors.interestTags = `Choose no more than ${MAX_INTEREST_TAGS} interests.`
   if (avatarFile && avatarFile.size > 5 * 1024 * 1024) errors.avatar = 'Profile photo must be 5 MB or smaller.'
   return errors
 }
@@ -36,14 +43,14 @@ function Toggle({ checked, description, label, onChange }) {
   )
 }
 
-export default function Settings() {
+export default function Settings({ section = '' }) {
   const auth = useAuth()
   if (auth.profileLoading && !auth.userProfile) return <div className="account-settings-loading" role="status">Loading settings…</div>
   if (!auth.userProfile) return <div className="account-settings-loading" role="alert">Settings could not be loaded. Refresh the page to try again.</div>
-  return <SettingsForm auth={auth} />
+  return <SettingsForm auth={auth} section={section} />
 }
 
-function SettingsForm({ auth }) {
+function SettingsForm({ auth, section }) {
   const { token, updateUser, updateUserProfile, user, userProfile } = auth
   const fileInput = useRef(null)
   const [form, setForm] = useState(() => profileForm(userProfile.profile))
@@ -55,10 +62,11 @@ function SettingsForm({ auth }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    const hash = window.location.hash
-    if (!hash) return
-    requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
-  }, [])
+    const target = section === 'account-security' ? '#account' : section === 'data-privacy' ? '#privacy' : section === 'profile' ? '#profile' : window.location.hash
+    if (!target) return undefined
+    const frame = requestAnimationFrame(() => document.querySelector(target)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
+    return () => cancelAnimationFrame(frame)
+  }, [section])
 
   const previewUrl = useMemo(() => avatarFile ? URL.createObjectURL(avatarFile) : '', [avatarFile])
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
@@ -136,6 +144,7 @@ function SettingsForm({ auth }) {
         <p>Account centre</p><h1>Settings</h1>
         <span>Manage the shared profile and preferences used in both User and Creator modes.</span>
       </header>
+      <SettingsNav />
 
       <form noValidate onSubmit={save}>
         {message ? <div aria-live="polite" className="account-settings__message" role="status">{message}</div> : null}
@@ -152,11 +161,12 @@ function SettingsForm({ auth }) {
             <label className="is-wide"><span>Bio <i>Optional</i></span><textarea aria-invalid={Boolean(errors.bio)} maxLength="500" onChange={(event) => update('bio', event.target.value)} rows="4" value={form.bio} /><b>{form.bio.length} / 500</b>{errors.bio ? <small>{errors.bio}</small> : null}</label>
             <label><span>Profile visibility</span><select onChange={(event) => update('profileVisibility', event.target.value)} value={form.profileVisibility}><option value="PUBLIC">Public</option><option value="PRIVATE">Private</option></select><b>Private profiles return no identity or activity to other people.</b></label>
           </div>
+          <InterestTagsAccordion error={errors.interestTags} onChange={(value) => update('interestTags', value)} selectedTags={form.interestTags} />
         </section>
 
         <section className="account-settings__section" id="account">
           <div className="account-settings__heading"><LockKeyhole aria-hidden="true" /><div><h2>Account</h2><p>Sign-in and security information.</p></div></div>
-          <div className="account-settings-account-row"><div><strong>Email address</strong><span>{userProfile.account.email} · {userProfile.account.emailVerified === false ? 'Verification required' : 'Verified'}</span></div><Link to="/forgot-password">Reset password</Link></div>
+          <div className="account-settings-account-row"><div><strong>Email address</strong><span>{userProfile.account.email} · {userProfile.account.emailVerified === false ? 'Verification required' : 'Verified'}</span><small>Email changes require password confirmation and verification of the new address, so they are not available here yet.</small></div><Link to="/forgot-password">Reset password</Link></div>
         </section>
 
         <section className="account-settings__section" id="preferences">

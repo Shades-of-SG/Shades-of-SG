@@ -7,6 +7,7 @@ const UserProfile = sequelize.define('UserProfile', {
     avatarUrl: { type: DataTypes.TEXT, allowNull: true, field: 'avatar_url' },
     avatarPublicId: { type: DataTypes.STRING, allowNull: true, field: 'avatar_public_id' },
     bio: { type: DataTypes.STRING(500), allowNull: true },
+    interestTags: { type: DataTypes.JSON, allowNull: false, defaultValue: [], field: 'interest_tags' },
     profileVisibility: {
         type: DataTypes.ENUM('PUBLIC', 'PRIVATE'), allowNull: false, defaultValue: 'PUBLIC', field: 'profile_visibility',
     },

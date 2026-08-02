@@ -3,6 +3,7 @@ const multer = require('multer');
 const { sequelize, User, UserProfile } = require('../models');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
 const { deleteAsset, uploadImageBuffer } = require('../services/cloudinaryService');
+const { validateInterestTags } = require('../services/profileInterests');
 const {
     activityFor, findOrCreateProfile, profileValues, publicIdentity,
 } = require('../services/userProfileService');
@@ -53,6 +54,11 @@ function validateProfile(body) {
         if (body[key] === undefined) continue;
         if (typeof body[key] !== 'boolean') return { error: `${key} must be true or false.` };
         updates[key] = body[key];
+    }
+    if (body.interestTags !== undefined) {
+        const parsedTags = validateInterestTags(body.interestTags);
+        if (parsedTags.error) return { error: parsedTags.error };
+        updates.interestTags = parsedTags.value;
     }
     if (!Object.keys(updates).length) return { error: 'No supported profile fields were provided.' };
     return { updates };
