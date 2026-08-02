@@ -148,6 +148,17 @@ test('analytics derives the user from auth and creator song filters cannot cross
     expect(adminAnalytics.body.activitySeries.reduce((sum, day) => sum + day.views, 0)).toBe(1);
 });
 
+test('analytics rejects malformed song IDs before querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findOne');
+    const response = await request(app).post('/api/analytics/events')
+        .send({ eventType: 'RHYTHM_GAME_STARTED', songId: 'song-1' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('songId must be a valid song ID.');
+    expect(songLookup).not.toHaveBeenCalled();
+    songLookup.mockRestore();
+});
+
 test('creator warnings are limited to registered authors on reflections attached to owned songs', async () => {
     const accountReflection = await Reflection.create({ content: 'Account memory', displayMode: 'ANONYMOUS', guestSubmission: false, songId: resources.songA.id, status: 'PENDING', userId: principals.REGISTERED.id });
     expect((await request(app).post(`/api/reflections/${accountReflection.id}/warn`).set('Authorization', `Bearer ${tokens['Creator B']}`).send({ reason: 'Cross-owner warning attempt.' })).status).toBe(404);

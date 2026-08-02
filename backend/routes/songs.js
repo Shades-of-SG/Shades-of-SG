@@ -2,8 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const songController = require('../controllers/songController');
 const { requireCreator } = require('../middleware/auth');
+const { validateUuidParam } = require('../middleware/validateUuid');
 
 const router = express.Router();
+router.param('id', validateUuidParam('id', 'Song ID must be a valid UUID.'));
 const SUPPORTED_MEDIA_MIME_TYPES = new Set([
     'audio/mpeg',
     'audio/mp4',
