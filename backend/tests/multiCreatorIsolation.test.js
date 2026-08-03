@@ -262,6 +262,8 @@ test('creator folder proposals need admin approval and song attachment enforces 
     expect(placement.status).toBe(202);
     expect(await SongFolder.count({ where: { folderId: proposed.body.folder.id, songId: resources.songA.id } })).toBe(0);
     expect((await request(app).patch(`/api/admin/folder-song-proposals/${placement.body.proposal.id}`).set('Authorization', `Bearer ${tokens['Creator B']}`).send({ status: 'APPROVED' })).status).toBe(403);
+    expect((await request(app).patch(`/api/admin/folder-song-proposals/${placement.body.proposal.id}`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ status: 'APPROVED' })).status).toBe(409);
+    await resources.songA.update({ publishedDate: new Date(), status: 'PUBLISHED' });
     expect((await request(app).patch(`/api/admin/folder-song-proposals/${placement.body.proposal.id}`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ status: 'APPROVED' })).status).toBe(200);
     expect(await SongFolder.count({ where: { folderId: proposed.body.folder.id, songId: resources.songA.id } })).toBe(1);
     expect((await FolderSongProposal.findByPk(placement.body.proposal.id)).reviewedBy).toBe(principals.ADMIN.id);
@@ -277,9 +279,9 @@ test('only admins can issue warnings and inspect global moderation and audit his
     expect((await request(app).get('/api/admin/audit-logs').set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(200);
     const registeredTarget = await User.findOne({ where: { email: 'second-applicant@example.com' } });
     expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens['Creator A']}`).send({ accountStatus: 'SUSPENDED' })).status).toBe(403);
-    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'SUSPENDED', actorId: principals['Creator A'].id })).status).toBe(200);
+    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'SUSPENDED', actorId: principals['Creator A'].id, reason: 'Repeated safety violations require account review.' })).status).toBe(200);
     expect((await User.findByPk(registeredTarget.id)).accountStatus).toBe('SUSPENDED');
-    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'ACTIVE' })).status).toBe(200);
+    expect((await request(app).patch(`/api/admin/users/${registeredTarget.id}/status`).set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'ACTIVE', reason: 'Account review is complete and access is safe to restore.' })).status).toBe(200);
 
     const safetyUsers = await request(app).get('/api/admin/users?scope=safety').set('Authorization', `Bearer ${tokens.ADMIN}`);
     expect(safetyUsers.status).toBe(200);
@@ -293,10 +295,10 @@ test('only admins can issue warnings and inspect global moderation and audit his
 
 test('admin suspension is enforced from the current database record even for an existing token', async () => {
     const suspend = await request(app).patch(`/api/admin/creators/${principals['Creator B'].id}/status`)
-        .set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'SUSPENDED' });
+        .set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'SUSPENDED', reason: 'Creator safety review is required.' });
     expect(suspend.status).toBe(200);
     expect((await request(app).get('/api/songs/creator').set('Authorization', `Bearer ${tokens['Creator B']}`)).status).toBe(403);
     const reactivate = await request(app).patch(`/api/admin/creators/${principals['Creator B'].id}/status`)
-        .set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'ACTIVE' });
+        .set('Authorization', `Bearer ${tokens.ADMIN}`).send({ accountStatus: 'ACTIVE', reason: 'Creator safety review is complete.' });
     expect(reactivate.status).toBe(200);
 });

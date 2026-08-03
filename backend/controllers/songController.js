@@ -5,6 +5,7 @@ const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
 const { writeAudit } = require('../services/auditService');
+const { getSongPublishMissing } = require('../services/songPublishingService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -49,20 +50,6 @@ function buildSongValues(body, { partial = false } = {}) {
         values.durationSecs = duration;
     }
     return { values };
-}
-
-function publishValidation(song) {
-    const missing = [];
-    if (!song.title?.trim()) missing.push('title');
-    if (!song.artist?.trim()) missing.push('artist');
-    if (!song.description?.trim()) missing.push('description');
-    if (!song.theme?.trim()) missing.push('theme');
-    if (!Array.isArray(song.languages) || song.languages.length === 0) missing.push('languages');
-    if (!song.rawLyrics?.trim()) missing.push('rawLyrics');
-    if (!song.coverImageUrl?.trim()) missing.push('coverImageUrl');
-    if (!song.audioUrl?.trim()) missing.push('audioUrl');
-    if (!song.videoUrl?.trim()) missing.push('videoUrl');
-    return missing;
 }
 
 function isUploadedVideoMedia(song) {
@@ -196,7 +183,7 @@ function serializeCreatorSong(song) {
     const jobs = [...(value.generationJobs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const latestGenerationJob = jobs[0] || null;
     delete value.generationJobs;
-    const missing = publishValidation(song);
+    const missing = getSongPublishMissing(song);
     return { ...value, latestGenerationJob, publishReady: missing.length === 0, publishMissing: missing };
 }
 
@@ -281,7 +268,7 @@ async function publishSong(req, res, next) {
         const usedUploadedMedia = await useUploadedMediaAsVideo(song);
         if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
-        const missing = publishValidation(song);
+        const missing = getSongPublishMissing(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
         await auditSong(req, 'SONG_PUBLISHED', song);
@@ -297,7 +284,7 @@ async function getPublishReadiness(req, res, next) {
         const usedUploadedMedia = await useUploadedMediaAsVideo(song);
         if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
-        const missing = publishValidation(song);
+        const missing = getSongPublishMissing(song);
         return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });
     } catch (error) { return next(error); }
 }
