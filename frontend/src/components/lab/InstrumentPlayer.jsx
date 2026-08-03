@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import useInstrumentAudio from '../../hooks/useInstrumentAudio'
+import { useAuth } from '../../context/AuthContext'
+import { completeInstrumentChallenge } from '../../services/instrumentPlaygroundService'
 
 const CHALLENGES = [
   {
@@ -21,16 +23,35 @@ const CHALLENGES = [
 
 export default function InstrumentPlayer({ instrument, instruments, onBack, onSelectInstrument }) {
   const { playMelody, playNote } = useInstrumentAudio()
+  const { token } = useAuth()
   const [activeNoteLabel, setActiveNoteLabel] = useState(null)
   const [playedIndexes, setPlayedIndexes] = useState(() => new Set())
   const [liveMessage, setLiveMessage] = useState(
     () => `${instrument.name} ready. Tap a pad or use your keyboard to play.`
   )
   const activeNoteTimeout = useRef(null)
+  const reportedChallenges = useRef(new Set())
 
   useEffect(() => {
     return () => window.clearTimeout(activeNoteTimeout.current)
   }, [])
+
+  useEffect(() => {
+    if (!token) return
+    const newlyCompleted = CHALLENGES.filter((challenge) => (
+      !reportedChallenges.current.has(challenge.id)
+      && challenge.isComplete(playedIndexes, instrument.notes.length)
+    ))
+    newlyCompleted.forEach((challenge) => reportedChallenges.current.add(challenge.id))
+    // Reported one at a time (not in parallel) so simultaneous challenge completions
+    // don't race each other as concurrent writes for the same user.
+    newlyCompleted.reduce(
+      (chain, challenge) => chain.then(() => completeInstrumentChallenge(challenge.id, token)),
+      Promise.resolve()
+    ).catch((error) => {
+      console.error('[Instrument Playground]', error)
+    })
+  }, [instrument.notes.length, playedIndexes, token])
 
   function triggerNote(note, index) {
     playNote(instrument, note)
