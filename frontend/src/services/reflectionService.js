@@ -47,6 +47,37 @@ export async function getReflections(token, songId = '') {
   return data.reflections
 }
 
+export async function getReflectionComments(reflectionId, token) {
+  const data = await request(`/reflections/${encodeURIComponent(reflectionId)}/comments`, { headers: authHeaders(token) })
+  return data.comments
+}
+
+export async function createReflectionComment(reflectionId, content, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments`, {
+    body: JSON.stringify({ content }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'POST',
+  })
+}
+
+export function deleteReflectionComment(reflectionId, commentId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}`, {
+    headers: authHeaders(token), method: 'DELETE',
+  })
+}
+
+export function likeReflection(reflectionId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/like`, {
+    headers: authHeaders(token), method: 'POST',
+  })
+}
+
+export function unlikeReflection(reflectionId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/like`, {
+    headers: authHeaders(token), method: 'DELETE',
+  })
+}
+
 export async function getMyReflections(token) {
   const data = await request('/reflections/mine', { headers: authHeaders(token) })
   return data.reflections

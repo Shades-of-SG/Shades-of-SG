@@ -42,7 +42,13 @@ const GameScore = sequelize.define('GameScore', {
         allowNull: false,
         defaultValue: 'EASY',
     },
+    claimId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        field: 'claim_id',
+    },
 }, {
+    indexes: [{ fields: ['claim_id'], name: 'game_scores_claim_id_unique_idx', unique: true }],
     tableName: 'game_scores',
     underscored: true,
 });

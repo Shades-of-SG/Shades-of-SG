@@ -68,7 +68,7 @@ export default function Profile() {
       <div aria-live="polite" className="profile-feedback" role="status">{feedback}</div>
       <ProfileMemories error={loadError} loading={profileLoading} memories={memories} onDelete={removeMemory} onEdit={(memory) => { setMemoryError(''); setEditingMemory(memory) }} onRetry={reload} />
       <ProfileBadges badges={badges} error={loadError} loading={profileLoading} onRetry={reload} />
-      <ProfileMusicJourney error={loadError} loading={profileLoading} onRetry={reload} scores={rhythm?.recentScores || []} />
+      <ProfileMusicJourney error={loadError} loading={profileLoading} onRetry={reload} scores={rhythm?.topScores || []} />
       {editingMemory ? <MemoryEditModal error={memoryError} memory={editingMemory} onClose={() => setEditingMemory(null)} onSave={saveMemory} saving={savingMemory} /> : null}
     </div>
   )

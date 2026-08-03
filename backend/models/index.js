@@ -27,6 +27,8 @@ const AuthOtp = require('./AuthOtp');
 const AuthIdentity = require('./AuthIdentity');
 const CreatorProfile = require('./CreatorProfile');
 const UserProfile = require('./UserProfile');
+const ReflectionComment = require('./ReflectionComment');
+const ReflectionLike = require('./ReflectionLike');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -59,6 +61,14 @@ User.hasMany(Reflection, { foreignKey: 'userId', as: 'reflections' });
 Reflection.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(Reflection, { foreignKey: 'moderatedBy', as: 'moderatedReflections' });
 Reflection.belongsTo(User, { foreignKey: 'moderatedBy', as: 'moderator' });
+Reflection.hasMany(ReflectionComment, { foreignKey: 'reflectionId', as: 'comments', onDelete: 'CASCADE' });
+ReflectionComment.belongsTo(Reflection, { foreignKey: 'reflectionId', as: 'reflection' });
+User.hasMany(ReflectionComment, { foreignKey: 'userId', as: 'reflectionComments', onDelete: 'CASCADE' });
+ReflectionComment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Reflection.hasMany(ReflectionLike, { foreignKey: 'reflectionId', as: 'likes', onDelete: 'CASCADE' });
+ReflectionLike.belongsTo(Reflection, { foreignKey: 'reflectionId', as: 'reflection' });
+User.hasMany(ReflectionLike, { foreignKey: 'userId', as: 'reflectionLikes', onDelete: 'CASCADE' });
+ReflectionLike.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(Badge, { foreignKey: 'userId', as: 'badges' });
 Badge.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -176,4 +186,6 @@ module.exports = {
     AuthIdentity,
     CreatorProfile,
     UserProfile,
+    ReflectionComment,
+    ReflectionLike,
 };

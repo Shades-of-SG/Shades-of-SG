@@ -1,28 +1,66 @@
 const express = require('express');
-const { Op } = require('sequelize');
+const { col, fn, Op, UniqueConstraintError } = require('sequelize');
 const { GameScore, RhythmBeatmap, Song, User, UserProfile } = require('../models');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
-const { DIFFICULTIES: RANKED_DIFFICULTIES, PERIODS, leaderboard, userRhythmSummary } = require('../services/rhythmRankingService');
+const {
+    DIFFICULTIES: RANKED_DIFFICULTIES,
+    PERIODS,
+    leaderboard,
+    userRhythmSummary,
+} = require('../services/rhythmRankingService');
 
 const router = express.Router();
 const DIFFICULTIES = new Set(['EASY', 'MEDIUM', 'HARD']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CLAIM_MAX_AGE_MS = 60 * 60 * 1000;
+const CLAIM_FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
+
+function validateClaimDetails(body, totalNotes) {
+    const { claimId, playedAt } = body;
+    if (claimId === undefined) return null;
+    if (typeof claimId !== 'string' || !UUID_PATTERN.test(claimId)) return 'claimId must be a valid id';
+    const playedAtMs = Date.parse(playedAt);
+    const now = Date.now();
+    if (!Number.isFinite(playedAtMs) || playedAtMs < now - CLAIM_MAX_AGE_MS || playedAtMs > now + CLAIM_FUTURE_TOLERANCE_MS) {
+        return 'The guest score claim has expired.';
+    }
+    const judgementKeys = ['perfectHits', 'greatHits', 'goodHits', 'badHits', 'misses'];
+    const statisticKeys = [...judgementKeys, 'holdCompletions', 'earlyReleases'];
+    if (statisticKeys.some((key) => !Number.isInteger(body[key]) || body[key] < 0 || body[key] > totalNotes)) {
+        return 'Guest score statistics are invalid.';
+    }
+    if (judgementKeys.reduce((sum, key) => sum + body[key], 0) !== totalNotes) {
+        return 'Guest score hit counts do not match totalNotes.';
+    }
+    if (body.holdCompletions + body.earlyReleases > totalNotes) {
+        return 'Guest score hold statistics are invalid.';
+    }
+    return null;
+}
 
 router.get('/mine', requireAuth, async (req, res, next) => {
     try {
         const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
         if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required.' });
-        const scores = await GameScore.findAll({
-            where: { userId: user.id },
-            // Keep history readable while migration 007 is being rolled out to
-            // legacy databases that predate max_combo and rank.
-            attributes: ['id', 'userId', 'songId', 'score', 'accuracy', 'difficulty', 'createdAt'],
-            include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'coverImageUrl'] }],
-            limit: 20,
-            order: [['createdAt', 'DESC']],
-        });
-        return res.json({ scores });
+        const [scores, bestScores] = await Promise.all([
+            GameScore.findAll({
+                where: { userId: user.id },
+                // Keep history readable while migration 007 is being rolled out to
+                // legacy databases that predate max_combo and rank.
+                attributes: ['id', 'userId', 'songId', 'score', 'accuracy', 'difficulty', 'createdAt'],
+                include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'coverImageUrl'] }],
+                limit: 20,
+                order: [['createdAt', 'DESC']],
+            }),
+            GameScore.findAll({
+                where: { userId: user.id },
+                attributes: ['songId', 'difficulty', [fn('MAX', col('score')), 'score']],
+                group: ['songId', 'difficulty'],
+                order: [['songId', 'ASC'], ['difficulty', 'ASC']],
+            }),
+        ]);
+        return res.json({ bestScores, scores });
     } catch (error) { return next(error); }
 });
 
@@ -85,7 +123,7 @@ router.get('/user/:userId/summary', optionalAuth, async (req, res, next) => {
 
 router.post('/', optionalAuth, async (req, res, next) => {
     try {
-        const { accuracy, difficulty = 'EASY', maxCombo = 0, score, songId, totalNotes } = req.body;
+        const { accuracy, claimId, difficulty = 'EASY', maxCombo = 0, score, songId, totalNotes } = req.body;
         const normalizedDifficulty = String(difficulty).toUpperCase();
         if (!songId || !UUID_PATTERN.test(songId)) return res.status(400).json({ message: 'songId must be a valid song id' });
         if (!Number.isInteger(score) || score < 0) return res.status(400).json({ message: 'score must be a non-negative integer' });
@@ -93,6 +131,8 @@ router.post('/', optionalAuth, async (req, res, next) => {
         if (!Number.isInteger(totalNotes) || totalNotes < 1 || totalNotes > 10000) return res.status(400).json({ message: 'totalNotes must be an integer between 1 and 10000' });
         if (!Number.isInteger(maxCombo) || maxCombo < 0 || maxCombo > totalNotes) return res.status(400).json({ message: 'maxCombo must be between 0 and totalNotes' });
         if (!DIFFICULTIES.has(normalizedDifficulty)) return res.status(400).json({ message: 'difficulty must be EASY, MEDIUM, or HARD' });
+        const claimError = validateClaimDetails(req.body, totalNotes);
+        if (claimError) return res.status(400).json({ message: claimError });
         // Rhythm scoring caps the combo multiplier at 1.5x, including hold notes.
         const theoreticalMaximum = totalNotes * 1500;
         if (score > theoreticalMaximum) return res.status(400).json({ message: 'score exceeds the maximum possible value for this chart' });
@@ -111,10 +151,27 @@ router.post('/', optionalAuth, async (req, res, next) => {
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
         if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required to save scores.' });
 
-        const gameScore = await GameScore.create({
-            accuracy, difficulty: normalizedDifficulty, maxCombo,
-            rank: expectedRank(accuracy), score, songId: song.id, userId: user.id,
-        });
+        if (claimId) {
+            const claimed = await GameScore.findOne({ where: { claimId } });
+            if (claimed) {
+                if (claimed.userId !== user.id) return res.status(409).json({ message: 'This guest score has already been claimed.' });
+                return res.status(200).json({ alreadyClaimed: true, score: claimed });
+            }
+        }
+
+        let gameScore;
+        try {
+            gameScore = await GameScore.create({
+                accuracy, claimId: claimId || null, difficulty: normalizedDifficulty, maxCombo,
+                createdAt: claimId ? new Date(req.body.playedAt) : undefined,
+                rank: expectedRank(accuracy), score, songId: song.id, userId: user.id,
+            });
+        } catch (error) {
+            if (!(error instanceof UniqueConstraintError) || !claimId) throw error;
+            const claimed = await GameScore.findOne({ where: { claimId } });
+            if (!claimed || claimed.userId !== user.id) return res.status(409).json({ message: 'This guest score has already been claimed.' });
+            return res.status(200).json({ alreadyClaimed: true, score: claimed });
+        }
         return res.status(201).json({ score: gameScore });
     } catch (error) { return next(error); }
 });

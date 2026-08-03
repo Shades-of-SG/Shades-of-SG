@@ -57,7 +57,8 @@ test('authenticated profile returns shared identity and official best leaderboar
     expect(response.body.rhythm.bestLeaderboardRank).toMatchObject({
         difficulty: 'EASY', position: 3, score: 1000, songId: song.id,
     });
-    expect(response.body.rhythm.recentScores).toHaveLength(2);
+    expect(response.body.rhythm.topScores).toHaveLength(1);
+    expect(response.body.rhythm.topScores[0]).toMatchObject({ difficulty: 'EASY', score: 1000, songId: song.id });
     expect(response.body.badges).toHaveLength(1);
     expect(response.body.reflections).toHaveLength(3);
 });

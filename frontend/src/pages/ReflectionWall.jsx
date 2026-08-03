@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthRequiredModal from '../components/AuthRequiredModal'
 import GuestThankYouModal from '../components/GuestThankYouModal'
@@ -6,6 +6,7 @@ import ReflectionEmptyState from '../components/ReflectionEmptyState'
 import ReflectionFilters from '../components/ReflectionFilters'
 import ReflectionGrid from '../components/ReflectionGrid'
 import ReflectionModal from '../components/ReflectionModal'
+import ReflectionDiscussionModal from '../components/ReflectionDiscussionModal'
 import { useAuth } from '../context/AuthContext'
 import {
   clearPostLoginIntent,
@@ -34,6 +35,7 @@ export default function ReflectionWall() {
   const [sort, setSort] = useState('latest')
   const [modalReflection, setModalReflection] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [discussionReflection, setDiscussionReflection] = useState(null)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isGuestMode, setIsGuestMode] = useState(false)
   const [showGuestThanks, setShowGuestThanks] = useState(false)
@@ -128,6 +130,8 @@ export default function ReflectionWall() {
       .filter((item) => !normalizedQuery || [item.content, item.displayName, item.song?.title].some((value) => value?.toLowerCase().includes(normalizedQuery)))
       .sort((a, b) => {
         const difference = new Date(b.createdAt) - new Date(a.createdAt)
+        if (sort === 'most_liked') return b.likeCount - a.likeCount || difference
+        if (sort === 'most_discussed') return b.commentCount - a.commentCount || difference
         return sort === 'latest' ? difference : -difference
       })
   }, [query, reflections, songId, sort])
@@ -215,6 +219,17 @@ export default function ReflectionWall() {
     }
   }
 
+  const closeDiscussion = useCallback(() => setDiscussionReflection(null), [])
+
+  function updateDiscussionReflection(nextReflection) {
+    setDiscussionReflection(nextReflection)
+    setReflections((items) => items.map((item) => item.id === nextReflection.id ? nextReflection : item))
+  }
+
+  function loginForDiscussion() {
+    navigate('/login', { state: { from: { pathname: '/reflections' } } })
+  }
+
   return (
     <div className="rw-board-page">
       <section className="rw-heading">
@@ -226,10 +241,11 @@ export default function ReflectionWall() {
 
       {error && <div className="rw-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} type="button">Dismiss</button></div>}
       {isLoading ? <div className="rw-loading" role="status">Loading community memories…</div> : null}
-      {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} reflections={visibleReflections} /> : null}
+      {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} onOpen={setDiscussionReflection} reflections={visibleReflections} /> : null}
       {!isLoading && visibleReflections.length === 0 ? <ReflectionEmptyState filtered={Boolean(query || songId)} onAdd={openCreate} /> : null}
 
       {isModalOpen && <ReflectionModal draft={reflectionDraft} isGuest={isGuestMode} onClose={closeReflectionModal} onDraftChange={updateReflectionDraft} onSave={saveReflection} reflection={modalReflection} songs={songs} user={user} />}
+      {discussionReflection ? <ReflectionDiscussionModal onClose={closeDiscussion} onLogin={loginForDiscussion} onReflectionChange={updateDiscussionReflection} reflection={discussionReflection} token={token} user={user} /> : null}
       {isAuthModalOpen && (
         <AuthRequiredModal
           onCancel={() => { setIsAuthModalOpen(false); clearPostLoginIntent() }}

@@ -5,6 +5,7 @@ import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
 import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle } from '../services/authApi'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
+import { safeReturnPath, storeRegistrationReturn } from '../services/safeReturnPath'
 
 const GOOGLE_SCRIPT = 'https://accounts.google.com/gsi/client'
 const APPLE_SCRIPT = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js'
@@ -34,13 +35,6 @@ function roleDestination(user, activeMode) {
   return '/profile'
 }
 
-function requestedDestination(state) {
-  const from = state?.from
-  if (typeof from === 'string') return from.startsWith('/') ? from : ''
-  if (!from?.pathname?.startsWith('/')) return ''
-  return `${from.pathname}${from.search || ''}${from.hash || ''}`
-}
-
 function validateLogin(email, password) {
   const errors = {}
   if (!EMAIL_PATTERN.test(email)) errors.email = 'Enter a valid email address.'
@@ -66,12 +60,13 @@ export default function Login() {
 
   const completeSignIn = useCallback((data) => {
     const activeMode = signIn(data.user, data.token)
-    const requested = requestedDestination(location.state)
+    const requested = safeReturnPath(location.state?.from)
     const requestedPath = requested.split(/[?#]/, 1)[0]
     const allowedRequested = requested
       && ((data.user.role === 'ADMIN' && requestedPath.startsWith('/admin'))
         || (hasActiveCreatorAccess(data.user) && activeMode === 'creator' && requestedPath.startsWith('/creator'))
         || (data.user.role === 'CREATOR' && ['/profile', '/settings'].some((path) => requestedPath.startsWith(path)))
+        || (['CREATOR', 'REGISTERED'].includes(data.user.role) && requestedPath === '/rhythm-game/claim')
         || (data.user.role === 'REGISTERED' && ['/profile', '/apply/creator', '/settings'].some((path) => requestedPath.startsWith(path))))
     navigate(allowedRequested ? requested : roleDestination(data.user, activeMode), { replace: true })
   }, [location.state, navigate, signIn])
@@ -122,7 +117,8 @@ export default function Login() {
     } catch (nextError) {
       if (nextError.code === 'EMAIL_UNVERIFIED') {
         sessionStorage.setItem('pendingVerificationEmail', normalizedEmail)
-        navigate('/verify-email', { state: { email: normalizedEmail } })
+        const from = storeRegistrationReturn(location.state?.from)
+        navigate('/verify-email', { state: { email: normalizedEmail, from } })
         return
       }
       setError(nextError.status === 403 ? nextError.message : nextError.status === 401 ? 'Email or password is incorrect.' : 'We could not sign you in. Please try again.')
@@ -175,6 +171,6 @@ export default function Login() {
     {config.appleAuthEnabled ? <button className="oauth-provider-button oauth-provider-button--apple" disabled={isSubmitting} onClick={handleAppleSignIn} type="button">Continue with Apple</button> : null}
     <button className="auth-guest-button" disabled={isSubmitting} onClick={continueAsGuest} type="button"><UserRound aria-hidden="true" size={20} />Continue as guest</button>
     <p className="auth-forgot"><Link to="/forgot-password">Forgot password?</Link></p>
-    <p className="auth-switch">New here? <Link to="/register">Create an account</Link></p>
+    <p className="auth-switch">New here? <Link state={{ from: safeReturnPath(location.state?.from) }} to="/register">Create an account</Link></p>
   </form>
 }

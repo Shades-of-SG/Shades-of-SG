@@ -679,7 +679,10 @@ describe('App', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(screen.getAllByRole('heading', { name: 'Playable Published Song' })).toHaveLength(1)
     expect(screen.getAllByAltText('Playable Published Song cover artwork')).toHaveLength(1)
-    expect(screen.getByText('3 difficulties available')).toBeInTheDocument()
+    expect(screen.queryByText('Scores not saved for guests')).not.toBeInTheDocument()
+    expect(screen.getByText('Playing as a guest')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search by song title or artist')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Leaderboard' })).toHaveAttribute('href', '/rhythm-game/leaderboard')
     expect(screen.getByText('1:00')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Play Playable Published Song on Easy difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
     expect(screen.getByRole('link', { name: 'Play Playable Published Song on Medium difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=MEDIUM')
@@ -705,7 +708,8 @@ describe('App', () => {
 
     expect(await screen.findAllByRole('article')).toHaveLength(2)
     expect(screen.getAllByRole('article')[0]).toHaveTextContent('Zulu Beat')
-    expect(screen.getAllByText('1 difficulty available')).toHaveLength(2)
+    expect(screen.queryByText('Scores not saved for guests')).not.toBeInTheDocument()
+    expect(screen.getByText('Playing as a guest')).toBeInTheDocument()
     expect(screen.getByText('1:05')).toBeInTheDocument()
     expect(screen.getByText('2:05')).toBeInTheDocument()
 

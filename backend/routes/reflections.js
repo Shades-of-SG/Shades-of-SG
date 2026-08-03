@@ -1,9 +1,12 @@
 const express = require('express');
 const { Op, Sequelize } = require('sequelize');
 const {
-    AnalyticsEvent, sequelize, ModerationAction, Reflection, Song, User, UserWarning,
+    AnalyticsEvent, sequelize, ModerationAction, Reflection, ReflectionComment,
+    ReflectionLike, Song, User, UserProfile, UserWarning,
 } = require('../models');
 const { optionalAuth, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
+const { createRateLimit } = require('../middleware/rateLimit');
+const { validateCommentContent } = require('../services/commentContentService');
 const { writeAudit } = require('../services/auditService');
 
 const router = express.Router();
@@ -19,6 +22,12 @@ const KNOWN_TAGS = new Map([
 ].map((tag) => [tag.toLowerCase(), tag]));
 const SINGAPORE_OFFSET_MS = 8 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const PUBLIC_SORTS = new Set(['latest', 'oldest', 'most_liked', 'most_discussed']);
+const commentRateLimit = createRateLimit({
+    key: (req) => `reflection-comments:user:${req.authUserRecord.id}`,
+    max: 6,
+    windowMs: 60 * 1000,
+});
 
 function normalizeTags(tags) {
     if (!Array.isArray(tags)) return [];
@@ -36,14 +45,32 @@ function getSubmittedTags(body) {
     return undefined;
 }
 
-function serializeReflection(reflection, currentUserId, { includeSubmissionMetadata = false } = {}) {
+function publicAuthor(user, fallbackName) {
+    if (!user) return null;
+    const profile = user.profile?.get ? user.profile.get({ plain: true }) : user.profile;
+    return {
+        avatarUrl: profile?.avatarUrl || '',
+        displayName: profile?.displayName || user.name || fallbackName || 'Community member',
+        id: user.id,
+    };
+}
+
+function serializeReflection(reflection, currentUserId, {
+    commentCount = 0, includeSubmissionMetadata = false, isLiked = false, likeCount = 0,
+} = {}) {
     const value = reflection.get({ plain: true });
+    const isAnonymous = value.displayMode === 'ANONYMOUS' || !value.displayName;
+    const author = isAnonymous ? null : publicAuthor(value.user, value.displayName);
     const serialized = {
+        author,
+        commentCount,
         id: value.id,
         content: value.content,
-        displayName: value.displayName || 'Anonymous',
+        displayName: isAnonymous ? 'Anonymous' : author?.displayName || value.displayName,
         displayMode: value.displayMode,
-        isAnonymous: value.displayMode === 'ANONYMOUS' || !value.displayName,
+        isAnonymous,
+        isLiked,
+        likeCount,
         isOwner: Boolean(currentUserId && value.userId === currentUserId),
         song: value.song ? { id: value.song.id, title: value.song.title } : null,
         songId: value.songId,
@@ -86,6 +113,7 @@ function serializeModerationReflection(reflection, currentUserId) {
 
 function reflectionIncludes({
     includeModerator = false,
+    publicAuthor: includePublicAuthor = false,
     publishedOnly = false,
     creatorId = null,
 } = {}) {
@@ -98,7 +126,7 @@ function reflectionIncludes({
     const includes = [{
         model: Song,
         as: 'song',
-        attributes: ['id', 'title', 'creatorId'],
+        attributes: ['id', 'title', 'creatorId', 'status'],
         include: [{
             model: User,
             as: 'creator',
@@ -122,18 +150,79 @@ function reflectionIncludes({
             attributes: ['id', 'name', 'email', 'accountStatus'],
             required: false,
         });
+    } else if (includePublicAuthor) {
+        includes.push({
+            model: User,
+            as: 'user',
+            attributes: ['id', 'name'],
+            include: [{
+                model: UserProfile,
+                as: 'profile',
+                attributes: ['avatarUrl', 'displayName'],
+                required: false,
+            }],
+            required: false,
+        });
     }
 
     return includes;
 }
 
-async function findReflection(id, { creatorId = null, includeModerator = false, transaction } = {}) {
+async function findReflection(id, {
+    creatorId = null, includeModerator = false, includePublicAuthor = false, transaction,
+} = {}) {
     if (!UUID_PATTERN.test(id)) return null;
 
     return Reflection.findByPk(id, {
-        include: reflectionIncludes({ creatorId, includeModerator }),
+        include: reflectionIncludes({ creatorId, includeModerator, publicAuthor: includePublicAuthor }),
         transaction,
     });
+}
+
+async function findPublicReflection(id) {
+    const reflection = await findReflection(id, { includePublicAuthor: true });
+    if (!reflection || reflection.status !== 'APPROVED' || reflection.song?.status !== 'PUBLISHED') return null;
+    return reflection;
+}
+
+function serializeComment(comment, currentUser, reflectionOwnerId) {
+    const value = comment.get({ plain: true });
+    return {
+        author: publicAuthor(value.user),
+        canDelete: Boolean(currentUser && (
+            currentUser.id === value.userId
+            || currentUser.id === reflectionOwnerId
+            || currentUser.role === 'ADMIN'
+        )),
+        content: value.content,
+        createdAt: value.createdAt,
+        id: value.id,
+    };
+}
+
+async function discussionState(reflectionIds, currentUserId) {
+    if (!reflectionIds.length) return { commentCounts: new Map(), liked: new Set(), likeCounts: new Map() };
+    const [commentRows, likeRows, userLikes] = await Promise.all([
+        ReflectionComment.findAll({
+            attributes: ['reflectionId', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
+            group: ['reflectionId'], raw: true,
+            where: { reflectionId: { [Op.in]: reflectionIds }, status: 'VISIBLE' },
+        }),
+        ReflectionLike.findAll({
+            attributes: ['reflectionId', [Sequelize.fn('COUNT', Sequelize.col('user_id')), 'count']],
+            group: ['reflectionId'], raw: true,
+            where: { reflectionId: { [Op.in]: reflectionIds } },
+        }),
+        currentUserId ? ReflectionLike.findAll({
+            attributes: ['reflectionId'], raw: true,
+            where: { reflectionId: { [Op.in]: reflectionIds }, userId: currentUserId },
+        }) : Promise.resolve([]),
+    ]);
+    return {
+        commentCounts: new Map(commentRows.map((row) => [row.reflectionId, Number(row.count)])),
+        liked: new Set(userLikes.map((row) => row.reflectionId)),
+        likeCounts: new Map(likeRows.map((row) => [row.reflectionId, Number(row.count)])),
+    };
 }
 
 async function validateInput(body) {
@@ -299,6 +388,11 @@ router.get('/', optionalAuth, async (req, res, next) => {
         const where = { status: 'APPROVED' };
         const search = req.query.search?.trim();
         const songId = req.query.songId?.trim();
+        const sort = String(req.query.sort || 'latest').toLowerCase();
+
+        if (!PUBLIC_SORTS.has(sort)) {
+            return res.status(400).json({ message: 'Sort must be latest, oldest, most_liked, or most_discussed.' });
+        }
 
         if (songId) {
             if (!UUID_PATTERN.test(songId)) return res.status(400).json({ message: 'songId must be a valid published song id.' });
@@ -310,12 +404,27 @@ router.get('/', optionalAuth, async (req, res, next) => {
 
         const reflections = await Reflection.findAll({
             where,
-            include: reflectionIncludes({ publishedOnly: true }),
-            order: [['createdAt', req.query.sort === 'oldest' ? 'ASC' : 'DESC']],
+            include: reflectionIncludes({ publicAuthor: true, publishedOnly: true }),
+            order: [['createdAt', sort === 'oldest' ? 'ASC' : 'DESC'], ['id', 'ASC']],
         });
 
+        const state = await discussionState(reflections.map((item) => item.id), req.authUser?.id);
+        const serialized = reflections.map((item) => serializeReflection(item, req.authUser?.id, {
+            commentCount: state.commentCounts.get(item.id) || 0,
+            isLiked: state.liked.has(item.id),
+            likeCount: state.likeCounts.get(item.id) || 0,
+        }));
+        if (sort === 'most_liked' || sort === 'most_discussed') {
+            const countKey = sort === 'most_liked' ? 'likeCount' : 'commentCount';
+            serialized.sort((left, right) => (
+                right[countKey] - left[countKey]
+                || new Date(right.createdAt) - new Date(left.createdAt)
+                || left.id.localeCompare(right.id)
+            ));
+        }
+
         return res.json({
-            reflections: reflections.map((item) => serializeReflection(item, req.authUser?.id)),
+            reflections: serialized,
         });
     } catch (error) {
         return next(error);
@@ -362,6 +471,104 @@ router.post('/', optionalAuth, async (req, res, next) => {
     } catch (error) {
         return next(error);
     }
+});
+
+router.get('/:reflectionId/comments', optionalAuth, async (req, res, next) => {
+    try {
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const comments = await ReflectionComment.findAll({
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['id', 'name'],
+                include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
+                required: true,
+            }],
+            order: [['createdAt', 'ASC'], ['id', 'ASC']],
+            where: { reflectionId: reflection.id, status: 'VISIBLE' },
+        });
+        return res.json({
+            comments: comments.map((comment) => serializeComment(comment, req.authUserRecord, reflection.userId)),
+        });
+    } catch (error) { return next(error); }
+});
+
+router.post('/:reflectionId/comments', requireAuth, commentRateLimit, async (req, res, next) => {
+    try {
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const parsed = validateCommentContent(req.body?.content);
+        if (parsed.error) return res.status(400).json({ message: parsed.error });
+        const created = await ReflectionComment.create({
+            content: parsed.content,
+            reflectionId: reflection.id,
+            status: 'VISIBLE',
+            userId: req.authUserRecord.id,
+        });
+        const comment = await ReflectionComment.findByPk(created.id, {
+            include: [{
+                model: User,
+                as: 'user',
+                attributes: ['id', 'name'],
+                include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
+            }],
+        });
+        return res.status(201).json({
+            comment: serializeComment(comment, req.authUserRecord, reflection.userId),
+            commentCount: await ReflectionComment.count({ where: { reflectionId: reflection.id, status: 'VISIBLE' } }),
+        });
+    } catch (error) { return next(error); }
+});
+
+router.delete('/:reflectionId/comments/:commentId', requireAuth, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
+            return res.status(404).json({ message: 'Comment not found.' });
+        }
+        const comment = await ReflectionComment.findOne({
+            where: { id: req.params.commentId, reflectionId: req.params.reflectionId, status: 'VISIBLE' },
+        });
+        if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        const reflection = await findReflection(comment.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Comment not found.' });
+        const currentUser = req.authUserRecord;
+        const canDelete = currentUser.id === comment.userId
+            || currentUser.id === reflection.userId
+            || currentUser.role === 'ADMIN';
+        if (!canDelete) return res.status(403).json({ message: 'You do not have permission to remove this comment.' });
+        await comment.destroy();
+        return res.status(204).end();
+    } catch (error) { return next(error); }
+});
+
+router.post('/:reflectionId/like', requireAuth, async (req, res, next) => {
+    try {
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        await ReflectionLike.findOrCreate({
+            defaults: { reflectionId: reflection.id, userId: req.authUserRecord.id },
+            where: { reflectionId: reflection.id, userId: req.authUserRecord.id },
+        });
+        return res.json({
+            likeCount: await ReflectionLike.count({ where: { reflectionId: reflection.id } }),
+            liked: true,
+        });
+    } catch (error) { return next(error); }
+});
+
+router.delete('/:reflectionId/like', requireAuth, async (req, res, next) => {
+    try {
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        await ReflectionLike.destroy({
+            where: { reflectionId: reflection.id, userId: req.authUserRecord.id },
+        });
+        return res.json({
+            likeCount: await ReflectionLike.count({ where: { reflectionId: reflection.id } }),
+            liked: false,
+        });
+    } catch (error) { return next(error); }
 });
 
 router.put('/:id/moderation', requireCreatorOrAdmin, async (req, res, next) => {
