@@ -33,6 +33,7 @@ function renderLogin(fetchImplementation, initialEntry = '/login') {
             <Route element={<div>Admin destination</div>} path="/admin" />
             <Route element={<div>Creator destination</div>} path="/creator/dashboard" />
             <Route element={<div>Profile destination</div>} path="/profile" />
+            <Route element={<div>Claim destination</div>} path="/rhythm-game/claim" />
             <Route element={<LocationProbe label="Settings destination" />} path="/settings" />
             <Route element={<LocationProbe label="Profile settings destination" />} path="/settings/profile" />
             <Route element={<div>Public destination</div>} path="/" />
@@ -154,6 +155,24 @@ describe('authentication onboarding pages', () => {
     expect(await screen.findByText('Profile settings destination: /settings/profile')).toBeInTheDocument()
   })
 
+  it('returns a registered player to the score claim and rejects an external return URL', async () => {
+    const fetchMock = vi.fn((url) => String(url).endsWith('/auth/config')
+      ? response({ appleAuthEnabled: false })
+      : response({ token: 'user-token', user: { email: 'listener@example.com', id: 'user-1', role: 'REGISTERED' } }))
+    renderLogin(fetchMock, { pathname: '/login', state: { from: { pathname: '/rhythm-game/claim' } } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'listener@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText('Claim destination')).toBeInTheDocument()
+
+    cleanup(); localStorage.clear()
+    renderLogin(fetchMock, { pathname: '/login', state: { from: '//evil.example/claim' } })
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'listener@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    expect(await screen.findByText('Profile destination')).toBeInTheDocument()
+  })
+
   it('redirects unverified accounts and shows restricted-account errors', async () => {
     const unverified = vi.fn((url) => String(url).endsWith('/auth/config')
       ? response({ appleAuthEnabled: false })
@@ -240,7 +259,7 @@ describe('authentication onboarding pages', () => {
     const fetchMock = vi.fn(() => response({ message: 'Verification code sent.' }, { status: 201 }))
     vi.stubGlobal('fetch', fetchMock)
     render(
-      <MemoryRouter initialEntries={['/register']}>
+      <MemoryRouter initialEntries={[{ pathname: '/register', state: { from: { pathname: '/rhythm-game/claim' } } }]}>
         <Routes>
           <Route element={<Register />} path="/register" />
           <Route element={<div>Verification destination</div>} path="/verify-email" />
@@ -268,6 +287,7 @@ describe('authentication onboarding pages', () => {
     })
     expect(values).not.toHaveProperty('role')
     expect(sessionStorage.getItem('pendingVerificationEmail')).toBe('mei@example.com')
+    expect(sessionStorage.getItem('shades-of-sg:registration-return')).toBe('/rhythm-game/claim')
   })
 
   it('shows field-specific registration errors and independent password controls', () => {
@@ -347,6 +367,30 @@ describe('authentication onboarding pages', () => {
     expect(localStorage.getItem('authToken')).toBe('verified-token')
     expect(JSON.parse(localStorage.getItem('authUser'))).toMatchObject({ emailVerified: true, role: 'REGISTERED' })
     expect(sessionStorage.getItem('pendingVerificationEmail')).toBeNull()
+  })
+
+  it('returns a newly verified account to its pending score claim', async () => {
+    sessionStorage.setItem('pendingVerificationEmail', 'verified@example.com')
+    sessionStorage.setItem('shades-of-sg:registration-return', '/rhythm-game/claim')
+    vi.stubGlobal('fetch', vi.fn((url) => String(url).endsWith('/auth/verify-email')
+      ? response({ token: 'verified-token', user: { email: 'verified@example.com', id: 'verified-1', role: 'REGISTERED' } })
+      : response({ profile: { displayName: 'Verified User' } })))
+    render(
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/verify-email']}>
+          <Routes>
+            <Route element={<OtpVerification />} path="/verify-email" />
+            <Route element={<div>Claim destination</div>} path="/rhythm-game/claim" />
+          </Routes>
+        </MemoryRouter>
+      </AuthProvider>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Verification code'), { target: { value: '246810' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Verify email' }))
+
+    expect(await screen.findByText('Claim destination')).toBeInTheDocument()
+    expect(sessionStorage.getItem('shades-of-sg:registration-return')).toBe('/rhythm-game/claim')
   })
 
   it('submits registration once while a request is in flight', async () => {

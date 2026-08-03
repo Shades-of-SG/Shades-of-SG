@@ -154,10 +154,23 @@ async function ensureGameScoreSchema(sequelize) {
         });
     }
 
+    if (!columns.claim_id) {
+        await queryInterface.addColumn('game_scores', 'claim_id', {
+            allowNull: true,
+            type: DataTypes.UUID,
+        });
+    }
+
     const indexes = await queryInterface.showIndex('game_scores');
     if (!indexes.some((index) => index.name === 'game_scores_user_created_at_idx')) {
         await queryInterface.addIndex('game_scores', ['user_id', 'created_at'], {
             name: 'game_scores_user_created_at_idx',
+        });
+    }
+    if (!indexes.some((index) => index.name === 'game_scores_claim_id_unique_idx')) {
+        await queryInterface.addIndex('game_scores', ['claim_id'], {
+            name: 'game_scores_claim_id_unique_idx',
+            unique: true,
         });
     }
 }

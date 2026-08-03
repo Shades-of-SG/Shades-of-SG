@@ -43,6 +43,7 @@ function renderGame(entry = '/game/song-1') {
 describe('RhythmGame controls and lifecycle', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
     mocks.fetchSongDetails.mockResolvedValue(song)
     mocks.loadBeatmap.mockImplementation((_song, difficulty, options) => Promise.resolve(chart(difficulty, options?.preview ? 'DRAFT' : 'PUBLISHED')))
     mocks.publishBeatmap.mockResolvedValue({})
@@ -206,6 +207,10 @@ describe('RhythmGame controls and lifecycle', () => {
       await Promise.resolve()
     })
     expect(screen.getByText('Results screen')).toBeInTheDocument()
+    expect(localStorage.getItem('rhythmResult:song-1')).toBeNull()
+    expect(JSON.parse(sessionStorage.getItem('shades-of-sg:pending-rhythm-score-claim'))).toMatchObject({
+      difficulty: 'MEDIUM', songId: 'song-1', totalNotes: 1,
+    })
   })
 
   it('uses the requested stored difficulty with authenticated creator preview access', async () => {
@@ -239,10 +244,13 @@ describe('RhythmGame controls and lifecycle', () => {
   it('allows a creator to preview and save a temporary DRAFT offset', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', role: 'CREATOR' }))
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ profile: { displayName: 'Creator', userId: 'creator-1' } }), ok: true,
+    })))
     renderGame('/game/song-1?difficulty=MEDIUM&preview=1')
     const slider = await screen.findByLabelText('Draft preview timing offset')
     fireEvent.change(slider, { target: { value: '100' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Offset' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Save Offset' }))
     await waitFor(() => expect(mocks.saveBeatmapSettings).toHaveBeenCalledWith('song-1', 'medium', 100, 'creator-token'))
   })
 })

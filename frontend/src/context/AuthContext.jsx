@@ -191,6 +191,7 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     activeMode,
+    authLoading: false,
     user,
     token,
     isAuthenticated: Boolean(token && user),
