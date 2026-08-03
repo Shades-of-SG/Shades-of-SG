@@ -27,6 +27,7 @@ const AuthOtp = require('./AuthOtp');
 const AuthIdentity = require('./AuthIdentity');
 const CreatorProfile = require('./CreatorProfile');
 const UserProfile = require('./UserProfile');
+const InstrumentChallengeProgress = require('./InstrumentChallengeProgress');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -62,6 +63,9 @@ Reflection.belongsTo(User, { foreignKey: 'moderatedBy', as: 'moderator' });
 
 User.hasMany(Badge, { foreignKey: 'userId', as: 'badges' });
 Badge.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(InstrumentChallengeProgress, { foreignKey: 'userId', as: 'instrumentChallengeProgress' });
+InstrumentChallengeProgress.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 Song.hasMany(TriviaQuestion, { foreignKey: 'songId', as: 'triviaQuestions' });
 TriviaQuestion.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
@@ -176,4 +180,5 @@ module.exports = {
     AuthIdentity,
     CreatorProfile,
     UserProfile,
+    InstrumentChallengeProgress,
 };

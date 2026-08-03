@@ -58,7 +58,10 @@ test('authenticated profile returns shared identity and official best leaderboar
         difficulty: 'EASY', position: 3, score: 1000, songId: song.id,
     });
     expect(response.body.rhythm.recentScores).toHaveLength(2);
-    expect(response.body.badges).toHaveLength(1);
+    // Visiting the profile also credits today's login streak and evaluates badge criteria,
+    // so the listener's pre-existing reflections newly earn "Day One" and "Thought Starter"
+    // alongside the fixture "Memory Keeper" badge.
+    expect(response.body.badges.map((badge) => badge.name).sort()).toEqual(['Day One', 'Memory Keeper', 'Thought Starter']);
     expect(response.body.reflections).toHaveLength(3);
 });
 

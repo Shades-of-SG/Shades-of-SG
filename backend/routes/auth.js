@@ -10,6 +10,7 @@ const {
     verifyPassword, verifyScopedToken,
 } = require('../services/authService');
 const { consumeOtp, invalidateOtps, issueOtp, normalizeEmail } = require('../services/otpService');
+const { recordDailyActivity } = require('../services/streakService');
 const {
     createOauthChallenge, finishOauthSignIn, publicOauthConfig,
     verifyAppleCredential, verifyGoogleCredential,
@@ -199,6 +200,7 @@ router.post('/login', loginLimit, async (req, res, next) => {
         if (!user || !verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Invalid email or password.' });
         if (user.accountStatus !== 'ACTIVE') return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
         if (user.emailVerificationRequired) return res.status(403).json({ code: 'EMAIL_UNVERIFIED', message: 'Verify your email before signing in.' });
+        await recordDailyActivity(user);
         return res.json({ token: createToken(user), user: serializeUser(user) });
     } catch (error) { return next(error); }
 });

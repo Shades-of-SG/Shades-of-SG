@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Badge = sequelize.define('Badge', {
+const InstrumentChallengeProgress = sequelize.define('InstrumentChallengeProgress', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -12,26 +12,23 @@ const Badge = sequelize.define('Badge', {
         allowNull: false,
         field: 'user_id',
     },
-    name: {
+    challengeId: {
         type: DataTypes.STRING,
         allowNull: false,
+        field: 'challenge_id',
     },
-    description: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-    },
-    earnedAt: {
+    completedAt: {
         type: DataTypes.DATE,
         allowNull: false,
         defaultValue: DataTypes.NOW,
-        field: 'earned_at',
+        field: 'completed_at',
     },
 }, {
-    tableName: 'badges',
+    tableName: 'instrument_challenge_progress',
     underscored: true,
     indexes: [
-        { unique: true, fields: ['user_id', 'name'] },
+        { unique: true, fields: ['user_id', 'challenge_id'] },
     ],
 });
 
-module.exports = Badge;
+module.exports = InstrumentChallengeProgress;

@@ -44,6 +44,9 @@ const User = sequelize.define('User', {
     emailVerifiedAt: { type: DataTypes.DATE, allowNull: true, field: 'email_verified_at' },
     emailVerificationRequired: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'email_verification_required' },
     authVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'auth_version' },
+    lastActiveDate: { type: DataTypes.DATEONLY, allowNull: true, field: 'last_active_date' },
+    currentLoginStreak: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'current_login_streak' },
+    longestLoginStreak: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'longest_login_streak' },
 }, {
     tableName: 'users',
     underscored: true,

@@ -5,6 +5,7 @@ const {
 } = require('../models');
 const { optionalAuth, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
 const { writeAudit } = require('../services/auditService');
+const { evaluateAndAward } = require('../services/badgeAwardService');
 
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -354,6 +355,8 @@ router.post('/', optionalAuth, async (req, res, next) => {
             }, { transaction });
             return createdReflection;
         });
+
+        if (user) await evaluateAndAward(user.id);
 
         const created = await findReflection(reflection.id);
         return res.status(201).json({
