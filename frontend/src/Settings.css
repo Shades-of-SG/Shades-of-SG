@@ -1,0 +1,65 @@
+.account-settings { color:#eff2ff; margin-inline:auto; max-width:1280px; padding:clamp(34px,5vw,72px) clamp(18px,4vw,58px) 90px; width:100%; }
+.account-settings__hero { background:linear-gradient(125deg,#18113d,#24134a 58%,#321547); border:1px solid rgba(196,181,253,.24); border-radius:24px; box-shadow:0 22px 55px rgba(5,6,25,.3); padding:clamp(28px,5vw,54px); }
+.account-settings__hero p { color:#f0a6d4; font-size:.75rem; font-weight:900; letter-spacing:.14em; margin:0 0 8px; text-transform:uppercase; }
+.account-settings__hero h1 { font-family:Georgia,serif; font-size:clamp(2.6rem,5vw,4.4rem); margin:0 0 12px; }
+.account-settings__hero span { color:#b8c2dc; font-size:clamp(.95rem,2vw,1.08rem); }
+.account-settings form { display:grid; gap:22px; margin-top:28px; }
+.settings-nav { display:grid; gap:10px; grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:24px; }
+.settings-nav__link { align-items:center; background:#111936; border:1px solid rgba(167,139,250,.22); border-radius:12px; color:#b8c2dc; display:flex; font-size:.82rem; font-weight:850; gap:9px; justify-content:center; min-height:48px; padding:10px; text-align:center; text-decoration:none; }
+.settings-nav__link svg { height:18px; width:18px; }
+.settings-nav__link:hover,.settings-nav__link.is-active { background:linear-gradient(135deg,rgba(168,85,247,.38),rgba(124,58,237,.28)); border-color:#c084fc; color:#fff; }
+.account-settings__section { background:#111936; border:1px solid rgba(167,139,250,.22); border-radius:18px; scroll-margin-top:110px; padding:clamp(20px,3vw,30px); }
+.account-settings__heading { align-items:flex-start; border-bottom:1px solid rgba(255,255,255,.08); display:flex; gap:14px; margin-bottom:24px; padding-bottom:18px; }
+.account-settings__heading > svg { background:rgba(167,139,250,.15); border-radius:10px; color:#d8b4fe; height:42px; padding:10px; width:42px; }
+.account-settings__heading h2 { font-family:Georgia,serif; font-size:1.55rem; margin:0 0 4px; }
+.account-settings__heading p { color:#9daaca; font-size:.82rem; margin:0; }
+.account-settings-grid { display:grid; gap:20px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.account-settings-grid label { color:#f8fafc; display:grid; font-size:.82rem; font-weight:850; gap:8px; }
+.account-settings-grid label.is-wide { grid-column:1/-1; }
+.account-settings-grid label > span { align-items:center; display:flex; gap:6px; }
+.account-settings-grid label i { color:#8f9bb8; font-size:.68rem; font-style:normal; font-weight:600; }
+.account-settings-grid label svg { height:16px; width:16px; }
+.account-settings input,.account-settings textarea,.account-settings select { background:#0b1129; border:1px solid rgba(196,181,253,.22); border-radius:10px; color:#f8fafc; font:inherit; min-height:46px; padding:11px 13px; resize:vertical; }
+.account-settings input:focus,.account-settings textarea:focus,.account-settings select:focus { border-color:#c084fc; outline:3px solid rgba(192,132,252,.16); }
+.account-settings-grid label > b { color:#8f9bb8; font-size:.69rem; font-weight:600; justify-self:end; }
+.account-settings-grid label > small,.account-settings-avatar em { color:#fda4af; font-size:.72rem; font-style:normal; }
+.account-settings-avatar { align-items:center; display:flex; gap:24px; margin-bottom:28px; }
+.account-settings-avatar > div:first-child { align-items:center; background:linear-gradient(145deg,#8b5cf6,#ec4899); border:5px solid #f8fafc; border-radius:50%; display:flex; flex:0 0 auto; font-family:Georgia,serif; font-size:2.2rem; height:112px; justify-content:center; overflow:hidden; width:112px; }
+.account-settings-avatar img { height:100%; object-fit:cover; width:100%; }
+.account-settings-avatar > div:last-child { align-items:center; display:flex; flex-wrap:wrap; gap:9px; }
+.account-settings-avatar small { color:#8f9bb8; flex-basis:100%; }
+.account-settings button,.account-settings-account-row a { align-items:center; background:linear-gradient(135deg,#a855f7,#7c3aed); border:1px solid transparent; border-radius:10px; color:white; cursor:pointer; display:inline-flex; font:inherit; font-size:.8rem; font-weight:900; gap:7px; justify-content:center; min-height:42px; padding:9px 15px; text-decoration:none; }
+.account-settings button.is-secondary { background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.16); }
+.account-settings button:disabled { cursor:not-allowed; opacity:.45; }
+.account-settings button svg { height:16px; width:16px; }
+.account-settings-account-row { align-items:center; background:#0b1129; border-radius:12px; display:flex; justify-content:space-between; padding:18px; }
+.account-settings-account-row div { display:grid; gap:5px; }
+.account-settings-account-row span { color:#aab5d0; font-size:.85rem; }
+.account-settings-account-row small { color:#8f9bb8; font-size:.72rem; max-width:650px; }
+.interest-tags { border:0; margin:26px 0 0; padding:0; }
+.interest-tags legend { color:#f8fafc; font-size:.85rem; font-weight:850; padding:0; }
+.interest-tags legend i { color:#8f9bb8; font-size:.68rem; font-style:normal; font-weight:600; }
+.interest-tags > p { color:#8f9bb8; font-size:.74rem; margin:6px 0 14px; }
+.interest-tags__groups { display:grid; gap:9px; }
+.interest-tags details { background:#0b1129; border:1px solid rgba(196,181,253,.12); border-radius:12px; padding:13px 15px; }
+.interest-tags summary { align-items:center; cursor:pointer; display:flex; font-size:.78rem; font-weight:850; justify-content:space-between; list-style:none; }
+.interest-tags summary::-webkit-details-marker { display:none; }
+.interest-tags summary svg { height:17px; transition:transform .2s ease; width:17px; }
+.interest-tags details[open] summary svg { transform:rotate(180deg); }
+.interest-tags__choices { display:flex; flex-wrap:wrap; gap:8px; padding-top:12px; }
+.account-settings .interest-tags__choices button { background:rgba(255,255,255,.04); border-color:rgba(196,181,253,.2); color:#cbd5e1; min-height:34px; padding:6px 11px; }
+.account-settings .interest-tags__choices button.is-selected { background:linear-gradient(135deg,#a855f7,#7c3aed); border-color:#d8b4fe; color:#fff; }
+.interest-tags > small { color:#fda4af; display:block; font-size:.72rem; margin-top:9px; }
+.account-settings-toggle-list { display:grid; gap:10px; }
+.account-settings-toggle { align-items:center; background:#0b1129; border:1px solid rgba(196,181,253,.12); border-radius:12px; display:flex; gap:20px; justify-content:space-between; margin-top:15px; padding:15px 17px; }
+.account-settings-toggle span { display:grid; gap:4px; }
+.account-settings-toggle small { color:#93a1c2; }
+.account-settings-toggle input { accent-color:#a855f7; min-height:auto; width:20px; }
+.account-settings__privacy-note { align-items:center; color:#93a1c2; display:flex; font-size:.75rem; gap:8px; margin:18px 0 0; }
+.account-settings__privacy-note svg { height:16px; width:16px; }
+.account-settings__actions { background:rgba(7,11,32,.94); border:1px solid rgba(196,181,253,.2); border-radius:14px; bottom:14px; display:flex; gap:10px; justify-content:flex-end; padding:13px; position:sticky; z-index:5; }
+.account-settings__message { background:rgba(82,55,138,.38); border:1px solid rgba(196,181,253,.28); border-radius:11px; padding:12px 15px; }
+.account-settings-loading { align-items:center; background:#080d22; color:#e9e7ff; display:flex; justify-content:center; min-height:65vh; padding:30px; }
+html[data-user-font-size='small'] { font-size:15px; } html[data-user-font-size='large'] { font-size:17px; }
+.user-prefers-reduced-motion *,.user-prefers-reduced-motion *::before,.user-prefers-reduced-motion *::after { animation-duration:.01ms!important; scroll-behavior:auto!important; transition-duration:.01ms!important; }
+@media(max-width:700px){.settings-nav{display:flex;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x proximity}.settings-nav__link{flex:0 0 min(76vw,240px);scroll-snap-align:start}.account-settings-grid{grid-template-columns:1fr}.account-settings-grid label.is-wide{grid-column:auto}.account-settings-avatar{align-items:flex-start;flex-direction:column}.account-settings-account-row{align-items:flex-start;flex-direction:column;gap:15px}.account-settings__actions button{flex:1}}

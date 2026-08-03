@@ -4,14 +4,32 @@ import Navbar from '../components/Navbar'
 
 export default function MainLayout({ role = 'guest' }) {
   const { pathname } = useLocation()
+
   const isReflectionWall = pathname === '/reflections'
+  const isProfile = pathname === '/profile'
+  const isPublicCreatorProfile = pathname.startsWith('/creators/')
+  const isPublicUserProfile = pathname.startsWith('/users/')
+  const isSongsLibrary = pathname === '/songs'
+  const isAccountSettings = pathname === '/settings'
 
   return (
     <div className="app-shell public-shell">
       <Navbar role={role} />
-      <main className={`site-main${isReflectionWall ? ' site-main--wide' : ''}`}>
+
+      <main
+        className={`site-main${
+          isReflectionWall || isProfile || isPublicCreatorProfile || isPublicUserProfile
+            ? ' site-main--wide'
+            : ''
+        }${
+          isSongsLibrary ? ' site-main--songs' : ''
+        }${
+          isAccountSettings ? ' site-main--account' : ''
+        }`}
+      >
         <Outlet />
       </main>
+
       <Footer />
     </div>
   )

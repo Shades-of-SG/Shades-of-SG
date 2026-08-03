@@ -2,21 +2,102 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Maximize2, Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { DIFFICULTIES, loadBeatmap } from '../game/beatmapLoader'
+import { getHoldRenderGeometry } from '../game/rhythmRenderer'
 import { createResult, storeResult } from '../game/results'
-import { drawGame, RHYTHM_LANES as LANES } from '../game/rhythmRenderer'
 import { fetchSongDetails } from '../game/songDetailsApi'
 import { useAuth } from '../context/AuthContext'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import { publishBeatmap, saveBeatmapSettings } from '../services/beatmapService'
+import { trackAnalyticsEvent } from '../services/analyticsService'
 import { applyJudgement, calculateWeightedAccuracy, completeHold, createStats } from '../utils/rhythmScoring'
-import { getSongTimeMs, getTimingJudgement, isMissed, JUDGEMENT_WINDOWS } from '../utils/rhythmTiming'
+import { getNoteProgress, getSongTimeMs, getTimingJudgement, isMissed, JUDGEMENT_WINDOWS } from '../utils/rhythmTiming'
+
+const LANES = [
+  { key: 'd', label: 'D', color: '#ff4d8d' },
+  { key: 'f', label: 'F', color: '#f59e0b' },
+  { key: 'j', label: 'J', color: '#a855f7' },
+  { key: 'k', label: 'K', color: '#38bdf8' },
+]
+const HIT_LINE_RATIO = 0.84
 const BACKGROUND_MODE_KEY = 'rhythmBackgroundMode'
+
+function resizeCanvas(canvas) {
+  const parent = canvas.parentElement
+  const width = parent.clientWidth
+  const height = parent.clientHeight
+  const scale = window.devicePixelRatio || 1
+  canvas.width = Math.floor(width * scale)
+  canvas.height = Math.floor(height * scale)
+  canvas.style.width = `${width}px`
+  canvas.style.height = `${height}px`
+  const context = canvas.getContext('2d')
+  context.setTransform(scale, 0, 0, scale, 0, 0)
+  return { context, height, width }
+}
+
+function drawGame(canvas, notes, songTimeMs, difficulty, pressedLanes, noteSpeed = 1) {
+  if (!canvas) return
+  const { context, height, width } = resizeCanvas(canvas)
+  const laneWidth = width / 4
+  const hitLineY = height * HIT_LINE_RATIO
+  context.clearRect(0, 0, width, height)
+  context.fillStyle = 'rgba(5, 4, 18, 0.8)'
+  context.fillRect(0, 0, width, height)
+
+  LANES.forEach((lane, index) => {
+    const x = index * laneWidth
+    context.fillStyle = pressedLanes.has(index) ? `${lane.color}2c` : index % 2 ? 'rgba(20,12,35,.48)' : 'rgba(7,8,24,.48)'
+    context.fillRect(x, 0, laneWidth, height)
+    context.strokeStyle = 'rgba(255,255,255,.14)'
+    context.strokeRect(x, 0, laneWidth, height)
+    context.fillStyle = pressedLanes.has(index) ? lane.color : 'rgba(255,255,255,.14)'
+    context.shadowBlur = pressedLanes.has(index) ? 22 : 0
+    context.shadowColor = lane.color
+    context.fillRect(x + 9, hitLineY - 8, laneWidth - 18, 58)
+    context.shadowBlur = 0
+    context.fillStyle = '#fff'
+    context.font = '900 24px Inter, sans-serif'
+    context.textAlign = 'center'
+    context.fillText(lane.label, x + laneWidth / 2, hitLineY + 29)
+  })
+
+  for (const note of notes) {
+    if (!['pending', 'holding'].includes(note.status)) continue
+    const progress = getNoteProgress(note.startMs, songTimeMs, difficulty, noteSpeed)
+    if (note.status !== 'holding' && (progress < -0.1 || progress > 1.22)) continue
+    const lane = LANES[note.lane]
+    const x = note.lane * laneWidth + laneWidth * 0.1
+    const noteWidth = laneWidth * 0.8
+    let headY = progress * hitLineY
+    if (note.type === 'hold') {
+      const geometry = getHoldRenderGeometry(note, songTimeMs, difficulty, noteSpeed, hitLineY)
+      headY = geometry.headY
+      context.fillStyle = `${lane.color}72`
+      context.fillRect(x + noteWidth * 0.22, geometry.top, noteWidth * 0.56, geometry.bodyHeight)
+      context.strokeStyle = `${lane.color}dd`
+      context.lineWidth = 2
+      context.strokeRect(x + noteWidth * 0.22, geometry.top, noteWidth * 0.56, geometry.bodyHeight)
+      context.fillStyle = lane.color
+      context.fillRect(x, geometry.tailY - 7, noteWidth, 14)
+    }
+    const gradient = context.createLinearGradient(x, headY, x + noteWidth, headY)
+    gradient.addColorStop(0, '#fff')
+    gradient.addColorStop(0.2, lane.color)
+    gradient.addColorStop(1, lane.color)
+    context.fillStyle = gradient
+    context.shadowBlur = note.status === 'holding' ? 30 : 18
+    context.shadowColor = lane.color
+    context.fillRect(x, headY - 11, noteWidth, 22)
+    context.shadowBlur = 0
+  }
+}
 
 export default function RhythmGame() {
   const { songId } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { token, user } = useAuth()
-  const preview = searchParams.get('preview') === '1' && user?.role === 'CREATOR' && Boolean(token)
+  const preview = searchParams.get('preview') === '1' && hasActiveCreatorAccess(user) && Boolean(token)
   const requestedDifficulty = String(searchParams.get('difficulty') || '').toLowerCase()
   const canvasRef = useRef(null)
   const audioRef = useRef(null)
@@ -146,9 +227,12 @@ export default function RhythmGame() {
       earlyReleases: finalStats.earlyReleases, processedNotes: finalStats.processed, preview, songId, totalNotes,
     })
     if (!preview) storeResult(result)
+    if (!preview) trackAnalyticsEvent('RHYTHM_GAME_COMPLETED', {
+      metadata: { accuracy: finalAccuracy, difficulty, score: finalStats.score }, songId,
+    }, token).catch(() => {})
     setPhase('finished')
     navigate(`/game/${songId}/results`, { replace: true, state: { result } })
-  }, [difficulty, navigate, preview, songId, totalNotes])
+  }, [difficulty, navigate, preview, songId, token, totalNotes])
 
   const finishAtAudioEnd = useCallback(() => {
     notesRef.current = notesRef.current.map((note) => {
@@ -224,13 +308,13 @@ export default function RhythmGame() {
           syncStats(applyJudgement(statsRef.current, 'MISS'))
           showJudgement('MISS')
           changed = true
-        } else if (note.status === 'holding' && now - note.endMs > JUDGEMENT_WINDOWS.BAD) {
+        } else if (note.status === 'holding' && now >= note.endMs) {
           const hold = activeHoldsRef.current.get(note.lane)
-          const next = completeHold(statsRef.current, { startJudgement: hold?.startJudgement || 'MISS', releaseJudgement: 'MISS', sustainedRatio: 1 })
+          const next = completeHold(statsRef.current, { startJudgement: hold?.startJudgement || 'MISS', releaseJudgement: 'PERFECT', sustainedRatio: 1 })
           syncStats(next)
           activeHoldsRef.current.delete(note.lane)
-          updateNote(note.id, { status: 'missed' })
-          showJudgement('MISS HOLD')
+          updateNote(note.id, { status: 'hit' })
+          showJudgement('HOLD COMPLETE')
           changed = true
         }
       }
@@ -288,12 +372,13 @@ export default function RhythmGame() {
       if (audioRef.current) audioRef.current.muted = false
     }
     resetRun(beatmap)
+    if (!preview) trackAnalyticsEvent('RHYTHM_GAME_STARTED', { metadata: { difficulty }, songId }, token).catch(() => {})
     setPhase('countdown')
     const values = ['3', '2', '1', 'Go']
     setCountdown(values[0])
     values.slice(1).forEach((value, index) => timersRef.current.push(window.setTimeout(() => setCountdown(value), (index + 1) * 700)))
     timersRef.current.push(window.setTimeout(() => { setCountdown(null); startPlayback() }, values.length * 700))
-  }, [beatmap, loadingState, resetRun, startPlayback])
+  }, [beatmap, difficulty, loadingState, preview, resetRun, songId, startPlayback, token])
 
   const requestRestart = useCallback(() => {
     if (phase === 'playing' && !window.confirm('Restart this run? Your current score will be lost.')) return
@@ -384,11 +469,11 @@ export default function RhythmGame() {
         <div className="game-layout">
           <aside className="side-panel stats-panel" aria-label="Game stats">
             <p className="panel-kicker">Live performance</p>
-            <div><span>Hit Rate</span><strong>{accuracy.toFixed(2)}%</strong></div>
-            <div><span>Combo</span><strong>{stats.combo}<small>x</small></strong></div>
-            <div><span>Score</span><strong>{stats.score.toLocaleString()}</strong></div>
-            <div className="mini-stat"><span>Max combo</span><strong>{stats.maxCombo}</strong></div>
-            <div className="mini-stat"><span>Misses</span><strong>{stats.judgements.MISS}</strong></div>
+            <div><span>Hit Rate</span><strong className="rhythm-stat-value">{accuracy.toFixed(2)}%</strong></div>
+            <div><span>Combo</span><strong className="rhythm-stat-value">{stats.combo}<small>x</small></strong></div>
+            <div><span>Score</span><strong className="rhythm-stat-value">{stats.score.toLocaleString()}</strong></div>
+            <div className="mini-stat"><span>Max combo</span><strong className="rhythm-stat-value">{stats.maxCombo}</strong></div>
+            <div className="mini-stat"><span>Misses</span><strong className="rhythm-stat-value">{stats.judgements.MISS}</strong></div>
             <p className="current-summary">{judgement || 'Keep the rhythm'}</p>
           </aside>
           <div className="board-column">

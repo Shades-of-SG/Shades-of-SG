@@ -4,8 +4,17 @@ import { PlayCircle, Square } from 'lucide-react'
 import CustomVideoPlayer from '../components/shared/CustomVideoPlayer'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
+import {
+  enrichInstrumentForPlayback,
+  getSongInstruments,
+  TEMPORARY_SONG_INSTRUMENT_FALLBACKS,
+} from '../data/songExperienceInstrumentFallbacks'
+import { getSongTrivia, TEMPORARY_SONG_TRIVIA_FALLBACKS } from '../data/songExperienceTriviaFallbacks'
 import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
+import { trackAnalyticsEvent } from '../services/analyticsService'
+import { useAuth } from '../context/AuthContext'
+import CreatorNameLink from '../components/CreatorNameLink'
 import './SongExperience.css'
 
 const MOCK_SONG_DATA = {
@@ -17,160 +26,14 @@ const MOCK_SONG_DATA = {
   videoUrl: 'https://res.cloudinary.com/dep1fjics/video/upload/v1783863489/shades-of-sg/compiled-videos/nrpqc4kifmwdirz2h2xe.mp4',
   culturalSummary:
     '"Tomorrow\'s Here Today" is an upbeat, forward-looking anthem released for Singapore\'s National Day Parade in 2016. It embodies a modern, energetic vision of Singapore\'s future, encouraging unity and celebrating the diverse voices that make up the nation\'s fabric. The song resonates with a youthful energy and optimism.',
-  instruments: [
-    {
-      description: 'A bamboo instrument shaken to produce a note, traditionally played together in ensembles where each person holds just one pitch.',
-      envelope: 'sustained',
-      facts: {
-        contribution: "A symbol of teamwork and harmony within Singapore's Malay community.",
-        historicalFact: 'In 2010, UNESCO recognised the angklung as an Intangible Cultural Heritage of Humanity.',
-        origin: 'Rooted in Malay and Indonesian-Malay musical traditions of Southeast Asia.',
-        role: 'Each angklung produces one note; players work together to create a melody.',
-        whenPlayed: 'Featured in school performances, cultural festivals, and community events.',
-      },
-      icon: '🎋',
-      id: 'angklung',
-      melody: ['C4', 'D4', 'F4', 'G4', 'A4', 'G4', 'F4'],
-      name: 'Angklung',
-      notes: [
-        { frequency: 261.63, key: 'a', label: 'C4' },
-        { frequency: 293.66, key: 's', label: 'D4' },
-        { frequency: 349.23, key: 'd', label: 'F4' },
-        { frequency: 392, key: 'f', label: 'G4' },
-        { frequency: 440, key: 'g', label: 'A4' },
-      ],
-      origin: 'Malay heritage, Southeast Asia',
-      waveform: 'triangle',
-    },
-    {
-      description: 'A handheld frame drum played in lively ensembles at Malay weddings and festive processions.',
-      envelope: 'percussive',
-      facts: {
-        contribution: "Brings energetic, communal rhythm to Singapore's multicultural celebrations.",
-        historicalFact: 'Kompang ensembles traditionally perform to welcome a wedding couple as they arrive.',
-        origin: 'A Malay hand drum found across Singapore, Malaysia, and Indonesia.',
-        role: 'Played in rhythmic ensembles, often accompanying songs and processions.',
-        whenPlayed: 'Weddings, National Day performances, and community celebrations.',
-      },
-      icon: '🥁',
-      id: 'kompang',
-      melody: ['Low', 'Mid', 'High', 'Slap', 'Mid', 'Low'],
-      name: 'Kompang',
-      notes: [
-        { frequency: 110, key: 'a', label: 'Low' },
-        { frequency: 146.83, key: 's', label: 'Mid' },
-        { frequency: 196, key: 'd', label: 'High' },
-        { frequency: 246.94, key: 'f', label: 'Slap' },
-      ],
-      origin: 'Malay heritage, Southeast Asia',
-      waveform: 'square',
-    },
-    {
-      description: 'A two-stringed bowed instrument known for its expressive, voice-like tone in Chinese music.',
-      envelope: 'sustained',
-      facts: {
-        contribution: "Represents the Chinese community's musical heritage within Singapore's soundscape.",
-        historicalFact: 'The erhu has only two strings, yet skilled players can mimic laughter, crying, and even birdsong.',
-        origin: 'Originated in China over a thousand years ago.',
-        role: 'Often carries the main melody, prized for its expressive, voice-like sound.',
-        whenPlayed: 'Chinese orchestras, festivals, and Chinese New Year performances.',
-      },
-      icon: '🎻',
-      id: 'erhu',
-      melody: ['G4', 'B4', 'D5', 'E5', 'D5', 'B4', 'G4'],
-      name: 'Erhu',
-      notes: [
-        { frequency: 392, key: 'a', label: 'G4' },
-        { frequency: 440, key: 's', label: 'A4' },
-        { frequency: 493.88, key: 'd', label: 'B4' },
-        { frequency: 523.25, key: 'f', label: 'C5' },
-        { frequency: 587.33, key: 'g', label: 'D5' },
-        { frequency: 659.25, key: 'h', label: 'E5' },
-      ],
-      origin: 'Chinese heritage',
-      waveform: 'sawtooth',
-    },
-    {
-      description: 'A pair of hand drums central to Indian classical and devotional music, played with intricate finger and palm strokes.',
-      envelope: 'percussive',
-      facts: {
-        contribution: "Adds the rhythmic heartbeat of Singapore's Indian community to its musical identity.",
-        historicalFact: "Tabla players learn spoken rhythmic syllables, called 'bols', before ever touching the drums.",
-        origin: 'A cornerstone of North Indian classical music.',
-        role: 'Provides intricate rhythmic patterns that anchor a performance.',
-        whenPlayed: 'Indian classical concerts, Deepavali celebrations, and devotional music.',
-      },
-      icon: '🪘',
-      id: 'tabla',
-      melody: ['Dha', 'Ge', 'Na', 'Tin', 'Na', 'Dha'],
-      name: 'Tabla',
-      notes: [
-        { frequency: 130.81, key: 'a', label: 'Dha' },
-        { frequency: 164.81, key: 's', label: 'Ge' },
-        { frequency: 196, key: 'd', label: 'Na' },
-        { frequency: 261.63, key: 'f', label: 'Tin' },
-      ],
-      origin: 'Indian heritage, South Asia',
-      waveform: 'sine',
-    },
-  ],
-  trivia: [
-    {
-      question: "Which band performed the 2016 NDP theme song 'Tomorrow's Here Today'?",
-      options: [
-        { id: 'A', text: 'The Sam Willows' },
-        { id: 'B', text: '53A' },
-        { id: 'C', text: 'Electrico' },
-        { id: 'D', text: 'ShiGGa Shay' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'Who wrote and composed the song?',
-      options: [
-        { id: 'A', text: 'Dick Lee' },
-        { id: 'B', text: 'Don Richmond' },
-        { id: 'C', text: 'JJ Lin' },
-        { id: 'D', text: 'Corrinne May' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'What is the core message of the song?',
-      options: [
-        { id: 'A', text: 'Reflecting on past struggles' },
-        { id: 'B', text: 'Looking forward to a bright future' },
-        { id: 'C', text: 'A romantic love story' },
-        { id: 'D', text: 'Celebrating traditional food' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: 'Which music genre best describes the track?',
-      options: [
-        { id: 'A', text: 'Classical Orchestra' },
-        { id: 'B', text: 'Indie Pop/Rock' },
-        { id: 'C', text: 'Heavy Metal' },
-        { id: 'D', text: 'Electronic Dance Music' },
-      ],
-      correctAnswerId: 'B',
-    },
-    {
-      question: "What year was 'Tomorrow's Here Today' used for the National Day Parade?",
-      options: [
-        { id: 'A', text: '2014' },
-        { id: 'B', text: '2015' },
-        { id: 'C', text: '2016' },
-        { id: 'D', text: '2017' },
-      ],
-      correctAnswerId: 'C',
-    },
-  ],
+  instruments: TEMPORARY_SONG_INSTRUMENT_FALLBACKS,
+  trivia: TEMPORARY_SONG_TRIVIA_FALLBACKS,
 }
 
 
 export default function SongExperience() {
   const { id = 'demo-song' } = useParams()
+  const { token } = useAuth()
 
   const [dbSong, setDbSong] = useState(null)
   const [loadingDbSong, setLoadingDbSong] = useState(id !== 'demo-song')
@@ -190,6 +53,11 @@ export default function SongExperience() {
   }, [id])
 
   useEffect(() => {
+    if (!dbSong?.id) return
+    trackAnalyticsEvent('SONG_PAGE_VIEWED', { songId: dbSong.id }, token).catch(() => {})
+  }, [dbSong?.id, token])
+
+  useEffect(() => {
     if (id === 'demo-song') return
     let active = true
     getBeatmapSummary(id)
@@ -206,18 +74,20 @@ export default function SongExperience() {
   }, [id])
 
   const songData = dbSong ? {
-    ...MOCK_SONG_DATA,
-    title: dbSong.title || MOCK_SONG_DATA.title,
-    artist: dbSong.artist || MOCK_SONG_DATA.artist,
-    videoUrl: dbSong.videoUrl || MOCK_SONG_DATA.videoUrl,
-    culturalSummary: dbSong.description || MOCK_SONG_DATA.culturalSummary,
+    title: dbSong.title,
+    artist: dbSong.artist || 'Unknown artist',
+    year: dbSong.publishedDate ? new Date(dbSong.publishedDate).getFullYear() : '',
+    location: 'Singapore',
+    tags: [...(dbSong.moodTags || []), ...(dbSong.languages || [])],
+    videoUrl: dbSong.videoUrl,
+    culturalSummary: dbSong.description || 'No cultural summary has been added yet.',
     coverImageUrl: dbSong.coverImageUrl || undefined,
     transcriptionSegments: dbSong.transcriptionSegments || null,
+    instruments: getSongInstruments(dbSong),
+    trivia: getSongTrivia(dbSong),
+    creator: dbSong.creator,
+    creatorId: dbSong.creatorId,
   } : MOCK_SONG_DATA
-
-  // Video playback is handled by CustomVideoPlayer;
-  // we only track whether something is playing so we can stop instrument melodies.
-  const [isPlaying, setIsPlaying] = useState(false)
 
   // Trivia state
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -251,19 +121,32 @@ export default function SongExperience() {
     stopSyntheticMelody()
 
     // The CustomVideoPlayer will be paused by the user; here we just track state
-    setIsPlaying(false)
+
+    const playableInstrument = enrichInstrumentForPlayback(instrument)
+    const notes = Array.isArray(playableInstrument.notes) ? playableInstrument.notes : []
+    const melody = Array.isArray(playableInstrument.melody) && playableInstrument.melody.length > 0
+      ? playableInstrument.melody
+      : notes.map((note) => note.label)
 
     setPlayingInstrumentId(instrument.id)
+
+    if (melody.length === 0) {
+      playNote(playableInstrument, { frequency: 440, key: 'a', label: 'A4' })
+      const resetTimeout = setTimeout(() => setPlayingInstrumentId(null), 600)
+      melodyTimeouts.current.push(resetTimeout)
+      return
+    }
+
     // Mimic the sequence logic from InstrumentPlayer
-    instrument.melody.forEach((noteLabel, index) => {
-      const note = instrument.notes.find((candidate) => candidate.label === noteLabel)
+    melody.forEach((noteLabel, index) => {
+      const note = notes.find((candidate) => candidate.label === noteLabel) || notes[0]
       if (!note) return
 
       const timeoutId = setTimeout(() => {
-        playNote(instrument, note)
+        playNote(playableInstrument, note)
 
         // Clear active state when the melody finishes
-        if (index === instrument.melody.length - 1) {
+        if (index === melody.length - 1) {
           const resetTimeout = setTimeout(() => {
             setPlayingInstrumentId((currentId) => currentId === instrument.id ? null : currentId)
           }, 500)
@@ -275,7 +158,7 @@ export default function SongExperience() {
     })
   }
 
-  const currentQuestion = songData.trivia[questionIndex]
+  const currentQuestion = songData.trivia[questionIndex] || { options: [], question: '' }
 
 
 
@@ -353,8 +236,11 @@ export default function SongExperience() {
               src={songData.videoUrl}
               transcriptionSegments={songData.transcriptionSegments}
               poster={songData.coverImageUrl}
-              onPlay={() => { setIsPlaying(true); stopSyntheticMelody() }}
-              onPause={() => setIsPlaying(false)}
+              onPlay={() => {
+                stopSyntheticMelody()
+                if (dbSong?.id) trackAnalyticsEvent('SONG_PLAYBACK_STARTED', { songId: dbSong.id }, token).catch(() => {})
+              }}
+              onEnded={() => { if (dbSong?.id) trackAnalyticsEvent('SONG_PLAYBACK_COMPLETED', { songId: dbSong.id }, token).catch(() => {}) }}
             />
           </div>
 
@@ -362,7 +248,7 @@ export default function SongExperience() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700 }}>{songData.title}</h2>
             <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-              <span>{songData.artist}</span> · {songData.year} · {songData.location}
+              {dbSong ? <CreatorNameLink song={{ artist: songData.artist, creator: songData.creator, creatorId: songData.creatorId }} /> : <span>{songData.artist}</span>} · {songData.year} · {songData.location}
             </p>
             <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
               {songData.tags.map((tag, i) => (
@@ -396,9 +282,13 @@ export default function SongExperience() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {songData.instruments.map((inst, i) => {
                 const isInstPlaying = playingInstrumentId === inst.id
+                const iconImage = inst.imageUrl || inst.iconUrl
+                const icon = inst.icon || enrichInstrumentForPlayback(inst).icon || '🎵'
                 return (
                   <button
-                    key={i}
+                    aria-label={`${isInstPlaying ? 'Stop' : 'Play'} ${inst.name}${inst.description ? `: ${inst.description}` : ''}`}
+                    id={`instrument-${inst.id || i}`}
+                    key={inst.id || inst.name || i}
                     onClick={() => handlePlayMelody(inst)}
                     style={{
                       position: 'relative',
@@ -409,21 +299,29 @@ export default function SongExperience() {
                       gap: '8px',
                       padding: '20px 12px',
                       borderRadius: '10px',
-                      border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
+                      border: isInstPlaying ? '1px solid var(--Rose)' : '1px solid var(--line)',
                       background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
                       cursor: 'pointer',
                       transition: 'all 150ms',
-                      color: isInstPlaying ? 'var(--violet)' : 'var(--text)',
+                      color: isInstPlaying ? 'var(--Rose)' : 'var(--text)',
                       fontSize: '0.85rem',
                     }}
                     onMouseOver={(e) => { if (!isInstPlaying) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.8)' }}
                     onMouseOut={(e) => { if (!isInstPlaying) e.currentTarget.style.background = 'rgba(30, 41, 59, 0.5)' }}
                   >
                     {/* Play icon top-right */}
-                    <span style={{ position: 'absolute', top: '8px', right: '8px', color: isInstPlaying ? 'var(--violet)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
+                    <span style={{ position: 'absolute', top: '8px', right: '8px', color: isInstPlaying ? 'var(--Rose)' : 'var(--muted)', display: 'flex', alignItems: 'center' }}>
                       {isInstPlaying ? <Square size={16} fill="currentColor" /> : <PlayCircle size={16} />}
                     </span>
-                    <span style={{ fontSize: '2rem' }}>{inst.icon}</span>
+                    {iconImage ? (
+                      <img
+                        alt={inst.name}
+                        src={iconImage}
+                        style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <span aria-hidden="true" style={{ fontSize: '2rem' }}>{icon}</span>
+                    )}
                     <span>{inst.name}</span>
                   </button>
                 )
@@ -433,7 +331,9 @@ export default function SongExperience() {
 
           {/* Knowledge Check */}
           <div className="section-card">
-            {quizCompleted ? (
+            {!songData.trivia.length ? (
+              <p style={{ margin: 0, color: 'var(--muted)' }}>No knowledge check has been published for this song yet.</p>
+            ) : quizCompleted ? (
               <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
                 <div style={{ background: 'rgba(34, 197, 94, 0.15)', color: 'var(--green)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
                   ✓
@@ -453,7 +353,7 @@ export default function SongExperience() {
               </div>
             ) : (
               <>
-                <p style={{ margin: 0, color: 'var(--violet)', fontSize: '0.75rem', fontWeight: 600 }}>
+                <p style={{ margin: 0, color: 'var(--Rose)', fontSize: '0.75rem', fontWeight: 600 }}>
                   Knowledge Check ({questionIndex + 1}/{songData.trivia.length})
                 </p>
                 <h3 style={{ margin: 0, fontSize: '1rem', lineHeight: 1.5 }}>
@@ -520,7 +420,7 @@ export default function SongExperience() {
           justifyContent: 'center',
           padding: '20px',
           borderRadius: '12px',
-          background: 'linear-gradient(135deg, var(--primary), var(--violet))',
+          background: 'linear-gradient(135deg, var(--primary), var(--Rose))',
           textDecoration: 'none',
           color: '#fff',
           fontWeight: 600,
@@ -536,5 +436,3 @@ export default function SongExperience() {
     </div>
   )
 }
-
-

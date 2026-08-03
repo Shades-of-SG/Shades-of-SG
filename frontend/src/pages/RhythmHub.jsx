@@ -81,7 +81,12 @@ export default function RhythmHub() {
   }, [])
 
   return <div className="page-stack rhythm-hub">
-    <PageHeader description="Choose a published song and play any available difficulty." eyebrow="Rhythm Game" title="Rhythm Game" />
+    <PageHeader
+      actions={<Link className="rhythm-leaderboard-action rhythm-leaderboard-action--primary" to="/rhythm-game/leaderboard">View Leaderboard</Link>}
+      description="Choose a published song and play any available difficulty."
+      eyebrow="Rhythm Game"
+      title="Rhythm Game"
+    />
     {loading ? <p role="status">Loading published rhythm games…</p> : null}
     {error ? <div className="state-box" role="alert">{error}</div> : null}
     {!loading && !error && songs.length === 0 ? <EmptyState description="No fully published songs currently have a published rhythm track." title="No rhythm games yet" /> : null}

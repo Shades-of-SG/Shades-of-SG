@@ -7,7 +7,7 @@ process.env.DB_STORAGE = testDatabasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { sequelize, GenerationJob, Song, User } = require('../models');
+const { sequelize, GenerationJob, Instrument, Song, TriviaQuestion, User } = require('../models');
 const { completeGeneration, failGeneration, usePlaceholderVideo } = require('../controllers/generationController');
 const { createToken, hashPassword } = require('../services/authService');
 const aiStorageService = require('../services/aiStorageService');
@@ -56,6 +56,36 @@ afterAll(async () => {
 });
 
 function auth(token) { return { Authorization: `Bearer ${token}` }; }
+
+test('malformed public song IDs return 400 before querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findOne');
+    const response = await request(app).get('/api/songs/song-1');
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Song ID must be a valid UUID.');
+    expect(songLookup).not.toHaveBeenCalled();
+    songLookup.mockRestore();
+});
+
+test('valid missing song UUIDs return 404 after querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findOne');
+    const response = await request(app).get('/api/songs/11111111-1111-4111-8111-111111111111');
+
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe('Song not found.');
+    expect(songLookup).toHaveBeenCalled();
+    songLookup.mockRestore();
+});
+
+test('malformed nested beatmap song IDs return 400 before querying songs', async () => {
+    const songLookup = jest.spyOn(Song, 'findByPk');
+    const response = await request(app).get('/api/songs/song-1/beatmaps');
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Song ID must be a valid UUID.');
+    expect(songLookup).not.toHaveBeenCalled();
+    songLookup.mockRestore();
+});
 
 test.each(['DRAFT', 'READY'])('%s songs are not publicly visible', async (status) => {
     const song = await Song.create({ creatorId: creator.id, status, title: `${status} Song` });
@@ -316,7 +346,7 @@ test('creator can upload a final MP4 video and publish without an AI generation 
 
     expect(response.status).toBe(200);
     expect(response.body.song).toMatchObject({
-        status: 'READY', videoPublicId: 'uploaded-videos/final', videoUrl: 'https://media.example/final.mp4',
+        durationSecs: 42, status: 'READY', videoPublicId: 'uploaded-videos/final', videoUrl: 'https://media.example/final.mp4',
     });
     expect(await GenerationJob.count({ where: { songId: song.id } })).toBe(0);
     const readiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
@@ -324,6 +354,36 @@ test('creator can upload a final MP4 video and publish without an AI generation 
     expect((await request(app).put(`/api/songs/${song.id}/publish`).set(auth(creatorToken))).status).toBe(200);
     const publishedReadiness = await request(app).get(`/api/songs/${song.id}/readiness`).set(auth(creatorToken));
     expect(publishedReadiness.body).toMatchObject({ missing: [], ready: true, songStatus: 'PUBLISHED' });
+    upload.mockRestore();
+});
+
+test('a standalone MP4 upload supplies playable audio and duration metadata for beatmaps', async () => {
+    const song = await Song.create({ creatorId: creator.id, status: 'DRAFT', title: 'Standalone MP4' });
+    const upload = jest.spyOn(aiStorageService, 'uploadVideoStream').mockResolvedValue({
+        duration: 73,
+        videoPublicId: 'uploaded-videos/standalone',
+        videoUrl: 'https://media.example/standalone.mp4',
+    });
+
+    const response = await request(app)
+        .post(`/api/songs/${song.id}/video`).set(auth(creatorToken))
+        .attach('videoFile', Buffer.from('standalone video'), { contentType: 'video/mp4', filename: 'standalone.mp4' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.song).toMatchObject({
+        audioFileName: 'standalone.mp4',
+        audioPublicId: 'uploaded-videos/standalone',
+        audioUrl: 'https://media.example/standalone.mp4',
+        durationSecs: 73,
+        status: 'READY',
+        videoPublicId: 'uploaded-videos/standalone',
+        videoUrl: 'https://media.example/standalone.mp4',
+    });
+    const beatmap = await request(app)
+        .post(`/api/songs/${song.id}/beatmaps/generate`).set(auth(creatorToken))
+        .send({ difficulty: 'MEDIUM', mode: 'BASIC' });
+    expect(beatmap.status).toBe(201);
+    expect(beatmap.body.beatmap).toMatchObject({ difficulty: 'MEDIUM', durationMs: 73000 });
     upload.mockRestore();
 });
 
@@ -505,4 +565,46 @@ test('public song search and filters return only matching published Songs with p
         artist: 'Test Artist', coverImageUrl: completeSong.coverImageUrl,
         description: completeSong.description, languages: ['English', 'Malay'], theme: 'Community', title: 'River Home',
     });
+});
+
+test('public song detail includes linked instruments and trivia without changing stored records', async () => {
+    const song = await Song.create({
+        ...completeSong, creatorId: creator.id, status: 'PUBLISHED', publishedDate: new Date(),
+    });
+    const instrument = await Instrument.create({
+        description: 'A linked instrument description.',
+        imageUrl: 'https://media.example/instrument.jpg',
+        name: 'Linked Instrument',
+        origin: 'Singapore',
+    });
+    await song.addInstrument(instrument);
+    const triviaQuestion = await TriviaQuestion.create({
+        correctAnswer: 'Linked answer',
+        options: ['Linked answer', 'Other answer'],
+        prompt: 'Linked question?',
+        songId: song.id,
+    });
+
+    const response = await request(app).get(`/api/songs/${song.id}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.song.instruments).toEqual([
+        expect.objectContaining({
+            description: 'A linked instrument description.',
+            id: instrument.id,
+            imageUrl: 'https://media.example/instrument.jpg',
+            name: 'Linked Instrument',
+            origin: 'Singapore',
+        }),
+    ]);
+    expect(response.body.song.triviaQuestions).toEqual([
+        expect.objectContaining({
+            correctAnswer: 'Linked answer',
+            id: triviaQuestion.id,
+            options: ['Linked answer', 'Other answer'],
+            prompt: 'Linked question?',
+        }),
+    ]);
+    expect(await Instrument.count({ where: { id: instrument.id } })).toBe(1);
+    expect(await TriviaQuestion.count({ where: { id: triviaQuestion.id } })).toBe(1);
 });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
@@ -23,6 +24,10 @@ export default function CreatorGenerationJobs() {
   const [isCreating, setIsCreating] = useState(false)
   const [isStartingJob, setIsStartingJob] = useState(false)
 
+  // Delete Confirmation State
+  const [deleteConfirmJob, setDeleteConfirmJob] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Form Choices
   const [mediaSource, setMediaSource] = useState('youtube') // 'youtube' or 'upload'
   const [youtubeLink, setYoutubeLink] = useState('')
@@ -34,6 +39,7 @@ export default function CreatorGenerationJobs() {
   // Extraction States
   const [isExtractingAudio, setIsExtractingAudio] = useState(false)
   const [extractedAudioUrl, setExtractedAudioUrl] = useState('')
+  const [extractedAudioDuration, setExtractedAudioDuration] = useState(null)
   const [isExtractingLyrics, setIsExtractingLyrics] = useState(false)
 
   // --- INITIAL FETCH (ESLint Safe) ---
@@ -97,6 +103,7 @@ export default function CreatorGenerationJobs() {
       if (!response.ok) throw new Error(data.message || 'Failed to extract audio')
 
       setExtractedAudioUrl(data.audioUrl)
+      setExtractedAudioDuration(Number.isInteger(Number(data.duration)) ? Number(data.duration) : null)
       alert('MP3 Extracted and saved successfully!')
     } catch (err) {
       alert(err.message)
@@ -155,7 +162,9 @@ export default function CreatorGenerationJobs() {
           lyrics: formData.lyrics,
           theme: 'Standard',
           description: 'AI Generated', // Dummy data for constraints
-          ...(extractedAudioUrl ? { audioUrl: extractedAudioUrl } : { youtubeUrl: youtubeLink })
+          ...(extractedAudioUrl
+            ? { audioUrl: extractedAudioUrl, ...(extractedAudioDuration !== null ? { durationSecs: extractedAudioDuration } : {}) }
+            : { youtubeUrl: youtubeLink })
         })
       })
       const songContentType = songRes.headers.get("content-type");
@@ -189,6 +198,30 @@ export default function CreatorGenerationJobs() {
       alert(err.message)
     } finally {
       setIsStartingJob(false)
+    }
+  }
+
+  // --- DELETE JOB ---
+  const handleDeleteJob = async () => {
+    if (!deleteConfirmJob) return
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`${API_URL}/generation/${deleteConfirmJob.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+      })
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned an invalid response')
+      }
+      const json = await response.json()
+      if (!response.ok) throw new Error(json.message || `Failed to delete: ${response.status}`)
+      setJobs((prev) => prev.filter((j) => j.id !== deleteConfirmJob.id))
+      setDeleteConfirmJob(null)
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -402,13 +435,62 @@ export default function CreatorGenerationJobs() {
                     )}
                   </div>
                 </div>
-                <div className="creator-song-actions">
-                  <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">
-                    View Status
+                <div className="creator-song-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    aria-label="Delete job"
+                    className="creator-song-icon-button is-danger"
+                    disabled={job.status.toLowerCase() === 'processing'}
+                    onClick={() => setDeleteConfirmJob(job)}
+                    title={job.status.toLowerCase() === 'processing' ? 'Cannot delete a processing job' : 'Delete job'}
+                    type="button"
+                  >
+                    <Trash2 aria-hidden="true" size={18} />
+                  </button>
+                  <button
+                    className="studio-button studio-button--secondary"
+                    onClick={() => navigate(job.status.toLowerCase() === 'completed' ? `/creator/editor/${job.id}` : `/creator/generation/${job.id}`)}
+                    type="button"
+                  >
+                    {job.status.toLowerCase() === 'completed' ? 'Open Video Editor' : 'View Status'}
                   </button>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* --- DELETE CONFIRMATION DIALOG --- */}
+      {deleteConfirmJob && (
+        <div className="rw-modal-backdrop" onClick={() => { if (!isDeleting) setDeleteConfirmJob(null) }}>
+          <div className="rw-modal bg-neutral-900" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center', backgroundColor: '#171717' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.25rem' }}>🗑️</div>
+            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', color: '#f3f4f6' }}>Delete this job?</h2>
+            <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
+              Are you sure you want to permanently delete the generation job for{' '}
+              <strong className="text-gray-100">{deleteConfirmJob.song?.title || deleteConfirmJob.Song?.title || 'this song'}</strong>?
+              This will remove all generated scenes and frames. This action cannot be undone.
+            </p>
+            <div className="rw-modal-actions">
+              <button
+                className="rw-modal-cancel text-gray-300 hover:text-white"
+                disabled={isDeleting}
+                onClick={() => setDeleteConfirmJob(null)}
+                type="button"
+                style={{ color: '#d1d5db' }}
+              >
+                Cancel
+              </button>
+              <button
+                className="studio-button studio-button--primary text-white bg-red-600 hover:bg-red-700"
+                disabled={isDeleting}
+                onClick={handleDeleteJob}
+                style={{ background: '#dc2626', borderColor: '#dc2626', minWidth: '140px', color: '#ffffff' }}
+                type="button"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Job'}
+              </button>
+            </div>
           </div>
         </div>
       )}

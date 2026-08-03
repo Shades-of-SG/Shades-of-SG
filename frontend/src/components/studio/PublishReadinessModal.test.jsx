@@ -27,7 +27,7 @@ describe('PublishReadinessModal', () => {
   it('passes a selected final video to the upload action', () => {
     const onUploadVideo = vi.fn()
     render(<PublishReadinessModal missing={['videoUrl']} onClose={vi.fn()} onGenerateVideo={vi.fn()} onGoToStep={vi.fn()} onUploadVideo={onUploadVideo} />)
-    const file = new File(['video'], 'violet-final.mp4', { type: 'video/mp4' })
+    const file = new File(['video'], 'Rose-final.mp4', { type: 'video/mp4' })
 
     fireEvent.change(screen.getByLabelText('Upload finished video'), { target: { files: [file] } })
 

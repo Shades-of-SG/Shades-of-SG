@@ -1,10 +1,15 @@
 import { API_URL } from './apiConfig'
+import { notifyAuthExpired, } from '../utils/authEvents'
 
 async function request(path, { token, ...options } = {}) {
   const headers = { ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
   const response = await fetch(`${API_URL}${path}`, { ...options, headers })
   const data = await response.json().catch(() => ({}))
+  if (response.status === 401) {
+    notifyAuthExpired()
+  }
+  
   if (!response.ok) {
     const error = new Error(data.message || data.error?.message || 'Song request failed.')
     error.status = response.status
@@ -106,4 +111,18 @@ export function deleteSong(songId, token) {
 
 export function getCreatorDashboardSummary(token) {
   return request('/songs/creator/dashboard/summary', { token })
+}
+
+export function importYouTubeAudio(songId, youtubeUrl, token) {
+  return request(
+    `/songs/${encodeURIComponent(songId)}/extract-audio`,
+    {
+      body: JSON.stringify({ youtubeUrl }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+      token,
+    }
+  ).then((data) => data.song)
 }

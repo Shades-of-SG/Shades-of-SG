@@ -94,6 +94,7 @@ async function assembleVideo(jobId, songId, burnCaptions = false) {
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song ${songId} not found`)
+    if (job.songId !== song.id) throw new Error('Generation job does not belong to the requested song')
     if (!song.audioUrl) throw new Error(`Song ${songId} has no audioUrl`)
 
     const segments = await SceneSegment.findAll({

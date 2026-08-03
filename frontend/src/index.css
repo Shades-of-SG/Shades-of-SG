@@ -12,7 +12,7 @@
   --gold: #f59e0b;
   --green: #22c55e;
   --cyan: #38bdf8;
-  --violet: #8b5cf6;
+  --Rose: #8b5cf6;
   --error: #ef4444;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   color: var(--text);
@@ -30,9 +30,17 @@
   box-sizing: border-box;
 }
 
-body {
+html, 
+body,
+#root {
   margin: 0;
+  min-height: 100%;
+  width: 100%;
+}
+
+body {
   min-width: 320px;
+  overflow-x: hidden;
 }
 
 button,
@@ -57,7 +65,7 @@ button {
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--violet);
+  background: var(--Rose);
   border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {

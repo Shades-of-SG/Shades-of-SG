@@ -1,8 +1,10 @@
 const express = require('express')
 const { deleteDraftBeatmap, generateAllBeatmaps, generateStoredBeatmap, getBeatmap, listBeatmaps, previewBeatmap, publishBeatmap, unpublishBeatmap, updateDraftSettings } = require('../controllers/beatmapController')
 const { optionalAuth, requireCreator } = require('../middleware/auth')
+const { validateUuidParam } = require('../middleware/validateUuid')
 
 const router = express.Router({ mergeParams: true })
+router.use(validateUuidParam('songId', 'Song ID must be a valid UUID.'))
 router.get('/', optionalAuth, listBeatmaps)
 router.get('/:difficulty/preview', requireCreator, previewBeatmap)
 router.get('/:difficulty', optionalAuth, getBeatmap)

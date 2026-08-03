@@ -9,6 +9,8 @@ const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
 const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
 const { transcribeMediaBuffer } = require('../services/transcriptionService')
+const { writeAudit } = require('../services/auditService')
+const { isUuid } = require('../middleware/validateUuid')
 
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
@@ -98,6 +100,11 @@ const startGeneration = async (req, res, next) => {
       error.statusCode = 400
       throw error
     }
+    if (!isUuid(songId)) {
+      const error = new Error('Song ID must be a valid UUID.')
+      error.statusCode = 400
+      throw error
+    }
 
     const song = await Song.findOne({ where: { id: songId, creatorId: req.authUserRecord.id } })
     if (!song) {
@@ -142,6 +149,7 @@ const startGeneration = async (req, res, next) => {
     }
 
     await song.update({ status: 'GENERATING' })
+    await writeAudit({ action: 'GENERATION_STARTED', actorId: req.authUserRecord.id, creatorId: song.creatorId, entityId: job.id, entityType: 'GENERATION_JOB', req, songId: song.id })
     if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
 
     return res.status(202).json({
@@ -335,6 +343,7 @@ const exportVideo = async (req, res, next) => {
     }
     await job.update({ status: 'COMPLETED', completedAt: new Date() });
     await job.reload();
+    await writeAudit({ action: 'GENERATION_EXPORTED', actorId: req.authUserRecord.id, creatorId: job.song.creatorId, entityId: job.id, entityType: 'GENERATION_JOB', req, songId: job.songId })
 
     return res.status(200).json({
       success: true,
@@ -347,13 +356,72 @@ const exportVideo = async (req, res, next) => {
   }
 }
 
+const deleteJob = async (req, res, next) => {
+  try {
+    const { id } = req.params
+
+    const job = await GenerationJob.findOne({
+      where: { id },
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'creatorId'],
+        where: { creatorId: req.authUserRecord.id },
+      }],
+    })
+
+    if (!job) {
+      const error = new Error('Generation job not found.')
+      error.statusCode = 404
+      throw error
+    }
+
+    if (job.status === 'PROCESSING') {
+      const error = new Error('Cannot delete a job that is currently processing.')
+      error.statusCode = 409
+      throw error
+    }
+
+    // Cascade: delete generated frames, then scene segments, then the job itself, then the song
+    const segments = await SceneSegment.findAll({ where: { songId: job.songId } })
+    const segmentIds = segments.map((s) => s.id)
+
+    if (segmentIds.length > 0) {
+      await GeneratedFrame.destroy({ where: { sceneSegmentId: segmentIds } })
+    }
+    await SceneSegment.destroy({ where: { songId: job.songId } })
+    
+    await job.destroy()
+    await writeAudit({ action: 'GENERATION_JOB_DELETED', actorId: req.authUserRecord.id, creatorId: job.song.creatorId, entityId: job.id, entityType: 'GENERATION_JOB', req, songId: job.songId })
+    
+    // Clean up any leftover temp files
+    await cleanupJobFiles(id)
+
+    return res.json({ success: true, message: 'Job deleted.' })
+  } catch (error) {
+    next(error)
+  }
+}
+
 const regenerateFrame = async (req, res, next) => {
   try {
     const { frameId } = req.params;
     const { userFeedback } = req.body;
 
-    const frame = await GeneratedFrame.findByPk(frameId, {
-      include: [{ model: SceneSegment, as: 'sceneSegment' }]
+    const frame = await GeneratedFrame.findOne({
+      where: { id: frameId },
+      include: [{
+        model: SceneSegment,
+        as: 'sceneSegment',
+        required: true,
+        include: [{
+          model: Song,
+          as: 'song',
+          attributes: ['id', 'creatorId'],
+          required: true,
+          where: { creatorId: req.authUserRecord.id },
+        }],
+      }]
     });
 
     if (!frame) return res.status(404).json({ success: false, message: 'Frame not found' });
@@ -404,9 +472,7 @@ const regenerateFrame = async (req, res, next) => {
 
     frame.imageUrl = finalImageUrl;
     await frame.save();
-
-    segment.imageUrl = finalImageUrl;
-    await segment.save();
+    await writeAudit({ action: 'GENERATED_FRAME_REGENERATED', actorId: req.authUserRecord.id, creatorId: req.authUserRecord.id, entityId: frame.id, entityType: 'GENERATED_FRAME', req, songId: segment.songId })
 
     return res.json({ success: true, data: frame });
   } catch (error) {
@@ -419,6 +485,7 @@ module.exports = {
   startGeneration,
   getGenerationStatus,
   getAllJobs,
+  deleteJob,
   exportVideo,
   regenerateFrame,
   runGenerationPipeline,

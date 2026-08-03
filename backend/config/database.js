@@ -3,7 +3,9 @@ const path = require('path');
 
 // DATABASE_URL is the documented production setting used by Render/Supabase.
 // Keep DB_URL as a backwards-compatible alias for existing environments.
-const databaseUrl = process.env.DATABASE_URL || process.env.DB_URL;
+const databaseUrl = process.env.NODE_ENV === 'test'
+    ? ''
+    : process.env.DATABASE_URL || process.env.DB_URL;
 const isPostgres = Boolean(databaseUrl);
 
 const sequelize = isPostgres

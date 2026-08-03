@@ -1,9 +1,27 @@
 import { API_URL } from './apiConfig'
 import { normalizeClientBeatmap } from '../utils/beatmapNormalizer'
+import { notifyAuthExpired } from '../utils/authEvents'
 
 async function readResponse(response, fallbackMessage) {
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.message || fallbackMessage)
+  const payload = await response
+    .json()
+    .catch(() => ({}))
+
+  if (response.status === 401) {
+    notifyAuthExpired()
+  }
+
+  if (!response.ok) {
+    const error = new Error(
+      payload.message || fallbackMessage
+    )
+
+    error.status = response.status
+    error.details = payload
+
+    throw error
+  }
+
   return payload
 }
 

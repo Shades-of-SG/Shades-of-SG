@@ -126,8 +126,15 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
+    const formattedLyrics = responseBody.segments && responseBody.segments.length > 0
+        ? responseBody.segments
+            .map(s => s.text.trim())
+            .filter(Boolean)
+            .join('\n')
+        : formatLyricsDraft(rawLyrics);
+
     return {
-        lyrics: formatLyricsDraft(rawLyrics),
+        lyrics: formattedLyrics,
         rawLyrics,
         segments: responseBody.segments || [],
         model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,

@@ -1,7 +1,8 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { GameScore, RhythmBeatmap, Song, User } = require('../models');
+const { GameScore, RhythmBeatmap, Song, User, UserProfile } = require('../models');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
+const { DIFFICULTIES: RANKED_DIFFICULTIES, PERIODS, leaderboard, userRhythmSummary } = require('../services/rhythmRankingService');
 
 const router = express.Router();
 const DIFFICULTIES = new Set(['EASY', 'MEDIUM', 'HARD']);
@@ -11,7 +12,7 @@ router.get('/mine', requireAuth, async (req, res, next) => {
     try {
         const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
-        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required.' });
+        if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required.' });
         const scores = await GameScore.findAll({
             where: { userId: user.id },
             // Keep history readable while migration 007 is being rolled out to
@@ -31,6 +32,56 @@ function expectedRank(accuracy) {
     if (accuracy >= 70) return 'B';
     return 'C';
 }
+
+router.get('/leaderboard', optionalAuth, async (req, res, next) => {
+    try {
+        const { difficulty, songId, period = 'all-time' } = req.query;
+
+        if (req.get('authorization') && !req.authUser?.id) {
+            return res.status(401).json({ message: 'Your session is invalid or expired.' });
+        }
+
+        if (songId !== undefined && (typeof songId !== 'string' || !UUID_PATTERN.test(songId))) {
+            return res.status(400).json({
+                message: 'songId must be a valid song id',
+            });
+        }
+
+        const normalizedDifficulty = difficulty === undefined ? undefined : String(difficulty).toUpperCase();
+        if (normalizedDifficulty && !RANKED_DIFFICULTIES.includes(normalizedDifficulty)) {
+            return res.status(400).json({
+                message: 'difficulty must be EASY, MEDIUM, or HARD',
+            });
+        }
+        if (typeof period !== 'string' || !PERIODS.includes(period)) {
+            return res.status(400).json({ message: 'period must be all-time, weekly, or monthly' });
+        }
+        return res.json(await leaderboard({
+            currentUserId: req.authUser?.id || null,
+            difficulty: normalizedDifficulty,
+            period,
+            songId,
+        }));
+    } catch (error) {
+        return next(error);
+    }
+});
+
+router.get('/user/:userId/summary', optionalAuth, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.userId)) return res.status(400).json({ message: 'userId must be a valid user id' });
+        const user = await User.findOne({
+            attributes: ['id', 'name', 'role'],
+            include: [{ model: UserProfile, as: 'profile', required: false }],
+            where: { accountStatus: 'ACTIVE', id: req.params.userId, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } },
+        });
+        if (!user) return res.status(404).json({ message: 'User rhythm summary not found.' });
+        const isOwner = req.authUser?.id === user.id;
+        const hidden = user.profile?.profileVisibility === 'PRIVATE' || user.profile?.showRhythmRanking === false;
+        if (hidden && !isOwner) return res.status(404).json({ message: 'User rhythm summary not found.' });
+        return res.json({ summary: await userRhythmSummary(user.id), userId: user.id });
+    } catch (error) { return next(error); }
+});
 
 router.post('/', optionalAuth, async (req, res, next) => {
     try {
@@ -58,7 +109,7 @@ router.post('/', optionalAuth, async (req, res, next) => {
 
         const user = await User.findByPk(req.authUser.id, { attributes: ['id', 'role'] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
-        if (user.role !== 'REGISTERED') return res.status(403).json({ message: 'Registered player access is required to save scores.' });
+        if (!['REGISTERED', 'CREATOR'].includes(user.role)) return res.status(403).json({ message: 'Registered player access is required to save scores.' });
 
         const gameScore = await GameScore.create({
             accuracy, difficulty: normalizedDifficulty, maxCombo,

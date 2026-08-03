@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { LogOut, Pencil, Settings, UserRound } from 'lucide-react'
+import { LogOut, Repeat2, Settings, UserRound } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BrandLogo from './BrandLogo'
 import '../Navbar.css'
+import { CREATOR_SUSPENSION_MESSAGE, hasActiveCreatorAccess, hasSuspendedCreatorAccess } from '../utils/accessStatus'
 
 const navigationByRole = {
   creator: [
     { label: 'Dashboard', to: '/creator/dashboard' },
-    { label: 'Studio', to: '/creator/studio' },
+    { label: 'Studio', to: '/creator/studio/new' },
     { label: 'Songs', to: '/creator/songs' },
     { label: 'Reflection Moderation', to: '/creator/reflections' },
     { label: 'Profile', to: '/creator/profile' },
-    { label: 'Settings', to: '/creator/settings' },
+    { label: 'Settings', to: '/settings' },
   ],
   guest: [
     { label: 'Home', to: '/' },
@@ -28,7 +29,7 @@ const navigationByRole = {
     { label: 'Songs', to: '/songs' },
     { label: 'Learning Hub', to: '/learning' },
     { label: 'Rhythm Game', to: '/rhythm-game' },
-    { label: 'Reflection Wall', to: '/reflections' },
+    { label: 'Reflection Wall', to: '/reflections' }
   ],
 }
 
@@ -37,10 +38,12 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const accountRef = useRef(null)
   const navigate = useNavigate()
-  const { signOut, user } = useAuth()
+  const { activeMode, setActiveMode, signOut, user, userProfile } = useAuth()
   const links = navigationByRole[role] || navigationByRole.guest
-  const displayName = user?.name || 'Account'
-  const avatarUrl = user?.avatarUrl || user?.avatar_url || '/images/Default_pfp.jpg'
+  const displayName = userProfile?.profile?.displayName || user?.name || 'Account'
+  const avatarUrl = userProfile?.profile?.avatarUrl || user?.avatarUrl || user?.avatar_url || '/images/Default_pfp.jpg'
+  const creatorActive = hasActiveCreatorAccess(user)
+  const creatorSuspended = hasSuspendedCreatorAccess(user)
 
   useEffect(() => {
     function closeAccountMenu(event) {
@@ -69,6 +72,14 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
     setIsOpen(false)
     setIsAccountOpen(false)
     navigate('/login', { replace: true })
+  }
+
+  function switchToCreatorMode() {
+    if (user?.role !== 'CREATOR' || !hasActiveCreatorAccess(user)) return
+    if (!setActiveMode('creator')) return
+    setIsOpen(false)
+    setIsAccountOpen(false)
+    navigate('/creator/dashboard')
   }
 
   if (['guest', 'user'].includes(role) && variant === 'public') {
@@ -115,17 +126,20 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
 
                   {isAccountOpen ? (
                     <div className="registered-navbar__dropdown" role="menu">
-                      <strong className="registered-navbar__menu-title">USER MENU</strong>
+                      <div className="registered-navbar__menu-identity">
+                        <strong>{displayName}</strong>
+                        <span>{activeMode === 'creator' ? 'Creator Mode' : 'User Mode'}</span>
+                      </div>
                       <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/profile">
                         <UserRound aria-hidden="true" size={18} /> View Profile
-                      </Link>
-                      <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/settings#profile">
-                        <Pencil aria-hidden="true" size={18} /> Edit Profile
                       </Link>
                       <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/settings">
                         <Settings aria-hidden="true" size={18} /> Settings
                       </Link>
-                      <button onClick={handleLogout} role="menuitem" type="button">
+                      {creatorActive ? <button className="registered-navbar__mode-switch" onClick={switchToCreatorMode} role="menuitem" type="button"><Repeat2 aria-hidden="true" size={18} />Switch to Creator Mode</button> : null}
+                      {user?.role === 'REGISTERED' ? <Link onClick={() => { setIsAccountOpen(false); setIsOpen(false) }} role="menuitem" to="/apply/creator">Apply to be a creator</Link> : null}
+                      {creatorSuspended ? <div className="registered-navbar__creator-suspended" role="status">{CREATOR_SUSPENSION_MESSAGE}{user?.creatorSuspensionReason ? ` ${user.creatorSuspensionReason}` : ''}</div> : null}
+                      <button className="registered-navbar__logout" onClick={handleLogout} role="menuitem" type="button">
                         <LogOut aria-hidden="true" size={18} /> Logout
                       </button>
                     </div>
@@ -156,6 +170,7 @@ export default function Navbar({ role = 'guest', variant = 'public' }) {
             <span />
           </button>
         </nav>
+        {creatorSuspended ? <div className="creator-access-banner" role="status">{CREATOR_SUSPENSION_MESSAGE}</div> : null}
       </header>
     )
   }

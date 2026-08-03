@@ -1,94 +1,75 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import CreatorProfile from '../components/profile/CreatorProfile'
+import { useEffect, useState } from 'react'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import MemoryEditModal from '../components/profile/MemoryEditModal'
 import ProfileBadges from '../components/profile/ProfileBadges'
 import ProfileHero from '../components/profile/ProfileHero'
 import ProfileMemories from '../components/profile/ProfileMemories'
 import ProfileMusicJourney from '../components/profile/ProfileMusicJourney'
-import ProfileSkeleton from '../components/profile/ProfileSkeleton'
 import ProfileStats from '../components/profile/ProfileStats'
 import { useAuth } from '../context/AuthContext'
-import { getUserBadges } from '../services/badgeService'
-import { deleteReflection, getMyReflections, updateReflection } from '../services/reflectionService'
-import { getMyScores } from '../services/scoreService'
+import { deleteReflection, updateReflection } from '../services/reflectionService'
 
 export default function Profile() {
-  const { user } = useAuth()
-
-  if (user.role === 'CREATOR') return <CreatorProfile />
-
-  return <RegisteredProfile />
-}
-
-function RegisteredProfile() {
-  const { token, user } = useAuth()
-  const [badges, setBadges] = useState([])
-  const [memories, setMemories] = useState([])
-  const [scores, setScores] = useState([])
-  const [loading, setLoading] = useState({ badges: true, memories: true, scores: true })
-  const [errors, setErrors] = useState({ badges: '', memories: '', scores: '' })
-  const [editing, setEditing] = useState(null)
-  const [saving, setSaving] = useState(false)
+  const { profileLoading, refreshProfile, setActiveMode, token, user, userProfile } = useAuth()
+  const [editingMemory, setEditingMemory] = useState(null)
+  const [savingMemory, setSavingMemory] = useState(false)
+  const [memoryError, setMemoryError] = useState('')
   const [feedback, setFeedback] = useState('')
-
-  const loadSection = useCallback(async (section) => {
-    setLoading((current) => ({ ...current, [section]: true }))
-    setErrors((current) => ({ ...current, [section]: '' }))
-    try {
-      if (section === 'badges') setBadges(await getUserBadges(user.id, token))
-      if (section === 'memories') setMemories(await getMyReflections(token))
-      if (section === 'scores') setScores(await getMyScores(token))
-    } catch (error) {
-      setErrors((current) => ({ ...current, [section]: error.message }))
-    } finally {
-      setLoading((current) => ({ ...current, [section]: false }))
-    }
-  }, [token, user?.id])
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
-    let active = true
-    const requests = [
-      getMyReflections(token).then((value) => active && setMemories(value)).catch((error) => active && setErrors((current) => ({ ...current, memories: error.message }))).finally(() => active && setLoading((current) => ({ ...current, memories: false }))),
-      getUserBadges(user.id, token).then((value) => active && setBadges(value)).catch((error) => active && setErrors((current) => ({ ...current, badges: error.message }))).finally(() => active && setLoading((current) => ({ ...current, badges: false }))),
-      getMyScores(token).then((value) => active && setScores(value)).catch((error) => active && setErrors((current) => ({ ...current, scores: error.message }))).finally(() => active && setLoading((current) => ({ ...current, scores: false }))),
-    ]
-    Promise.allSettled(requests)
-    return () => { active = false }
-  }, [token, user.id])
+    if (Array.isArray(userProfile?.badges)) return
+    refreshProfile().catch((error) => setLoadError(error.message))
+  }, [refreshProfile, userProfile?.badges])
 
-  const uniqueSongsPlayed = useMemo(() => new Set(scores.map((score) => score.songId)).size, [scores])
+  async function reload() {
+    setLoadError('')
+    try { await refreshProfile() } catch (error) { setLoadError(error.message) }
+  }
 
   async function saveMemory(content) {
-    setSaving(true); setFeedback('')
+    setSavingMemory(true)
+    setMemoryError('')
     try {
-      await updateReflection(editing.id, {
-        content,
-        displayMode: editing.displayMode,
-        songId: editing.songId,
-        tags: editing.tags || [],
-      }, token)
-      setEditing(null); setFeedback('Memory updated successfully.'); await loadSection('memories')
-    } catch (error) { setFeedback(error.message) } finally { setSaving(false) }
+      await updateReflection(editingMemory.id, { content, displayMode: editingMemory.displayMode, songId: editingMemory.songId, tags: editingMemory.tags || [] }, token)
+      setEditingMemory(null)
+      setFeedback('Memory updated successfully.')
+      await reload()
+    } catch (error) { setMemoryError(error.message) } finally { setSavingMemory(false) }
   }
 
   async function removeMemory(memory) {
-    if (!window.confirm('Delete this memory permanently?')) return
-    setFeedback('')
-    try { await deleteReflection(memory.id, token); setFeedback('Memory deleted.'); await loadSection('memories') }
-    catch (error) { setFeedback(error.message) }
+    if (!window.confirm('Delete this memory permanently? This cannot be undone.')) return
+    try {
+      await deleteReflection(memory.id, token)
+      setFeedback('Memory deleted.')
+      await reload()
+    } catch (error) { setFeedback(`Memory could not be deleted. ${error.message}`) }
   }
 
-  if (Object.values(loading).every(Boolean)) return <ProfileSkeleton />
+  if (profileLoading && !userProfile) return <div className="profile-page"><span className="profile-skeleton profile-skeleton--hero" role="status" /></div>
+  if (!userProfile) return <div className="profile-page"><div className="profile-error" role="alert"><p>Your profile could not be loaded.</p><button onClick={reload} type="button">Retry</button></div></div>
 
-  return <div className="profile-page">
-    <ProfileHero user={user} />
-    <ProfileStats badges={badges.length} loading={Object.values(loading).every(Boolean)} memories={memories.length} scores={uniqueSongsPlayed} />
-    <div aria-live="polite" className="profile-feedback">{feedback}</div>
-    <ProfileMemories error={errors.memories} loading={loading.memories} memories={memories} onDelete={removeMemory} onEdit={setEditing} onRetry={() => loadSection('memories')} />
-    <div className="profile-lower-grid">
-      <ProfileBadges badges={badges} error={errors.badges} loading={loading.badges} onRetry={() => loadSection('badges')} />
-      <ProfileMusicJourney error={errors.scores} loading={loading.scores} onRetry={() => loadSection('scores')} scores={scores} />
+  const { badges = [], profile, reflections = [], rhythm } = userProfile
+  const memories = reflections.map((memory) => ({ ...memory, isOwner: true }))
+  const themePreference = profile.theme?.toLowerCase()
+  const theme = themePreference === 'dark' || themePreference === 'light'
+    ? themePreference
+    : (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  const loading = { badges: profileLoading, memories: profileLoading, scores: profileLoading }
+
+  function openCreatorProfile() {
+    setActiveMode('creator')
+  }
+  return (
+    <div className="profile-page" data-theme={theme}>
+      <ProfileHero isCreator={hasActiveCreatorAccess(user)} onOpenCreatorProfile={openCreatorProfile} profile={profile} publicProfileTo={`/users/${encodeURIComponent(profile.userId || user.id)}`} />
+      <ProfileStats badges={badges.length} loading={loading} rhythm={rhythm} />
+      <div aria-live="polite" className="profile-feedback" role="status">{feedback}</div>
+      <ProfileMemories error={loadError} loading={profileLoading} memories={memories} onDelete={removeMemory} onEdit={(memory) => { setMemoryError(''); setEditingMemory(memory) }} onRetry={reload} />
+      <ProfileBadges badges={badges} error={loadError} loading={profileLoading} onRetry={reload} />
+      <ProfileMusicJourney error={loadError} loading={profileLoading} onRetry={reload} scores={rhythm?.recentScores || []} />
+      {editingMemory ? <MemoryEditModal error={memoryError} memory={editingMemory} onClose={() => setEditingMemory(null)} onSave={saveMemory} saving={savingMemory} /> : null}
     </div>
-    {editing ? <MemoryEditModal memory={editing} onClose={() => setEditing(null)} onSave={saveMemory} saving={saving} /> : null}
-  </div>
+  )
 }

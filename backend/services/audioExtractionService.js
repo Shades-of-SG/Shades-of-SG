@@ -22,18 +22,83 @@ function getAudioExtractionConfigStatus() {
     };
 }
 
+function getYouTubeMetadata(youtubeUrl) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(DEFAULT_YT_DLP_COMMAND, [
+      '--no-playlist',
+      '--dump-single-json',
+      youtubeUrl,
+    ], {
+      windowsHide: true,
+    })
+
+    let stdout = ''
+    let stderr = ''
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString()
+    })
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+
+    child.on('error', (error) => {
+      const extractionError = new Error(
+        `Unable to run yt-dlp. ${error.message}`
+      )
+      extractionError.status = 503
+      reject(extractionError)
+    })
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const extractionError = new Error(
+          stderr.trim() || `yt-dlp exited with code ${code}.`
+        )
+        extractionError.status = 502
+        reject(extractionError)
+        return
+      }
+
+      try {
+        const data = JSON.parse(stdout)
+
+        resolve({
+          durationSecs: Math.round(Number(data.duration) || 0),
+          title: String(data.title || ''),
+          videoId: String(data.id || ''),
+        })
+      } catch {
+        const extractionError = new Error(
+          'Unable to read YouTube metadata.'
+        )
+        extractionError.status = 502
+        reject(extractionError)
+      }
+    })
+  })
+}
+
 async function extractAudioFromYouTube(youtubeUrl) {
     validateYoutubeUrl(youtubeUrl);
+
+    const metadata = await getYouTubeMetadata(youtubeUrl);
+
     await fs.mkdir(TEMP_DIR, { recursive: true });
 
     const jobId = `youtube-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const outputTemplate = path.join(TEMP_DIR, `${jobId}.%(ext)s`);
+
+    const cookiesTxtPath = path.join(__dirname, '..', 'cookies.txt');
+    const cookieArgs = require('fs').existsSync(cookiesTxtPath) ? ['--cookies', cookiesTxtPath] : [];
 
     await runYtDlp([
         '--no-playlist',
         '--no-progress',
         '--max-filesize',
         `${MAX_YOUTUBE_AUDIO_BYTES}`,
+        ...cookieArgs,
         '-f',
         'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
         '-o',
@@ -60,9 +125,12 @@ async function extractAudioFromYouTube(youtubeUrl) {
 
     return {
         cleanup: () => removeFileQuietly(extractedFile),
+        durationSecs: metadata.durationSecs,
         fileName: path.basename(extractedFile),
         filePath: extractedFile,
         mimeType: getMimeType(extractedFile),
+        title: metadata.title,
+        videoId: metadata.videoId,
     };
 }
 
@@ -183,7 +251,8 @@ async function removeFileQuietly(filePath) {
 }
 
 module.exports = {
-    extractAudioFromYouTube,
     downloadMediaFromUrl,
+    extractAudioFromYouTube,
     getAudioExtractionConfigStatus,
+    getYouTubeMetadata,
 };

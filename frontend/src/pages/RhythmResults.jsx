@@ -19,7 +19,7 @@ function getInitials(title) {
 export default function RhythmResults() {
   const { songId } = useParams()
   const location = useLocation()
-  const { token, user } = useAuth()
+  const { refreshProfile, token, user } = useAuth()
   const result = location.state?.result || readStoredResult(songId)
   const [songDetails, setSongDetails] = useState(null)
   const [saveState, setSaveState] = useState('idle')
@@ -34,12 +34,13 @@ export default function RhythmResults() {
       await saveScore(result, token)
       removePendingScore(result)
       setSaveState('saved')
+      refreshProfile().catch((error) => console.error('[Rhythm profile refresh]', error))
     } catch (error) {
       queuePendingScore(result)
       setSaveError(error.message)
       setSaveState('error')
     }
-  }, [result, token, user])
+  }, [refreshProfile, result, token, user])
 
   useEffect(() => {
     const timeout = window.setTimeout(submitScore, 0)
@@ -96,6 +97,7 @@ export default function RhythmResults() {
           <h1>No score yet</h1>
           <p>Play the chart first, then your result will appear here.</p>
           <Link to={`/game/${songId}`}>Start game</Link>
+          <Link to="/rhythm-game">Return to rhythm games</Link>
         </section>
       </main>
     )
@@ -190,8 +192,39 @@ export default function RhythmResults() {
         </section>
 
         <div className="result-actions">
-          <Link to={result.preview ? `/game/${songId}?difficulty=${result.difficulty}&preview=1` : `/game/${songId}`}>Play Again</Link>
-          <Link to={result.preview ? `/creator/studio/${songId}` : `/songs/${songId}`}>{result.preview ? 'Back to Studio' : 'Back to Song'}</Link>
+          <Link
+            to={
+              result.preview
+                ? `/game/${songId}?difficulty=${result.difficulty}&preview=1`
+                : `/game/${songId}`
+            }
+          >
+            Play Again
+          </Link>
+
+          {!result.preview ? (
+            <Link
+              to={`/rhythm-game/leaderboard?songId=${encodeURIComponent(songId)}&difficulty=${encodeURIComponent(result.difficulty)}`}
+            >
+              View Leaderboard
+            </Link>
+          ) : null}
+
+          <Link
+            to={
+              result.preview
+                ? `/creator/studio/${songId}`
+                : `/songs/${songId}`
+            }
+          >
+            {result.preview ? 'Back to Studio' : 'Back to Song'}
+          </Link>
+
+          {!result.preview ? (
+            <Link to="/rhythm-game">
+              Return to Rhythm Games
+            </Link>
+          ) : null}
         </div>
       </section>
     </main>

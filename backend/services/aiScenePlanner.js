@@ -1,12 +1,13 @@
 const { OpenAI } = require('openai')
 const { Song, GenerationJob, SceneSegment } = require('../models')
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
 
 async function generateScenePlan(jobId, songId) {
   try {
+    const openai = getOpenAI()
     const job = await GenerationJob.findByPk(jobId)
     if (!job) {
       throw new Error(`GenerationJob with ID ${jobId} not found.`)
@@ -17,6 +18,9 @@ async function generateScenePlan(jobId, songId) {
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song with ID ${songId} not found.`)
+    if (job.songId !== song.id) {
+      throw new Error('Generation job does not belong to the requested song.')
+    }
     
     // Read pre-extracted timings instead of re-transcribing audio on the fly!
     let rawSegments = song.transcriptionSegments || []
@@ -24,38 +28,50 @@ async function generateScenePlan(jobId, songId) {
     let systemPrompt, userMessage;
     
     if (rawSegments.length > 0) {
-      systemPrompt = `You are an expert cinematic music video director and visual storyteller. 
-Your task is to analyze the provided chronological audio transcription segments for a song, logically group them into coherent lyrical blocks (e.g., full sentences, complete thoughts, or chorus sections), and generate a cinematic scene description for each block.
+      systemPrompt = `You are an expert cinematic music video director and visual storyteller.
+Your task is to analyze chronological audio transcription segments and group them into cinematic scenes.
 
-This project, "Shades of SG", is focused on Singapore's rich heritage and community history. Please keep local context in mind if the theme calls for it.
+<project_context>
+Theme: ${song.theme || 'Singaporean Heritage'}
+Focus: Singapore's rich heritage, community history, and local context.
+</project_context>
 
-Rules for grouping:
-1. Group the provided transcript segments into coherent lyrical phrases or sentences. Do not arbitrarily cut off mid-sentence.
-2. If a section is a repeating chorus, group it exactly the same way each time so the lyrics match perfectly.
-3. The starting time of your block must match the start time of the first segment you included.
-4. The ending time of your block must match the end time of the last segment you included.
-5. All provided segments must be accounted for chronologically. Do not skip segments.
-6. KEEP SCENES SHORT: Each scene should ideally be 5 to 10 seconds long. DO NOT let any scene exceed 15 seconds. If a lyrical block spans a long duration because of a slow tempo, you MUST split it into multiple scenes so that the visual pacing matches the music.
+<pacing_and_duration_rules>
+- TARGET PACING: Aim for approximately 1 scene every 9 seconds.
+- HARD LIMITS: Each scene MUST be between 6 and 12 seconds long.
+- MATHEMATICAL STRICTNESS: You must calculate the duration (endTime - startTime). If a verse or chorus exceeds 12 seconds, you MUST split it into multiple scenes, even if it breaks a sentence in half. NEVER create a scene longer than 12 seconds.
+</pacing_and_duration_rules>
 
+<lyrical_grouping_rules>
+- Do not cut line-by-line (e.g., 2-3 seconds). Group lines until you reach the ~9 second target.
+- The starting time of your block must match the start time of the first segment you included.
+- The ending time of your block must match the end time of the last segment you included.
+- All provided segments must be accounted for chronologically. Do not skip any segments.
+- MISSING LYRICS: The "True Lyrics" are the absolute source of truth. If the provided Whisper segments missed lines (e.g., an instrumental intro with faint vocals), YOU MUST STILL include those missing lyrics. Create a scene starting at 0.00s and estimate the duration up to the first valid Whisper segment.
+</lyrical_grouping_rules>
+
+<visual_prompt_requirements>
 For each scene block, your visualPrompt must specify:
-- Subject matter and key elements.
-- Lighting, atmosphere, and mood.
-- Camera angle or cinematic style.
-- Integration of the song's theme: ${song.theme || 'Singaporean Heritage'}.
+1. Subject matter and key elements.
+2. Lighting, atmosphere, and mood.
+3. Camera angle or cinematic style.
+4. Integration of the song's theme.
+</visual_prompt_requirements>
 
-    You must return ONLY a JSON object with a "scenes" array following this exact schema:
+<output_format>
+You must return ONLY a JSON object with a "scenes" array following this exact schema:
+{
+  "scenes": [
     {
-      "scenes": [
-        {
-          "startTime": <number, the exact start time of the first segment in the group>,
-          "endTime": <number, the exact end time of the last segment in the group>,
-          "lyrics": "<string, the EXACT corresponding lyrics from True Lyrics>",
-          "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. DO NOT USE NEWLINES IN THIS STRING>"
-        }
-      ]
+      "startTime": <number, exact start time of the first segment, 2 decimal places>,
+      "endTime": <number, exact end time of the last segment, 2 decimal places>,
+      "lyrics": "<string, the EXACT corresponding lyrics from True Lyrics>",
+      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. NO NEWLINES>"
     }
-    CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.
-    CRITICAL: DO NOT ROUND THE TIMESTAMPS. They must remain as exact floats with 2 decimal places (e.g., 30.12, not 30).`
+  ]
+}
+CRITICAL: The output must be valid JSON. Do not round timestamps.
+</output_format>`
 
       let segmentsStr = rawSegments.map((s) => 
         `[${s.start.toFixed(2)}s - ${s.end.toFixed(2)}s]: ${s.text.trim()}`
@@ -74,30 +90,38 @@ ${segmentsStr}`
       systemPrompt = `You are an expert cinematic music video director and visual storyteller. 
 Your task is to analyze the provided song's lyrics, theme, title, and artist, and break the song down into a chronological sequence of highly visual scenes.
 
-This project, "Shades of SG", is focused on Singapore's rich heritage and community history. Please keep local context in mind if the theme calls for it.
+<project_context>
+Theme: ${song.theme || 'Singaporean Heritage'}
+Focus: Singapore's rich heritage, community history, and local context.
+</project_context>
 
-KEEP SCENES SHORT: Each scene should ideally be 5 to 10 seconds long. DO NOT let any scene exceed 15 seconds. If a section of the song is slow, you MUST split it into multiple scenes so that the visual pacing matches the music.
+<pacing_and_duration_rules>
+- TARGET PACING: Aim for approximately 1 scene every 9 seconds.
+- HARD LIMITS: Each scene MUST be between 6 and 12 seconds long.
+- MATHEMATICAL STRICTNESS: If a verse or chorus takes longer than 12 seconds, you MUST split it into multiple scenes. NEVER create a scene longer than 12 seconds.
+</pacing_and_duration_rules>
 
-For each scene, you must generate a rich, highly detailed imagePrompt optimized for DALL-E 3. 
-Each imagePrompt must specify:
-- Subject matter and key elements.
-- Lighting, atmosphere, and mood.
-- Camera angle or cinematic style.
-- Integration of the song's theme: ${song.theme || 'Singaporean Heritage'}.
+<visual_prompt_requirements>
+For each scene block, your visualPrompt must specify:
+1. Subject matter and key elements.
+2. Lighting, atmosphere, and mood.
+3. Camera angle or cinematic style.
+4. Integration of the song's theme.
+</visual_prompt_requirements>
 
-You must return ONLY a JSON object. The root must have a property "scenes" which is an array of objects.
-The JSON schema must strictly follow this structure:
+<output_format>
+You must return ONLY a JSON object with a "scenes" array following this exact schema:
 {
   "scenes": [
     {
       "startTime": <number, starting second of the scene>,
       "endTime": <number, ending second of the scene>,
-      "lyrics": "<string, the EXACT corresponding lyrics for this scene>",
-      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. DO NOT USE NEWLINES IN THIS STRING>"
+      "lyrics": "<string, lyrics for this scene>",
+      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. NO NEWLINES>"
     }
   ]
 }
-CRITICAL: The entire output must be valid, parseable JSON. Do not include unescaped quotes or literal newline characters inside strings.`
+</output_format>`
 
       userMessage = `Title: ${song.title}
 Artist: ${song.artist}

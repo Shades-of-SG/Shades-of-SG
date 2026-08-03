@@ -14,6 +14,7 @@ import {
   getModerationReflections,
   getReflectionSongs,
   moderateReflection,
+  warnReflectionAuthor,
 } from '../services/reflectionService'
 import './ReflectionModeration.css'
 
@@ -157,6 +158,21 @@ export default function ReflectionModeration() {
       return
     }
 
+    if (action === 'warn') {
+      const reason = window.prompt('Warning reason (visible in moderation history):') || ''
+      if (!reason) return
+      setBusyId(reflection.id)
+      try {
+        await warnReflectionAuthor(reflection.id, reason, token)
+        setToast({ message: 'Warning issued to the registered account.', type: 'success' })
+      } catch (nextError) {
+        setToast({ message: nextError.message, type: 'error' })
+      } finally {
+        setBusyId(null)
+      }
+      return
+    }
+
     const nextStatus = action === 'approve' ? 'APPROVED' : action === 'reject' ? 'REJECTED' : 'FLAGGED'
     setBusyId(reflection.id)
     try {
@@ -199,7 +215,7 @@ export default function ReflectionModeration() {
       setStats((current) => ({ ...current, [target.status.toLowerCase()]: Math.max(0, current[target.status.toLowerCase()] - 1) }))
       setPagination((current) => ({ ...current, total: Math.max(0, current.total - 1) }))
       setDeleteTarget(null)
-      setToast({ message: 'Reflection permanently deleted.', type: 'success' })
+      setToast({ message: 'Reflection rejected and removed from public view.', type: 'success' })
     } catch (nextError) {
       setToast({ message: nextError.message, type: 'error' })
     } finally {

@@ -8,7 +8,7 @@
   },
   "name": "shades-of-sg",
   "version": "1.0.0",
-  "description": "We are building a web application for the SCCCI AI Challenge to help a local archivist, Violet, engage the elderly and students with Singaporean music and stories. It features a secure, internal AI Studio where Violet can upload her music and lyrics to automatically generate cinematic, frame-by-frame music videos for her YouTube channel.",
+  "description": "A multi-creator platform for Singapore National Day songs, learning experiences, reflections, rhythm games, and AI-assisted music-video production.",
   "main": "index.js",
   "dependencies": {
     "ansi-regex": "^5.0.1",
@@ -41,6 +41,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "lint": "eslint backend && npm run lint --prefix frontend",
     "test": "npm run test --prefix backend && npm run test --prefix frontend",
+    "test:e2e": "npm run test:e2e --prefix frontend",
     "format": "prettier --write \"**/*.{js,jsx,json,md,css}\"",
     "seed:mock": "cd backend && npm run seed:mock"
   },
