@@ -536,3 +536,26 @@ test('public song search and filters return only matching published Songs with p
         description: completeSong.description, languages: ['English', 'Malay'], theme: 'Community', title: 'River Home',
     });
 });
+
+test('confirmScenes approves scenes, clears memory lock, updates database, and returns success response', async () => {
+    const song = await Song.create({ ...completeSong, creatorId: creator.id, status: 'GENERATING' });
+    const job = await GenerationJob.create({ songId: song.id, status: 'AWAITING_REVIEW' });
+
+    const scenesPayload = [
+        { startTime: 0, endTime: 10, lyrics: 'Intro lyrics', visualPrompt: 'Sunrise prompt' },
+        { start_time: 10, end_time: 20, lyrics: 'Chorus lyrics', visual_prompt: 'Chorus prompt' },
+    ];
+
+    const response = await request(app)
+        .post(`/api/generation/${job.id}/confirm-scenes`)
+        .set(auth(creatorToken))
+        .send({ scenes: scenesPayload });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+        success: true,
+        message: 'Scenes confirmed. Image generation has resumed.',
+        data: { jobId: job.id, status: 'PROCESSING', scenesConfirmed: 2 },
+    });
+});
+

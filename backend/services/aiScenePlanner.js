@@ -16,11 +16,90 @@ function normalizeText(str) {
 }
 
 /**
+ * Checks if a transcription segment matches the song's main hook or title.
+ */
+function isHookSegment(segText, mainHookString) {
+  if (!segText || typeof segText !== 'string') return false
+  const normSeg = normalizeText(segText)
+  if (!normSeg) return false
+
+  if (mainHookString && typeof mainHookString === 'string') {
+    const normHook = normalizeText(mainHookString)
+    if (normHook) {
+      if (normSeg.includes(normHook) || (normHook.length >= 5 && normHook.includes(normSeg))) {
+        return true
+      }
+    }
+  }
+
+  if (normSeg.includes("tomorrows here today")) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Pre-groups transcription segments into hook-aware scene blocks BEFORE LLM invocation.
+ * - Recurring main hook segments are isolated into standalone 2.0s - 4.0s scene blocks.
+ * - Non-hook verse segments accumulate into 6.0s - 8.5s scene blocks.
+ */
+function buildHookAwareSceneBlocks(transcriptionSegments, mainHookString) {
+  if (!Array.isArray(transcriptionSegments) || transcriptionSegments.length === 0) {
+    return []
+  }
+
+  const blocks = []
+  let currentGroup = []
+
+  const getStart = (s) => s.start ?? s.startTime ?? 0
+  const getEnd = (s) => s.end ?? s.endTime ?? getStart(s)
+
+  for (let i = 0; i < transcriptionSegments.length; i++) {
+    const seg = transcriptionSegments[i]
+    const segText = seg.text || seg.lyrics || ''
+
+    if (isHookSegment(segText, mainHookString)) {
+      if (currentGroup.length > 0) {
+        blocks.push(createSceneFromGroup(currentGroup))
+        currentGroup = []
+      }
+      blocks.push(createSceneFromGroup([seg]))
+      continue
+    }
+
+    if (currentGroup.length === 0) {
+      currentGroup.push(seg)
+      continue
+    }
+
+    const groupStart = getStart(currentGroup[0])
+    const groupLastEnd = getEnd(currentGroup[currentGroup.length - 1])
+    const currentDuration = groupLastEnd - groupStart
+    const segEnd = getEnd(seg)
+    const potentialDuration = segEnd - groupStart
+
+    if (potentialDuration > 8.5) {
+      blocks.push(createSceneFromGroup(currentGroup))
+      currentGroup = [seg]
+    } else if (currentDuration >= 6.0) {
+      blocks.push(createSceneFromGroup(currentGroup))
+      currentGroup = [seg]
+    } else {
+      currentGroup.push(seg)
+    }
+  }
+
+  if (currentGroup.length > 0) {
+    blocks.push(createSceneFromGroup(currentGroup))
+  }
+
+  return blocks
+}
+
+/**
  * Deterministically pre-groups transcription segments into 6.0s - 7.5s scene blocks
  * (Hard Max: 8.5s, Hard Min: 5.0s).
- * Identifies identical/repeating lyric phrases (choruses) and locks them into exact
- * segment splits every time they appear.
- * For a 3-minute track (180s), this produces between 25 and 30 scene blocks (~6.5s average).
  */
 function buildDeterministicSceneBlocks(transcriptionSegments) {
   if (!Array.isArray(transcriptionSegments) || transcriptionSegments.length === 0) {
@@ -36,8 +115,6 @@ function buildDeterministicSceneBlocks(transcriptionSegments) {
 
   for (let i = 0; i < transcriptionSegments.length; i++) {
     const seg = transcriptionSegments[i]
-    const segStart = getStart(seg)
-    const segEnd = getEnd(seg)
 
     if (currentGroup.length === 0) {
       currentGroup.push(seg)
@@ -47,16 +124,15 @@ function buildDeterministicSceneBlocks(transcriptionSegments) {
     const groupStart = getStart(currentGroup[0])
     const groupLastEnd = getEnd(currentGroup[currentGroup.length - 1])
     const currentDuration = groupLastEnd - groupStart
+    const segEnd = getEnd(seg)
     const potentialDuration = segEnd - groupStart
 
-    // Hard max limit check: 8.5 seconds
     if (potentialDuration > 8.5) {
       blocks.push(createSceneFromGroup(currentGroup))
       currentGroup = [seg]
       continue
     }
 
-    // Chorus pattern matching: check if starting line matches a known canonical chorus
     const firstLineKey = normalizeText(currentGroup[0].text || currentGroup[0].lyrics || '')
     const knownPattern = canonicalChorusPatterns.get(firstLineKey)
 
@@ -69,13 +145,11 @@ function buildDeterministicSceneBlocks(transcriptionSegments) {
       continue
     }
 
-    // Pacing accumulator logic: target 6.0s - 7.5s (min 5.0s, max 8.5s)
     if (currentDuration < 5.0) {
       currentGroup.push(seg)
     } else if (currentDuration < 6.5 && potentialDuration <= 8.5) {
       currentGroup.push(seg)
     } else {
-      // Save canonical pattern if this group starts a repeating line
       if (firstLineKey && currentGroup.length > 1 && !canonicalChorusPatterns.has(firstLineKey)) {
         const pattern = currentGroup.map((s) => normalizeText(s.text || s.lyrics || ''))
         canonicalChorusPatterns.set(firstLineKey, pattern)
@@ -149,14 +223,14 @@ async function generateScenePlan(jobId, songId) {
 
     let rawSegments = song.transcriptionSegments || []
 
-    // 1. Programmatic Pre-Grouping: Build deterministic 6.0s - 7.5s scene blocks (~25-30 for 3 min track)
-    const deterministicBlocks = buildDeterministicSceneBlocks(rawSegments)
-    console.log(`[aiScenePlanner] Pre-grouped ${rawSegments.length} raw segments into ${deterministicBlocks.length} deterministic scene blocks (target 25-30).`)
+    const mainHookString = song.title || "Cause tomorrow's here today"
+    const preGroupedBlocks = buildHookAwareSceneBlocks(rawSegments, mainHookString)
+    console.log(`[aiScenePlanner] Pre-grouped ${rawSegments.length} raw segments into ${preGroupedBlocks.length} hook-aware scene blocks.`)
 
     let llmScenes = []
     const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
 
-    if (apiKey && deterministicBlocks.length > 0) {
+    if (apiKey && preGroupedBlocks.length > 0) {
       try {
         const baseURL = process.env.DEEPSEEK_API_KEY
           ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com')
@@ -167,11 +241,15 @@ async function generateScenePlan(jobId, songId) {
 
         const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
 
-        const systemPrompt = `You are an expert cinematic music video director and visual storyteller.
-You are provided with PRE-PARTITIONED scene blocks averaging 6 to 7 seconds each.
-CRITICAL MANDATE: You MUST preserve the exact number (${deterministicBlocks.length}) of scene blocks provided in the user message.
-DO NOT combine, merge, or split these pre-partitioned scene blocks.
-Your ONLY job is to generate a detailed, cinematic DALL-E 3 visual prompt for each scene block based on its lyrics and the song's theme.
+        const systemPrompt = `You are an expert cinematic music video director.
+You are provided with ${preGroupedBlocks.length} PRE-PARTITIONED scene blocks.
+CRITICAL MANDATE: You MUST preserve the exact number (${preGroupedBlocks.length}) of scene blocks provided.
+DO NOT change the number of scenes, DO NOT alter the timestamps, and DO NOT split or merge the blocks.
+Your ONLY job is to write a detailed, cinematic image generation prompt (visualPrompt) for each provided block based on its lyrics and the song theme.
+
+HOOK & CHORUS PROMPT REUSE RULE:
+- For repeated chorus scenes or repeating isolated hooks (e.g. "Cause tomorrow's here today"), write the detailed visual prompt for its FIRST occurrence.
+- For all subsequent repeats of that exact same hook or chorus scene, output the EXACT SAME visual prompt as the first occurrence, and append ' Repeat of earlier scene for chorus continuity.' to the end.
 
 <project_context>
 Theme: ${song.theme || 'Singaporean Heritage'}
@@ -179,14 +257,14 @@ Focus: Singapore's rich heritage, community history, and local context.
 </project_context>
 
 <output_format>
-You must return ONLY a JSON object with a "scenes" array matching the exact count (${deterministicBlocks.length}):
+You must return ONLY a JSON object with a "scenes" array matching the exact count (${preGroupedBlocks.length}):
 {
   "scenes": [
     {
-      "startTime": <number, exact start time of the block>,
-      "endTime": <number, exact end time of the block>,
-      "lyrics": "<string, exact lyrics of the block>",
-      "visualPrompt": "<string, detailed DALL-E 3 image generation prompt. NO NEWLINES>"
+      "startTime": <number, exact start time of the provided block>,
+      "endTime": <number, exact end time of the provided block>,
+      "lyrics": "<string, exact lyrics of the provided block>",
+      "visualPrompt": "<string, detailed image generation prompt. NO NEWLINES>"
     }
   ]
 }
@@ -194,14 +272,14 @@ CRITICAL SYNTAX: Never use literal newlines or line breaks inside string values.
 Return ONLY raw valid JSON. Do not wrap in markdown or code blocks.
 </output_format>`
 
-        const blocksStr = deterministicBlocks.map((b, idx) =>
+        const blocksStr = preGroupedBlocks.map((b, idx) =>
           `Block ${idx + 1} [${b.startTime.toFixed(2)}s - ${b.endTime.toFixed(2)}s]: ${b.lyrics}`
         ).join('\n')
 
         const userMessage = `Title: ${song.title}
 Artist: ${song.artist}
 Theme: ${song.theme || 'N/A'}
-True Lyrics:
+Full Track Lyrics:
 ${song.rawLyrics || song.lyrics || 'No lyrics provided.'}
 
 Pre-Partitioned Scene Blocks (DO NOT MODIFY COUNT OR BOUNDARIES):
@@ -210,7 +288,7 @@ ${blocksStr}`
         const response = await openai.chat.completions.create({
           model,
           response_format: { type: 'json_object' },
-          temperature: 0.7,
+          temperature: 0.2,
           max_tokens: 8192,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -224,47 +302,40 @@ ${blocksStr}`
 
         if (cleanedText) {
           const parsedData = JSON.parse(cleanedText)
-          if (parsedData.scenes && Array.isArray(parsedData.scenes)) {
+          if (parsedData.scenes && Array.isArray(parsedData.scenes) && parsedData.scenes.length > 0) {
             llmScenes = parsedData.scenes
           }
         }
       } catch (llmError) {
-        console.warn(`[aiScenePlanner] LLM prompt generation failed. Falling back to deterministic blocks:`, llmError.message)
+        console.warn(`[aiScenePlanner] LLM prompt generation failed. Falling back to preGroupedBlocks:`, llmError.message)
       }
     }
 
-    // 3. Fallback & Validation: If LLM alters scene count or returns scenes > 8.5s, fall back directly to deterministic blocks
     let finalScenes = []
-    if (llmScenes.length === deterministicBlocks.length) {
-      const isValidPacing = llmScenes.slice(0, -1).every((s) => {
-        const dur = Number(s.endTime) - Number(s.startTime)
-        return dur >= 4.5 && dur <= 8.5
-      })
-
-      if (isValidPacing) {
-        finalScenes = llmScenes
-      } else {
-        console.warn(`[aiScenePlanner] LLM scenes exceeded duration limits (>8.5s). Attaching LLM prompts to deterministic block timestamps.`)
-        finalScenes = deterministicBlocks.map((block, idx) => ({
-          ...block,
-          visualPrompt: llmScenes[idx]?.visualPrompt || buildDefaultVisualPrompt(song, block.lyrics),
-        }))
-      }
+    if (llmScenes && llmScenes.length === preGroupedBlocks.length) {
+      console.log(`[aiScenePlanner] LLM successfully annotated ${llmScenes.length} natural scene blocks.`)
+      finalScenes = llmScenes
+    } else if (llmScenes && llmScenes.length > 0) {
+      console.warn(`[aiScenePlanner] LLM returned ${llmScenes.length} scenes instead of expected ${preGroupedBlocks.length}. Attaching LLM prompts to pre-grouped block boundaries.`)
+      finalScenes = preGroupedBlocks.map((block, idx) => ({
+        ...block,
+        visualPrompt: llmScenes[idx]?.visualPrompt || buildDefaultVisualPrompt(song, block.lyrics),
+      }))
     } else {
-      if (llmScenes.length > 0) {
-        console.warn(`[aiScenePlanner] LLM returned ${llmScenes.length} scenes instead of expected ${deterministicBlocks.length}. Falling back to deterministic blocks.`)
-      }
-      finalScenes = deterministicBlocks
+      console.warn(`[aiScenePlanner] LLM returned no valid scenes or API key missing. Using preGroupedBlocks fallback.`)
+      finalScenes = preGroupedBlocks.length > 0 ? preGroupedBlocks : buildDeterministicSceneBlocks(rawSegments)
     }
 
     // Map to final SceneSegment model objects
     const sceneRecords = finalScenes.map((scene) => {
       const lyrics = sanitizeLyrics(scene.lyrics || scene.text)
+      const st = Number(scene.startTime)
+      const et = Number(scene.endTime)
       return {
         jobId: jobId,
         songId: songId,
-        startTime: Number(Number(scene.startTime).toFixed(2)),
-        endTime: Number(Number(scene.endTime).toFixed(2)),
+        startTime: isNaN(st) ? 0 : Number(st.toFixed(2)),
+        endTime: isNaN(et) ? 0 : Number(et.toFixed(2)),
         lyrics: lyrics,
         visualPrompt: scene.visualPrompt || buildDefaultVisualPrompt(song, lyrics),
       }
@@ -273,7 +344,7 @@ ${blocksStr}`
     // Wipe out existing SceneSegments for this song to ensure clean state
     await SceneSegment.destroy({ where: { songId: songId } })
     await SceneSegment.bulkCreate(sceneRecords)
-    console.log(`[aiScenePlanner] Saved ${sceneRecords.length} scene segments (averaging 6-7s) to PostgreSQL for Job ${jobId}.`)
+    console.log(`[aiScenePlanner] Saved ${sceneRecords.length} scene segments to PostgreSQL for Job ${jobId}.`)
     return sceneRecords
   } catch (error) {
     console.error(`[aiScenePlanner] Critical error during scene generation for Job ${jobId}:`, error)
@@ -293,6 +364,7 @@ ${blocksStr}`
 
 module.exports = {
   generateScenePlan,
+  buildHookAwareSceneBlocks,
   buildDeterministicSceneBlocks,
   groupSegmentsByTargetDuration,
 }

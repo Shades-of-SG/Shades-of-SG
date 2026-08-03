@@ -11,6 +11,8 @@ const aiStorageService = require('../services/aiStorageService')
 const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
 const { transcribeMediaBuffer } = require('../services/transcriptionService')
 
+const activePipelineJobs = new Map()
+
 const completeGeneration = async (jobId) => {
   const job = await GenerationJob.findByPk(jobId)
   if (!job) throw new Error(`Job ${jobId} not found in database.`)
@@ -240,6 +242,12 @@ const getAllJobs = async (req, res, next) => {
 const runGenerationPipeline = async (jobId) => {
   console.log(`[Background Worker] Starting generation pipeline for Job ID: ${jobId}...`)
 
+  if (activePipelineJobs.has(jobId)) {
+    console.log(`[Background Worker] Job ${jobId} is already active in pipeline. Skipping duplicate invocation.`)
+    return
+  }
+  activePipelineJobs.set(jobId, true)
+
   try {
     const job = await GenerationJob.findByPk(jobId)
     if (!job) throw new Error(`Job ${jobId} not found in database.`)
@@ -323,7 +331,7 @@ const runGenerationPipeline = async (jobId) => {
       console.log(`[Phase 2] Skipped. ${existingSegments.length} valid SceneSegments already exist.`)
     } else {
       if (hasMicroScenes) {
-        console.log(`[Phase 2] Found ${existingSegments.length} outdated micro-scenes (<5.0s). Regenerating scene plan with 6-9s target duration...`)
+        console.log(`[Phase 2] Found ${existingSegments.length} outdated micro-scenes (<5.0s). Regenerating scene plan...`)
       } else {
         console.log(`[Phase 2] Generating Scene Plan...`)
       }
@@ -334,17 +342,18 @@ const runGenerationPipeline = async (jobId) => {
     // ─── Pipeline Pause: Await Creator Review ───
     console.log(`[Phase 2 → Pause] Scene plan ready. Setting status to AWAITING_REVIEW for Job ${jobId}.`)
     await job.update({ status: 'AWAITING_REVIEW' })
-    // Pipeline halts here. Phases 3-5 will resume when the creator confirms scenes via confirmScenes().
+    activePipelineJobs.delete(jobId)
     return
 
   } catch (error) {
     console.error(`[Generation Pipeline Error] Job ${jobId}:`, error)
+    activePipelineJobs.delete(jobId)
 
     // ERROR BOUNDARY
     try {
       if (jobId) {
         await failGeneration(jobId, error)
-        await cleanupJobFiles(jobId) // Wipe broken files so they don't clog the server
+        await cleanupJobFiles(jobId)
       }
     } catch (fallbackError) {
       console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
@@ -358,6 +367,12 @@ const runGenerationPipeline = async (jobId) => {
 
 const resumeFromPhase3 = async (jobId) => {
   console.log(`[Background Worker] Resuming pipeline from Phase 3 for Job ID: ${jobId}...`)
+
+  if (activePipelineJobs.has(jobId)) {
+    console.log(`[Background Worker] Job ${jobId} is already active in pipeline. Skipping duplicate invocation.`)
+    return
+  }
+  activePipelineJobs.set(jobId, true)
 
   try {
     const job = await GenerationJob.findByPk(jobId)
@@ -415,6 +430,8 @@ const resumeFromPhase3 = async (jobId) => {
     } catch (fallbackError) {
       console.error(`[Fallback Failure] Job ${jobId}:`, fallbackError)
     }
+  } finally {
+    activePipelineJobs.delete(jobId)
   }
 }
 
@@ -726,32 +743,36 @@ const confirmScenes = async (req, res, next) => {
 
     const song = job.song
 
-    // Auto-fill missing visual prompts before creating SceneSegment records
-    const processedScenes = await Promise.all(
-      scenes.map(async (scene) => {
-        let visualPrompt = scene.visual_prompt ?? scene.visualPrompt
+    // Schema Alignment: Map camelCase/snake_case fields and auto-fill missing prompts
+    const mappedScenes = await Promise.all(
+      scenes.map(async (s, index) => {
+        let visualPrompt = s.visualPrompt || s.visual_prompt
         if (!visualPrompt || !visualPrompt.trim()) {
           console.log(`[confirmScenes] Found scene with missing visual prompt. Auto-generating prompt on the fly...`)
-          visualPrompt = await generatePromptForScene(song, scene.lyrics)
+          visualPrompt = await generatePromptForScene(song, s.lyrics)
         }
         return {
-          songId: song.id,
-          startTime: scene.start_time ?? scene.startTime,
-          endTime: scene.end_time ?? scene.endTime,
-          lyrics: scene.lyrics || null,
-          visualPrompt: visualPrompt,
+          songId: job.songId,
+          sceneOrder: index + 1,
+          startTime: parseFloat(s.startTime || s.start_time || 0),
+          endTime: parseFloat(s.endTime || s.end_time || 0),
+          lyrics: s.lyrics || '',
+          visualPrompt: visualPrompt || '',
         }
       })
     )
 
     // Overwrite existing SceneSegment records with the user-approved scenes
-    await SceneSegment.destroy({ where: { songId: song.id } })
-    await SceneSegment.bulkCreate(processedScenes)
+    await SceneSegment.destroy({ where: { songId: job.songId } })
+    await SceneSegment.bulkCreate(mappedScenes)
 
     // Update transcription segments if the creator edited them
     if (transcriptionSegments && Array.isArray(transcriptionSegments)) {
       await song.update({ transcriptionSegments })
     }
+
+    // CLEAR MEMORY LOCK: Delete the job lock before calling background pipeline
+    activePipelineJobs.delete(job.id)
 
     // Resume pipeline
     await job.update({ status: 'PROCESSING' })
@@ -762,7 +783,7 @@ const confirmScenes = async (req, res, next) => {
     return res.json({
       success: true,
       message: 'Scenes confirmed. Image generation has resumed.',
-      data: { jobId: job.id, status: 'PROCESSING', scenesConfirmed: sceneRecords.length },
+      data: { jobId: job.id, status: 'PROCESSING', scenesConfirmed: mappedScenes.length },
     })
   } catch (error) {
     next(error)
