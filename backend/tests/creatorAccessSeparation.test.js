@@ -68,6 +68,13 @@ test('active creators have both normal-user and creator access', async () => {
     expect((await request(app).get('/api/songs/creator').set(authorization(creator))).status).toBe(200);
 });
 
+test('creator access endpoints cannot be used to change an administrator account', async () => {
+    const response = await request(app).patch(`/api/admin/creators/${admin.id}/status`)
+        .set(authorization(admin)).send({ creatorAccessStatus: 'SUSPENDED', reason: 'Invalid self-access attempt.' });
+    expect(response.status).toBe(404);
+    expect(await admin.reload()).toMatchObject({ accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', role: 'ADMIN' });
+});
+
 test('creator suspension blocks every creator route family but preserves normal access and all data', async () => {
     const before = {
         generations: await GenerationJob.count({ where: { songId: publishedSong.id } }),
@@ -129,7 +136,7 @@ test('creator suspension blocks every creator route family but preserves normal 
 
 test('restoring creator access immediately restores creator APIs without changing published songs', async () => {
     const restored = await request(app).patch(`/api/admin/creators/${creator.id}/status`)
-        .set(authorization(admin)).send({ creatorAccessStatus: 'ACTIVE' });
+        .set(authorization(admin)).send({ creatorAccessStatus: 'ACTIVE', reason: 'Creator programme review is complete.' });
     expect(restored.status).toBe(200);
     expect(restored.body.creator).toMatchObject({ accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', creatorSuspensionReason: null });
     expect((await request(app).get('/api/songs/creator').set(authorization(creator))).status).toBe(200);
@@ -162,7 +169,7 @@ test('full account suspension blocks normal and creator access with reason, then
     expect(login.body.message).toContain(reason);
 
     const restored = await request(app).patch(`/api/admin/users/${creator.id}/status`)
-        .set(authorization(admin)).send({ accountStatus: 'ACTIVE' });
+        .set(authorization(admin)).send({ accountStatus: 'ACTIVE', reason: 'Safety review confirms access can be restored.' });
     expect(restored.status).toBe(200);
     expect(restored.body.user).toMatchObject({ accountStatus: 'ACTIVE', accountSuspensionReason: null, creatorAccessStatus: 'ACTIVE' });
     expect((await request(app).get('/api/auth/me').set(authorization(creator))).status).toBe(200);

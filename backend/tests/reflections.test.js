@@ -481,7 +481,12 @@ test('comment authors, reflection owners, and admins can delete comments but unr
     const adminModerated = await makeComment();
     expect((await request(app).delete(`/api/reflections/${reflection.id}/comments/${adminModerated.id}`)
         .set('Authorization', `Bearer ${adminToken}`)).status).toBe(204);
-    expect(await ReflectionComment.count({ where: { reflectionId: reflection.id } })).toBe(1);
+    expect(await ReflectionComment.count({ where: { reflectionId: reflection.id } })).toBe(2);
+    expect((await ReflectionComment.findByPk(adminModerated.id)).status).toBe('REMOVED');
+    const restored = await request(app).post(`/api/reflections/${reflection.id}/comments/${adminModerated.id}/restore`)
+        .set('Authorization', `Bearer ${adminToken}`).send({ reason: 'The safety review found no policy violation.' });
+    expect(restored.status).toBe(200);
+    expect((await ReflectionComment.findByPk(adminModerated.id)).status).toBe('VISIBLE');
 });
 
 test('public reflection identities link safely while anonymous reflections never expose their owner id', async () => {

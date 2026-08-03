@@ -4,7 +4,7 @@ const {
     AnalyticsEvent, sequelize, ModerationAction, Reflection, ReflectionComment,
     ReflectionLike, Song, User, UserProfile, UserWarning,
 } = require('../models');
-const { optionalAuth, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
+const { optionalAuth, requireAdmin, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
 const { createRateLimit } = require('../middleware/rateLimit');
 const { validateCommentContent } = require('../services/commentContentService');
 const { writeAudit } = require('../services/auditService');
@@ -97,7 +97,7 @@ function serializeModerationReflection(reflection, currentUserId) {
         moderatedAt: value.moderatedAt,
         moderatorNote: value.moderatorNote,
         moderator: value.moderator
-            ? { id: value.moderator.id, name: value.moderator.name }
+            ? { id: value.moderator.id, name: value.moderator.name, role: value.moderator.role }
             : null,
         account: value.user
             ? { id: value.user.id, name: value.user.name, email: value.user.email, accountStatus: value.user.accountStatus }
@@ -524,12 +524,15 @@ router.post('/:reflectionId/comments', requireAuth, commentRateLimit, async (req
 router.delete('/:reflectionId/comments/:commentId', requireAuth, async (req, res, next) => {
     try {
         if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
-            return res.status(404).json({ message: 'Comment not found.' });
+            return res.status(400).json({ message: 'Reflection and comment IDs must be valid UUIDs.' });
         }
         const comment = await ReflectionComment.findOne({
-            where: { id: req.params.commentId, reflectionId: req.params.reflectionId, status: 'VISIBLE' },
+            where: { id: req.params.commentId, reflectionId: req.params.reflectionId },
         });
         if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        if (comment.status === 'REMOVED') {
+            return res.status(req.authUserRecord.role === 'ADMIN' ? 409 : 404).json({ message: 'Comment is already removed.' });
+        }
         const reflection = await findReflection(comment.reflectionId);
         if (!reflection) return res.status(404).json({ message: 'Comment not found.' });
         const currentUser = req.authUserRecord;
@@ -537,8 +540,61 @@ router.delete('/:reflectionId/comments/:commentId', requireAuth, async (req, res
             || currentUser.id === reflection.userId
             || currentUser.role === 'ADMIN';
         if (!canDelete) return res.status(403).json({ message: 'You do not have permission to remove this comment.' });
-        await comment.destroy();
+        if (currentUser.role === 'ADMIN') {
+            await sequelize.transaction(async (transaction) => {
+                await comment.update({ status: 'REMOVED' }, { transaction });
+                await ModerationAction.create({
+                    actionType: 'REFLECTION_COMMENT_REMOVED', actorId: currentUser.id,
+                    metadata: { evidencePreserved: true, reflectionId: reflection.id },
+                    songId: reflection.songId, targetId: comment.id, targetType: 'REFLECTION_COMMENT',
+                    targetUserId: comment.userId,
+                }, { transaction });
+                await writeAudit({
+                    action: 'REFLECTION_COMMENT_REMOVED', actorId: currentUser.id,
+                    creatorId: reflection.song?.creatorId || null, entityId: comment.id,
+                    entityType: 'REFLECTION_COMMENT', metadata: { evidencePreserved: true, reflectionId: reflection.id },
+                    req, songId: reflection.songId, transaction,
+                });
+            });
+        } else {
+            await comment.destroy();
+        }
         return res.status(204).end();
+    } catch (error) { return next(error); }
+});
+
+router.post('/:reflectionId/comments/:commentId/restore', requireAdmin, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
+            return res.status(400).json({ message: 'Reflection and comment IDs must be valid UUIDs.' });
+        }
+        const reason = String(req.body.reason || '').trim();
+        if (reason.length < 5 || reason.length > 2000) {
+            return res.status(400).json({ message: 'A restoration reason between 5 and 2000 characters is required.' });
+        }
+        const comment = await ReflectionComment.findOne({
+            where: { id: req.params.commentId, reflectionId: req.params.reflectionId },
+        });
+        if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        if (comment.status !== 'REMOVED') return res.status(409).json({ message: 'Comment is already visible.' });
+        const reflection = await findReflection(comment.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        await sequelize.transaction(async (transaction) => {
+            await comment.update({ status: 'VISIBLE' }, { transaction });
+            await ModerationAction.create({
+                actionType: 'REFLECTION_COMMENT_RESTORED', actorId: req.authUserRecord.id,
+                metadata: { reflectionId: reflection.id }, reason,
+                songId: reflection.songId, targetId: comment.id, targetType: 'REFLECTION_COMMENT',
+                targetUserId: comment.userId,
+            }, { transaction });
+            await writeAudit({
+                action: 'REFLECTION_COMMENT_RESTORED', actorId: req.authUserRecord.id,
+                creatorId: reflection.song?.creatorId || null, entityId: comment.id,
+                entityType: 'REFLECTION_COMMENT', metadata: { reason, reflectionId: reflection.id },
+                req, songId: reflection.songId, transaction,
+            });
+        });
+        return res.json({ comment: { id: comment.id, status: comment.status } });
     } catch (error) { return next(error); }
 });
 
@@ -643,6 +699,7 @@ router.put('/:id/moderation', requireCreatorOrAdmin, async (req, res, next) => {
 
 router.post('/:id/warn', requireCreatorOrAdmin, async (req, res, next) => {
     try {
+        if (!UUID_PATTERN.test(req.params.id)) return res.status(400).json({ message: 'Reflection ID must be a valid UUID.' });
         const creatorId = req.authUserRecord.role === 'CREATOR' ? req.authUserRecord.id : null;
         const reflection = await findReflection(req.params.id, { creatorId });
         if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
@@ -652,6 +709,10 @@ router.post('/:id/warn', requireCreatorOrAdmin, async (req, res, next) => {
         if (reason.length < 5 || reason.length > 2000) {
             return res.status(400).json({ message: 'Warning reason must be between 5 and 2000 characters.' });
         }
+        const duplicate = await UserWarning.findOne({
+            where: { reason, status: 'ACTIVE', userId: reflection.userId },
+        });
+        if (duplicate) return res.status(409).json({ message: 'An active warning with this reason already exists for the user.' });
 
         const warning = await sequelize.transaction(async (transaction) => {
             const createdWarning = await UserWarning.create({

@@ -7,7 +7,7 @@ process.env.DB_STORAGE = databasePath;
 
 const request = require('supertest');
 const app = require('../server');
-const { CreatorApplication, sequelize, User } = require('../models');
+const { AuditLog, CreatorApplication, sequelize, User } = require('../models');
 const { createToken, hashPassword } = require('../services/authService');
 
 const auth = (user) => ({ Authorization: `Bearer ${createToken(user)}` });
@@ -132,6 +132,55 @@ test('submission is read-only, visible in admin review, and its resume is role-p
 
     expect((await request(app).get(`/api/creator-applications/${saved.body.application.id}/resume`).set(auth(admin))).status).toBe(200);
     expect((await request(app).get(`/api/creator-applications/${saved.body.application.id}/resume`).set(auth(otherUser))).status).toBe(404);
+});
+
+test('admin review metadata is authoritative and invalid transitions are rejected', async () => {
+    const passwordHash = hashPassword('password123');
+    const approvalApplicant = await User.create({ email: 'approval-applicant@example.com', name: 'Approval Applicant', passwordHash, role: 'REGISTERED' });
+    const rejectionApplicant = await User.create({ email: 'rejection-applicant@example.com', name: 'Rejection Applicant', passwordHash, role: 'REGISTERED' });
+    const values = {
+        ...completeDraft,
+        status: 'SUBMITTED',
+        submittedAt: new Date(),
+    };
+    const approvalApplication = await CreatorApplication.create({ ...values, userId: approvalApplicant.id });
+    const rejectionApplication = await CreatorApplication.create({ ...values, userId: rejectionApplicant.id });
+
+    const list = await request(app).get('/api/admin/creator-applications').set(auth(admin));
+    expect(list.status).toBe(200);
+    expect(list.body.applicationStatuses).toEqual(expect.arrayContaining(['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED']));
+    expect(list.body.applications.find((item) => item.id === approvalApplication.id)).toMatchObject({
+        allowedTransitions: expect.arrayContaining(['UNDER_REVIEW', 'APPROVED', 'REJECTED']),
+        completion: { complete: true, missingFields: [] },
+    });
+
+    const sameStatus = await request(app).patch(`/api/admin/creator-applications/${approvalApplication.id}/status`)
+        .set(auth(admin)).send({ status: 'SUBMITTED' });
+    expect(sameStatus.status).toBe(409);
+
+    const underReview = await request(app).patch(`/api/admin/creator-applications/${approvalApplication.id}/status`)
+        .set(auth(admin)).send({ adminNotes: 'Initial review completed.', status: 'UNDER_REVIEW' });
+    expect(underReview.status).toBe(200);
+    expect(underReview.body.application.latestAdministrativeAction).toMatchObject({ actorName: admin.name, status: 'UNDER_REVIEW' });
+
+    const backwards = await request(app).patch(`/api/admin/creator-applications/${approvalApplication.id}/status`)
+        .set(auth(admin)).send({ status: 'SUBMITTED' });
+    expect(backwards.status).toBe(409);
+
+    const approved = await request(app).patch(`/api/admin/creator-applications/${approvalApplication.id}/status`)
+        .set(auth(admin)).send({ status: 'APPROVED' });
+    expect(approved.status).toBe(200);
+    expect(approved.body.application.allowedTransitions).toEqual([]);
+    expect(await CreatorApplication.findByPk(approvalApplication.id)).not.toBeNull();
+    expect(await approvalApplicant.reload()).toMatchObject({ accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', role: 'CREATOR' });
+    expect(await AuditLog.findOne({ where: { action: 'CREATOR_APPLICATION_APPROVED', entityId: approvalApplication.id } })).not.toBeNull();
+
+    const rejected = await request(app).patch(`/api/admin/creator-applications/${rejectionApplication.id}/status`)
+        .set(auth(admin)).send({ applicantFeedback: 'The proposal needs a clearer contribution plan.', status: 'REJECTED' });
+    expect(rejected.status).toBe(200);
+    expect(await CreatorApplication.findByPk(rejectionApplication.id)).not.toBeNull();
+    expect(await rejectionApplicant.reload()).toMatchObject({ accountStatus: 'ACTIVE', role: 'REGISTERED' });
+    expect(await AuditLog.findOne({ where: { action: 'CREATOR_APPLICATION_REJECTED', entityId: rejectionApplication.id } })).not.toBeNull();
 });
 
 test('a different user cannot replace, remove, submit, or withdraw another user application', async () => {
