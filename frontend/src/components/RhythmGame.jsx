@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import { publishBeatmap, saveBeatmapSettings } from '../services/beatmapService'
 import { trackAnalyticsEvent } from '../services/analyticsService'
+import { storePendingScoreClaim } from '../services/pendingScoreClaim'
 import { applyJudgement, calculateWeightedAccuracy, completeHold, createStats } from '../utils/rhythmScoring'
 import { getNoteProgress, getSongTimeMs, getTimingJudgement, isMissed, JUDGEMENT_WINDOWS } from '../utils/rhythmTiming'
 
@@ -226,13 +227,14 @@ export default function RhythmGame() {
       misses: finalStats.judgements.MISS, holdCompletions: finalStats.holdCompletions,
       earlyReleases: finalStats.earlyReleases, processedNotes: finalStats.processed, preview, songId, totalNotes,
     })
-    if (!preview) storeResult(result)
+    if (!preview && token && ['REGISTERED', 'CREATOR'].includes(user?.role)) storeResult(result)
+    else if (!preview && !token) storePendingScoreClaim(result)
     if (!preview) trackAnalyticsEvent('RHYTHM_GAME_COMPLETED', {
       metadata: { accuracy: finalAccuracy, difficulty, score: finalStats.score }, songId,
     }, token).catch(() => {})
     setPhase('finished')
     navigate(`/game/${songId}/results`, { replace: true, state: { result } })
-  }, [difficulty, navigate, preview, songId, token, totalNotes])
+  }, [difficulty, navigate, preview, songId, token, totalNotes, user?.role])
 
   const finishAtAudioEnd = useCallback(() => {
     notesRef.current = notesRef.current.map((note) => {

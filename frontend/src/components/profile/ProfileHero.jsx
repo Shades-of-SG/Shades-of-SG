@@ -15,6 +15,7 @@ export default function ProfileHero({ editable = true, isCreator = false, onOpen
         <p className="profile-kicker">{isCreator ? 'Creator & Memory Keeper' : 'Memory Keeper'} <Heart aria-hidden="true" size={15} /></p>
         <h1>{displayName}</h1>
         {profile.bio ? <p className="profile-bio">{profile.bio}</p> : null}
+        {profile.interestTags?.length ? <div aria-label="Interests" className="profile-interest-tags">{profile.interestTags.map((tag) => <span key={tag}>{tag}</span>)}</div> : null}
         {profile.location ? <p className="profile-member">{profile.location}</p> : null}
         {profile.createdAt ? <p className="profile-member"><CalendarDays aria-hidden="true" size={16} /> Member since {formatProfileDate(profile.createdAt)}</p> : null}
       </div>

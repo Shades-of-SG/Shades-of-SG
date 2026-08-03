@@ -21,6 +21,9 @@ SMTP_USER=your-sending-account@example.com
 SMTP_PASS=your-provider-app-password
 MAIL_FROM=Shades of SG <no-reply@example.com>
 FRONTEND_URL=https://your-frontend.example.com
+FRONTEND_URLS=https://your-approved-preview.example.com
+FRONTEND_URL_PATTERNS=https://shades-of-*-your-team.vercel.app
+SMTP_TIMEOUT_MS=10000
 ```
 
 For Gmail, enable two-step verification on the sending account and create a dedicated App Password. Use port 465 with `SMTP_SECURE=true`, or port 587 with `SMTP_SECURE=false` for STARTTLS. Store the App Password only in the deployment secret manager; never commit it to an environment example or source file.

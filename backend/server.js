@@ -18,16 +18,59 @@ const analyticsRouter = require('./routes/analytics');
 const adminRouter = require('./routes/admin');
 const creatorsRouter = require('./routes/creators');
 const usersRouter = require('./routes/users');
+const instrumentPlaygroundRouter = require('./routes/instrumentPlayground');
 const { seedAdminAccount } = require('./services/authService');
 const { GenerationJob, Song } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
-const allowedOrigins = [
-    'http://localhost:5173',
-    process.env.FRONTEND_URL,
-].filter(Boolean);
+function normalizeOrigin(value) {
+    try {
+        const url = new URL(String(value || '').trim());
+        return ['http:', 'https:'].includes(url.protocol) ? url.origin : null;
+    } catch {
+        return null;
+    }
+}
+
+function allowedOrigins() {
+    return new Set([
+        'http://localhost:5173',
+        process.env.FRONTEND_URL,
+        ...String(process.env.FRONTEND_URLS || '').split(','),
+    ].map(normalizeOrigin).filter(Boolean));
+}
+
+function normalizeOriginPattern(value) {
+    const pattern = String(value || '').trim();
+    if ((pattern.match(/\*/g) || []).length !== 1) return null;
+    const placeholder = 'cors-preview-wildcard';
+    try {
+        const url = new URL(pattern.replace('*', placeholder));
+        if (url.protocol !== 'https:' || url.origin !== pattern.replace('*', placeholder)) return null;
+        return url.origin.replace(placeholder, '*');
+    } catch {
+        return null;
+    }
+}
+
+function allowedOriginPatterns() {
+    return String(process.env.FRONTEND_URL_PATTERNS || '')
+        .split(',')
+        .map(normalizeOriginPattern)
+        .filter(Boolean);
+}
+
+function matchesAllowedOriginPattern(origin) {
+    return allowedOriginPatterns().some((pattern) => {
+        const expression = pattern
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            .replace('\\*', '[^.]+');
+        return new RegExp(`^${expression}$`).test(origin);
+    });
+}
 
 app.use(
     cors({
@@ -37,7 +80,7 @@ app.use(
                 return callback(null, true);
             }
 
-            if (allowedOrigins.includes(origin)) {
+            if (allowedOrigins().has(origin) || matchesAllowedOriginPattern(origin)) {
                 return callback(null, true);
             }
 
@@ -77,6 +120,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/creators', creatorsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/instrument-playground', instrumentPlaygroundRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {
@@ -124,9 +168,9 @@ async function startServer() {
             console.error('[Startup] Failed to rescue stuck jobs:', e);
         }
 
-        app.listen(PORT, () => {
+        app.listen(PORT, HOST, () => {
             console.log(
-                `Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`
+                `Server is running in ${process.env.NODE_ENV || 'development'} mode on ${HOST}:${PORT}`
             );
         });
     } catch (error) {

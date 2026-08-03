@@ -51,6 +51,10 @@ Backend:
 - `DB_STORAGE`: local SQLite path.
 - `AUTH_TOKEN_SECRET` or `JWT_SECRET`: strong signing secret; mandatory in production.
 - `FRONTEND_URL`: exact deployed Vercel origin allowed by CORS.
+- `FRONTEND_URLS`: optional comma-separated additional exact origins for approved Vercel previews.
+- `FRONTEND_URL_PATTERNS`: optional comma-separated HTTPS origin patterns containing one hostname wildcard for changing preview deployment hashes.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`: registration and password-reset email delivery.
+- `SMTP_TIMEOUT_MS`: SMTP network timeout in milliseconds; defaults to 10000 and is capped at 25000.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: media credentials.
 - `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: lyric transcription. Use `whisper-1` for the segment timestamps required by precise scene timing; GPT-4o transcription models return untimed lyrics and use the planner's fallback timing path.
 - `YT_DLP_PATH`: optional yt-dlp executable path.

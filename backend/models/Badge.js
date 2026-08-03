@@ -29,6 +29,9 @@ const Badge = sequelize.define('Badge', {
 }, {
     tableName: 'badges',
     underscored: true,
+    indexes: [
+        { unique: true, fields: ['user_id', 'name'] },
+    ],
 });
 
 module.exports = Badge;

@@ -189,18 +189,9 @@ function compareBestRankCandidates(left, right) {
 }
 
 async function userRhythmSummary(userId) {
-    const [songs, officialScores, recentScores, gamesCompleted, bestScoreValue] = await Promise.all([
+    const [songs, officialScores] = await Promise.all([
         listLeaderboardSongs(),
         loadOfficialScores(),
-        GameScore.findAll({
-            attributes: ['id', 'songId', 'score', 'accuracy', 'difficulty', 'rank', 'maxCombo', 'createdAt'],
-            include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'coverImageUrl'], required: false }],
-            limit: 10,
-            order: [['createdAt', 'DESC'], ['id', 'ASC']],
-            where: { userId },
-        }),
-        GameScore.count({ where: { userId } }),
-        GameScore.max('score', { where: { userId } }),
     ]);
     const eligibleCombinations = new Set(songs.flatMap((song) => song.difficulties.map((difficulty) => `${song.id}:${difficulty}`)));
     const eligibleScores = officialScores.filter((score) => eligibleCombinations.has(`${score.songId}:${score.difficulty}`));
@@ -213,11 +204,13 @@ async function userRhythmSummary(userId) {
     });
 
     const candidates = [];
+    const personalBests = [];
     scoresByChart.forEach((chartScores) => {
         const ranked = bestScorePerUser(chartScores);
         const index = ranked.findIndex((score) => score.userId === userId);
         if (index < 0) return;
         const score = ranked[index];
+        personalBests.push(score);
         candidates.push({
             accuracy: score.accuracy,
             achievedAt: score.createdAt,
@@ -233,13 +226,32 @@ async function userRhythmSummary(userId) {
         });
     });
     const bestLeaderboardRank = candidates.sort(compareBestRankCandidates)[0] || null;
+    const userScores = eligibleScores.filter((score) => score.userId === userId);
+    const topScores = personalBests
+        .sort(compareScores)
+        .slice(0, 3)
+        .map((score) => ({
+            accuracy: score.accuracy,
+            createdAt: score.createdAt,
+            difficulty: score.difficulty,
+            id: score.id,
+            maxCombo: Number(score.maxCombo || 0),
+            rank: gradeFor(score),
+            score: Number(score.score),
+            song: {
+                coverImageUrl: score.song?.coverImageUrl || null,
+                id: score.songId,
+                title: score.song?.title || 'Unknown Song',
+            },
+            songId: score.songId,
+        }));
     return {
         bestLeaderboardRank,
-        bestScore: Number(bestScoreValue) || 0,
-        gamesCompleted,
-        gamesPlayed: gamesCompleted,
+        bestScore: topScores[0]?.score || 0,
+        gamesCompleted: userScores.length,
+        gamesPlayed: userScores.length,
         rank: bestLeaderboardRank?.position || null,
-        recentScores,
+        topScores,
     };
 }
 

@@ -3,9 +3,11 @@ const multer = require('multer');
 const { sequelize, User, UserProfile } = require('../models');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
 const { deleteAsset, uploadImageBuffer } = require('../services/cloudinaryService');
+const { validateInterestTags } = require('../services/profileInterests');
 const {
     activityFor, findOrCreateProfile, profileValues, publicIdentity,
 } = require('../services/userProfileService');
+const { recordDailyActivity } = require('../services/streakService');
 
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -54,6 +56,11 @@ function validateProfile(body) {
         if (typeof body[key] !== 'boolean') return { error: `${key} must be true or false.` };
         updates[key] = body[key];
     }
+    if (body.interestTags !== undefined) {
+        const parsedTags = validateInterestTags(body.interestTags);
+        if (parsedTags.error) return { error: parsedTags.error };
+        updates.interestTags = parsedTags.value;
+    }
     if (!Object.keys(updates).length) return { error: 'No supported profile fields were provided.' };
     return { updates };
 }
@@ -69,6 +76,7 @@ router.get('/me/profile', requireAuth, async (req, res, next) => {
     try {
         const user = await findNormalUser(req.authUserRecord.id);
         if (!user) return res.status(404).json({ message: 'User profile not found.' });
+        await recordDailyActivity(user);
         const profile = profileValues(user, user.profile);
         const activity = await activityFor(user.id, { profile });
         return res.json({

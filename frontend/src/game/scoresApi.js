@@ -26,6 +26,41 @@ export async function saveScore(result, token) {
   return response.json()
 }
 
+export async function claimGuestScore(result, token) {
+  const response = await fetch(`${API_URL}/scores`, {
+    body: JSON.stringify({
+      accuracy: result.accuracy,
+      badHits: result.badHits,
+      claimId: result.claimId,
+      difficulty: result.difficulty,
+      earlyReleases: result.earlyReleases,
+      goodHits: result.goodHits,
+      greatHits: result.greatHits,
+      holdCompletions: result.holdCompletions,
+      maxCombo: result.maxCombo,
+      misses: result.misses,
+      perfectHits: result.perfectHits,
+      playedAt: result.playedAt,
+      rank: result.rank,
+      score: result.score,
+      songId: result.songId,
+      totalNotes: result.totalNotes,
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    const details = await response.json().catch(() => ({}))
+    throw new Error(details.message || 'Score could not be claimed')
+  }
+
+  return response.json()
+}
+
 function scoreKey(result) {
   return `${result?.songId}:${result?.playedAt}`
 }
