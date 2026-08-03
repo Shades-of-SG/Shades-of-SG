@@ -33,6 +33,7 @@ import OtpVerification from './pages/OtpVerification'
 import RegistrationSuccess from './pages/RegistrationSuccess'
 import RhythmHub from './pages/RhythmHub'
 import RhythmResults from './pages/RhythmResults'
+import RhythmScoreClaim from './pages/RhythmScoreClaim'
 import Settings from './pages/Settings'
 import SongExperience from './pages/SongExperience'
 import SongsLibrary from './pages/SongsLibrary'
@@ -56,6 +57,8 @@ import AdminOverview from './pages/AdminOverview'
 import { hasActiveAccount, hasActiveCreatorAccess } from './utils/accessStatus'
 import AccountAccessSuspended from './components/AccountAccessSuspended'
 import RhythmLeaderboard from './pages/RhythmLeaderboard'
+import { readPendingScoreClaim } from './services/pendingScoreClaim'
+import { isNewAccountScoreClaim, readRegistrationReturn, RHYTHM_SCORE_CLAIM_PATH } from './services/safeReturnPath'
 function MainExperience() {
   const { user } = useAuth()
 
@@ -66,6 +69,10 @@ function AuthExperience() {
   const { activeMode, user } = useAuth()
 
   if (user && !hasActiveAccount(user)) return <AccountAccessSuspended />
+
+  if (user && readRegistrationReturn() === RHYTHM_SCORE_CLAIM_PATH && (readPendingScoreClaim() || isNewAccountScoreClaim())) {
+    return <Navigate replace to={RHYTHM_SCORE_CLAIM_PATH} />
+  }
 
   if (hasActiveCreatorAccess(user) && activeMode === 'creator') {
     return <Navigate replace to="/creator/dashboard" />
@@ -85,7 +92,7 @@ function AuthExperience() {
 }
 
 function App() {
-  const { token, user } = useAuth()
+  const { authLoading, token, user } = useAuth()
   const isNormalUser = Boolean(token && ['CREATOR', 'REGISTERED'].includes(user?.role) && hasActiveAccount(user))
   const isRegistered = Boolean(token && user?.role === 'REGISTERED' && hasActiveAccount(user))
   const isAdmin = Boolean(token && user?.role === 'ADMIN' && hasActiveAccount(user))
@@ -106,12 +113,17 @@ function App() {
           <Route element={<GuidedMusicLessons />} path="/learning/guided-lessons" />
           <Route element={<RhythmHub />} path="/rhythm-game" />
           <Route element={<RhythmLeaderboard />} path="/rhythm-game/leaderboard" />
+          <Route element={<RhythmResults />} path="/game/:songId/results" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser} isLoading={authLoading} loadingFallback={<div className="results-page"><section className="results-card rhythm-claim-card"><p aria-live="polite" role="status">Restoring your account&hellip;</p></section></div>}><RhythmScoreClaim /></ProtectedRoute>} path="/rhythm-game/claim" />
           <Route element={<ReflectionWall />} path="/reflections" />
           <Route element={<PublicCreatorProfile />} path="/creators/:creatorId" />
           <Route element={<PublicUserProfile />} path="/users/:userId" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Profile /></ProtectedRoute>} path="/profile" />
           <Route element={<ProtectedRoute isAllowed={isRegistered}><CreatorApplication /></ProtectedRoute>} path="/apply/creator" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings /></ProtectedRoute>} path="/settings" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="profile" /></ProtectedRoute>} path="/settings/profile" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="account-security" /></ProtectedRoute>} path="/settings/account-security" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="data-privacy" /></ProtectedRoute>} path="/settings/data-privacy" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
@@ -122,6 +134,9 @@ function App() {
           <Route element={<ForgotPassword />} path="/forgot-password" />
           <Route element={<ResetPassword />} path="/reset-password" />
           <Route element={<OtpVerification />} path="/verify-email" />
+        </Route>
+
+        <Route element={<AuthLayout />}>
           <Route element={<RegistrationSuccess />} path="/registration-success" />
         </Route>
 
@@ -142,7 +157,7 @@ function App() {
             <Route element={<CreatorAnalytics />} path="/creator/analytics" />
             <Route element={<CreatorProfile />} path="/creator/profile" />
             <Route element={<CreatorProfileSettings />} path="/creator/profile/edit" />
-            <Route element={<Navigate replace to="/settings" />} path="/creator/settings" />
+            <Route element={<Navigate replace to="/settings/profile" />} path="/creator/settings" />
           </Route>
         </Route>
 
@@ -162,7 +177,6 @@ function App() {
         </Route>
 
         <Route element={<RhythmGame />} path="/game/:songId" />
-        <Route element={<RhythmResults />} path="/game/:songId/results" />
         <Route element={<NotFound />} path="*" />
       </Routes>}
     </BrowserRouter>

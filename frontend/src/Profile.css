@@ -26,6 +26,8 @@
   transition: background-color 180ms ease, color 180ms ease;
   width: 100%;
 }
+.profile-interest-tags { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
+.profile-interest-tags span { background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); border-radius:999px; color:inherit; font-size:.72rem; font-weight:750; padding:5px 9px; }
 
 .profile-note-carousel {
   display: grid;

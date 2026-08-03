@@ -54,8 +54,8 @@ test('rhythm game and result screens always provide exit and return navigation',
   await expect(page).toHaveURL(/\/rhythm-game$/)
 
   await page.goto(`/game/${ids.song}/results`)
-  await expect(page.getByRole('heading', { name: 'No score yet' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Return to rhythm games' })).toHaveAttribute('href', '/rhythm-game')
+  await expect(page.getByRole('heading', { name: 'Your session result has expired' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Return to Rhythm Games' })).toHaveAttribute('href', '/rhythm-game')
 
   await page.goto('/rhythm-game/leaderboard')
   await expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible()

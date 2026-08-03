@@ -17,6 +17,8 @@ export default function ReflectionFilters({ query, setQuery, showAdd, songId, se
         <select onChange={(event) => setSort(event.target.value)} value={sort}>
           <option value="latest">Latest</option>
           <option value="oldest">Oldest</option>
+          <option value="most_liked">Most liked</option>
+          <option value="most_discussed">Most discussed</option>
         </select>
       </label>
       {showAdd && <button className="rw-primary-button" onClick={onAdd} type="button">+ Add Reflection</button>}

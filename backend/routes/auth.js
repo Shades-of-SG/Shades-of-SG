@@ -19,6 +19,7 @@ const router = express.Router();
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const requestLimit = createRateLimit({ key: authRateKey('otp-request'), max: 5, windowMs: 15 * 60 * 1000 });
 const verifyLimit = createRateLimit({ key: authRateKey('otp-verify'), max: 10, windowMs: 10 * 60 * 1000 });
+const loginLimit = createRateLimit({ key: authRateKey('login'), max: 10, windowMs: 10 * 60 * 1000 });
 const oauthLimit = createRateLimit({ key: (req) => `oauth:ip:${req.ip}`, max: 30, windowMs: 10 * 60 * 1000 });
 
 function validPassword(password) {
@@ -112,7 +113,7 @@ router.post('/register', requestLimit, async (req, res, next) => {
         timing.write('validation');
         if (await User.findOne({ where: { email } })) {
             timing.write('duplicate_lookup');
-            return rejectRegistration(timing, res, 409, 'An account with this email already exists.', 'duplicate_email');
+            return rejectRegistration(timing, res, 409, 'This email cannot be used. Continue to sign in or recover your account.', 'duplicate_email');
         }
         timing.write('duplicate_lookup');
 
@@ -148,7 +149,7 @@ router.post('/register', requestLimit, async (req, res, next) => {
         });
     } catch (error) {
         if (error instanceof UniqueConstraintError) {
-            return rejectRegistration(timing, res, 409, 'An account with this email already exists.', 'duplicate_email_race');
+            return rejectRegistration(timing, res, 409, 'This email cannot be used. Continue to sign in or recover your account.', 'duplicate_email_race');
         }
         timing.write('request_failed', {
             errorCode: String(error.cause?.code || error.code || 'UNEXPECTED').slice(0, 64),
@@ -162,15 +163,19 @@ router.post('/register', requestLimit, async (req, res, next) => {
 router.post('/verify-email', verifyLimit, async (req, res, next) => {
     try {
         const email = normalizeEmail(req.body.email);
-        await processOtp({ code: req.body.code, email, purpose: 'REGISTRATION' }, async ({ user }, transaction) => {
-            if (!user || user.email !== email || !user.emailVerificationRequired) {
+        const { user } = await processOtp({ code: req.body.code, email, purpose: 'REGISTRATION' }, async ({ user: pendingUser }, transaction) => {
+            if (!pendingUser || pendingUser.email !== email || !pendingUser.emailVerificationRequired) {
                 const error = new Error('The verification code is invalid or expired.');
                 error.statusCode = 400;
                 throw error;
             }
-            await user.update({ emailVerificationRequired: false, emailVerifiedAt: new Date() }, { transaction });
+            await pendingUser.update({ emailVerificationRequired: false, emailVerifiedAt: new Date() }, { transaction });
         });
-        return res.json({ message: 'Email verified successfully. You can now sign in.' });
+        return res.json({
+            message: 'Email verified successfully. You are now signed in.',
+            token: createToken(user),
+            user: serializeUser(user),
+        });
     } catch (error) { return next(error); }
 });
 
@@ -184,11 +189,12 @@ router.post('/resend-verification', requestLimit, async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginLimit, async (req, res, next) => {
     try {
         const email = normalizeEmail(req.body.email);
         const password = req.body.password;
-        if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
+        if (!EMAIL_PATTERN.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' });
+        if (!validPassword(password)) return res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
         const user = await User.findOne({ include: [{ model: UserProfile, as: 'profile', required: false }], where: { email } });
         if (!user || !verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Invalid email or password.' });
         if (user.accountStatus !== 'ACTIVE') return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
