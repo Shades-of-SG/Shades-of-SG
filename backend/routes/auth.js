@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { performance } = require('perf_hooks');
 const { Op, UniqueConstraintError } = require('sequelize');
-const { sequelize, User, UserProfile } = require('../models');
+const { ModerationAction, sequelize, User, UserProfile } = require('../models');
 const { requireAuth } = require('../middleware/auth');
 const { authRateKey, createRateLimit } = require('../middleware/rateLimit');
 const {
@@ -197,7 +197,13 @@ router.post('/login', loginLimit, async (req, res, next) => {
         if (!validPassword(password)) return res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
         const user = await User.findOne({ include: [{ model: UserProfile, as: 'profile', required: false }], where: { email } });
         if (!user || !verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Invalid email or password.' });
-        if (user.accountStatus !== 'ACTIVE') return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
+        if (user.accountStatus !== 'ACTIVE') {
+            const suspensionStatusToken = createScopedToken({ purpose: 'suspension_status', userId: user.id, version: user.authVersion }, 15 * 60);
+            return res.status(403).json({
+                code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user),
+                reason: user.accountSuspensionReason, suspensionStatusToken,
+            });
+        }
         if (user.emailVerificationRequired) return res.status(403).json({ code: 'EMAIL_UNVERIFIED', message: 'Verify your email before signing in.' });
         return res.json({ token: createToken(user), user: serializeUser(user) });
     } catch (error) { return next(error); }
@@ -208,6 +214,32 @@ router.get('/me', requireAuth, async (req, res, next) => {
         const user = await User.findByPk(req.authUserRecord.id, { include: [{ model: UserProfile, as: 'profile', required: false }] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
         return res.json({ user: serializeUser(user) });
+    } catch (error) { return next(error); }
+});
+
+router.post('/suspension-status', async (req, res, next) => {
+    try {
+        const payload = verifyScopedToken(req.body.suspensionStatusToken, 'suspension_status');
+        if (!payload?.userId) return res.status(401).json({ message: 'Suspension status access has expired. Sign in again to continue.' });
+        const user = await User.findByPk(payload.userId, {
+            attributes: ['accountStatus', 'accountSuspensionReason', 'authVersion', 'id', 'updatedAt'],
+        });
+        if (!user || Number(payload.ver || 0) !== Number(user.authVersion || 0)) return res.status(401).json({ message: 'Suspension status access has expired. Sign in again to continue.' });
+        if (user.accountStatus === 'ACTIVE') return res.status(409).json({ message: 'This account is no longer suspended.' });
+        const action = await ModerationAction.findOne({
+            order: [['createdAt', 'DESC']],
+            where: { actionType: 'USER_SUSPENDED', targetUserId: user.id },
+        });
+        return res.json({
+            suspension: {
+                accountStatus: user.accountStatus,
+                appealAvailable: false,
+                date: action?.createdAt || user.updatedAt,
+                reason: user.accountSuspensionReason || 'A reason was not recorded for this legacy suspension.',
+                reviewState: 'IN_EFFECT',
+                supportEmail: 'shadesofsg@gmail.com',
+            },
+        });
     } catch (error) { return next(error); }
 });
 

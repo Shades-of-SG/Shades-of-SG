@@ -6,6 +6,7 @@ async function authRequest(path, options = {}) {
   if (!response.ok) {
     const error = new Error(data.message || 'Unable to complete this request.')
     error.code = data.code
+    error.data = data
     error.status = response.status
     error.retryAfter = Number(response.headers?.get?.('Retry-After') || 0)
     throw error
@@ -21,6 +22,8 @@ const jsonRequest = (method, body, token = '') => ({
 
 export const getAuthConfig = () => authRequest('/config')
 export const loginWithEmail = (email, password) => authRequest('/login', jsonRequest('POST', { email, password }))
+export const getSuspensionStatus = (suspensionStatusToken) => authRequest('/suspension-status', jsonRequest('POST', { suspensionStatusToken }))
+export const storeSuspensionStatusToken = (token) => { if (token) sessionStorage.setItem('suspensionStatusToken', token) }
 export const getOauthChallenge = (provider) => authRequest('/oauth/challenge', jsonRequest('POST', { provider }))
 export const loginWithGoogle = (credential, nonce) => authRequest('/oauth/google', jsonRequest('POST', { credential, nonce }))
 export const loginWithApple = (values) => authRequest('/oauth/apple', jsonRequest('POST', values))

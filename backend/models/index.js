@@ -29,6 +29,8 @@ const CreatorProfile = require('./CreatorProfile');
 const UserProfile = require('./UserProfile');
 const ReflectionComment = require('./ReflectionComment');
 const ReflectionLike = require('./ReflectionLike');
+const Notification = require('./Notification');
+const ModerationFlag = require('./ModerationFlag');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -140,6 +142,14 @@ User.hasMany(UserWarning, { foreignKey: 'userId', as: 'warnings' });
 UserWarning.belongsTo(User, { foreignKey: 'userId', as: 'warnedUser' });
 UserWarning.belongsTo(User, { foreignKey: 'issuedBy', as: 'issuer' });
 UserWarning.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolver' });
+User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
+Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+UserWarning.hasMany(Notification, { foreignKey: 'warningId', as: 'notifications' });
+Notification.belongsTo(UserWarning, { foreignKey: 'warningId', as: 'warning' });
+
+ModerationFlag.belongsTo(User, { foreignKey: 'targetUserId', as: 'targetUser' });
+ModerationFlag.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+ModerationFlag.belongsTo(User, { foreignKey: 'reviewedBy', as: 'reviewer' });
 
 ModerationAction.belongsTo(User, { foreignKey: 'actorId', as: 'actor' });
 ModerationAction.belongsTo(User, { foreignKey: 'targetUserId', as: 'targetUser' });
@@ -188,4 +198,6 @@ module.exports = {
     UserProfile,
     ReflectionComment,
     ReflectionLike,
+    Notification,
+    ModerationFlag,
 };

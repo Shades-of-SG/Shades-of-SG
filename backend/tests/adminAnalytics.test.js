@@ -28,7 +28,12 @@ beforeAll(async () => {
     const folder = await Folder.create({ createdBy: admin.id, name: 'Summary Collection', slug: 'summary-collection' });
     await FolderSongProposal.create({ folderId: folder.id, proposedBy: creator.id, songId: song.id, status: 'PENDING' });
     await Reflection.create({ content: 'A flagged reflection', songId: song.id, status: 'FLAGGED', userId: registered.id });
-    await UserWarning.create({ issuedBy: admin.id, reason: 'A current warning', userId: registered.id });
+    await UserWarning.bulkCreate([
+        { issuedBy: admin.id, reason: 'A current warning', status: 'ACTIVE', userId: registered.id },
+        { acknowledgedAt: new Date(), issuedBy: admin.id, reason: 'A seen warning', status: 'ACKNOWLEDGED', userId: registered.id },
+        { issuedBy: admin.id, reason: 'A completed warning', resolvedAt: new Date(), status: 'RESOLVED', userId: registered.id },
+        { issuedBy: admin.id, reason: 'An incorrect warning', status: 'WITHDRAWN', userId: registered.id, withdrawnAt: new Date() },
+    ]);
     await AnalyticsEvent.bulkCreate([
         { eventType: 'SONG_PAGE_VIEWED', songId: song.id },
         { eventType: 'SONG_PAGE_VIEWED', songId: song.id },
@@ -53,8 +58,9 @@ test('admin analytics returns authoritative tab counts and real listening events
         reports: 1,
         songs: 1,
         users: 1,
-        warnings: 1,
+        warnings: 4,
     });
+    expect(response.body.pending.unresolvedWarnings).toBe(1);
     expect(response.body.activitySeries.reduce((total, day) => total + day.views, 0)).toBe(2);
     expect(response.body.activitySeries.reduce((total, day) => total + day.playbacks, 0)).toBe(1);
 });

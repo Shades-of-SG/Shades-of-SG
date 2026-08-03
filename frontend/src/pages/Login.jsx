@@ -3,7 +3,7 @@ import { LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
-import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle } from '../services/authApi'
+import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle, storeSuspensionStatusToken } from '../services/authApi'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import { safeReturnPath, storeRegistrationReturn } from '../services/safeReturnPath'
 
@@ -119,6 +119,11 @@ export default function Login() {
         sessionStorage.setItem('pendingVerificationEmail', normalizedEmail)
         const from = storeRegistrationReturn(location.state?.from)
         navigate('/verify-email', { state: { email: normalizedEmail, from } })
+        return
+      }
+      if (nextError.code === 'ACCOUNT_SUSPENDED' && nextError.data?.suspensionStatusToken) {
+        storeSuspensionStatusToken(nextError.data.suspensionStatusToken)
+        navigate('/account-suspended', { replace: true })
         return
       }
       setError(nextError.status === 403 ? nextError.message : nextError.status === 401 ? 'Email or password is incorrect.' : 'We could not sign you in. Please try again.')

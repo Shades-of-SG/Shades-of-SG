@@ -22,6 +22,7 @@ function adminResponse(url) {
   if (path.includes('/admin/moderation-actions')) return { actions: [], pagination: {} }
   if (path.includes('/admin/warnings')) return { warnings: [], pagination: {} }
   if (path.includes('/admin/safety-reports')) return { pagination: { page: 1, total: 0, totalPages: 0 }, reports: [] }
+  if (path.includes('/admin/moderation-flags')) return { flags: [], pagination: {} }
   if (path.includes('/reflections/moderation')) return { pagination: { limit: 8, page: 1, total: 0, totalPages: 0 }, reflections: [], stats: { approved: 0, flagged: 0, newToday: 0, newYesterday: 0, pending: 0, rejected: 0 } }
   if (path.includes('/songs')) return { songs: [] }
   return {}
@@ -77,13 +78,13 @@ describe('consolidated admin routes', () => {
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByRole('button', { name: /^Reports/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Users/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Warnings & Actions/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Warning history/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pending reflections/i })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /^users/i }))
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/users\?.*scope=safety/), expect.any(Object)))
 
-    fireEvent.click(screen.getByRole('button', { name: /warnings & actions/i }))
+    fireEvent.click(screen.getByRole('button', { name: /warning history/i }))
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/moderation-actions\?.*scope=safety/), expect.any(Object)))
   })
 

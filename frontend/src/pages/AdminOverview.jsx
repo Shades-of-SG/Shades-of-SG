@@ -100,7 +100,7 @@ export default function AdminOverview() {
   const attention = analytics ? [
     { action: 'Review applications', count: analytics.pending?.creatorApplications || 0, icon: FileClock, label: 'Creator applications', note: 'Applications waiting for an administrator decision', priority: 'Review queue', to: '/admin/creators?tab=applications' },
     { action: 'Review reports', count: analytics.pending?.flaggedReflections || 0, icon: Flag, label: 'Escalated reports', note: 'Flagged content waiting for platform review', priority: 'Safety priority', to: '/admin/community?tab=reports' },
-    { action: 'View warnings', count: analytics.pending?.unresolvedWarnings || 0, icon: AlertTriangle, label: 'Unresolved warnings', note: 'Open safety actions requiring follow-up', priority: 'Safety follow-up', to: '/admin/community?tab=warnings' },
+    { action: 'View warning history', count: analytics.pending?.unresolvedWarnings || 0, icon: AlertTriangle, label: 'Active warnings', note: 'Issued warnings not yet acknowledged', priority: 'Safety follow-up', to: '/admin/community?tab=warnings' },
   ] : []
   const actionableAttention = attention.filter((item) => item.count > 0)
   const attentionTotal = actionableAttention.reduce((total, item) => total + item.count, 0)
@@ -118,7 +118,7 @@ export default function AdminOverview() {
           <span aria-hidden="true" className="admin-attention-item__icon"><Icon /></span>
           <div><span className="admin-attention-item__priority">{priority}</span><strong>{count} {count === 1 ? label.replace(/s$/, '').toLowerCase() : label.toLowerCase()}</strong><p>{note}</p></div>
           <Link aria-label={`${action}: ${count} ${label.toLowerCase()}`} className="admin-button admin-button--ghost" to={to}>{action}<ChevronRight aria-hidden="true" /></Link>
-        </article>)}</div> : <div aria-live="polite" className="admin-attention-clear" role="status"><CheckCircle2 aria-hidden="true" /><div><strong>No urgent actions</strong><p>No creator applications, escalated reports or unresolved warnings are waiting.</p></div></div>}
+        </article>)}</div> : <div aria-live="polite" className="admin-attention-clear" role="status"><CheckCircle2 aria-hidden="true" /><div><strong>No urgent actions</strong><p>No creator applications, escalated reports or active warnings are waiting.</p></div></div>}
         <div className="admin-attention-assurance"><ShieldCheck aria-hidden="true" /><div><strong>{suspendedAccounts ? `${suspendedAccounts} suspended ${suspendedAccounts === 1 ? 'account' : 'accounts'}` : 'No suspended accounts'}</strong><p>{suspendedAccounts ? 'Restricted accounts remain blocked while administrators manage their status.' : 'No member or creator accounts are currently restricted.'}</p></div><Link className="admin-text-link" to="/admin/community?tab=users">{suspendedAccounts ? 'Manage suspended accounts' : 'View account status'}<ChevronRight aria-hidden="true" /></Link></div>
       </> : <div className="admin-overview-state is-error" role="alert"><strong>Attention queues could not be loaded.</strong><p>{analyticsError}</p><button className="admin-button admin-button--ghost" onClick={refreshAnalytics} type="button">Try again</button></div>}
     </Panel>

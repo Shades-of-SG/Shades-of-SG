@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, ModerationAction, TriviaQuestion, User, UserProfile } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -174,17 +174,37 @@ async function listCreatorSongs(req, res, next) {
             include: [{ model: GenerationJob, as: 'generationJobs', required: false }],
             order: [['updatedAt', 'DESC']],
         });
-        return res.json({ songs: songs.map(serializeCreatorSong) });
+        const actions = songs.length ? await ModerationAction.findAll({
+            order: [['createdAt', 'DESC']],
+            where: {
+                actionType: { [Op.in]: ['SONG_ARCHIVED_BY_ADMIN', 'SONG_RESTORED_BY_ADMIN', 'SONG_UNPUBLISHED_BY_ADMIN'] },
+                targetId: { [Op.in]: songs.map((song) => song.id) }, targetType: 'SONG', targetUserId: req.authUserRecord.id,
+            },
+        }) : [];
+        const latestAction = new Map();
+        actions.forEach((action) => { if (!latestAction.has(action.targetId)) latestAction.set(action.targetId, action); });
+        return res.json({ songs: songs.map((song) => serializeCreatorSong(song, latestAction.get(song.id))) });
     } catch (error) { return next(error); }
 }
 
-function serializeCreatorSong(song) {
+function serializeCreatorSong(song, moderationAction = null) {
     const value = song.get({ plain: true });
     const jobs = [...(value.generationJobs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const latestGenerationJob = jobs[0] || null;
     delete value.generationJobs;
     const missing = getSongPublishMissing(song);
-    return { ...value, latestGenerationJob, publishReady: missing.length === 0, publishMissing: missing };
+    const moderationNotices = {
+        SONG_ARCHIVED_BY_ADMIN: 'This song was archived by an administrator after a safety or content review.',
+        SONG_RESTORED_BY_ADMIN: 'Administrator restrictions on this song were removed. Review it before publishing.',
+        SONG_UNPUBLISHED_BY_ADMIN: 'This song was unpublished by an administrator after a safety or content review.',
+    };
+    return {
+        ...value, latestGenerationJob, publishReady: missing.length === 0, publishMissing: missing,
+        moderationNotice: moderationAction ? {
+            actionType: moderationAction.actionType, createdAt: moderationAction.createdAt,
+            message: moderationNotices[moderationAction.actionType], safetyPath: '/settings/safety',
+        } : null,
+    };
 }
 
 async function getCreatorDashboardSummary(req, res, next) {

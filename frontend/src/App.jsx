@@ -57,6 +57,8 @@ import AdminOverview from './pages/AdminOverview'
 import { hasActiveAccount, hasActiveCreatorAccess } from './utils/accessStatus'
 import AccountAccessSuspended from './components/AccountAccessSuspended'
 import RhythmLeaderboard from './pages/RhythmLeaderboard'
+import SafetyAccountStatus from './pages/SafetyAccountStatus'
+import AccountSuspensionStatus from './pages/AccountSuspensionStatus'
 import { readPendingScoreClaim } from './services/pendingScoreClaim'
 import { isNewAccountScoreClaim, readRegistrationReturn, RHYTHM_SCORE_CLAIM_PATH } from './services/safeReturnPath'
 function MainExperience() {
@@ -124,6 +126,7 @@ function App() {
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="profile" /></ProtectedRoute>} path="/settings/profile" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="account-security" /></ProtectedRoute>} path="/settings/account-security" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="data-privacy" /></ProtectedRoute>} path="/settings/data-privacy" />
+          <Route element={<ProtectedRoute isAllowed={isNormalUser}><SafetyAccountStatus /></ProtectedRoute>} path="/settings/safety" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
         </Route>
@@ -134,6 +137,7 @@ function App() {
           <Route element={<ForgotPassword />} path="/forgot-password" />
           <Route element={<ResetPassword />} path="/reset-password" />
           <Route element={<OtpVerification />} path="/verify-email" />
+          <Route element={<AccountSuspensionStatus />} path="/account-suspended" />
         </Route>
 
         <Route element={<AuthLayout />}>

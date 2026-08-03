@@ -6,12 +6,19 @@ const {
 } = require('../models');
 const { optionalAuth, requireAdmin, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
 const { createRateLimit } = require('../middleware/rateLimit');
-const { validateCommentContent } = require('../services/commentContentService');
+const { containsProhibitedLanguage, validateCommentContent } = require('../services/commentContentService');
 const { writeAudit } = require('../services/auditService');
+const { createModerationFlag } = require('../services/moderationFlagService');
+const { createInProductNotification } = require('../services/notificationService');
 
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MODERATION_STATUSES = new Set(['PENDING', 'APPROVED', 'FLAGGED', 'REJECTED']);
+const WARNING_CATEGORIES = new Set([
+    'HARASSMENT', 'HATE', 'THREATS', 'SEXUAL_CONTENT', 'SPAM', 'IMPERSONATION',
+    'PERSONAL_INFORMATION', 'COPYRIGHT_CONCERN', 'DANGEROUS_CONTENT',
+    'MISLEADING_CONTENT', 'OFF_TOPIC', 'PLATFORM_MISUSE', 'OTHER',
+]);
 const KNOWN_TAGS = new Map([
     'Nostalgia',
     'Family',
@@ -499,7 +506,18 @@ router.post('/:reflectionId/comments', requireAuth, commentRateLimit, async (req
         const reflection = await findPublicReflection(req.params.reflectionId);
         if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
         const parsed = validateCommentContent(req.body?.content);
-        if (parsed.error) return res.status(400).json({ message: parsed.error });
+        if (parsed.error) {
+            if (containsProhibitedLanguage(req.body?.content || '')) {
+                await createModerationFlag({
+                    metadata: { relatedReflectionId: reflection.id },
+                    reason: 'A comment attempt matched the prohibited-language review rule.',
+                    source: 'AUTOMATED_RULE', targetId: req.authUserRecord.id,
+                    targetType: 'USER_BEHAVIOUR', targetUserId: req.authUserRecord.id,
+                    triggeringRule: 'COMMENT_PROHIBITED_LANGUAGE',
+                });
+            }
+            return res.status(400).json({ message: parsed.error });
+        }
         const created = await ReflectionComment.create({
             content: parsed.content,
             reflectionId: reflection.id,
@@ -549,6 +567,10 @@ router.delete('/:reflectionId/comments/:commentId', requireAuth, async (req, res
                     songId: reflection.songId, targetId: comment.id, targetType: 'REFLECTION_COMMENT',
                     targetUserId: comment.userId,
                 }, { transaction });
+                await createInProductNotification({
+                    message: 'Your comment was removed following moderation. Your member account remains active unless a separate account action is shown.',
+                    title: 'Your comment was removed', type: 'COMMENT_REMOVED', userId: comment.userId, transaction,
+                });
                 await writeAudit({
                     action: 'REFLECTION_COMMENT_REMOVED', actorId: currentUser.id,
                     creatorId: reflection.song?.creatorId || null, entityId: comment.id,
@@ -666,16 +688,34 @@ router.put('/:id/moderation', requireCreatorOrAdmin, async (req, res, next) => {
 
         await sequelize.transaction(async (transaction) => {
             await reflection.update(updates, { transaction });
+            const flagReason = updates.status === 'FLAGGED'
+                ? updates.moderatorNote || 'Flagged for administrator review.'
+                : null;
             await ModerationAction.create({
                 actionType: updates.status ? `REFLECTION_${updates.status}` : 'REFLECTION_NOTE_UPDATED',
                 actorId: req.authUserRecord.id,
-                metadata: { moderatorNoteChanged: hasModeratorNote },
-                reason: updates.moderatorNote || null,
+                metadata: { flagSource: updates.status === 'FLAGGED' ? 'ADMIN_REVIEW' : null, moderatorNoteChanged: hasModeratorNote },
+                reason: flagReason || updates.moderatorNote || null,
                 songId: reflection.songId,
                 targetId: reflection.id,
                 targetType: 'REFLECTION',
                 targetUserId: reflection.userId,
             }, { transaction });
+            if (updates.status === 'FLAGGED') {
+                await createModerationFlag({
+                    createdBy: req.authUserRecord.id, reason: flagReason, source: 'ADMIN_REVIEW',
+                    targetId: reflection.id, targetType: 'REFLECTION', targetUserId: reflection.userId, transaction,
+                });
+            }
+            const notification = {
+                APPROVED: ['Reflection approved', 'Your reflection was approved and is eligible for public display when its song is published.'],
+                FLAGGED: ['Reflection under review', 'Your reflection needs administrator review and is not currently public. This is not a finding of wrongdoing.'],
+                REJECTED: ['Reflection hidden', 'Your reflection is no longer publicly visible. Your member account remains active unless a separate account action is shown.'],
+            }[updates.status];
+            if (notification) await createInProductNotification({
+                message: notification[1], title: notification[0], type: `REFLECTION_${updates.status}`,
+                userId: reflection.userId, transaction,
+            });
             await writeAudit({
                 action: 'REFLECTION_MODERATED',
                 actorId: req.authUserRecord.id,
@@ -705,19 +745,28 @@ router.post('/:id/warn', requireCreatorOrAdmin, async (req, res, next) => {
         if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
         if (!reflection.userId) return res.status(400).json({ message: 'Guest submissions cannot receive account warnings.' });
 
-        const reason = String(req.body.reason || '').trim();
+        const reason = String(req.body.userFacingReason || req.body.reason || '').trim();
         if (reason.length < 5 || reason.length > 2000) {
             return res.status(400).json({ message: 'Warning reason must be between 5 and 2000 characters.' });
         }
+        const category = String(req.body.category || 'OTHER').toUpperCase();
+        if (!WARNING_CATEGORIES.has(category)) return res.status(400).json({ message: 'Unsupported warning category.' });
         const duplicate = await UserWarning.findOne({
-            where: { reason, status: 'ACTIVE', userId: reflection.userId },
+            where: { reason, status: { [Op.in]: ['ACTIVE', 'ACKNOWLEDGED'] }, userId: reflection.userId },
         });
         if (duplicate) return res.status(409).json({ message: 'An active warning with this reason already exists for the user.' });
 
         const warning = await sequelize.transaction(async (transaction) => {
             const createdWarning = await UserWarning.create({
+                actionTaken: req.body.actionTaken || 'Reflection reviewed; account access is handled separately.',
+                category,
+                internalNote: String(req.body.internalNote || '').trim() || null,
                 issuedBy: req.authUserRecord.id,
                 reason,
+                requiredNextStep: req.body.requiredNextStep || 'Review and acknowledge this warning.',
+                targetId: reflection.id,
+                targetType: 'REFLECTION',
+                userFacingReason: reason,
                 userId: reflection.userId,
             }, { transaction });
             await ModerationAction.create({
@@ -741,9 +790,14 @@ router.post('/:id/warn', requireCreatorOrAdmin, async (req, res, next) => {
                 songId: reflection.songId,
                 transaction,
             });
+            await createInProductNotification({
+                message: 'A formal warning is available in Safety & Account Status. Review the details and acknowledge it if required.',
+                title: 'You received a formal warning', type: 'WARNING_ISSUED', userId: reflection.userId,
+                warningId: createdWarning.id, link: `/settings/safety?warning=${createdWarning.id}`, transaction,
+            });
             return createdWarning;
         });
-        return res.status(201).json({ warning });
+        return res.status(201).json({ userNotificationSent: true, warning });
     } catch (error) { return next(error); }
 });
 

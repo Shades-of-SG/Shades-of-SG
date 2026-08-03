@@ -136,6 +136,7 @@ export default function CreatorSongs() {
       </div>
       {selected ? <SectionCard className="creator-song-detail">
         <div className="creator-song-detail__header"><SongArtwork song={selected} /><div className="dashboard-song-copy"><h3>{selected.title}</h3><p>{selected.artist || 'Artist not set'}</p><span className={`dashboard-song-badge is-${selected.status.toLowerCase()}`}>{selected.status}</span></div></div>
+        {selected.moderationNotice ? <div className="studio-workflow-message is-warning" role="status"><p>{selected.moderationNotice.message}</p><Link to={selected.moderationNotice.safetyPath}>View Safety &amp; Account Status</Link></div> : null}
         <div className="creator-song-actions">
           <div className="creator-song-actions__icons">
             <button aria-label="Edit song" className="creator-song-icon-button" disabled={busyId === selected.id} onClick={() => navigate(`/creator/studio/${selected.id}`)} title="Edit song" type="button"><Pencil aria-hidden="true" /></button>

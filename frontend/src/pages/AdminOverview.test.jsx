@@ -53,7 +53,7 @@ describe('AdminOverview hierarchy and states', () => {
     const applications = screen.getByRole('link', { name: 'Review applications: 2 creator applications' })
     expect(applications).toHaveAttribute('href', '/admin/creators?tab=applications')
     expect(screen.getByRole('link', { name: 'Review reports: 3 escalated reports' })).toHaveAttribute('href', '/admin/community?tab=reports')
-    expect(screen.getByRole('link', { name: 'View warnings: 4 unresolved warnings' })).toHaveAttribute('href', '/admin/community?tab=warnings')
+    expect(screen.getByRole('link', { name: 'View warning history: 4 active warnings' })).toHaveAttribute('href', '/admin/community?tab=warnings')
     expect(screen.getByRole('link', { name: /Manage suspended accounts/ })).toHaveAttribute('href', '/admin/community?tab=users')
 
     applications.focus()

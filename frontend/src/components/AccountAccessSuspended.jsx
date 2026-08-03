@@ -10,9 +10,9 @@ export default function AccountAccessSuspended() {
     <span className="creator-access-suspended__icon"><ShieldX /></span>
     <p className="eyebrow">Account suspended</p>
     <h1>Your Shades of SG account is unavailable</h1>
-    <p className="creator-access-suspended__message">This full account suspension blocks regular-user and creator access.</p>
+    <p className="creator-access-suspended__message">This full account suspension blocks regular-user and creator access. Stored profile, songs, scores, badges, applications, warnings and history remain preserved.</p>
     {user?.accountSuspensionReason ? <div className="creator-access-suspended__reason"><strong>Reason provided</strong><p>{user.accountSuspensionReason}</p></div> : null}
-    <p className="creator-access-suspended__support"><Headphones />Contact Shades of SG support if you would like to appeal or believe this decision was made in error.</p>
+    <p className="creator-access-suspended__support"><Headphones />No in-product appeal route currently exists. Contact Shades of SG support for questions or restoration review.</p>
     <button className="primary-button" onClick={leaveAccount} type="button"><LogOut />Continue signed out</button>
   </section></main>
 }

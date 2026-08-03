@@ -2,7 +2,7 @@ const express = require('express');
 const { Op, QueryTypes } = require('sequelize');
 const {
     AnalyticsEvent, AuditLog, CreatorApplication, CreatorApplicationHistory,
-    Folder, FolderSongProposal, GameScore, GenerationJob, ModerationAction,
+    Folder, FolderSongProposal, GameScore, GenerationJob, ModerationAction, ModerationFlag,
     Reflection, ReflectionComment, Song, SongFolder, User, UserWarning, sequelize,
 } = require('../models');
 const { requireAdmin } = require('../middleware/auth');
@@ -10,6 +10,7 @@ const { isUuid, validateUuidParam } = require('../middleware/validateUuid');
 const { writeAudit } = require('../services/auditService');
 const { sendApplicationEmail } = require('../services/emailService');
 const { getSongPublishMissing } = require('../services/songPublishingService');
+const { createInProductNotification } = require('../services/notificationService');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -44,8 +45,10 @@ const SAFETY_ACTION_TYPES = [
     'CREATOR_RESTORED', 'CREATOR_SUSPENDED', 'REFLECTION_COMMENT_REMOVED',
     'REFLECTION_COMMENT_RESTORED', 'REFLECTION_FLAGGED',
     'REFLECTION_REMOVED_BY_ADMIN', 'SAFETY_REPORT_DISMISSED',
-    'SAFETY_REPORT_RETURNED_TO_CREATOR', 'USER_ACTIVE', 'USER_SUSPENDED',
-    'USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNING_RESOLVED',
+    'SAFETY_REPORT_RETURNED_TO_CREATOR', 'SONG_ARCHIVED_BY_ADMIN', 'SONG_RESTORED_BY_ADMIN',
+    'SONG_UNPUBLISHED_BY_ADMIN', 'USER_ACTIVE', 'USER_SUSPENDED',
+    'USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNING_ACKNOWLEDGED', 'USER_WARNING_RESOLVED',
+    'USER_WARNING_WITHDRAWN',
 ];
 const SAFETY_ACTION_TYPE_SET = new Set(SAFETY_ACTION_TYPES);
 const SAFETY_REPORT_OUTCOMES = {
@@ -53,6 +56,11 @@ const SAFETY_REPORT_OUTCOMES = {
     REMOVE_REFLECTION: { action: 'REFLECTION_REMOVED_BY_ADMIN', status: 'REJECTED' },
     RETURN_TO_CREATOR: { action: 'SAFETY_REPORT_RETURNED_TO_CREATOR', status: 'PENDING' },
 };
+const WARNING_CATEGORIES = new Set([
+    'HARASSMENT', 'HATE', 'THREATS', 'SEXUAL_CONTENT', 'SPAM', 'IMPERSONATION',
+    'PERSONAL_INFORMATION', 'COPYRIGHT_CONCERN', 'DANGEROUS_CONTENT',
+    'MISLEADING_CONTENT', 'OFF_TOPIC', 'PLATFORM_MISUSE', 'OTHER',
+]);
 
 function paging(query, maximum = 100) {
     const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
@@ -519,6 +527,15 @@ router.post('/songs/:id/unpublish', validateUuidParam('id', 'Song ID must be a v
         if (song.status !== 'PUBLISHED') return res.status(409).json({ message: 'Only a published song can be unpublished.' });
         await sequelize.transaction(async (transaction) => {
             await song.update({ publishedDate: null, status: 'READY' }, { transaction });
+            await ModerationAction.create({
+                actionType: 'SONG_UNPUBLISHED_BY_ADMIN', actorId: req.authUserRecord.id, reason,
+                songId: song.id, targetId: song.id, targetType: 'SONG', targetUserId: song.creatorId,
+                metadata: { previousStatus: 'PUBLISHED', resultingStatus: 'READY' },
+            }, { transaction });
+            await createInProductNotification({
+                message: 'Your song was unpublished after an administrator review. Ownership and stored draft data are preserved.',
+                title: 'Your song was unpublished', type: 'SONG_UNPUBLISHED', userId: song.creatorId, transaction,
+            });
             await writeAudit({
                 action: 'SONG_UNPUBLISHED_BY_ADMIN', actorId: req.authUserRecord.id, creatorId: song.creatorId,
                 entityId: song.id, entityType: 'SONG', metadata: { previousStatus: 'PUBLISHED', reason }, req, songId: song.id, transaction,
@@ -540,6 +557,15 @@ router.post('/songs/:id/archive', validateUuidParam('id', 'Song ID must be a val
         const previousStatus = song.status;
         await sequelize.transaction(async (transaction) => {
             await song.update({ publishedDate: null, status: 'ARCHIVED' }, { transaction });
+            await ModerationAction.create({
+                actionType: 'SONG_ARCHIVED_BY_ADMIN', actorId: req.authUserRecord.id, reason,
+                songId: song.id, targetId: song.id, targetType: 'SONG', targetUserId: song.creatorId,
+                metadata: { previousStatus, resultingStatus: 'ARCHIVED' },
+            }, { transaction });
+            await createInProductNotification({
+                message: 'Your song was archived after an administrator review. Ownership and stored data are preserved.',
+                title: 'Your song was archived', type: 'SONG_ARCHIVED', userId: song.creatorId, transaction,
+            });
             await writeAudit({
                 action: 'SONG_ARCHIVED_BY_ADMIN', actorId: req.authUserRecord.id, creatorId: song.creatorId,
                 entityId: song.id, entityType: 'SONG', metadata: { previousStatus, reason }, req, songId: song.id, transaction,
@@ -557,6 +583,15 @@ router.post('/songs/:id/restore', validateUuidParam('id', 'Song ID must be a val
         const status = song.videoUrl?.trim() ? 'READY' : 'DRAFT';
         await sequelize.transaction(async (transaction) => {
             await song.update({ publishedDate: null, status }, { transaction });
+            await ModerationAction.create({
+                actionType: 'SONG_RESTORED_BY_ADMIN', actorId: req.authUserRecord.id,
+                songId: song.id, targetId: song.id, targetType: 'SONG', targetUserId: song.creatorId,
+                metadata: { previousStatus: 'ARCHIVED', resultingStatus: status },
+            }, { transaction });
+            await createInProductNotification({
+                message: 'Administrator access restrictions on your song were removed. Review it in Creator Studio before publishing.',
+                title: 'Your song was restored', type: 'SONG_RESTORED', userId: song.creatorId, transaction,
+            });
             await writeAudit({
                 action: 'SONG_RESTORED_BY_ADMIN', actorId: req.authUserRecord.id, creatorId: song.creatorId,
                 entityId: song.id, entityType: 'SONG', metadata: { previousStatus: 'ARCHIVED', restoredStatus: status }, req, songId: song.id, transaction,
@@ -590,6 +625,14 @@ router.patch('/creators/:id/status', validateUuidParam('id', 'Creator ID must be
                 targetId: creator.id, targetType: 'USER', targetUserId: creator.id,
                 metadata: { accountStatus: creator.accountStatus, creatorAccessStatus },
             }, { transaction });
+            await createInProductNotification({
+                message: creatorAccessStatus === 'SUSPENDED'
+                    ? 'Your creator access was suspended. Normal member access remains active and your songs remain preserved.'
+                    : 'Your creator access was restored. Your existing songs and ownership remain available.',
+                title: creatorAccessStatus === 'SUSPENDED' ? 'Creator access suspended' : 'Creator access restored',
+                type: creatorAccessStatus === 'SUSPENDED' ? 'CREATOR_ACCESS_SUSPENDED' : 'CREATOR_ACCESS_RESTORED',
+                userId: creator.id, transaction,
+            });
             await writeAudit({
                 action, actorId: req.authUserRecord.id, creatorId: creator.id, entityId: creator.id,
                 entityType: 'USER', metadata: { accountStatus: creator.accountStatus, creatorAccessStatus, reason }, req, transaction,
@@ -624,6 +667,14 @@ router.patch('/users/:id/status', validateUuidParam('id', 'User ID must be a val
                 targetId: user.id, targetType: 'USER', targetUserId: user.id,
                 metadata: { creatorAccessStatus: user.creatorAccessStatus, publishedContentBehavior: 'UNCHANGED' },
             }, { transaction });
+            await createInProductNotification({
+                message: accountStatus === 'SUSPENDED'
+                    ? 'Your member account was suspended. Stored profile, content, scores, badges, applications and history remain preserved.'
+                    : 'Your member account access was restored. Existing stored data remains available.',
+                title: accountStatus === 'SUSPENDED' ? 'Member account suspended' : 'Member account restored',
+                type: accountStatus === 'SUSPENDED' ? 'MEMBER_ACCOUNT_SUSPENDED' : 'MEMBER_ACCOUNT_RESTORED',
+                userId: user.id, transaction,
+            });
             await writeAudit({
                 action: auditAction, actorId: req.authUserRecord.id, creatorId: user.role === 'CREATOR' ? user.id : null,
                 entityId: user.id, entityType: 'USER', metadata: {
@@ -813,7 +864,7 @@ router.get('/analytics', async (req, res, next) => {
     try {
         const singaporeNow = new Date(Date.now() + (8 * 60 * 60 * 1000));
         const activityStart = new Date(Date.UTC(singaporeNow.getUTCFullYear(), singaporeNow.getUTCMonth(), singaporeNow.getUTCDate() - 6) - (8 * 60 * 60 * 1000));
-        const [admins, creators, registeredUsers, songs, publishedSongs, scores, reflections, generationJobs, eventRows, pendingApplications, pendingReflections, flaggedReflections, unresolvedWarnings, suspendedAccounts, recentEvents, creatorApplications, collections, placementRequests, safetyUsers] = await Promise.all([
+        const [admins, creators, registeredUsers, songs, publishedSongs, scores, reflections, generationJobs, eventRows, pendingApplications, pendingReflections, flaggedReflections, unresolvedWarnings, suspendedAccounts, recentEvents, creatorApplications, collections, placementRequests, safetyUsers, warningRecords] = await Promise.all([
             User.count({ where: { role: 'ADMIN' } }), User.count({ where: { role: 'CREATOR' } }),
             User.count({ where: { role: 'REGISTERED' } }), Song.count(), Song.count({ where: { status: 'PUBLISHED' } }),
             GameScore.count(), Reflection.count(), GenerationJob.count(), AnalyticsEvent.count({ group: ['eventType'] }),
@@ -828,6 +879,7 @@ router.get('/analytics', async (req, res, next) => {
             Folder.count(),
             FolderSongProposal.count({ where: { status: 'PENDING' } }),
             countSafetyUsers(),
+            UserWarning.count(),
         ]);
         const events = Object.fromEntries(eventRows.map((row) => [row.eventType, Number(row.count)]));
         const activityByDate = new Map();
@@ -860,7 +912,7 @@ router.get('/analytics', async (req, res, next) => {
                 reports: flaggedReflections,
                 songs,
                 users: safetyUsers,
-                warnings: unresolvedWarnings,
+                warnings: warningRecords,
             },
             users: { admins, creators, registered: registeredUsers, total: admins + creators + registeredUsers },
         });
@@ -909,23 +961,30 @@ router.get('/safety-reports', async (req, res, next) => {
             limit, offset, order: [['moderatedAt', 'DESC'], ['updatedAt', 'DESC']], subQuery: false, where,
         });
         const reflectionIds = rows.map((reflection) => reflection.id);
-        const actions = reflectionIds.length ? await ModerationAction.findAll({
+        const [actions, flags] = reflectionIds.length ? await Promise.all([ModerationAction.findAll({
             include: [{ model: User, as: 'actor', attributes: ['id', 'name', 'role'], required: false }],
             order: [['createdAt', 'ASC']],
             where: {
                 actionType: { [Op.in]: SAFETY_ACTION_TYPES },
                 targetId: { [Op.in]: reflectionIds }, targetType: 'REFLECTION',
             },
-        }) : [];
+        }), ModerationFlag.findAll({ order: [['createdAt', 'ASC']], where: { targetId: { [Op.in]: reflectionIds }, targetType: 'REFLECTION' } })]) : [[], []];
         const actionsByReflection = new Map();
         actions.forEach((action) => {
             const list = actionsByReflection.get(action.targetId) || [];
             list.push(action.get({ plain: true }));
             actionsByReflection.set(action.targetId, list);
         });
+        const flagsByReflection = new Map();
+        flags.forEach((flag) => {
+            const list = flagsByReflection.get(flag.targetId) || [];
+            list.push(flag.get({ plain: true }));
+            flagsByReflection.set(flag.targetId, list);
+        });
         const reports = rows.map((reflection) => {
             const value = reflection.get({ plain: true });
             const history = actionsByReflection.get(value.id) || [];
+            const recordedFlags = flagsByReflection.get(value.id) || [];
             const signals = history.filter((action) => action.actionType === 'REFLECTION_FLAGGED');
             const caseTypes = [...new Set((signals.length ? signals : [{ actor: value.moderator }])
                 .map((signal) => safetyCaseType(signal.actor?.role)))];
@@ -948,6 +1007,7 @@ router.get('/safety-reports', async (req, res, next) => {
                 content: value.content,
                 displayName: value.displayName,
                 firstReportedAt: reportedTimes[0] || fallbackTime,
+                flagSources: recordedFlags.length ? [...new Set(recordedFlags.map((flag) => flag.source))] : caseTypes,
                 id: value.id,
                 latestReportedAt: reportedTimes.at(-1) || fallbackTime,
                 moderationHistory: history.map((action) => ({
@@ -956,7 +1016,7 @@ router.get('/safety-reports', async (req, res, next) => {
                     createdAt: action.createdAt, reason: action.reason,
                 })),
                 reasons,
-                reportCount: Math.max(signals.length, 1),
+                reportCount: Math.max(signals.length, recordedFlags.length, 1),
                 requiredAction: 'ADMIN_REVIEW',
                 reviewState: 'OPEN',
                 song: value.song,
@@ -992,6 +1052,19 @@ router.post('/safety-reports/:id/resolve', validateUuidParam('id', 'Report targe
                 reason, songId: reflection.songId, targetId: reflection.id,
                 targetType: 'REFLECTION', targetUserId: reflection.userId,
             }, { transaction });
+            await ModerationFlag.update({
+                reviewState: outcome === 'DISMISS_REPORT' ? 'DISMISSED' : 'UPHELD',
+                reviewedAt: new Date(), reviewedBy: req.authUserRecord.id,
+            }, { transaction, where: { reviewState: 'OPEN', targetId: reflection.id, targetType: 'REFLECTION' } });
+            const notificationCopy = {
+                DISMISS_REPORT: ['Safety review completed', 'A review of your reflection was completed and it remains eligible for public display.'],
+                REMOVE_REFLECTION: ['Your reflection was removed', 'Your reflection is no longer publicly visible. Your member account remains active unless a separate account action is shown.'],
+                RETURN_TO_CREATOR: ['Your reflection needs review', 'Your reflection was returned to pending review and is not currently public.'],
+            }[outcome];
+            await createInProductNotification({
+                message: notificationCopy[1], title: notificationCopy[0], type: transition.action,
+                userId: reflection.userId, transaction,
+            });
             await writeAudit({
                 action: transition.action, actorId: req.authUserRecord.id,
                 creatorId: reflection.song?.creatorId || null, entityId: reflection.id,
@@ -1002,8 +1075,57 @@ router.post('/safety-reports/:id/resolve', validateUuidParam('id', 'Report targe
         });
         return res.json({
             outcome, reflection: { id: reflection.id, status: transition.status },
-            userNotificationSent: false,
+            userNotificationSent: Boolean(reflection.userId),
         });
+    } catch (error) { return next(error); }
+});
+
+router.get('/moderation-flags', async (req, res, next) => {
+    try {
+        const { limit, offset, page } = paging(req.query, 100);
+        const where = {};
+        if (req.query.reviewState) {
+            const reviewState = String(req.query.reviewState).toUpperCase();
+            if (!['OPEN', 'DISMISSED', 'UPHELD'].includes(reviewState)) return res.status(400).json({ message: 'Invalid flag review state.' });
+            where.reviewState = reviewState;
+        }
+        if (req.query.source) {
+            const source = String(req.query.source).toUpperCase();
+            if (!['USER_REPORT', 'AUTOMATED_RULE', 'ADMIN_REVIEW', 'BEHAVIOURAL_PATTERN'].includes(source)) return res.status(400).json({ message: 'Invalid flag source.' });
+            where.source = source;
+        }
+        const { count, rows } = await ModerationFlag.findAndCountAll({
+            include: [{ model: User, as: 'targetUser', attributes: ['accountStatus', 'creatorAccessStatus', 'email', 'id', 'name', 'role'], required: false }],
+            limit, offset, order: [['createdAt', 'DESC']], where,
+        });
+        return res.json({ flags: rows, pagination: pageResult([], count, page, limit).pagination });
+    } catch (error) { return next(error); }
+});
+
+router.patch('/moderation-flags/:id/review', validateUuidParam('id', 'Flag ID must be a valid UUID.'), async (req, res, next) => {
+    try {
+        const reviewState = String(req.body.reviewState || '').toUpperCase();
+        if (!['DISMISSED', 'UPHELD'].includes(reviewState)) return res.status(400).json({ message: 'reviewState must be DISMISSED or UPHELD.' });
+        const reason = requiredReason(req.body.reason);
+        if (!reason) return res.status(400).json({ message: 'A review reason between 5 and 2000 characters is required.' });
+        const flag = await ModerationFlag.findByPk(req.params.id);
+        if (!flag) return res.status(404).json({ message: 'Moderation flag not found.' });
+        if (flag.reviewState !== 'OPEN') return res.status(409).json({ message: 'This moderation flag was already reviewed.' });
+        await sequelize.transaction(async (transaction) => {
+            await flag.update({ reviewState, reviewedAt: new Date(), reviewedBy: req.authUserRecord.id }, { transaction });
+            await ModerationAction.create({
+                actionType: `MODERATION_FLAG_${reviewState}`, actorId: req.authUserRecord.id,
+                metadata: { flagId: flag.id, flagSource: flag.source, triggeringRule: flag.triggeringRule }, reason,
+                targetId: flag.targetId, targetType: flag.targetType, targetUserId: flag.targetUserId,
+            }, { transaction });
+            await writeAudit({
+                action: `MODERATION_FLAG_${reviewState}`, actorId: req.authUserRecord.id,
+                entityId: flag.id, entityType: 'MODERATION_FLAG', metadata: {
+                    flagSource: flag.source, reason, targetId: flag.targetId, targetType: flag.targetType,
+                }, req, transaction,
+            });
+        });
+        return res.json({ flag });
     } catch (error) { return next(error); }
 });
 
@@ -1017,7 +1139,7 @@ router.get('/warnings', async (req, res, next) => {
         }
         if (req.query.status) {
             const status = String(req.query.status).toUpperCase();
-            if (!['ACTIVE', 'RESOLVED'].includes(status)) return res.status(400).json({ message: 'Invalid warning status.' });
+            if (!['ACTIVE', 'ACKNOWLEDGED', 'RESOLVED', 'WITHDRAWN'].includes(status)) return res.status(400).json({ message: 'Invalid warning status.' });
             where.status = status;
         }
         const search = String(req.query.search || '').trim();
@@ -1062,12 +1184,19 @@ router.get('/warnings', async (req, res, next) => {
 
 router.post('/warnings', async (req, res, next) => {
     try {
-        const reason = String(req.body.reason || '').trim();
-        if (reason.length < 5 || reason.length > 2000) return res.status(400).json({ message: 'Warning reason must be between 5 and 2000 characters.' });
+        const userFacingReason = String(req.body.userFacingReason || req.body.reason || '').trim();
+        if (userFacingReason.length < 5 || userFacingReason.length > 2000) return res.status(400).json({ message: 'User-facing warning reason must be between 5 and 2000 characters.' });
+        const internalNote = String(req.body.internalNote || '').trim() || null;
+        if (internalNote && internalNote.length > 2000) return res.status(400).json({ message: 'Internal note must be 2000 characters or fewer.' });
+        const category = String(req.body.category || 'OTHER').toUpperCase();
+        if (!WARNING_CATEGORIES.has(category)) return res.status(400).json({ message: 'Unsupported warning category.' });
+        const actionTaken = String(req.body.actionTaken || '').trim() || null;
+        const requiredNextStep = String(req.body.requiredNextStep || '').trim() || null;
+        if (actionTaken?.length > 1000 || requiredNextStep?.length > 1000) return res.status(400).json({ message: 'Action and next-step explanations must be 1000 characters or fewer.' });
         if (!isUuid(req.body.userId)) return res.status(400).json({ message: 'userId must be a valid UUID.' });
         const target = await User.findOne({ attributes: ['id'], where: { id: req.body.userId, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } } });
         if (!target) return res.status(404).json({ message: 'User not found.' });
-        const duplicate = await UserWarning.findOne({ where: { reason, status: 'ACTIVE', userId: target.id } });
+        const duplicate = await UserWarning.findOne({ where: { reason: userFacingReason, status: { [Op.in]: ['ACTIVE', 'ACKNOWLEDGED'] }, userId: target.id } });
         if (duplicate) return res.status(409).json({ message: 'An active warning with this reason already exists for the user.' });
         const sourceType = req.body.sourceType ? String(req.body.sourceType).toUpperCase() : null;
         const sourceId = req.body.sourceId || null;
@@ -1083,46 +1212,91 @@ router.post('/warnings', async (req, res, next) => {
             source = { id: reflection.id, song: reflection.song, type: 'REFLECTION' };
         }
         const warning = await sequelize.transaction(async (transaction) => {
-            const created = await UserWarning.create({ issuedBy: req.authUserRecord.id, reason, userId: target.id }, { transaction });
+            const created = await UserWarning.create({
+                actionTaken, category, internalNote, issuedBy: req.authUserRecord.id,
+                reason: userFacingReason, requiredNextStep, targetId: source?.id || null,
+                targetType: source?.type || null, userFacingReason, userId: target.id,
+            }, { transaction });
             await ModerationAction.create({
                 actionType: source ? 'USER_WARNED_FROM_REFLECTION' : 'USER_WARNED', actorId: req.authUserRecord.id,
-                metadata: { warningId: created.id }, reason, songId: source?.song?.id || null,
+                metadata: { category, warningId: created.id }, reason: userFacingReason, songId: source?.song?.id || null,
                 targetId: source?.id || target.id, targetType: source?.type || 'USER', targetUserId: target.id,
             }, { transaction });
             await writeAudit({
                 action: source ? 'USER_WARNED_FROM_REFLECTION' : 'USER_WARNED', actorId: req.authUserRecord.id,
                 entityId: created.id, entityType: 'USER_WARNING',
-                metadata: { sourceId: source?.id || null, sourceType: source?.type || null, targetUserId: target.id },
+                metadata: { category, sourceId: source?.id || null, sourceType: source?.type || null, targetUserId: target.id },
                 req, songId: source?.song?.id || null, transaction,
+            });
+            await createInProductNotification({
+                message: 'A formal warning is available in Safety & Account Status. Review the details and acknowledge it if required.',
+                title: 'You received a formal warning', type: 'WARNING_ISSUED', userId: target.id,
+                warningId: created.id, link: `/settings/safety?warning=${created.id}`, transaction,
             });
             return created;
         });
-        return res.status(201).json({ source, userNotificationSent: false, warning });
+        return res.status(201).json({ source, userNotificationSent: true, warning });
     } catch (error) { return next(error); }
 });
 
-router.patch('/warnings/:id/resolve', validateUuidParam('id', 'Warning ID must be a valid UUID.'), async (req, res, next) => {
+async function transitionWarning(req, res, next, forcedStatus = null) {
     try {
-        const warning = await UserWarning.findByPk(req.params.id);
-        if (!warning) return res.status(404).json({ message: 'Warning not found.' });
-        if (warning.status === 'RESOLVED') return res.status(409).json({ message: 'This warning is already resolved.' });
-        const resolutionNote = requiredReason(req.body.resolutionNote);
-        if (!resolutionNote) return res.status(400).json({ message: 'A resolution note between 5 and 2000 characters is required.' });
-        await sequelize.transaction(async (transaction) => {
-            await warning.update({ resolutionNote, resolvedAt: new Date(), resolvedBy: req.authUserRecord.id, status: 'RESOLVED' }, { transaction });
+        const nextStatus = forcedStatus || String(req.body.status || '').toUpperCase();
+        if (!['RESOLVED', 'WITHDRAWN'].includes(nextStatus)) return res.status(400).json({ message: 'Warning status must be RESOLVED or WITHDRAWN.' });
+        const note = requiredReason(nextStatus === 'RESOLVED' ? (req.body.resolutionNote || req.body.reason) : req.body.reason);
+        if (!note) return res.status(400).json({
+            message: nextStatus === 'RESOLVED'
+                ? 'A resolution note between 5 and 2000 characters is required.'
+                : 'A withdrawal reason between 5 and 2000 characters is required.',
+        });
+        const result = await sequelize.transaction(async (transaction) => {
+            const warning = await UserWarning.findByPk(req.params.id, { lock: transaction.LOCK.UPDATE, transaction });
+            if (!warning) return { error: { message: 'Warning not found.', status: 404 } };
+            const warnedUser = await User.findByPk(warning.userId, { attributes: ['id'], transaction });
+            if (!warnedUser) return { error: { message: 'The warning user no longer exists, so its status cannot be changed.', status: 409 } };
+            if (!['ACTIVE', 'ACKNOWLEDGED'].includes(warning.status)) {
+                const label = nextStatus === 'RESOLVED' ? 'resolved' : 'withdrawn';
+                return { error: { message: warning.status === nextStatus
+                    ? `This warning is already ${label}.`
+                    : `Only active or acknowledged warnings can be ${label}.`, status: 409 } };
+            }
+            const previousStatus = warning.status;
+            const changedAt = new Date();
+            await warning.update({
+                resolutionNote: note,
+                resolvedAt: nextStatus === 'RESOLVED' ? changedAt : warning.resolvedAt,
+                resolvedBy: req.authUserRecord.id,
+                status: nextStatus,
+                withdrawnAt: nextStatus === 'WITHDRAWN' ? changedAt : warning.withdrawnAt,
+            }, { transaction });
+            const actionType = nextStatus === 'RESOLVED' ? 'USER_WARNING_RESOLVED' : 'USER_WARNING_WITHDRAWN';
             await ModerationAction.create({
-                actionType: 'USER_WARNING_RESOLVED', actorId: req.authUserRecord.id,
-                metadata: { warningId: warning.id }, reason: resolutionNote,
+                actionType, actorId: req.authUserRecord.id,
+                metadata: { previousStatus, warningId: warning.id }, reason: note,
                 targetId: warning.id, targetType: 'USER_WARNING', targetUserId: warning.userId,
             }, { transaction });
-            await writeAudit({
-                action: 'USER_WARNING_RESOLVED', actorId: req.authUserRecord.id,
-                entityId: warning.id, entityType: 'USER_WARNING', metadata: { resolutionNote }, req, transaction,
+            await createInProductNotification({
+                message: nextStatus === 'RESOLVED'
+                    ? 'A formal warning in your Safety & Account Status history was resolved. The original record remains preserved.'
+                    : 'A formal warning in your Safety & Account Status history was withdrawn. It no longer indicates an upheld issue.',
+                title: 'Warning status updated', type: nextStatus === 'RESOLVED' ? 'WARNING_RESOLVED' : 'WARNING_WITHDRAWN', userId: warning.userId,
+                warningId: warning.id, link: `/settings/safety?warning=${warning.id}`, transaction,
             });
+            await writeAudit({
+                action: actionType, actorId: req.authUserRecord.id,
+                entityId: warning.id, entityType: 'USER_WARNING', metadata: {
+                    note, previousStatus, status: nextStatus,
+                }, req, transaction,
+            });
+            return { warning };
         });
-        return res.json({ warning });
+        if (result.error) return res.status(result.error.status).json({ message: result.error.message });
+        return res.json({ warning: result.warning });
     } catch (error) { return next(error); }
-});
+}
+
+router.patch('/warnings/:id/status', validateUuidParam('id', 'Warning ID must be a valid UUID.'), transitionWarning);
+router.patch('/warnings/:id/resolve', validateUuidParam('id', 'Warning ID must be a valid UUID.'), (req, res, next) => transitionWarning(req, res, next, 'RESOLVED'));
 
 router.get('/moderation-actions', async (req, res, next) => {
     try {
@@ -1135,7 +1309,7 @@ router.get('/moderation-actions', async (req, res, next) => {
         }
         if (req.query.targetType) {
             const targetType = String(req.query.targetType).toUpperCase();
-            if (!['REFLECTION', 'REFLECTION_COMMENT', 'USER', 'USER_WARNING'].includes(targetType)) return res.status(400).json({ message: 'Unsupported moderation target type.' });
+            if (!['REFLECTION', 'REFLECTION_COMMENT', 'SONG', 'USER', 'USER_WARNING'].includes(targetType)) return res.status(400).json({ message: 'Unsupported moderation target type.' });
             where.targetType = targetType;
         }
         if (req.query.actorId) {

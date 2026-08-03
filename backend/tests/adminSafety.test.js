@@ -73,7 +73,7 @@ test('report outcomes are explicit, preserve evidence, create audit rows, and re
     const response = await request(app).post(`/api/admin/safety-reports/${reflection.id}/resolve`)
         .set(auth(admin)).send({ outcome: 'DISMISS_REPORT', reason: 'The reflection does not violate platform policy.' });
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ outcome: 'DISMISS_REPORT', userNotificationSent: false });
+    expect(response.body).toMatchObject({ outcome: 'DISMISS_REPORT', userNotificationSent: true });
     expect(await reflection.reload()).toMatchObject({ content: 'Evidence survives dismissal.', status: 'APPROVED' });
     expect(await ModerationAction.findOne({ where: { actionType: 'SAFETY_REPORT_DISMISSED', targetId: reflection.id } })).not.toBeNull();
     expect(await AuditLog.findOne({ where: { action: 'SAFETY_REPORT_DISMISSED', entityId: reflection.id } })).not.toBeNull();
@@ -105,7 +105,7 @@ test('linked warnings require reasons, prevent active duplicates, and remain aft
     };
     const created = await request(app).post('/api/admin/warnings').set(auth(admin)).send(body);
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ source: { id: reflection.id, type: 'REFLECTION' }, userNotificationSent: false });
+    expect(created.body).toMatchObject({ source: { id: reflection.id, type: 'REFLECTION' }, userNotificationSent: true });
     expect((await request(app).post('/api/admin/warnings').set(auth(admin)).send(body)).status).toBe(409);
     expect((await request(app).patch(`/api/admin/warnings/${created.body.warning.id}/resolve`).set(auth(admin))
         .send({ resolutionNote: '' })).status).toBe(400);
@@ -117,6 +117,66 @@ test('linked warnings require reasons, prevent active duplicates, and remain aft
     expect(await UserWarning.findByPk(created.body.warning.id)).toMatchObject({ status: 'RESOLVED' });
     const history = await request(app).get(`/api/admin/warnings?userId=${member.id}`).set(auth(admin));
     expect(history.body.warnings[0]).toMatchObject({ source: { id: reflection.id, type: 'REFLECTION' }, status: 'RESOLVED' });
+});
+
+test('warning lifecycle preserves acknowledged history and audits resolve and withdraw transitions', async () => {
+    const acknowledgedWarning = await UserWarning.create({
+        issuedBy: admin.id, reason: 'Acknowledge before administrator completion.', userId: member.id,
+    });
+    const acknowledged = await request(app).patch(`/api/safety/warnings/${acknowledgedWarning.id}/acknowledge`).set(auth(member));
+    expect(acknowledged.status).toBe(200);
+    expect(await acknowledgedWarning.reload()).toMatchObject({ status: 'ACKNOWLEDGED' });
+    expect((await request(app).get(`/api/admin/warnings?userId=${member.id}`).set(auth(admin))).body.warnings)
+        .toEqual(expect.arrayContaining([expect.objectContaining({ id: acknowledgedWarning.id, status: 'ACKNOWLEDGED' })]));
+
+    const resolved = await request(app).patch(`/api/admin/warnings/${acknowledgedWarning.id}/status`).set(auth(admin)).send({
+        resolutionNote: 'The administrator review is complete and no further follow-up is required.', status: 'RESOLVED',
+    });
+    expect(resolved.status).toBe(200);
+    expect(await acknowledgedWarning.reload()).toMatchObject({
+        resolutionNote: 'The administrator review is complete and no further follow-up is required.', status: 'RESOLVED',
+    });
+    expect(acknowledgedWarning.resolvedAt).toBeInstanceOf(Date);
+    expect(await ModerationAction.findOne({ where: { actionType: 'USER_WARNING_RESOLVED', targetId: acknowledgedWarning.id } })).not.toBeNull();
+    expect(await AuditLog.findOne({ where: { action: 'USER_WARNING_RESOLVED', entityId: acknowledgedWarning.id } })).not.toBeNull();
+    expect((await request(app).patch(`/api/admin/warnings/${acknowledgedWarning.id}/status`).set(auth(admin)).send({
+        resolutionNote: 'A duplicate transition must not replace the first record.', status: 'RESOLVED',
+    })).status).toBe(409);
+    expect((await request(app).patch(`/api/safety/warnings/${acknowledgedWarning.id}/acknowledge`).set(auth(member))).status).toBe(409);
+
+    const withdrawnWarning = await UserWarning.create({
+        issuedBy: admin.id, reason: 'This warning will be withdrawn after review.', userId: member.id,
+    });
+    expect((await request(app).patch(`/api/admin/warnings/${withdrawnWarning.id}/status`).set(auth(admin))
+        .send({ reason: '', status: 'WITHDRAWN' })).status).toBe(400);
+    const withdrawn = await request(app).patch(`/api/admin/warnings/${withdrawnWarning.id}/status`).set(auth(admin)).send({
+        reason: 'Further review established that this warning was issued incorrectly.', status: 'WITHDRAWN',
+    });
+    expect(withdrawn.status).toBe(200);
+    expect(await withdrawnWarning.reload()).toMatchObject({
+        resolutionNote: 'Further review established that this warning was issued incorrectly.', status: 'WITHDRAWN',
+    });
+    expect(withdrawnWarning.withdrawnAt).toBeInstanceOf(Date);
+    expect(await ModerationAction.findOne({ where: { actionType: 'USER_WARNING_WITHDRAWN', targetId: withdrawnWarning.id } })).not.toBeNull();
+    expect(await AuditLog.findOne({ where: { action: 'USER_WARNING_WITHDRAWN', entityId: withdrawnWarning.id } })).not.toBeNull();
+    expect((await request(app).patch(`/api/admin/warnings/${withdrawnWarning.id}/status`).set(auth(admin)).send({
+        reason: 'A duplicate withdrawal must not replace the recorded reason.', status: 'WITHDRAWN',
+    })).status).toBe(409);
+    expect((await request(app).patch(`/api/safety/warnings/${withdrawnWarning.id}/acknowledge`).set(auth(member))).status).toBe(409);
+});
+
+test('warning transitions reject an orphaned warning without deleting its history', async () => {
+    await sequelize.query('PRAGMA foreign_keys = OFF');
+    const orphanedWarning = await UserWarning.create({
+        issuedBy: admin.id, reason: 'Legacy warning whose user record is unavailable.',
+        userId: '00000000-0000-4000-8000-000000000099',
+    });
+    await sequelize.query('PRAGMA foreign_keys = ON');
+    const response = await request(app).patch(`/api/admin/warnings/${orphanedWarning.id}/status`).set(auth(admin)).send({
+        resolutionNote: 'This transition cannot be completed without its warning owner.', status: 'RESOLVED',
+    });
+    expect(response.status).toBe(409);
+    expect(await orphanedWarning.reload()).toMatchObject({ status: 'ACTIVE' });
 });
 
 test('member suspension has explicit unchanged public-content behavior and safe, reasoned transitions', async () => {

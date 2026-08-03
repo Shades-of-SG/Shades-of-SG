@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminCommunityPage from './AdminCommunityPage'
 
 const service = vi.hoisted(() => ({
-  getAdminUsers: vi.fn(), getAuditLogs: vi.fn(), getModerationActions: vi.fn(), getSafetyReports: vi.fn(),
-  getWarnings: vi.fn(), issueWarning: vi.fn(), resolveSafetyReport: vi.fn(), resolveWarning: vi.fn(), updateUserStatus: vi.fn(),
+  getAdminUsers: vi.fn(), getAuditLogs: vi.fn(), getModerationActions: vi.fn(), getModerationFlags: vi.fn(), getSafetyReports: vi.fn(),
+  getWarnings: vi.fn(), issueWarning: vi.fn(), resolveSafetyReport: vi.fn(), reviewModerationFlag: vi.fn(), transitionWarningStatus: vi.fn(), updateUserStatus: vi.fn(),
 }))
 const refreshSummary = vi.hoisted(() => vi.fn())
 
@@ -36,12 +36,13 @@ describe('Safety & Reports administration', () => {
     vi.clearAllMocks()
     service.getAuditLogs.mockResolvedValue({ auditLogs: [] })
     service.getSafetyReports.mockResolvedValue({ pagination: { page: 1, total: 1, totalPages: 1 }, reports: [report] })
+    service.getModerationFlags.mockResolvedValue({ flags: [] })
     service.getWarnings.mockResolvedValue({ warnings: [{ id: 'warning-1', reason: 'Earlier warning', status: 'ACTIVE' }] })
     service.getAdminUsers.mockResolvedValue({ users: [] })
     service.getModerationActions.mockResolvedValue({ actions: [] })
     service.issueWarning.mockResolvedValue({ warning: { id: 'warning-2' } })
     service.resolveSafetyReport.mockResolvedValue({ outcome: 'DISMISS_REPORT' })
-    service.resolveWarning.mockResolvedValue({ warning: { id: 'warning-1', status: 'RESOLVED' } })
+    service.transitionWarningStatus.mockResolvedValue({ warning: { id: 'warning-1', status: 'RESOLVED' } })
     service.updateUserStatus.mockResolvedValue({ user: {} })
     refreshSummary.mockResolvedValue(undefined)
   })
@@ -84,18 +85,20 @@ describe('Safety & Reports administration', () => {
     await waitFor(() => expect(row).toHaveFocus())
   })
 
-  it('links warnings to their triggering reflection and does not claim delivery', async () => {
+  it('links warnings to their triggering reflection and creates only an in-product notification', async () => {
     renderPage()
     await screen.findAllByText('Original reported reflection evidence.')
     fireEvent.click(screen.getByRole('button', { name: 'Issue warning' }))
     const dialog = screen.getByRole('dialog')
-    expect(dialog).toHaveTextContent('does not suspend access or claim notification delivery')
-    fireEvent.change(within(dialog).getByLabelText('Specific reason (required)'), { target: { value: 'Do not submit abusive public reflections.' } })
+    expect(dialog).toHaveTextContent('transactional in-product notification')
+    expect(dialog).toHaveTextContent('does not suspend access or claim email, push, or SMS delivery')
+    fireEvent.change(within(dialog).getByLabelText('User-facing explanation (required)'), { target: { value: 'Do not submit abusive public reflections.' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Record warning' }))
-    await waitFor(() => expect(service.issueWarning).toHaveBeenCalledWith({
-      reason: 'Do not submit abusive public reflections.', sourceId: 'report-1', sourceType: 'REFLECTION', userId: 'user-1',
-    }, 'admin-token'))
-    expect(await screen.findByRole('status')).toHaveTextContent('No delivery notification was sent')
+    await waitFor(() => expect(service.issueWarning).toHaveBeenCalledWith(expect.objectContaining({
+      category: 'OTHER', sourceId: 'report-1', sourceType: 'REFLECTION',
+      userFacingReason: 'Do not submit abusive public reflections.', userId: 'user-1',
+    }), 'admin-token'))
+    expect(await screen.findByRole('status')).toHaveTextContent('in-product notification was created')
   })
 
   it('labels creator and member access separately for safety-linked users and routes creator controls correctly', async () => {
@@ -132,6 +135,47 @@ describe('Safety & Reports administration', () => {
     fireEvent.click(details)
     expect(screen.getByText('Broader platform risk.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open complete Audit History' })).toHaveAttribute('href', '/admin/activity')
+  })
+
+  it('uses lifecycle-aware warning actions, updates rows immediately, and refreshes the authoritative summary', async () => {
+    const warnedUser = { accountStatus: 'ACTIVE', email: 'member@example.com', id: 'user-1', name: 'Member' }
+    const warnings = [
+      { createdAt: '2026-08-01T01:00:00Z', id: 'warning-active', issuer: { name: 'Safety Admin' }, reason: 'Active warning reason.', status: 'ACTIVE', userId: 'user-1', warnedUser },
+      { createdAt: '2026-08-01T02:00:00Z', id: 'warning-ack', issuer: { name: 'Safety Admin' }, reason: 'Acknowledged warning reason.', status: 'ACKNOWLEDGED', userId: 'user-1', warnedUser },
+      { createdAt: '2026-08-01T03:00:00Z', id: 'warning-resolved', issuer: { name: 'Safety Admin' }, reason: 'Resolved warning reason.', status: 'RESOLVED', userId: 'user-1', warnedUser },
+      { createdAt: '2026-08-01T04:00:00Z', id: 'warning-withdrawn', issuer: { name: 'Safety Admin' }, reason: 'Withdrawn warning reason.', status: 'WITHDRAWN', userId: 'user-1', warnedUser },
+    ]
+    let finishRefresh
+    let finishTransition
+    service.getWarnings.mockResolvedValueOnce({ warnings }).mockImplementationOnce(() => new Promise((resolve) => { finishRefresh = resolve }))
+    service.transitionWarningStatus.mockImplementationOnce(() => new Promise((resolve) => { finishTransition = resolve }))
+    renderPage('/admin/community?tab=warnings')
+
+    const activeRow = (await screen.findByText('Active warning reason.')).closest('tr')
+    expect(within(activeRow).getByRole('button', { name: 'Resolve warning' })).toBeInTheDocument()
+    expect(within(activeRow).getByRole('button', { name: 'Withdraw warning' })).toBeInTheDocument()
+    expect(within(activeRow).getByRole('button', { name: 'Suspend member' })).toBeInTheDocument()
+    const acknowledgedRow = screen.getByText('Acknowledged warning reason.').closest('tr')
+    expect(within(acknowledgedRow).getByRole('button', { name: 'Resolve warning' })).toBeInTheDocument()
+    expect(within(acknowledgedRow).getByRole('button', { name: 'Withdraw warning' })).toBeInTheDocument()
+    expect(within(acknowledgedRow).queryByRole('button', { name: 'Suspend member' })).not.toBeInTheDocument()
+    expect(within(screen.getByText('Resolved warning reason.').closest('tr')).getByRole('button', { name: 'View details' })).toBeInTheDocument()
+    expect(within(screen.getByText('Withdrawn warning reason.').closest('tr')).getByRole('button', { name: 'View details' })).toBeInTheDocument()
+
+    fireEvent.click(within(acknowledgedRow).getByRole('button', { name: 'Withdraw warning' }))
+    const dialog = screen.getByRole('dialog', { name: 'Withdraw this warning?' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Withdraw warning' }))
+    expect(service.transitionWarningStatus).not.toHaveBeenCalled()
+    fireEvent.change(within(dialog).getByLabelText('Withdrawal reason (required)'), { target: { value: 'Review confirmed that this warning was issued incorrectly.' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Withdraw warning' }))
+    expect(await within(dialog).findByRole('button', { name: 'Working…' })).toBeDisabled()
+    expect(service.transitionWarningStatus).toHaveBeenCalledTimes(1)
+    finishTransition({ warning: { id: 'warning-ack', status: 'WITHDRAWN', withdrawnAt: '2026-08-03T01:00:00Z' } })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(within(screen.getByText('Acknowledged warning reason.').closest('tr')).getByText('Withdrawn')).toBeInTheDocument()
+    await waitFor(() => expect(refreshSummary).toHaveBeenCalled())
+    finishRefresh({ warnings: warnings.map((warning) => warning.id === 'warning-ack' ? { ...warning, status: 'WITHDRAWN' } : warning) })
+    expect(await screen.findByRole('status')).toHaveTextContent('Warning withdrawn and retained in history.')
   })
 
   it('uses an intentional retryable error state without showing an empty success state', async () => {
