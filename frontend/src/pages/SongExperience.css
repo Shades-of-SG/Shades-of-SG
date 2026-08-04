@@ -3,8 +3,13 @@
   display: grid;
   gap: 32px;
   grid-template-columns: 1fr 360px;
-  align-items: start;
+  align-items: stretch;
   width: 100%;
+}
+
+/* Let the article card stretch to fill remaining left-column space */
+.se-left-col > .section-card:last-child {
+  flex: 1;
 }
 
 .se-left-col,

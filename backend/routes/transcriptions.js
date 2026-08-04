@@ -13,6 +13,9 @@ const {
     transcribeMediaBuffer,
 } = require('../services/transcriptionService');
 
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+
 const router = express.Router();
 
 router.get('/status', (req, res) => {
@@ -22,9 +25,18 @@ router.get('/status', (req, res) => {
     });
 });
 
-router.post('/lyrics', requireCreator, async (req, res, next) => {
+router.post('/lyrics', requireCreator, upload.single('file'), async (req, res, next) => {
     try {
-        const { fileName, mediaBase64, mimeType, songId, youtubeUrl } = req.body;
+        if (req.file) {
+            const result = await transcribeMediaBuffer({
+                fileName: req.file.originalname,
+                mediaBuffer: req.file.buffer,
+                mimeType: req.file.mimetype,
+            });
+            return res.json(result);
+        }
+
+        const { fileName, mediaBase64, mimeType, songId, youtubeUrl } = req.body || {};
 
         if (youtubeUrl && !mediaBase64) {
             const extractedAudio = await extractAudioFromYouTube(youtubeUrl);

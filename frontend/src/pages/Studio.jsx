@@ -98,7 +98,23 @@ export default function Studio() {
   }, [message.text])
 
   useEffect(() => {
-    if (!routeSongId) return undefined
+    if (!routeSongId) {
+      if (location.state) {
+        if (location.state.lyrics) setLyrics(location.state.lyrics)
+        if (location.state.transcriptionSegments) setTranscriptionSegments(location.state.transcriptionSegments)
+        if (location.state.coverImageUrl) setCoverImageUrl(location.state.coverImageUrl)
+        if (location.state.title || location.state.artist) {
+          setFormData((prev) => ({
+            ...prev,
+            title: location.state.title || prev.title,
+            artist: location.state.artist || prev.artist,
+          }))
+        }
+      }
+      setIsLoading(false)
+      return undefined
+    }
+
     let active = true
     getCreatorSong(routeSongId, token)
       .then((loadedSong) => {
@@ -149,7 +165,7 @@ export default function Studio() {
       .catch((error) => active && setMessage({ type: 'error', text: error.message }))
       .finally(() => active && setIsLoading(false))
     return () => { active = false }
-  }, [routeSongId, token])
+  }, [routeSongId, token, location.state])
 
   useEffect(() => () => {
     if (audioPreviewUrl?.startsWith('blob:')) URL.revokeObjectURL(audioPreviewUrl)
@@ -304,14 +320,21 @@ export default function Studio() {
     setExtractionStatus('loading'); setExtractionError('')
     try {
       if (transcriptionStatus.configured === false) throw new Error(transcriptionStatus.error)
-      const payload = selectedMediaFile
-        ? { fileName: selectedMediaFile.name, mediaBase64: await readFileAsBase64(selectedMediaFile), mimeType: mimeType(selectedMediaFile) }
-        : formData.youtubeLink.trim()
+      let response
+      if (selectedMediaFile) {
+        const formDataObj = new FormData()
+        formDataObj.append('file', selectedMediaFile)
+        const headers = {}
+        if (token) headers.Authorization = `Bearer ${token}`
+        response = await fetch(`${API_URL}/transcriptions/lyrics`, { method: 'POST', body: formDataObj, headers })
+      } else {
+        const payload = formData.youtubeLink.trim()
           ? { youtubeUrl: formData.youtubeLink }
           : { songId }
-      const headers = { 'Content-Type': 'application/json' }
-      if (token) headers.Authorization = `Bearer ${token}`
-      const response = await fetch(`${API_URL}/transcriptions/lyrics`, { body: JSON.stringify(payload), headers, method: 'POST' })
+        const headers = { 'Content-Type': 'application/json' }
+        if (token) headers.Authorization = `Bearer ${token}`
+        response = await fetch(`${API_URL}/transcriptions/lyrics`, { method: 'POST', body: JSON.stringify(payload), headers })
+      }
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.message || 'Unable to extract lyrics.')
       setLyrics(data.lyrics || ''); setExtractionStatus('success')

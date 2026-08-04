@@ -19,6 +19,7 @@ export default function SongExperience() {
 
   // Video playback & synthetic melody state
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isArticleExpanded, setIsArticleExpanded] = useState(false)
 
   // Trivia state
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -299,17 +300,77 @@ export default function SongExperience() {
             </h3>
             {(() => {
               const articleContent = song.aiSummary || song.description || ''
-              const paragraphs = articleContent.split(/\n\n+/).filter((p) => p.trim() !== '')
-              return paragraphs.length > 0 ? (
-                paragraphs.map((p, idx) => (
-                  <p key={idx} style={{ margin: '0.875rem 0 0', color: '#cbd5e1', lineHeight: 1.75, fontSize: '0.925rem' }}>
-                    {p.trim()}
+              if (!articleContent.trim()) {
+                return (
+                  <p style={{ margin: '0.75rem 0 0', color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.925rem' }}>
+                    No cultural summary has been added for this song yet.
                   </p>
-                ))
-              ) : (
-                <p style={{ margin: '0.75rem 0 0', color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.925rem' }}>
-                  No cultural summary has been added for this song yet.
-                </p>
+                )
+              }
+
+              const cleanText = articleContent.replace(/\s+/g, ' ').trim()
+              const isLong = cleanText.length > 350
+
+              if (!isArticleExpanded && isLong) {
+                // Truncate to ~320-350 characters at word boundary
+                const truncated = cleanText.slice(0, 350).replace(/\s+\S*$/, '')
+                return (
+                  <p style={{ margin: '0.75rem 0 0', color: '#cbd5e1', lineHeight: 1.7, fontSize: '0.925rem' }}>
+                    {truncated}...{' '}
+                    <button
+                      type="button"
+                      onClick={() => setIsArticleExpanded(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontWeight: 600,
+                        fontSize: '0.925rem',
+                        fontFamily: 'inherit',
+                        lineHeight: 'inherit',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'inline',
+                        marginLeft: '4px',
+                      }}
+                    >
+                      See More
+                    </button>
+                  </p>
+                )
+              }
+
+              const paragraphs = articleContent.split(/\n\n+/).filter((p) => p.trim() !== '')
+              return (
+                <>
+                  {paragraphs.map((p, idx) => {
+                    const isLast = idx === paragraphs.length - 1
+                    return (
+                      <p key={idx} style={{ margin: '0.875rem 0 0', color: '#cbd5e1', lineHeight: 1.75, fontSize: '0.925rem' }}>
+                        {p.trim()}
+                        {isLast && isLong && (
+                          <button
+                            type="button"
+                            onClick={() => setIsArticleExpanded(false)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#94a3b8',
+                              fontWeight: 600,
+                              fontSize: '0.925rem',
+                              cursor: 'pointer',
+                              padding: 0,
+                              display: 'inline',
+                              marginLeft: '8px',
+                            }}
+                          >
+                            See Less
+                          </button>
+                        )}
+                      </p>
+                    )
+                  })}
+                </>
               )
             })()}
           </div>
