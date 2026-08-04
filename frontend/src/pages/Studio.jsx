@@ -113,15 +113,31 @@ export default function Studio() {
         })
         setSelectedLanguages([...(loadedSong.languages || []), ...(otherLanguages.length ? ['Others'] : [])])
         setSelectedMoods(loadedSong.moodTags || [])
-        setLyrics(loadedSong.rawLyrics || '')
+        // Derived lyrics interceptor
+        let derivedLyrics = loadedSong?.rawLyrics && loadedSong.rawLyrics !== 'Instrumental / AI Transcribed'
+          ? loadedSong.rawLyrics
+          : loadedSong?.lyrics || ''
+
+        if (derivedLyrics === 'Instrumental / AI Transcribed' || !derivedLyrics.trim()) {
+          if (loadedSong?.transcriptionSegments?.length > 0) {
+            derivedLyrics = loadedSong.transcriptionSegments.map(s => s.text || s.lyrics).filter(Boolean).join('\n')
+          } else if (loadedSong?.sceneSegments?.length > 0) {
+            derivedLyrics = loadedSong.sceneSegments.map(s => s.lyrics).filter(Boolean).join('\n')
+          } else {
+            derivedLyrics = '' // Clear out the placeholder entirely if no segments exist
+          }
+        }
+
+        if (location.state?.lyrics && (!derivedLyrics || derivedLyrics === 'Instrumental / AI Transcribed')) {
+          derivedLyrics = location.state.lyrics
+        }
+
+        setLyrics(derivedLyrics)
         // Merge prefill from VideoEditor (only if the DB doesn't already have these values)
         if (location.state?.transcriptionSegments && !loadedSong.transcriptionSegments?.length) {
           setTranscriptionSegments(location.state.transcriptionSegments)
         } else {
           setTranscriptionSegments(loadedSong.transcriptionSegments || null)
-        }
-        if (location.state?.lyrics && !loadedSong.rawLyrics?.trim()) {
-          setLyrics(location.state.lyrics)
         }
         setCoverImageUrl(loadedSong.coverImageUrl || location.state?.coverImageUrl || '')
         setCoverFileName('')

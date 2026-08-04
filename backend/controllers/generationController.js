@@ -316,8 +316,12 @@ const runGenerationPipeline = async (jobId) => {
           mimeType: extractedInfo.mimeType
         })
 
-        await song.update({ transcriptionSegments: transcription.segments })
-        console.log(`[Phase 1: Initialization] Saved ${transcription.segments.length} segments to database.`)
+        const extractedLyrics = (transcription.segments || []).map(s => s.text || s.lyrics).filter(Boolean).join('\n')
+        await song.update({
+          transcriptionSegments: transcription.segments,
+          ...(extractedLyrics ? { lyrics: extractedLyrics, rawLyrics: extractedLyrics } : {})
+        })
+        console.log(`[Phase 1: Initialization] Saved ${transcription.segments.length} segments and updated song lyrics.`)
       } finally {
         await extractedInfo.cleanup()
       }
@@ -769,6 +773,22 @@ const confirmScenes = async (req, res, next) => {
     // Update transcription segments if the creator edited them
     if (transcriptionSegments && Array.isArray(transcriptionSegments)) {
       await song.update({ transcriptionSegments })
+    }
+
+    // Compile full updated lyrics string from transcriptionSegments, mappedScenes, or scenes
+    let compiledLyrics = ''
+    if (transcriptionSegments && Array.isArray(transcriptionSegments) && transcriptionSegments.length > 0) {
+      compiledLyrics = transcriptionSegments.map(s => s.text || s.lyrics).filter(Boolean).join('\n')
+    } else if (mappedScenes && Array.isArray(mappedScenes) && mappedScenes.length > 0) {
+      compiledLyrics = mappedScenes.map(s => s.lyrics).filter(Boolean).join('\n')
+    } else if (scenes && Array.isArray(scenes)) {
+      compiledLyrics = scenes.map(s => s.lyrics || s.text).filter(Boolean).join('\n')
+    }
+
+    if (compiledLyrics) {
+      song.lyrics = compiledLyrics
+      song.rawLyrics = compiledLyrics
+      await song.save()
     }
 
     // CLEAR MEMORY LOCK: Delete the job lock before calling background pipeline
