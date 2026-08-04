@@ -5,14 +5,17 @@ import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
+import { useAuth } from '../context/AuthContext'
 import { API_URL } from '../services/apiConfig'
 
 const jobFilters = ['All', 'Processing', 'Completed', 'Failed']
+const activeStatuses = new Set(['QUEUED', 'PROCESSING'])
 const MAX_TITLE_LENGTH = 120
 const MAX_ARTIST_LENGTH = 120
 
 export default function CreatorGenerationJobs() {
   const navigate = useNavigate()
+  const { token } = useAuth()
 
   // Dashboard State
   const [jobs, setJobs] = useState([])
@@ -36,12 +39,14 @@ export default function CreatorGenerationJobs() {
   // Track Details
   const [formData, setFormData] = useState({ title: '', artist: '' })
 
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {}
+
   // --- INITIAL FETCH (ESLint Safe) ---
   useEffect(() => {
     let isMounted = true
     const loadInitialJobs = async () => {
       try {
-        const response = await fetch(`${API_URL}/generation`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
+        const response = await fetch(`${API_URL}/generation`, { headers: authHeader })
         const contentType = response.headers.get("content-type")
         if (!contentType || !contentType.includes("application/json")) {
           throw new Error("Server returned an invalid response")
@@ -57,14 +62,38 @@ export default function CreatorGenerationJobs() {
     }
     loadInitialJobs()
     return () => { isMounted = false }
-  }, [])
+  }, [token])
+
+  // --- INTERVAL POLLING FOR PROCESSING/QUEUED JOBS ---
+  useEffect(() => {
+    if (!jobs.some((job) => activeStatuses.has(job.status))) return undefined
+    let isMounted = true
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`${API_URL}/generation`, { headers: authHeader })
+        const contentType = response.headers.get("content-type")
+        if (contentType && contentType.includes("application/json")) {
+          const json = await response.json()
+          if (response.ok && json.success && isMounted) {
+            setJobs(json.data)
+          }
+        }
+      } catch (err) {
+        console.warn('Interval refresh failed:', err)
+      }
+    }, 3000)
+    return () => {
+      isMounted = false
+      window.clearInterval(timer)
+    }
+  }, [jobs, token])
 
   // --- MANUAL REFRESH (Triggered after a new job starts) ---
   const refreshJobs = async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/generation`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
+      const response = await fetch(`${API_URL}/generation`, { headers: authHeader })
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
         throw new Error("Server returned an invalid response")
@@ -100,7 +129,7 @@ export default function CreatorGenerationJobs() {
 
         const songRes = await fetch(`${API_URL}/songs`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          headers: authHeader,
           body: formDataObj,
         })
         const songContentType = songRes.headers.get("content-type")
@@ -112,7 +141,7 @@ export default function CreatorGenerationJobs() {
       } else {
         const songRes = await fetch(`${API_URL}/songs`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+          headers: { 'Content-Type': 'application/json', ...authHeader },
           body: JSON.stringify({
             title: formData.title,
             artist: formData.artist || 'Unknown Artist',
@@ -133,7 +162,7 @@ export default function CreatorGenerationJobs() {
       const songId = songData.data?.id || songData.song?.id
       const genRes = await fetch(`${API_URL}/generation/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ songId }),
       })
       const genContentType = genRes.headers.get("content-type")
@@ -164,7 +193,7 @@ export default function CreatorGenerationJobs() {
     try {
       const response = await fetch(`${API_URL}/generation/${deleteConfirmJob.id}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        headers: authHeader,
       })
       const contentType = response.headers.get('content-type')
       if (!contentType || !contentType.includes('application/json')) {

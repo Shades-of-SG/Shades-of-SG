@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
+import { API_URL } from '../services/apiConfig'
 
 /**
  * Extracts and flattens all frames from sceneSegments,
@@ -230,6 +231,12 @@ export default function VideoEditor() {
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [frames, setFrames] = useState([])
+  const framesRef = useRef(frames)
+
+  useEffect(() => {
+    framesRef.current = frames
+  }, [frames])
+
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0)
   const [audioUrl, setAudioUrl] = useState('')
   const [transcriptionSegments, setTranscriptionSegments] = useState([])
@@ -314,7 +321,7 @@ export default function VideoEditor() {
   }
 
   useEffect(() => {
-    fetch(`/api/generation/${id}/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
+    fetch(`${API_URL}/generation/${id}/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
       .then(res => res.json())
       .then(result => {
         if (result.success && result.data) {
@@ -329,16 +336,17 @@ export default function VideoEditor() {
   }, [id])
 
   const syncFrameToTime = useCallback((time) => {
-    if (frames.length === 0) return
+    const currentFrames = framesRef.current || []
+    if (currentFrames.length === 0) return
     let idx = 0
-    for (let i = frames.length - 1; i >= 0; i--) {
-      if (time >= frames[i].startTime) {
+    for (let i = currentFrames.length - 1; i >= 0; i--) {
+      if (time >= currentFrames[i].startTime) {
         idx = i
         break
       }
     }
     setCurrentFrameIndex(prev => prev !== idx ? idx : prev)
-  }, [frames])
+  }, [])
 
   useEffect(() => {
     if (!waveformRef.current || !audioUrl) return
@@ -430,7 +438,7 @@ export default function VideoEditor() {
     const currentFrame = frames[currentFrameIndex];
     setIsRegenerating(true);
     try {
-      const res = await fetch(`/api/generation/frame/${currentFrame.id}/regenerate`, {
+      const res = await fetch(`${API_URL}/generation/frame/${currentFrame.id}/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ userFeedback })
@@ -455,13 +463,18 @@ export default function VideoEditor() {
   }
 
   const handlePublishToStudio = async () => {
+    const songId = jobData?.song?.id
+    if (!songId) {
+      alert('Song metadata is missing. Cannot navigate to Studio.')
+      return
+    }
     setIsPublishing(true);
     try {
       let finalVideoUrl = jobData?.song?.videoUrl || '';
 
       // Heavy Lane: Run export API if edits exist or if no video is compiled yet
       if (hasEdits || !finalVideoUrl) {
-        const res = await fetch(`/api/generation/${id}/export`, { 
+        const res = await fetch(`${API_URL}/generation/${id}/export`, { 
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
           body: JSON.stringify({ burnCaptions: false }) 
@@ -480,14 +493,14 @@ export default function VideoEditor() {
       const rawLyrics = jobData?.song?.rawLyrics || jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
       const currentCoverImage = frames[currentFrameIndex]?.imageUrl || jobData?.song?.coverImageUrl || frames[0]?.imageUrl || '';
       
-      navigate(`/creator/studio/${encodeURIComponent(jobData?.song?.id || '')}`, {
+      navigate(`/creator/studio/${encodeURIComponent(songId)}`, {
         state: { 
           videoUrl: finalVideoUrl,
           lyrics: rawLyrics,
           transcriptionSegments: jobData?.song?.transcriptionSegments || [],
           coverImageUrl: currentCoverImage,
           jobId: id,
-          originalSongId: jobData?.song?.id,
+          originalSongId: songId,
           songData: jobData?.song
         } 
       });
@@ -516,7 +529,7 @@ export default function VideoEditor() {
       }
 
       // Heavy Lane: Request compilation from backend
-      const res = await fetch(`/api/generation/${id}/export`, { 
+      const res = await fetch(`${API_URL}/generation/${id}/export`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
         body: JSON.stringify({ burnCaptions: showCaptions })

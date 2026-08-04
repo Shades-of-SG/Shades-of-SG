@@ -96,27 +96,32 @@ export default function CreatorCuration() {
   }
 
   const handleQuestionPromptChange = (index, value) => {
-    const updated = [...triviaQuestions]
-    updated[index].prompt = value
-    setTriviaQuestions(updated)
+    setTriviaQuestions((prev) =>
+      prev.map((q, i) => (i === index ? { ...q, prompt: value } : q))
+    )
   }
 
   const handleOptionChange = (qIndex, optIndex, value) => {
-    const updated = [...triviaQuestions]
-    const currentOptVal = updated[qIndex].options[optIndex]
-    const isCorrect = updated[qIndex].correctAnswer === currentOptVal
-
-    updated[qIndex].options[optIndex] = value
-    if (isCorrect || !updated[qIndex].correctAnswer) {
-      updated[qIndex].correctAnswer = value
-    }
-    setTriviaQuestions(updated)
+    setTriviaQuestions((prev) =>
+      prev.map((q, i) => {
+        if (i !== qIndex) return q
+        const nextOptions = [...q.options]
+        const currentOptVal = nextOptions[optIndex]
+        const isCorrect = q.correctAnswer === currentOptVal
+        nextOptions[optIndex] = value
+        return {
+          ...q,
+          options: nextOptions,
+          correctAnswer: isCorrect || !q.correctAnswer ? value : q.correctAnswer,
+        }
+      })
+    )
   }
 
   const handleCorrectAnswerSelect = (qIndex, optionValue) => {
-    const updated = [...triviaQuestions]
-    updated[qIndex].correctAnswer = optionValue
-    setTriviaQuestions(updated)
+    setTriviaQuestions((prev) =>
+      prev.map((q, i) => (i === qIndex ? { ...q, correctAnswer: optionValue } : q))
+    )
   }
 
   const handleToggleInstrument = (instId) => {
@@ -126,7 +131,7 @@ export default function CreatorCuration() {
   }
 
   const handleSave = async (e) => {
-    e.preventDefault()
+    if (e && e.preventDefault) e.preventDefault()
     try {
       setSaving(true)
       const payload = {
@@ -142,13 +147,8 @@ export default function CreatorCuration() {
       }
 
       const res = await updateSongCuration(songId, payload, token)
-      setSong(res.song)
-      const targetJobId = res.latestJobId || latestJobId
-      if (targetJobId) {
-        navigate(`/creator/generation/${targetJobId}`)
-      } else {
-        navigate('/creator/generation')
-      }
+      if (res?.song) setSong(res.song)
+      showToast('success', 'Song curation saved successfully!')
     } catch (err) {
       showToast('error', err.message || 'Failed to save curation changes.')
     } finally {
@@ -321,6 +321,38 @@ export default function CreatorCuration() {
       </div>
 
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        {/* Section 0: Public Song Description */}
+        <section className="studio-card studio-form-card">
+          <header className="studio-card__header">
+            <div className="studio-card__title">
+              <BookOpen className="w-5 h-5 text-sky-400" />
+              <h2>Public Song Description</h2>
+            </div>
+          </header>
+          <div style={{ padding: '1.5rem 2rem' }}>
+            <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Overview and description presented to listeners in the public catalog:
+            </label>
+            <textarea
+              className="studio-field"
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter a public description for this song..."
+              style={{
+                width: '100%',
+                backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                color: '#f8fafc',
+                borderRadius: '10px',
+                padding: '1rem',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                lineHeight: 1.6,
+                fontSize: '0.95rem'
+              }}
+            />
+          </div>
+        </section>
+
         {/* Section A: AI Cultural Mini-Article */}
         <section className="studio-card studio-form-card">
           <header className="studio-card__header studio-card__header--spread">

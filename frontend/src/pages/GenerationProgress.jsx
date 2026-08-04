@@ -596,7 +596,9 @@ export default function GenerationProgress() {
         }
         // Stop polling when complete, failed, or awaiting user review
         if (data.status !== 'COMPLETED' && data.status !== 'FAILED' && data.status !== 'AWAITING_REVIEW') {
-          timeoutId = window.setTimeout(fetchStatus, 3000)
+          if (isMounted) {
+            timeoutId = window.setTimeout(fetchStatus, 3000)
+          }
         }
       } catch (err) {
         if (!isMounted) return
@@ -771,7 +773,8 @@ export default function GenerationProgress() {
                  onClick={async () => {
                    try {
                      await retryGenerationJob(jobData.id, token)
-                     window.location.reload()
+                     setJobData(prev => prev ? { ...prev, status: 'PROCESSING', errorMessage: null } : prev)
+                     setPollTrigger(t => t + 1)
                    } catch (err) {
                      console.error('Retry failed:', err)
                      alert('Failed to retry generation. Please try again.')
