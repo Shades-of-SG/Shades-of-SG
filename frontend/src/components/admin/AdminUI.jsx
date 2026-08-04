@@ -1,4 +1,38 @@
 import { Inbox, X } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+
+function useOverlayFocus() {
+  const overlayRef = useRef(null)
+  const restoreFocusRef = useRef(null)
+
+  useEffect(() => {
+    restoreFocusRef.current = document.activeElement
+    const overlay = overlayRef.current
+    const trapFocus = (event) => {
+      if (event.key !== 'Tab') return
+      const focusable = [...(overlay?.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || [])]
+      if (!focusable.length) { event.preventDefault(); return }
+      const first = focusable[0]
+      const last = focusable.at(-1)
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    overlay?.addEventListener('keydown', trapFocus)
+    const frame = window.requestAnimationFrame(() => {
+      const currentOverlay = overlayRef.current
+      if (!currentOverlay || currentOverlay.contains(document.activeElement)) return
+      currentOverlay.querySelector('[autofocus], input, select, textarea, button, a[href]')?.focus()
+    })
+    return () => {
+      overlay?.removeEventListener('keydown', trapFocus)
+      window.cancelAnimationFrame(frame)
+      const previous = restoreFocusRef.current
+      if (previous?.isConnected) previous.focus()
+    }
+  }, [])
+
+  return overlayRef
+}
 
 export function AdminPageHeader({ actions, description, eyebrow, title }) {
   return (
@@ -19,17 +53,35 @@ export function AdminTabs({ active, items, onChange }) {
       {items.map((item) => (
         <button
           aria-current={active === item.id ? 'page' : undefined}
+          aria-label={item.countLoading
+            ? `${item.label}: count loading`
+            : item.count !== undefined && item.count !== null
+              ? `${item.label}: ${item.count}`
+              : item.label}
           className={active === item.id ? 'is-active' : ''}
           key={item.id}
           onClick={() => onChange(item.id)}
           type="button"
         >
           {item.label}
-          {item.count !== undefined ? <span>{item.count}</span> : null}
+          {item.countLoading
+            ? <span aria-hidden="true" className="admin-tab-count is-loading" />
+            : item.count !== undefined && item.count !== null
+              ? <span className="admin-tab-count">{item.count}</span>
+              : null}
         </button>
       ))}
     </nav>
   )
+}
+
+export function AdminTabPanel({ children }) {
+  return <div className="admin-tab-panel">{children}</div>
+}
+
+export function AdminSummaryError({ message, onRetry }) {
+  if (!message) return null
+  return <div className="admin-summary-error" role="alert"><span>Tab counts could not be loaded.</span><button onClick={onRetry} type="button">Retry</button></div>
 }
 
 export function StatusBadge({ children, status = '' }) {
@@ -65,7 +117,7 @@ export function EmptyState({ action, description, icon: Icon = Inbox, title = 'N
 }
 
 export function LoadingRows({ count = 5 }) {
-  return <div aria-label="Loading" className="admin-loading" role="status">{Array.from({ length: count }, (_, index) => <span key={index} />)}</div>
+  return <div aria-busy="true" aria-label="Loading" className="admin-loading" role="status">{Array.from({ length: count }, (_, index) => <span aria-hidden="true" key={index} />)}</div>
 }
 
 export function Pagination({ onNext, onPrevious, page, totalPages }) {
@@ -74,15 +126,20 @@ export function Pagination({ onNext, onPrevious, page, totalPages }) {
 }
 
 export function Feedback({ message, type = 'status' }) {
-  return message ? <div className={`admin-feedback is-${type}`} role={type === 'error' ? 'alert' : 'status'}>{message}</div> : null
+  return message ? <div aria-atomic="true" aria-live={type === 'error' ? 'assertive' : 'polite'} className={`admin-feedback is-${type}`} key={message} role={type === 'error' ? 'alert' : 'status'}>{message}</div> : null
 }
 
 export function DetailDrawer({ children, onClose, open, title }) {
   if (!open) return null
+  return <OpenDetailDrawer onClose={onClose} title={title}>{children}</OpenDetailDrawer>
+}
+
+function OpenDetailDrawer({ children, onClose, title }) {
+  const drawerRef = useOverlayFocus()
   return (
     <>
       <button aria-label="Close detail panel" className="admin-drawer-backdrop" onClick={onClose} type="button" />
-      <aside aria-label={title} className="admin-detail-drawer">
+      <aside aria-label={title} className="admin-detail-drawer" ref={drawerRef}>
         <header><h2>{title}</h2><button aria-label="Close" onClick={onClose} type="button"><X /></button></header>
         <div>{children}</div>
       </aside>
@@ -91,23 +148,24 @@ export function DetailDrawer({ children, onClose, open, title }) {
 }
 
 export function ConfirmationModal({ busy, children, confirmLabel, danger = false, onCancel, onConfirm, title }) {
+  const modalRef = useOverlayFocus()
   return (
     <div className="admin-modal-backdrop" role="presentation">
-      <section aria-labelledby="admin-confirm-title" aria-modal="true" className="admin-modal" role="dialog">
+      <section aria-busy={busy || undefined} aria-describedby="admin-confirm-description" aria-labelledby="admin-confirm-title" aria-modal="true" className="admin-modal" ref={modalRef} role="dialog">
         <h2 id="admin-confirm-title">{title}</h2>
-        <div>{children}</div>
+        <div id="admin-confirm-description">{children}</div>
         <footer>
           <button className="admin-button admin-button--ghost" disabled={busy} onClick={onCancel} type="button">Cancel</button>
-          <button className={`admin-button ${danger ? 'admin-button--danger' : 'admin-button--primary'}`} disabled={busy} onClick={onConfirm} type="button">{busy ? 'Working…' : confirmLabel}</button>
+          <button aria-busy={busy || undefined} className={`admin-button ${danger ? 'admin-button--danger' : 'admin-button--primary'}`} disabled={busy} onClick={() => { if (!busy) onConfirm() }} type="button">{busy ? 'Working…' : confirmLabel}</button>
         </footer>
       </section>
     </div>
   )
 }
 
-export function Panel({ actions, children, subtitle, title }) {
+export function Panel({ actions, children, className = '', subtitle, title }) {
   return (
-    <section className="admin-panel">
+    <section className={`admin-panel ${className}`.trim()}>
       {(title || actions) ? <header><div><h2>{title}</h2>{subtitle ? <p>{subtitle}</p> : null}</div>{actions}</header> : null}
       {children}
     </section>
