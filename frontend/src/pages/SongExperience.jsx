@@ -317,60 +317,55 @@ export default function SongExperience() {
                 return (
                   <p style={{ margin: '0.75rem 0 0', color: '#cbd5e1', lineHeight: 1.7, fontSize: '0.925rem' }}>
                     {truncated}...{' '}
-                    <button
-                      type="button"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setIsArticleExpanded(true)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#94a3b8',
-                        fontWeight: 600,
-                        fontSize: '0.925rem',
-                        fontFamily: 'inherit',
-                        lineHeight: 'inherit',
-                        cursor: 'pointer',
-                        padding: 0,
-                        display: 'inline',
-                        marginLeft: '4px',
-                      }}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsArticleExpanded(true)}
+                      style={{ color: '#94a3b8', fontWeight: 600, cursor: 'pointer', marginLeft: '4px' }}
                     >
                       See More
-                    </button>
+                    </span>
                   </p>
                 )
               }
 
-              const paragraphs = articleContent.split(/\n\n+/).filter((p) => p.trim() !== '')
+              const paragraphs = articleContent
+                .split(/(?:\r?\n\s*){2,}/)
+                .map((p) => p.trim())
+                .filter((p) => p.length > 0)
+
               return (
-                <>
-                  {paragraphs.map((p, idx) => {
-                    const isLast = idx === paragraphs.length - 1
+                <div style={{ marginTop: '0.75rem' }}>
+                  {paragraphs.map((para, index) => {
+                    const isLast = index === paragraphs.length - 1
+
                     return (
-                      <p key={idx} style={{ margin: '0.875rem 0 0', color: '#cbd5e1', lineHeight: 1.75, fontSize: '0.925rem' }}>
-                        {p.trim()}
+                      <p
+                        key={index}
+                        style={{
+                          margin: index === 0 ? 0 : '0.875rem 0 0',
+                          color: '#cbd5e1',
+                          lineHeight: 1.7,
+                          fontSize: '0.925rem',
+                        }}
+                      >
+                        {para.replace(/\n+/g, ' ')}{' '}
                         {isLast && isLong && (
-                          <button
-                            type="button"
+                          <span
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setIsArticleExpanded(false)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              fontWeight: 600,
-                              fontSize: '0.925rem',
-                              cursor: 'pointer',
-                              padding: 0,
-                              display: 'inline',
-                              marginLeft: '8px',
-                            }}
+                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsArticleExpanded(false)}
+                            style={{ color: '#94a3b8', fontWeight: 600, cursor: 'pointer', marginLeft: '8px' }}
                           >
                             See Less
-                          </button>
+                          </span>
                         )}
                       </p>
                     )
                   })}
-                </>
+                </div>
               )
             })()}
           </div>
