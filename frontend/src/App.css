@@ -8876,7 +8876,7 @@ textarea {
 
 .learning-timeline__body {
   display: grid;
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   grid-template-rows: 0fr;
   transition: grid-template-rows 300ms ease;
 }
