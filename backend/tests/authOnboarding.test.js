@@ -19,7 +19,7 @@ const registration = (email, overrides = {}) => ({
     acceptTerms: true,
     email,
     name: 'New Listener',
-    password: 'password123',
+    password: 'Password123!',
     role: 'ADMIN',
     ...overrides,
 });
@@ -73,7 +73,7 @@ test('registration timing logs identify stages without submitted secrets or iden
     try {
         const response = await request(app).post('/api/auth/register').send(registration('timing-private@example.com', {
             name: 'Timing Private Name',
-            password: 'timing-private-password',
+            password: 'Timing-Private-Password1!',
         }));
         expect(response.status).toBe(201);
         const output = info.mock.calls.map((values) => values.join(' ')).join('\n');
@@ -82,7 +82,7 @@ test('registration timing logs identify stages without submitted secrets or iden
         expect(output).toContain('"stage":"transaction_committed"');
         expect(output).not.toContain('timing-private@example.com');
         expect(output).not.toContain('Timing Private Name');
-        expect(output).not.toContain('timing-private-password');
+        expect(output).not.toContain('Timing-Private-Password1!');
         expect(output).not.toContain('246810');
     } finally {
         info.mockRestore();
@@ -136,10 +136,28 @@ test('registration validates the submitted name on the server', async () => {
     expect(tooShort.body.message).toMatch(/between 2 and 255 characters/i);
 });
 
+test('registration rejects passwords that do not meet the strength policy', async () => {
+    const missingUppercase = await request(app).post('/api/auth/register').send(registration('weak-upper@example.com', { password: 'password123!' }));
+    const missingSpecial = await request(app).post('/api/auth/register').send(registration('weak-special@example.com', { password: 'Password123' }));
+    const missingNumber = await request(app).post('/api/auth/register').send(registration('weak-number@example.com', { password: 'Password!!!' }));
+    const tooShort = await request(app).post('/api/auth/register').send(registration('weak-short@example.com', { password: 'Pw1!' }));
+    for (const response of [missingUppercase, missingSpecial, missingNumber, tooShort]) {
+        expect(response.status).toBe(400);
+        expect(response.body.message).toMatch(/uppercase letter, a lowercase letter, a number, and a special character/i);
+    }
+    expect(await User.findOne({ where: { email: 'weak-upper@example.com' } })).toBeNull();
+});
+
+test('login still accepts a pre-existing account whose password predates the strength policy', async () => {
+    const legacyUser = await createVerifiedUser({ email: 'legacy-password@example.com', password: 'plainoldpassword' });
+    const login = await request(app).post('/api/auth/login').send({ email: legacyUser.email, password: 'plainoldpassword' });
+    expect(login.status).toBe(200);
+});
+
 test('unverified users cannot log in or use a forged bearer session', async () => {
     await request(app).post('/api/auth/register').send(registration('unverified@example.com'));
     const user = await User.findOne({ where: { email: 'unverified@example.com' } });
-    const login = await request(app).post('/api/auth/login').send({ email: user.email, password: 'password123' });
+    const login = await request(app).post('/api/auth/login').send({ email: user.email, password: 'Password123!' });
     expect(login.status).toBe(403);
     expect(login.body.code).toBe('EMAIL_UNVERIFIED');
     expect((await request(app).get('/api/auth/me').set(auth(user))).status).toBe(403);
@@ -162,7 +180,7 @@ test('correct registration OTP verifies email and permits login with database ro
     const restored = await request(app).get('/api/auth/me').set({ Authorization: `Bearer ${verification.body.token}` });
     expect(restored.status).toBe(200);
     expect(restored.body.user).toMatchObject({ emailVerified: true, role: 'REGISTERED' });
-    const login = await request(app).post('/api/auth/login').send({ email: 'VERIFY-SUCCESS@example.com', password: 'password123' });
+    const login = await request(app).post('/api/auth/login').send({ email: 'VERIFY-SUCCESS@example.com', password: 'Password123!' });
     expect(login.status).toBe(200);
     expect(login.body.user).toMatchObject({ emailVerified: true, role: 'REGISTERED' });
     expect(login.body.user).not.toHaveProperty('passwordHash');
@@ -240,6 +258,35 @@ test('password reset request is account-enumeration safe', async () => {
     expect(existing.body).toEqual(missing.body);
 });
 
+test('password reset request surfaces a real cooldown error for an eligible email but stays generic for an unknown one', async () => {
+    await createVerifiedUser({ email: 'cooldown-eligible@example.com' });
+    const first = await request(app).post('/api/auth/password-reset/request').send({ email: 'cooldown-eligible@example.com' });
+    expect(first.status).toBe(202);
+    expect(first.body.resendCooldownSeconds).toBe(60);
+    const second = await request(app).post('/api/auth/password-reset/request').send({ email: 'cooldown-eligible@example.com' });
+    expect(second.status).toBe(429);
+    expect(second.body.code).toBe('OTP_COOLDOWN');
+    expect(second.headers['retry-after']).toBeTruthy();
+
+    const unknownFirst = await request(app).post('/api/auth/password-reset/request').send({ email: 'cooldown-unknown@example.com' });
+    const unknownSecond = await request(app).post('/api/auth/password-reset/request').send({ email: 'cooldown-unknown@example.com' });
+    expect(unknownFirst.status).toBe(202);
+    expect(unknownSecond.status).toBe(202);
+    expect(unknownFirst.body).toEqual(unknownSecond.body);
+});
+
+test('rejecting a weak password keeps an existing password reset session usable', async () => {
+    const user = await createVerifiedUser({ email: 'reset-weak-password@example.com' });
+    await request(app).post('/api/auth/password-reset/request').send({ email: user.email });
+    const verified = await request(app).post('/api/auth/password-reset/verify').send({ code: '246810', email: user.email });
+    expect(verified.status).toBe(200);
+    const rejected = await request(app).post('/api/auth/password-reset/complete').send({ password: 'weakpassword', resetToken: verified.body.resetToken });
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.message).toMatch(/uppercase letter, a lowercase letter, a number, and a special character/i);
+    const completed = await request(app).post('/api/auth/password-reset/complete').send({ password: 'Strong-Password123!', resetToken: verified.body.resetToken });
+    expect(completed.status).toBe(200);
+});
+
 test('OTP requests are limited independently by requesting IP even when emails change', async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const response = await request(app).post('/api/auth/password-reset/request').send({ email: `unknown-${attempt}@example.com` });
@@ -256,12 +303,12 @@ test('password reset succeeds once and invalidates existing bearer tokens', asyn
     await request(app).post('/api/auth/password-reset/request').send({ email: user.email });
     const verified = await request(app).post('/api/auth/password-reset/verify').send({ code: '246810', email: user.email });
     expect(verified.status).toBe(200);
-    const completed = await request(app).post('/api/auth/password-reset/complete').send({ password: 'new-password123', resetToken: verified.body.resetToken });
+    const completed = await request(app).post('/api/auth/password-reset/complete').send({ password: 'New-Password123!', resetToken: verified.body.resetToken });
     expect(completed.status).toBe(200);
     await user.reload();
-    expect(verifyPassword('new-password123', user.passwordHash)).toBe(true);
+    expect(verifyPassword('New-Password123!', user.passwordHash)).toBe(true);
     expect((await request(app).get('/api/auth/me').set('Authorization', `Bearer ${oldToken}`)).status).toBe(401);
-    expect((await request(app).post('/api/auth/password-reset/complete').send({ password: 'another-password', resetToken: verified.body.resetToken })).status).toBe(400);
+    expect((await request(app).post('/api/auth/password-reset/complete').send({ password: 'Another-Password123!', resetToken: verified.body.resetToken })).status).toBe(400);
 });
 
 test('suspended users are refused login even with the correct password', async () => {

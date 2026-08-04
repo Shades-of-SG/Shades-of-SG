@@ -269,8 +269,8 @@ describe('authentication onboarding pages', () => {
 
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: ' Mei Lin ' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: ' MEI@EXAMPLE.COM ' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Secure-Pass-123!' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Secure-Pass-123!' } })
     fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
     fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
@@ -283,7 +283,7 @@ describe('authentication onboarding pages', () => {
       acceptTerms: true,
       email: 'mei@example.com',
       name: 'Mei Lin',
-      password: 'secure-pass-123',
+      password: 'Secure-Pass-123!',
     })
     expect(values).not.toHaveProperty('role')
     expect(sessionStorage.getItem('pendingVerificationEmail')).toBe('mei@example.com')
@@ -299,7 +299,7 @@ describe('authentication onboarding pages', () => {
     const confirmation = screen.getByLabelText('Confirm password')
     expect(password).toHaveAttribute('type', 'password')
     expect(confirmation).toHaveAttribute('type', 'password')
-    expect(screen.getByText('Use between 8 and 128 characters.')).toBeInTheDocument()
+    expect(screen.getByText('Use 8-128 characters, with an uppercase letter, a lowercase letter, a number, and a special character.')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Show password' }))
     expect(password).toHaveAttribute('type', 'text')
@@ -308,7 +308,7 @@ describe('authentication onboarding pages', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show password confirmation' }))
     expect(confirmation).toHaveAttribute('type', 'text')
 
-    fireEvent.change(password, { target: { value: 'secure-pass-123' } })
+    fireEvent.change(password, { target: { value: 'Secure-Pass-123!' } })
     fireEvent.change(confirmation, { target: { value: 'different-pass-123' } })
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
@@ -326,8 +326,8 @@ describe('authentication onboarding pages', () => {
 
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Mei Lin' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'existing@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Secure-Pass-123!' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Secure-Pass-123!' } })
     fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
     fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
@@ -408,8 +408,8 @@ describe('authentication onboarding pages', () => {
 
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Mei Lin' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mei-once@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Secure-Pass-123!' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Secure-Pass-123!' } })
     fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
     fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
     const form = screen.getByRole('button', { name: 'Create account' }).closest('form')
@@ -428,8 +428,8 @@ describe('authentication onboarding pages', () => {
 
     fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Mei Lin' } })
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'mei-retry@example.com' } })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
-    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Secure-Pass-123!' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Secure-Pass-123!' } })
     fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
     fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
