@@ -1,12 +1,5 @@
 import { API_URL } from './apiConfig'
 
-export async function getCommunityStats() {
-  const response = await fetch(`${API_URL}/stats`)
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.message || 'Unable to load community statistics.')
-  return data
-}
-
 const EMPTY_STATS = { usersCount: 0, songsCount: 0, reflectionsCount: 0 }
 
 export async function getCommunityStats() {
