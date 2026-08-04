@@ -288,4 +288,74 @@ router.put('/profile', requireAuth, async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
+router.post('/email-change/request', requireAuth, requestLimit, async (req, res, next) => {
+    try {
+        const password = req.body.password;
+        const newEmail = normalizeEmail(req.body.newEmail);
+        const user = await User.findByPk(req.authUserRecord.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        if (!verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Incorrect password.' });
+        if (!EMAIL_PATTERN.test(newEmail)) return res.status(400).json({ message: 'Enter a valid email address.' });
+        if (newEmail === user.email) return res.status(400).json({ message: 'Enter an email address different from your current one.' });
+        const emailOwner = await User.findOne({ where: { email: newEmail, id: { [Op.ne]: user.id } } });
+        if (emailOwner) return res.status(409).json({ message: 'An account with this email already exists.' });
+        await sequelize.transaction((transaction) => issueOtp({
+            email: newEmail, name: user.name, purpose: 'EMAIL_CHANGE', requestIp: req.ip, transaction, userId: user.id,
+        }));
+        return res.status(202).json({ message: 'A verification code has been sent to the new email address.', resendCooldownSeconds: 60 });
+    } catch (error) { return next(error); }
+});
+
+router.post('/email-change/verify', requireAuth, verifyLimit, async (req, res, next) => {
+    try {
+        const newEmail = normalizeEmail(req.body.newEmail);
+        const user = await User.findByPk(req.authUserRecord.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        const { otp } = await processOtp({ code: req.body.code, email: newEmail, purpose: 'EMAIL_CHANGE' }, async () => {});
+        if (otp.userId !== user.id) {
+            const error = new Error('The verification code is invalid or expired.');
+            error.statusCode = 400;
+            throw error;
+        }
+        const changeToken = createScopedToken({ newEmail, purpose: 'EMAIL_CHANGE', userId: user.id, version: user.authVersion });
+        return res.json({ changeToken });
+    } catch (error) { return next(error); }
+});
+
+router.post('/email-change/complete', requireAuth, async (req, res, next) => {
+    try {
+        const payload = verifyScopedToken(req.body.changeToken, 'EMAIL_CHANGE');
+        if (!payload || payload.userId !== req.authUserRecord.id) {
+            return res.status(400).json({ message: 'The email-change session is invalid or expired.' });
+        }
+        const user = await User.findByPk(payload.userId);
+        if (!user || Number(user.authVersion || 0) !== Number(payload.ver || 0) || user.accountStatus !== 'ACTIVE') {
+            return res.status(400).json({ message: 'The email-change session is invalid or expired.' });
+        }
+        const newEmail = normalizeEmail(payload.newEmail);
+        const emailOwner = await User.findOne({ where: { email: newEmail, id: { [Op.ne]: user.id } } });
+        if (emailOwner) return res.status(409).json({ message: 'An account with this email already exists.' });
+        await sequelize.transaction(async (transaction) => {
+            await user.update({
+                authVersion: Number(user.authVersion || 0) + 1, email: newEmail, emailVerificationRequired: false,
+            }, { transaction });
+            await invalidateOtps({ email: newEmail, purpose: 'EMAIL_CHANGE', transaction });
+        });
+        return res.json({ message: 'Email updated successfully. Please sign in again.' });
+    } catch (error) { return next(error); }
+});
+
+router.delete('/account', requireAuth, async (req, res, next) => {
+    try {
+        const password = req.body.password;
+        const user = await User.findByPk(req.authUserRecord.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        if (!verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Incorrect password.' });
+        await user.update({
+            accountStatus: 'DELETED', authVersion: Number(user.authVersion || 0) + 1, deletedAt: new Date(),
+        });
+        return res.json({ message: 'Account deleted.' });
+    } catch (error) { return next(error); }
+});
+
 module.exports = router;
