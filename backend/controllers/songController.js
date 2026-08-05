@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -139,7 +139,11 @@ async function listPublicSongs(req, res, next) {
             ? new Set((await SongBookmark.findAll({ where: { userId: req.authUser.id }, attributes: ['songId'] }))
                 .map((row) => row.songId))
             : new Set();
-        return res.json({ songs: filtered.map((song) => withPublicCreator(song, bookmarkedIds)) });
+        const reportedIds = req.authUser?.id
+            ? new Set((await SongReport.findAll({ where: { status: 'PENDING', userId: req.authUser.id }, attributes: ['songId'] }))
+                .map((row) => row.songId))
+            : new Set();
+        return res.json({ songs: filtered.map((song) => withPublicCreator(song, bookmarkedIds, reportedIds)) });
     } catch (error) { return next(error); }
 }
 
@@ -161,7 +165,7 @@ async function getPublicSong(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-function withPublicCreator(song, bookmarkedIds = new Set()) {
+function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Set()) {
     const value = song.get({ plain: true });
     const creator = value.creator;
     value.creator = creator ? {
@@ -170,6 +174,7 @@ function withPublicCreator(song, bookmarkedIds = new Set()) {
         id: creator.id,
     } : null;
     value.bookmarked = bookmarkedIds.has(value.id);
+    value.reported = reportedIds.has(value.id);
     return value;
 }
 
@@ -185,6 +190,30 @@ async function toggleBookmark(req, res, next) {
             await SongBookmark.destroy({ where: { userId, songId: song.id } });
         }
         return res.json({ bookmarked });
+    } catch (error) { return next(error); }
+}
+
+const REPORT_REASONS = new Set(['INAPPROPRIATE', 'COPYRIGHT', 'SPAM', 'METADATA', 'OTHER']);
+
+async function reportSong(req, res, next) {
+    try {
+        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+
+        const reason = String(req.body.reason || '').toUpperCase();
+        if (!REPORT_REASONS.has(reason)) {
+            return res.status(400).json({ message: 'Please choose a valid report reason.' });
+        }
+        const details = req.body.details ? String(req.body.details).trim().slice(0, 1000) : null;
+        const userId = req.authUserRecord.id;
+
+        const existingPending = await SongReport.findOne({ where: { userId, songId: song.id, status: 'PENDING' } });
+        if (existingPending) {
+            return res.status(409).json({ code: 'ALREADY_REPORTED', message: 'You already have a pending report for this song.' });
+        }
+
+        const report = await SongReport.create({ details, reason, songId: song.id, userId });
+        return res.status(201).json({ report: { id: report.id, reason: report.reason, status: report.status } });
     } catch (error) { return next(error); }
 }
 
@@ -532,4 +561,4 @@ async function extractAudio(req, res, next) {
     }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, toggleBookmark, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, reportSong, toggleBookmark, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

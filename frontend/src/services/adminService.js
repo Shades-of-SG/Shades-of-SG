@@ -29,6 +29,8 @@ export const assignSongToFolder = (folderId, songId, songOrder, token) => platfo
 export const removeSongFromFolder = (folderId, songId, token) => platformRequest(`/admin/folders/${encodeURIComponent(folderId)}/songs/${encodeURIComponent(songId)}`, { method: 'DELETE', token })
 export const getSafetyReports = (token, filters = {}) => platformRequest(`/admin/safety-reports${queryString(filters)}`, { token })
 export const resolveSafetyReport = (id, values, token) => platformRequest(`/admin/safety-reports/${encodeURIComponent(id)}/resolve`, jsonOptions('POST', values, token))
+export const getSongReports = (token, filters = {}) => platformRequest(`/admin/song-reports${queryString(filters)}`, { token })
+export const resolveSongReport = (id, values, token) => platformRequest(`/admin/song-reports/${encodeURIComponent(id)}/resolve`, jsonOptions('POST', values, token))
 export const getWarnings = (token, filters = {}) => platformRequest(`/admin/warnings${queryString(filters)}`, { token })
 export const issueWarning = (values, token) => platformRequest('/admin/warnings', jsonOptions('POST', values, token))
 export const resolveWarning = (id, resolutionNote, token) => platformRequest(`/admin/warnings/${encodeURIComponent(id)}/resolve`, jsonOptions('PATCH', { resolutionNote }, token))

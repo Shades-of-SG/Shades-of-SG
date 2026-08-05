@@ -28,6 +28,7 @@ const AuthIdentity = require('./AuthIdentity');
 const CreatorProfile = require('./CreatorProfile');
 const UserProfile = require('./UserProfile');
 const SongBookmark = require('./SongBookmark');
+const SongReport = require('./SongReport');
 const InstrumentChallengeProgress = require('./InstrumentChallengeProgress');
 const ReflectionComment = require('./ReflectionComment');
 const ReflectionLike = require('./ReflectionLike');
@@ -159,6 +160,11 @@ SongBookmark.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Song.hasMany(SongBookmark, { foreignKey: 'songId', as: 'bookmarks' });
 SongBookmark.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 
+User.hasMany(SongReport, { foreignKey: 'userId', as: 'songReports' });
+SongReport.belongsTo(User, { foreignKey: 'userId', as: 'reporter' });
+Song.hasMany(SongReport, { foreignKey: 'songId', as: 'reports' });
+SongReport.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
+
 Song.hasMany(AnalyticsEvent, { foreignKey: 'songId', as: 'analyticsEvents' });
 AnalyticsEvent.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 Folder.hasMany(AnalyticsEvent, { foreignKey: 'folderId', as: 'analyticsEvents' });
@@ -197,6 +203,7 @@ module.exports = {
     CreatorProfile,
     UserProfile,
     SongBookmark,
+    SongReport,
     InstrumentChallengeProgress,
     ReflectionComment,
     ReflectionLike,

@@ -3,11 +3,13 @@ import { ArrowLeft, ArrowRight, Music2, Play, Sparkles, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import FilterBar from '../components/FilterBar'
 import Reveal from '../components/Reveal'
+import ReportSongModal from '../components/songs/ReportSongModal'
 import SongCatalogue from '../components/songs/SongCatalogue'
 import SongPreviewPanel from '../components/songs/SongPreviewPanel'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { getPublishedSongs } from '../services/publicSongService'
 import { toggleBookmark as toggleBookmarkRequest } from '../services/bookmarkService'
+import { reportSong as reportSongRequest } from '../services/songReportService'
 import { useAuth } from '../context/AuthContext'
 import CreatorNameLink from '../components/CreatorNameLink'
 
@@ -150,6 +152,11 @@ export default function SongsLibrary() {
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [bookmarkPendingIds, setBookmarkPendingIds] = useState(() => new Set())
+  const [reportPendingIds, setReportPendingIds] = useState(() => new Set())
+  const [reportedSongIds, setReportedSongIds] = useState(() => new Set())
+  const [reportModalSong, setReportModalSong] = useState(null)
+  const [reportError, setReportError] = useState('')
+  const [reportFeedback, setReportFeedback] = useState('')
   const filtersActive = hasFilters(filters)
 
   useEffect(() => {
@@ -161,6 +168,8 @@ export default function SongsLibrary() {
           if (!active) return
           setSongs(data)
           if (!hasFilters(filters)) setAvailableSongs(data)
+          const alreadyReported = data.filter((song) => song.reported).map((song) => song.id)
+          if (alreadyReported.length) setReportedSongIds((current) => new Set([...current, ...alreadyReported]))
           setError('')
         })
         .catch((nextError) => {
@@ -299,6 +308,40 @@ export default function SongsLibrary() {
       }))
   }
 
+  function handleReportClick(songId) {
+    if (!isAuthenticated || reportedSongIds.has(songId) || reportPendingIds.has(songId)) return
+    const song = songs.find((item) => item.id === songId)
+    if (!song) return
+    setReportError('')
+    setReportModalSong(song)
+  }
+
+  function submitReport({ reason, details }) {
+    if (!reportModalSong) return
+    const songId = reportModalSong.id
+    setReportError('')
+    setReportPendingIds((current) => new Set(current).add(songId))
+    reportSongRequest(songId, { details, reason }, token)
+      .then(() => {
+        setReportedSongIds((current) => new Set(current).add(songId))
+        setReportModalSong(null)
+        setReportFeedback(`Thanks — we've received your report for "${reportModalSong.title}".`)
+      })
+      .catch((nextError) => {
+        if (nextError.code === 'ALREADY_REPORTED') {
+          setReportedSongIds((current) => new Set(current).add(songId))
+          setReportModalSong(null)
+          return
+        }
+        setReportError(nextError.message || 'Could not submit report. Please try again.')
+      })
+      .finally(() => setReportPendingIds((current) => {
+        const next = new Set(current)
+        next.delete(songId)
+        return next
+      }))
+  }
+
   return (
     <div className="page-stack songs-library-page">
       <Reveal as="header" className="songs-library-intro">
@@ -372,15 +415,19 @@ export default function SongsLibrary() {
               <SongCatalogue
                 isAuthenticated={isAuthenticated}
                 bookmarkPendingIds={bookmarkPendingIds}
+                onReport={handleReportClick}
                 onSelect={selectSong}
                 onToggleBookmark={handleToggleBookmark}
                 playingSongId={playingSongId}
+                reportedSongIds={reportedSongIds}
+                reportPendingIds={reportPendingIds}
                 rhythmBySong={rhythmBySong}
                 searchTerm={filters.search}
                 selectedSongId={activeSelectedId}
                 songs={pageSongs}
                 startIndex={startIndex}
               />
+              {reportFeedback ? <p aria-live="polite" className="songs-library-report-feedback" role="status">{reportFeedback}</p> : null}
               <Pagination currentPage={safePage} onPageChange={changePage} totalPages={totalPages} />
             </div>
             <SongPreviewPanel
@@ -400,6 +447,16 @@ export default function SongsLibrary() {
           <div className="songs-empty-state"><Music2 aria-hidden="true" size={36} /><h2>No songs found</h2><p>Try changing or clearing your filters.</p>{filtersActive ? <button onClick={clearFilters} type="button">Clear filters</button> : null}</div>
         ) : null}
       </section>
+
+      {reportModalSong ? (
+        <ReportSongModal
+          busy={reportPendingIds.has(reportModalSong.id)}
+          error={reportError}
+          onCancel={() => setReportModalSong(null)}
+          onSubmit={submitReport}
+          song={reportModalSong}
+        />
+      ) : null}
     </div>
   )
 }

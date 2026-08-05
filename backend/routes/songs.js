@@ -62,6 +62,7 @@ router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);
 router.put('/:id/unarchive', requireCreator, songController.unarchiveSong);
 router.put('/:id/bookmark', requireAuth, songController.toggleBookmark);
+router.post('/:id/report', requireAuth, songController.reportSong);
 router.delete('/:id', requireCreator, songController.deleteSong);
 router.get('/demo-song', (req, res) => res.json({
     song: {

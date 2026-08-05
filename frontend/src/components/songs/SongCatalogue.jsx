@@ -1,4 +1,4 @@
-import { Bookmark, Music2, Pause, Play } from 'lucide-react'
+import { Bookmark, Flag, Music2, Pause, Play } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CreatorNameLink from '../CreatorNameLink'
 import { highlightMatch } from '../../utils/highlightMatch'
@@ -22,9 +22,12 @@ function SongArtwork({ song }) {
 export default function SongCatalogue({
   bookmarkPendingIds,
   isAuthenticated,
+  onReport,
   onSelect,
   onToggleBookmark,
   playingSongId,
+  reportedSongIds,
+  reportPendingIds,
   rhythmBySong,
   searchTerm,
   selectedSongId,
@@ -37,6 +40,7 @@ export default function SongCatalogue({
         <span>#</span><span>Song / creator</span><span>Theme</span><span>Mood</span>
         <span>Rhythm game</span><span>Duration</span>
         {isAuthenticated ? <span className="song-catalogue-header__bookmark">Bookmark</span> : null}
+        {isAuthenticated ? <span className="song-catalogue-header__report">Report</span> : null}
         <span>Open</span>
       </div>
 
@@ -46,6 +50,8 @@ export default function SongCatalogue({
         const rhythmAvailable = (rhythmBySong[song.id] || []).length > 0
         const isBookmarked = Boolean(song.bookmarked)
         const bookmarkPending = bookmarkPendingIds?.has(song.id)
+        const isReported = reportedSongIds?.has(song.id)
+        const reportPending = reportPendingIds?.has(song.id)
 
         return (
           <article
@@ -87,6 +93,17 @@ export default function SongCatalogue({
                 type="button"
               >
                 <Bookmark aria-hidden="true" fill={isBookmarked ? 'currentColor' : 'none'} size={18} />
+              </button>
+            ) : null}
+            {isAuthenticated ? (
+              <button
+                aria-label={isReported ? `You already reported ${song.title}` : `Report ${song.title}`}
+                className={`song-catalogue-row__report${isReported ? ' is-reported' : ''}`}
+                disabled={isReported || reportPending}
+                onClick={() => onReport(song.id)}
+                type="button"
+              >
+                <Flag aria-hidden="true" fill={isReported ? 'currentColor' : 'none'} size={16} />
               </button>
             ) : null}
             <Link aria-label={`Explore song: ${song.title}`} className="song-catalogue-row__open" to={`/songs/${song.id}`}>
