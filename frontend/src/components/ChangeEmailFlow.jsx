@@ -12,26 +12,26 @@ export default function ChangeEmailFlow({ currentEmail, onClose, onComplete, tok
   const [showPassword, setShowPassword] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [code, setCode] = useState('')
-  const [changeToken, setChangeToken] = useState('')
   const [error, setError] = useState('')
-  const [emailHint, setEmailHint] = useState('')
+  const [emailSubmitError, setEmailSubmitError] = useState('')
   const [busy, setBusy] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const debouncedEmail = useDebouncedValue(newEmail.trim(), 400)
+  const normalizedDebouncedEmail = debouncedEmail.toLowerCase()
+  const emailHint = !debouncedEmail
+    ? ''
+    : !EMAIL_PATTERN.test(normalizedDebouncedEmail)
+      ? 'Enter a valid email address.'
+      : normalizedDebouncedEmail === currentEmail.toLowerCase()
+        ? 'Enter an email address different from your current one.'
+        : ''
+  const displayedEmailError = emailSubmitError || emailHint
 
   useEffect(() => {
     if (!cooldown) return undefined
     const timer = window.setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000)
     return () => window.clearInterval(timer)
   }, [cooldown])
-
-  useEffect(() => {
-    if (!debouncedEmail) { setEmailHint(''); return }
-    const normalized = debouncedEmail.toLowerCase()
-    if (!EMAIL_PATTERN.test(normalized)) { setEmailHint('Enter a valid email address.'); return }
-    if (normalized === currentEmail.toLowerCase()) { setEmailHint('Enter an email address different from your current one.'); return }
-    setEmailHint('')
-  }, [debouncedEmail, currentEmail])
 
   async function submitPassword(event) {
     event.preventDefault()
@@ -44,7 +44,13 @@ export default function ChangeEmailFlow({ currentEmail, onClose, onComplete, tok
     event.preventDefault()
     setError('')
     const normalized = newEmail.trim().toLowerCase()
-    if (emailHint) return
+    const nextEmailError = !EMAIL_PATTERN.test(normalized)
+      ? 'Enter a valid email address.'
+      : normalized === currentEmail.toLowerCase()
+        ? 'Enter an email address different from your current one.'
+        : ''
+    setEmailSubmitError(nextEmailError)
+    if (nextEmailError) return
     setBusy(true)
     try {
       const data = await requestEmailChange(password, normalized, token)
@@ -65,7 +71,6 @@ export default function ChangeEmailFlow({ currentEmail, onClose, onComplete, tok
     setBusy(true)
     try {
       const data = await verifyEmailChangeOtp(newEmail, code, token)
-      setChangeToken(data.changeToken)
       await completeEmailChange(data.changeToken, token)
       setStep('done')
     } catch (nextError) {
@@ -123,13 +128,13 @@ export default function ChangeEmailFlow({ currentEmail, onClose, onComplete, tok
             <p>We will send a six-digit code to verify this address.</p>
             <label>
               <span>New email</span>
-              <input autoComplete="email" onChange={(event) => setNewEmail(event.target.value)} required type="email" value={newEmail} />
-              {emailHint ? <span className="field-error">{emailHint}</span> : null}
+              <input autoComplete="email" onChange={(event) => { setNewEmail(event.target.value); setEmailSubmitError('') }} required type="email" value={newEmail} />
+              {displayedEmailError ? <span className="field-error">{displayedEmailError}</span> : null}
             </label>
             {error ? <p className="form-error" role="alert">{error}</p> : null}
             <div className="account-flow-modal__actions">
               <button className="is-secondary" onClick={() => setStep('password')} type="button">Back</button>
-              <button disabled={busy || !newEmail.trim() || Boolean(emailHint)} type="submit">{busy ? 'Sending…' : 'Send code'}</button>
+              <button disabled={busy || !newEmail.trim() || Boolean(displayedEmailError)} type="submit">{busy ? 'Sending…' : 'Send code'}</button>
             </div>
           </form>
         ) : null}

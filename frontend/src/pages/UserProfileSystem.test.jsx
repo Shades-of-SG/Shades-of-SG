@@ -40,7 +40,9 @@ describe('shared user profile system', () => {
   it('renders creator accounts as normal user activity on /profile', async () => {
     authenticate()
     window.history.pushState({}, '', '/profile')
-    vi.stubGlobal('fetch', vi.fn(() => response(profilePayload)))
+    vi.stubGlobal('fetch', vi.fn((url) => String(url).includes('/badges/catalog')
+      ? response({ definitions: [{ category: 'Community', description: 'Shared a first memory.', imageKey: 'merlion', name: 'First Memory', sortOrder: 1 }] })
+      : response(profilePayload)))
     render(<AuthProvider><App /></AuthProvider>)
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Ferlyn Ng' })).toBeInTheDocument()
@@ -132,8 +134,8 @@ describe('shared user profile system', () => {
     expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute('href', '/settings/profile')
     expect(screen.getByRole('link', { name: 'Account & Security' })).toHaveAttribute('href', '/settings/account-security')
     expect(screen.getByRole('link', { name: 'Data & Privacy' })).toHaveAttribute('href', '/settings/data-privacy')
-    expect(screen.getByText(/Email changes require password confirmation/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Reset password' })).toHaveAttribute('href', '/forgot-password')
+    expect(screen.getByText(/Changing your email requires your password/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Reset password' })).toHaveAttribute('href', '/settings/security/password/request')
   })
 
   it('does not expose settings to an unauthenticated visitor', async () => {

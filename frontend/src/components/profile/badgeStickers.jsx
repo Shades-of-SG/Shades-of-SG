@@ -177,10 +177,6 @@ const STICKERS = {
   ),
 }
 
-export function badgeStickerKeys() {
-  return Object.keys(STICKERS)
-}
-
 export default function BadgeSticker({ imageKey }) {
   const render = STICKERS[imageKey] || STICKERS.merlion
   return render()
