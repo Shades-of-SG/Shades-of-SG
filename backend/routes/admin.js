@@ -1,18 +1,38 @@
 const express = require('express');
 const { Op, QueryTypes } = require('sequelize');
 const {
-    AnalyticsEvent, AuditLog, CreatorApplication, CreatorApplicationHistory,
-    Folder, FolderSongProposal, GameScore, GenerationJob, ModerationAction,
-    Reflection, ReflectionComment, Song, SongFolder, SongReport, User, UserWarning, sequelize,
+    AnalyticsEvent, AuditLog, Badge, CreatorApplication, CreatorApplicationHistory,
+    Folder, FolderSongProposal, GameScore, GenerationJob, InstrumentChallengeProgress, ModerationAction,
+    Reflection, ReflectionComment, Song, SongBookmark, SongFolder, SongReport, TriviaAttempt, TriviaQuestion,
+    User, UserWarning, sequelize,
 } = require('../models');
 const { requireAdmin } = require('../middleware/auth');
 const { isUuid, validateUuidParam } = require('../middleware/validateUuid');
+const { createRateLimit } = require('../middleware/rateLimit');
+const { hardDeleteUser } = require('../services/accountDeletionService');
 const { writeAudit } = require('../services/auditService');
-const { sendApplicationEmail } = require('../services/emailService');
+const {
+    createScopedToken, verifyPassword,
+} = require('../services/authService');
+const { creatorAnalyticsSummary } = require('../services/creatorAnalyticsService');
+const { sendApplicationEmail, sendPasswordResetLinkEmail } = require('../services/emailService');
+const { normalizeEmail } = require('../services/otpService');
 const { getSongPublishMissing } = require('../services/songPublishingService');
+const { BADGE_CATALOG } = require('../services/badgeCatalog');
 
 const router = express.Router();
 router.use(requireAdmin);
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USER_SORTS = {
+    dateJoinedAsc: [['createdAt', 'ASC']],
+    dateJoinedDesc: [['createdAt', 'DESC']],
+    nameAsc: [['name', 'ASC']],
+    nameDesc: [['name', 'DESC']],
+};
+const passwordResetLinkLimit = createRateLimit({
+    key: (req) => `admin:pwreset:${req.params.id}`, max: 3, windowMs: 15 * 60 * 1000,
+});
 
 const ADMIN_APPLICATION_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'CHANGES_REQUESTED', 'SHORTLISTED', 'INTERVIEW', 'APPROVED', 'REJECTED'];
 const ADMIN_APPLICATION_STATUS_SET = new Set(ADMIN_APPLICATION_STATUSES);
@@ -402,10 +422,12 @@ router.get('/users', async (req, res, next) => {
             ] });
         }
         if (conditions.length) where[Op.and] = conditions;
+        const sortKey = String(req.query.sort || 'dateJoinedDesc');
+        if (!USER_SORTS[sortKey]) return res.status(400).json({ message: 'Invalid user sort.' });
         const { count, rows } = await User.findAndCountAll({
             attributes: [
                 'id', 'name', 'email', 'role', 'accountStatus', 'accountSuspensionReason',
-                'creatorAccessStatus', 'creatorSuspensionReason', 'createdAt', 'updatedAt',
+                'creatorAccessStatus', 'creatorSuspensionReason', 'lastActiveDate', 'createdAt', 'updatedAt',
             ],
             include: [
                 { model: Reflection, as: 'reflections', attributes: ['id', 'moderatedAt', 'status', 'updatedAt'], required: false },
@@ -415,7 +437,7 @@ router.get('/users', async (req, res, next) => {
                     include: [{ model: SongReport, as: 'reports', attributes: ['createdAt', 'id', 'status'], required: false }],
                 },
             ],
-            distinct: true, limit, offset, order: [['createdAt', 'DESC']], subQuery: false, where,
+            distinct: true, limit, offset, order: USER_SORTS[sortKey], subQuery: false, where,
         });
         const safetyActions = rows.length ? await ModerationAction.findAll({
             attributes: ['actionType', 'createdAt', 'reason', 'targetUserId'],
@@ -459,6 +481,178 @@ router.get('/users', async (req, res, next) => {
                 };
             }),
         });
+    } catch (error) { return next(error); }
+});
+
+router.get('/users/:id', validateUuidParam('id', 'User ID must be a valid UUID.'), async (req, res, next) => {
+    try {
+        const user = await User.findOne({
+            attributes: [
+                'id', 'name', 'email', 'role', 'accountStatus', 'accountSuspensionReason',
+                'creatorAccessStatus', 'creatorSuspensionReason', 'emailVerifiedAt', 'emailVerificationRequired',
+                'lastActiveDate', 'currentLoginStreak', 'longestLoginStreak', 'createdAt', 'updatedAt',
+            ],
+            where: { id: req.params.id, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } },
+        });
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+        const userId = user.id;
+        const [
+            bookmarkRows, bookmarkTotal,
+            gameScoreRows, gameScoreTotal,
+            reflectionRows, reflectionTotal,
+            badgeRows,
+            triviaRows, triviaTotal, triviaCorrectCount,
+            instrumentRows, instrumentTotal,
+            warningRows,
+        ] = await Promise.all([
+            SongBookmark.findAll({
+                include: [{ model: Song, as: 'song', attributes: ['id', 'title', 'artist', 'status', 'coverImageUrl'] }],
+                limit: 50, order: [['createdAt', 'DESC']], where: { userId },
+            }),
+            SongBookmark.count({ where: { userId } }),
+            GameScore.findAll({
+                include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
+                limit: 50, order: [['createdAt', 'DESC']], where: { userId },
+            }),
+            GameScore.count({ where: { userId } }),
+            Reflection.findAll({
+                attributes: ['id', 'content', 'status', 'createdAt'],
+                include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
+                limit: 50, order: [['createdAt', 'DESC']], where: { userId },
+            }),
+            Reflection.count({ where: { userId } }),
+            Badge.findAll({ order: [['earnedAt', 'DESC']], where: { userId } }),
+            TriviaAttempt.findAll({
+                include: [{ model: TriviaQuestion, as: 'question', attributes: ['id', 'prompt'] }],
+                limit: 50, order: [['createdAt', 'DESC']], where: { userId },
+            }),
+            TriviaAttempt.count({ where: { userId } }),
+            TriviaAttempt.count({ where: { isCorrect: true, userId } }),
+            InstrumentChallengeProgress.findAll({ order: [['completedAt', 'DESC']], where: { userId } }),
+            InstrumentChallengeProgress.count({ where: { userId } }),
+            UserWarning.findAll({
+                include: [{ model: User, as: 'issuer', attributes: ['id', 'name'], required: false }],
+                order: [['createdAt', 'DESC']], where: { userId },
+            }),
+        ]);
+        return res.json({
+            sections: {
+                badges: { catalogTotal: BADGE_CATALOG.length, rows: badgeRows, total: badgeRows.length },
+                bookmarks: { rows: bookmarkRows.map((row) => row.get({ plain: true })), total: bookmarkTotal },
+                gameScores: { rows: gameScoreRows.map((row) => row.get({ plain: true })), total: gameScoreTotal },
+                instrumentProgress: { rows: instrumentRows.map((row) => row.get({ plain: true })), total: instrumentTotal },
+                reflections: {
+                    rows: reflectionRows.map((row) => {
+                        const value = row.get({ plain: true });
+                        return { ...value, content: value.content ? value.content.slice(0, 300) : '' };
+                    }),
+                    total: reflectionTotal,
+                },
+                triviaAttempts: {
+                    correctCount: triviaCorrectCount, rows: triviaRows.map((row) => row.get({ plain: true })), total: triviaTotal,
+                },
+            },
+            user: user.get({ plain: true }),
+            warnings: warningRows,
+        });
+    } catch (error) { return next(error); }
+});
+
+router.get('/users/:id/creator-stats', validateUuidParam('id', 'User ID must be a valid UUID.'), async (req, res, next) => {
+    try {
+        const target = await User.findOne({ attributes: ['id', 'role'], where: { id: req.params.id } });
+        if (!target) return res.status(404).json({ message: 'User not found.' });
+        if (target.role !== 'CREATOR') return res.status(409).json({ message: 'This user does not have creator access.' });
+        const [summary, songs, applications] = await Promise.all([
+            creatorAnalyticsSummary(target.id),
+            Song.findAll({
+                attributes: ['id', 'title', 'artist', 'status', 'publishedDate', 'createdAt', 'updatedAt'],
+                limit: 100, order: [['updatedAt', 'DESC']], where: { creatorId: target.id },
+            }),
+            CreatorApplication.findAll({
+                attributes: ['id', 'status', 'createdAt', 'reviewedAt'],
+                order: [['createdAt', 'DESC']], where: { userId: target.id },
+            }),
+        ]);
+        return res.json({ applications, songs, summary });
+    } catch (error) { return next(error); }
+});
+
+router.patch('/users/:id/email', validateUuidParam('id', 'User ID must be a valid UUID.'), async (req, res, next) => {
+    try {
+        const admin = await User.findByPk(req.authUserRecord.id);
+        if (!admin || !verifyPassword(req.body.adminPassword, admin.passwordHash)) {
+            return res.status(401).json({ message: 'Incorrect administrator password.' });
+        }
+        const email = normalizeEmail(req.body.email);
+        if (!EMAIL_PATTERN.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' });
+        const target = await User.findOne({ where: { id: req.params.id, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } } });
+        if (!target) return res.status(404).json({ message: 'User not found.' });
+        if (email === target.email) return res.status(400).json({ message: 'Enter an email address different from the current one.' });
+        const emailOwner = await User.findOne({ where: { email, id: { [Op.ne]: target.id } } });
+        if (emailOwner) return res.status(409).json({ message: 'An account with this email already exists.' });
+        const previousEmail = target.email;
+        await sequelize.transaction(async (transaction) => {
+            await target.update({
+                authVersion: Number(target.authVersion || 0) + 1, email, emailVerificationRequired: false, emailVerifiedAt: new Date(),
+            }, { transaction });
+            await writeAudit({
+                action: 'USER_EMAIL_UPDATED_BY_ADMIN', actorId: req.authUserRecord.id,
+                creatorId: target.role === 'CREATOR' ? target.id : null, entityId: target.id, entityType: 'USER',
+                metadata: { newEmail: email, previousEmail }, req, transaction,
+            });
+        });
+        return res.json({ user: serializeManagedUser(target) });
+    } catch (error) { return next(error); }
+});
+
+router.post('/users/:id/password-reset-link', validateUuidParam('id', 'User ID must be a valid UUID.'), passwordResetLinkLimit, async (req, res, next) => {
+    try {
+        const admin = await User.findByPk(req.authUserRecord.id);
+        if (!admin || !verifyPassword(req.body.adminPassword, admin.passwordHash)) {
+            return res.status(401).json({ message: 'Incorrect administrator password.' });
+        }
+        const target = await User.findOne({ where: { id: req.params.id, role: { [Op.in]: ['REGISTERED', 'CREATOR'] } } });
+        if (!target) return res.status(404).json({ message: 'User not found.' });
+        if (target.accountStatus !== 'ACTIVE') return res.status(409).json({ message: 'Only an active account can receive a password-reset link.' });
+        const token = createScopedToken({ purpose: 'PASSWORD_RESET', userId: target.id, version: target.authVersion }, 3600);
+        const appUrl = String(process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+        const link = `${appUrl}/reset-password?token=${encodeURIComponent(token)}`;
+        await sendPasswordResetLinkEmail({ link, name: target.name, to: target.email });
+        await writeAudit({
+            action: 'PASSWORD_RESET_LINK_SENT_BY_ADMIN', actorId: req.authUserRecord.id,
+            creatorId: target.role === 'CREATOR' ? target.id : null, entityId: target.id, entityType: 'USER', req,
+        });
+        return res.status(202).json({ message: `A password-reset link has been emailed to ${target.email}.` });
+    } catch (error) { return next(error); }
+});
+
+router.delete('/users/:id', validateUuidParam('id', 'User ID must be a valid UUID.'), async (req, res, next) => {
+    try {
+        const admin = await User.findByPk(req.authUserRecord.id);
+        if (!admin || !verifyPassword(req.body.adminPassword, admin.passwordHash)) {
+            return res.status(401).json({ message: 'Incorrect administrator password.' });
+        }
+        const reason = requiredReason(req.body.reason, 1000);
+        if (!reason) return res.status(400).json({ message: 'A deletion reason between 5 and 1000 characters is required.' });
+        if (req.params.id === req.authUserRecord.id) {
+            return res.status(403).json({ message: 'Use account settings to delete your own account.' });
+        }
+        const target = await User.findByPk(req.params.id);
+        if (!target) return res.status(404).json({ message: 'User not found.' });
+        if (target.role === 'ADMIN') return res.status(403).json({ message: 'Administrator accounts cannot be deleted here.' });
+        await sequelize.transaction(async (transaction) => {
+            await ModerationAction.create({
+                actionType: 'USER_ACCOUNT_DELETED', actorId: req.authUserRecord.id, reason,
+                targetId: target.id, targetType: 'USER', targetUserId: target.id,
+                metadata: { deletedUserEmail: target.email, deletedUserName: target.name, role: target.role },
+            }, { transaction });
+            await hardDeleteUser({
+                actorId: req.authUserRecord.id, allowPublishedContentRemoval: req.body.confirmContentDeletion === true,
+                reason, req, transaction, user: target,
+            });
+        });
+        return res.json({ message: 'Account permanently deleted.' });
     } catch (error) { return next(error); }
 });
 

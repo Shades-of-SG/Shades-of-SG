@@ -9,7 +9,7 @@ const Folder = sequelize.define('Folder', {
     origin: { type: DataTypes.ENUM('PLATFORM', 'CREATOR_PROPOSAL'), allowNull: false, defaultValue: 'PLATFORM' },
     status: { type: DataTypes.ENUM('PENDING', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'ARCHIVED'), allowNull: false, defaultValue: 'APPROVED' },
     displayOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'display_order' },
-    createdBy: { type: DataTypes.UUID, allowNull: false, field: 'created_by' },
+    createdBy: { type: DataTypes.UUID, allowNull: true, field: 'created_by' },
     proposedBy: { type: DataTypes.UUID, allowNull: true, field: 'proposed_by' },
     reviewedBy: { type: DataTypes.UUID, allowNull: true, field: 'reviewed_by' },
     reviewedAt: { type: DataTypes.DATE, allowNull: true, field: 'reviewed_at' },

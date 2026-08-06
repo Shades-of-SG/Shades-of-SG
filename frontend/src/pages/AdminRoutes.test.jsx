@@ -40,6 +40,7 @@ describe('consolidated admin routes', () => {
 
   it.each([
     ['/admin', /Good (morning|afternoon|evening)/],
+    ['/admin/users', 'Users'],
     ['/admin/creators', 'Creators'],
     ['/admin/content', 'Content'],
     ['/admin/community', 'Safety & Reports'],
@@ -49,6 +50,15 @@ describe('consolidated admin routes', () => {
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Admin navigation' })).toBeInTheDocument()
+  })
+
+  it('lists the Users tab between Overview and Creators in the sidebar', async () => {
+    window.history.pushState({}, '', '/admin')
+    render(<AuthProvider><App /></AuthProvider>)
+    const nav = await screen.findByRole('navigation', { name: 'Admin navigation' })
+    const labels = within(nav).getAllByRole('link').map((link) => link.textContent)
+    expect(labels.indexOf('Overview')).toBeLessThan(labels.indexOf('Users'))
+    expect(labels.indexOf('Users')).toBeLessThan(labels.indexOf('Creators'))
   })
 
   it.each([

@@ -5,6 +5,7 @@ const { Op, UniqueConstraintError } = require('sequelize');
 const { sequelize, User, UserProfile } = require('../models');
 const { requireAuth } = require('../middleware/auth');
 const { authRateKey, createRateLimit } = require('../middleware/rateLimit');
+const { hardDeleteUser } = require('../services/accountDeletionService');
 const {
     accountSuspensionMessage, createScopedToken, createToken, hashPassword, hashPasswordAsync, serializeUser,
     verifyPassword, verifyScopedToken,
@@ -351,9 +352,9 @@ router.delete('/account', requireAuth, async (req, res, next) => {
         const user = await User.findByPk(req.authUserRecord.id);
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
         if (!verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Incorrect password.' });
-        await user.update({
-            accountStatus: 'DELETED', authVersion: Number(user.authVersion || 0) + 1, deletedAt: new Date(),
-        });
+        await sequelize.transaction((transaction) => hardDeleteUser({
+            actorId: user.id, reason: 'Self-service account deletion', req, transaction, user,
+        }));
         return res.json({ message: 'Account deleted.' });
     } catch (error) { return next(error); }
 });

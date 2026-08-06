@@ -213,7 +213,7 @@ function SettingsForm({ auth, section }) {
         <section className="account-settings__section is-danger">
           <div className="account-settings__heading"><AlertTriangle aria-hidden="true" /><div><h2>Danger zone</h2><p>Permanently step away from Shades of SG.</p></div></div>
           <div className="account-settings-danger-row">
-            <div><strong>Delete account</strong><span>This deactivates your account and signs you out everywhere.</span><small>Your account is deactivated immediately: you can no longer sign in and your profile is hidden from other people.</small></div>
+            <div><strong>Delete account</strong><span>This permanently erases your account and signs you out everywhere.</span><small>Your profile, badges, scores, reflections, bookmarks and songs are deleted immediately. This cannot be undone.</small></div>
             <button className="is-danger" onClick={confirmDelete} type="button">Delete account</button>
           </div>
         </section>

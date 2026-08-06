@@ -1,17 +1,21 @@
 import { useState } from 'react'
-import { Bell, ChevronDown, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Menu, Music2, ShieldCheck, Users } from 'lucide-react'
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Menu, Music2, ShieldCheck, UserRound, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import '../components/admin/AdminUI.css'
 
 const navigation = [
   { icon: LayoutDashboard, label: 'Overview', to: '/admin' },
+  { icon: UserRound, label: 'Users', to: '/admin/users' },
   { icon: Users, label: 'Creators', to: '/admin/creators' },
   { icon: Music2, label: 'Content', to: '/admin/content' },
   { icon: ShieldCheck, label: 'Safety & Reports', to: '/admin/community' },
 ]
 
-const pageTitles = { '/admin': 'Overview', '/admin/activity': 'Audit history', '/admin/community': 'Safety & Reports', '/admin/content': 'Content', '/admin/creators': 'Creators' }
+const pageTitles = {
+  '/admin': 'Overview', '/admin/activity': 'Audit history', '/admin/community': 'Safety & Reports',
+  '/admin/content': 'Content', '/admin/creators': 'Creators', '/admin/users': 'Users',
+}
 
 export default function AdminLayout() {
   const { pathname } = useLocation()
@@ -20,7 +24,7 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('adminSidebarCollapsed') === 'true')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const current = pageTitles[pathname] || 'Overview'
+  const current = pageTitles[pathname] || (pathname.startsWith('/admin/users/') ? 'Users' : 'Overview')
 
   function toggleSidebar() {
     if (window.matchMedia('(max-width: 760px)').matches) {

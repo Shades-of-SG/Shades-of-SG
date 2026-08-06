@@ -163,6 +163,22 @@ export function ConfirmationModal({ busy, children, confirmLabel, danger = false
   )
 }
 
+// Shared by the Creators/Safety & Reports pages and the Users tab so the
+// suspend/restore copy and confirmation flow stay identical everywhere.
+export function AccountModal({ busy, onCancel, onConfirm, onReason, reason, user }) {
+  const restoring = user.accountStatus === 'SUSPENDED'
+  return <ConfirmationModal busy={busy} confirmLabel={restoring ? 'Restore member account' : 'Suspend member account'} danger={!restoring} onCancel={onCancel} onConfirm={onConfirm} title={restoring ? 'Restore this member account?' : 'Suspend this member account?'}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>{restoring
+    ? 'Login and authenticated member access resume on the existing account. Stored profiles, songs, scores, badges, applications, reflections and history are reused; creator access remains in its separately recorded state.'
+    : 'Login and all authenticated member access stop immediately, including creator-only access. Stored profiles, songs, scores, badges, applications, reflections and history remain. Published songs stay public unless separately changed in Content.'}</p><label>Administrator reason (required)<textarea maxLength="1000" minLength="5" onChange={(event) => onReason(event.target.value)} placeholder={restoring ? 'Explain why access is safe to restore' : 'Explain the broader platform risk and include appeal guidance'} required value={reason} /></label></form></ConfirmationModal>
+}
+
+export function CreatorAccessModal({ busy, onCancel, onConfirm, onReason, reason, user }) {
+  const restoring = user.creatorAccessStatus === 'SUSPENDED'
+  return <ConfirmationModal busy={busy} confirmLabel={restoring ? 'Restore creator access' : 'Suspend creator access'} danger={!restoring} onCancel={onCancel} onConfirm={onConfirm} title={restoring ? 'Restore creator access?' : 'Suspend creator access?'}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>{restoring
+    ? 'Creator tools become available again. The member account and all stored content are unchanged.'
+    : 'Creator-only tools (Studio, dashboard, analytics) stop immediately. The member account stays active — this person can still sign in and use the site as a regular member. Published songs stay public unless separately changed in Content.'}</p><label>Administrator reason (required)<textarea maxLength="1000" minLength="5" onChange={(event) => onReason(event.target.value)} placeholder={restoring ? 'Explain why creator access is safe to restore' : 'Explain the creator-specific concern and include appeal guidance'} required value={reason} /></label></form></ConfirmationModal>
+}
+
 export function Panel({ actions, children, className = '', subtitle, title }) {
   return (
     <section className={`admin-panel ${className}`.trim()}>

@@ -76,6 +76,15 @@ function otpTemplate({ code, name, purpose }) {
     };
 }
 
+function passwordResetLinkTemplate({ link, name }) {
+    const safeName = escapeHtml(name || 'there');
+    return {
+        subject: 'Reset your Shades of SG password',
+        text: `Hello ${name || 'there'},\n\nAn administrator started a password reset for your account. Use the link below to choose a new password. It expires in 1 hour.\n\n${link}\n\nIf you did not expect this, you can ignore this email and your password will stay the same.`,
+        html: `<p>Hello ${safeName},</p><p>An administrator started a password reset for your account. Use the link below to choose a new password. It expires in 1 hour.</p><p><a href="${link}">${escapeHtml(link)}</a></p><p>If you did not expect this, you can ignore this email and your password will stay the same.</p>`,
+    };
+}
+
 function applicationTemplate({ feedback, name, status }) {
     const readable = String(status).replaceAll('_', ' ').toLowerCase();
     const intro = status === 'APPROVED'
@@ -118,6 +127,13 @@ function sendApplicationEmail(values) {
     return sendEmail({ ...applicationTemplate(values), to: values.to });
 }
 
+function sendPasswordResetLinkEmail(values) {
+    if (isTestTransport() && process.env.NODE_ENV !== 'test') {
+        console.info(`[Development email] Password reset link for ${values.to}: ${values.link}`);
+    }
+    return sendEmail({ ...passwordResetLinkTemplate(values), to: values.to });
+}
+
 function resetEmailTransportForTests() {
     transport = null;
     testOutbox.length = 0;
@@ -128,4 +144,5 @@ module.exports = {
     resetEmailTransportForTests,
     sendApplicationEmail,
     sendOtpEmail,
+    sendPasswordResetLinkEmail,
 };

@@ -1,6 +1,11 @@
 -- Adds a soft-delete account status. Deleting an account never removes rows;
 -- it marks the user row as deleted, which blocks login/API access the same
 -- way a suspension does, and stops the profile resolving publicly.
+--
+-- Superseded: account deletion (self-service and admin-initiated) now hard-
+-- deletes the row instead of setting this status (see 026_account_hard_delete.sql
+-- and backend/services/accountDeletionService.js). The 'DELETED' status and
+-- deleted_at column are kept only for any legacy rows written before this change.
 
 begin;
 
