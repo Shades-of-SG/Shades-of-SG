@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const {
-    AnalyticsEvent, Folder, Song,
+    AnalyticsEvent, Folder, Song, sequelize,
 } = require('../models');
 const { optionalAuth, requireCreator } = require('../middleware/auth');
 const { isUuid } = require('../middleware/validateUuid');
@@ -51,13 +51,16 @@ router.post('/events', optionalAuth, async (req, res, next) => {
             songId = song.id;
         }
 
-        await AnalyticsEvent.create({
-            eventType,
-            folderId,
-            metadata: safeMetadata(req.body.metadata),
-            songId,
-            // Identity is always derived from the verified token; client userId is ignored.
-            userId: req.authUserRecord?.id || null,
+        // Identity is always derived from the verified token; client userId is ignored.
+        const userId = req.authUserRecord?.id || null;
+        await sequelize.transaction(async (transaction) => {
+            await AnalyticsEvent.create({
+                eventType,
+                folderId,
+                metadata: safeMetadata(req.body.metadata),
+                songId,
+                userId,
+            }, { transaction });
         });
         return res.status(202).json({ accepted: true });
     } catch (error) { return next(error); }
