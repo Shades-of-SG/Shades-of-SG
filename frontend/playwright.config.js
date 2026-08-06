@@ -21,7 +21,11 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: 'npm run dev -- --host 127.0.0.1 --port 4173',
+    // Serve the built bundle (vite preview), not the unbundled dev server (vite dev).
+    // Port 4173 is vite preview's conventional default — dev server navigations were
+    // re-transforming the whole module graph on every full page.goto(), which was
+    // slow enough to blow through the default 30s test timeout on the longest journeys.
+    command: 'npm run build && npm run preview -- --host 127.0.0.1 --port 4173',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

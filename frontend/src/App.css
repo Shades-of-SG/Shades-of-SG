@@ -10789,115 +10789,6 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.lesson-card {
-  background: linear-gradient(160deg, rgba(251, 113, 133, 0.07), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(251, 113, 133, 0.2);
-  border-radius: 20px;
-  display: grid;
-  gap: 12px;
-  height: 100%;
-  padding: 24px;
-  text-align: center;
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
-}
-
-.lesson-card:hover {
-  border-color: rgba(253, 164, 175, 0.5);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  transform: translateY(-6px);
-}
-
-.lesson-card--locked {
-  opacity: 0.6;
-}
-
-.lesson-card--locked:hover {
-  box-shadow: none;
-  transform: none;
-}
-
-.lesson-card__art {
-  align-items: center;
-  background: linear-gradient(135deg, rgba(251, 113, 133, 0.28), rgba(251, 191, 36, 0.2));
-  border-radius: 16px;
-  display: flex;
-  font-size: 2.4rem;
-  height: 84px;
-  justify-content: center;
-  margin: 0 auto;
-  width: 84px;
-}
-
-.lesson-card__body {
-  display: grid;
-  gap: 4px;
-}
-
-.lesson-card__difficulty {
-  color: #fda4af;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.lesson-card__body h3 {
-  color: #ffffff;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.lesson-card__description {
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.5;
-  margin: 0;
-}
-
-.lesson-card__meta {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.8rem;
-  margin: 0;
-}
-
-.lesson-card__progress {
-  display: grid;
-  gap: 6px;
-}
-
-.lesson-card__progress .progress-track span {
-  background: linear-gradient(90deg, #fda4af, #e11d48);
-}
-
-.lesson-card__progress small {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.lesson-card__cta {
-  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
-  border: 0;
-  border-radius: 999px;
-  color: #2f0510;
-  cursor: pointer;
-  font-weight: 900;
-  justify-self: center;
-  margin-top: 4px;
-  padding: 10px 22px;
-  transition: transform 160ms ease;
-}
-
-.lesson-card__cta:hover {
-  transform: translateY(-2px);
-}
-
-.lesson-card__locked-label {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
 .lesson-player {
   display: grid;
   gap: 20px;
@@ -10959,105 +10850,10 @@ textarea {
   max-width: 460px;
 }
 
-.lesson-listen__play {
-  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
-  border: 0;
-  border-radius: 999px;
-  color: #2f0510;
-  cursor: pointer;
-  font-weight: 900;
-  margin-top: 8px;
-  padding: 12px 26px;
-  transition: transform 160ms ease;
-}
-
-.lesson-listen__play:hover {
-  transform: translateY(-2px);
-}
-
 .lesson-listen__hint {
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.82rem;
   margin: 0;
-}
-
-.lesson-listen__continue {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 999px;
-  color: #ffffff;
-  cursor: pointer;
-  font-weight: 800;
-  margin-top: 10px;
-  padding: 12px 24px;
-  transition: border-color 160ms ease, transform 160ms ease;
-}
-
-.lesson-listen__continue:hover {
-  border-color: #fda4af;
-  transform: translateY(-2px);
-}
-
-.lesson-section {
-  display: grid;
-  gap: 14px;
-  justify-items: center;
-}
-
-.lesson-section__eyebrow {
-  color: #fda4af;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.lesson-section h3 {
-  color: #ffffff;
-  margin: 0;
-}
-
-.lesson-section__learn,
-.lesson-section__practice,
-.lesson-section__passed {
-  display: grid;
-  gap: 14px;
-  justify-items: center;
-  width: 100%;
-}
-
-.lesson-section__demo,
-.lesson-section__ready {
-  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
-  border: 0;
-  border-radius: 999px;
-  color: #2f0510;
-  cursor: pointer;
-  font-weight: 900;
-  padding: 10px 22px;
-  transition: transform 160ms ease;
-}
-
-.lesson-section__demo:hover,
-.lesson-section__ready:hover {
-  transform: translateY(-2px);
-}
-
-.lesson-phrase {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-}
-
-.lesson-phrase__note {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  color: #ffffff;
-  font-weight: 800;
-  padding: 8px 12px;
 }
 
 .lesson-insight {
@@ -11082,19 +10878,6 @@ textarea {
   font-size: 0.9rem;
   line-height: 1.5;
   margin: 0;
-}
-
-.lesson-insight__demo {
-  background: rgba(251, 191, 36, 0.16);
-  border: 1px solid rgba(251, 191, 36, 0.4);
-  border-radius: 999px;
-  color: #fbbf24;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 800;
-  justify-self: start;
-  padding: 6px 16px;
-  transition: transform 160ms ease;
 }
 
 .placeholder-page {
@@ -11142,77 +10925,6 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.lesson-insight__demo:hover {
-  transform: translateY(-2px);
-}
-
-.lesson-section__instruction {
-  color: rgba(255, 255, 255, 0.75);
-  margin: 0;
-}
-
-.lesson-keyboard {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-  width: 100%;
-}
-
-.lesson-key {
-  background: linear-gradient(160deg, rgba(251, 113, 133, 0.14), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(251, 113, 133, 0.3);
-  border-radius: 14px;
-  color: #ffffff;
-  cursor: pointer;
-  font-weight: 900;
-  min-height: 64px;
-  padding: 10px;
-  touch-action: manipulation;
-  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
-}
-
-.lesson-key:hover {
-  border-color: rgba(253, 164, 175, 0.6);
-}
-
-.lesson-key.is-target {
-  animation: lesson-target-pulse 1.4s ease-in-out infinite;
-  border-color: #fbbf24;
-}
-
-.lesson-key.is-pressed {
-  background: linear-gradient(160deg, #fda4af, #e11d48);
-  color: #2f0510;
-  transform: scale(0.94);
-}
-
-.lesson-section__feedback {
-  color: rgba(255, 255, 255, 0.75);
-  font-weight: 700;
-  margin: 0;
-  min-height: 1.4em;
-}
-
-.lesson-section__feedback.is-success {
-  color: #5eead4;
-}
-
-.lesson-section__continue {
-  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
-  border: 0;
-  border-radius: 999px;
-  color: #2f0510;
-  cursor: pointer;
-  font-weight: 900;
-  justify-self: center;
-  padding: 12px 26px;
-  transition: transform 160ms ease;
-}
-
-.lesson-section__continue:hover {
-  transform: translateY(-2px);
 }
 
 .lesson-complete {
@@ -11275,6 +10987,310 @@ textarea {
   transform: translateY(-2px);
 }
 
+/* Instrument picker (stage 1) — reuses .lab-card for the cards themselves,
+   this just defines the grid container the same way .lab-gallery__grid does. */
+.lesson-instrument-picker__grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 24px;
+}
+
+/* Song picker (stage 2) */
+.song-card {
+  background: linear-gradient(160deg, rgba(251, 113, 133, 0.07), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(251, 113, 133, 0.2);
+  border-radius: 20px;
+  display: grid;
+  gap: 12px;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.song-card:hover {
+  border-color: rgba(253, 164, 175, 0.5);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  transform: translateY(-6px);
+}
+
+.song-card__art {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(251, 113, 133, 0.28), rgba(251, 191, 36, 0.2));
+  border-radius: 16px;
+  display: flex;
+  font-size: 2.4rem;
+  height: 84px;
+  justify-content: center;
+  margin: 0 auto;
+  width: 84px;
+}
+
+.song-card__body {
+  display: grid;
+  gap: 4px;
+}
+
+.song-card__subtitle {
+  color: #fda4af;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.song-card__body h3 {
+  color: #ffffff;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.song-card__description {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.song-card__difficulties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.song-card__difficulty-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  text-transform: uppercase;
+}
+
+.song-card__difficulty-pill.is-complete {
+  background: rgba(94, 234, 212, 0.16);
+  border-color: rgba(94, 234, 212, 0.4);
+  color: #5eead4;
+}
+
+.song-card__cta {
+  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
+  border: 0;
+  border-radius: 999px;
+  color: #2f0510;
+  cursor: pointer;
+  font-weight: 900;
+  justify-self: center;
+  margin-top: 4px;
+  padding: 10px 22px;
+  transition: transform 160ms ease;
+}
+
+.song-card__cta:hover {
+  transform: translateY(-2px);
+}
+
+/* Difficulty picker (stage 3) */
+.lesson-difficulty-picker__grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-top: 24px;
+}
+
+.lesson-difficulty-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(251, 113, 133, 0.2);
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.lesson-difficulty-card--medium {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.lesson-difficulty-card--hard {
+  border-color: rgba(94, 234, 212, 0.35);
+}
+
+.lesson-difficulty-card__label {
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.lesson-difficulty-card__meta {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.lesson-difficulty-card__cta {
+  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
+  border: 0;
+  border-radius: 999px;
+  color: #2f0510;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 22px;
+  transition: transform 160ms ease;
+}
+
+.lesson-difficulty-card__cta:hover {
+  transform: translateY(-2px);
+}
+
+.lesson-player__stage .progress-track span {
+  background: linear-gradient(90deg, #fda4af, #e11d48);
+}
+
+/* Transport (Play/Pause/Restart) — lesson stage */
+.lesson-transport {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.lesson-transport__button {
+  background: linear-gradient(135deg, #fda4af 0%, #fb7185 48%, #e11d48 100%);
+  border: 0;
+  border-radius: 999px;
+  color: #2f0510;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 12px 26px;
+  transition: transform 160ms ease;
+}
+
+.lesson-transport__button--secondary {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.lesson-transport__button:hover {
+  transform: translateY(-2px);
+}
+
+/* Free-play keyboard (LessonKeyboard) — reuses the Lab's .lab-keyboard/
+   .lab-key layout (components/lab/InstrumentPlayer.jsx), recolored to the
+   lesson page's rose palette instead of the Lab's teal. */
+.lesson-keyboard-practice {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.lesson-keyboard-practice__label {
+  color: #fda4af;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  margin: 0;
+  text-align: left;
+}
+
+.lesson-player__stage .lab-key {
+  background: linear-gradient(160deg, rgba(251, 113, 133, 0.14), rgba(255, 255, 255, 0.03));
+  border-color: rgba(251, 113, 133, 0.3);
+}
+
+.lesson-player__stage .lab-key:hover {
+  border-color: rgba(253, 164, 175, 0.6);
+}
+
+.lesson-player__stage .lab-key.is-active {
+  background: linear-gradient(160deg, #fda4af, #e11d48);
+  box-shadow: 0 0 24px rgba(251, 113, 133, 0.6);
+  color: #2f0510;
+}
+
+.lesson-player__stage .lab-key.is-active .lab-key__hint {
+  background: rgba(47, 5, 16, 0.25);
+  color: #2f0510;
+}
+
+/* Sharp/flat notes get a darker "black key" treatment so they read as
+   distinct from the natural notes at a glance. */
+.lesson-player__stage .lab-key--sharp {
+  background: linear-gradient(160deg, rgba(15, 8, 10, 0.85), rgba(0, 0, 0, 0.6));
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.lesson-player__stage .lab-key--sharp:hover {
+  border-color: rgba(253, 164, 175, 0.5);
+}
+
+.lesson-player__stage .lab-key--sharp.is-active {
+  background: linear-gradient(160deg, #fda4af, #e11d48);
+}
+
+/* Note sequence / progress display — lesson stage */
+.lesson-sequence {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
+.lesson-sequence__measure {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+
+.lesson-sequence__measure-label {
+  color: #fda4af;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lesson-sequence__notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lesson-sequence__note {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #ffffff;
+  font-weight: 800;
+  padding: 8px 12px;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.lesson-sequence__note--chord {
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+}
+
+.lesson-sequence__note--rest {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
+.lesson-sequence__note.is-active {
+  animation: lesson-target-pulse 1.4s ease-in-out infinite;
+  background: linear-gradient(160deg, #fda4af, #e11d48);
+  border-color: #fda4af;
+  color: #2f0510;
+}
+
+.lesson-sequence__note.is-played {
+  opacity: 0.5;
+}
+
 @keyframes lesson-target-pulse {
   0%, 100% {
     box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5);
@@ -11286,24 +11302,16 @@ textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lesson-key.is-target {
+  .lesson-sequence__note.is-active {
     animation: none;
     box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.6);
   }
 
-  .lesson-key.is-pressed {
-    transform: none;
-  }
-
-  .lesson-card:hover,
-  .lesson-card__cta:hover,
+  .song-card:hover,
+  .song-card__cta:hover,
   .lesson-hero__cta:hover,
-  .lesson-listen__play:hover,
-  .lesson-listen__continue:hover,
-  .lesson-section__demo:hover,
-  .lesson-section__ready:hover,
-  .lesson-section__continue:hover,
-  .lesson-insight__demo:hover,
+  .lesson-difficulty-card__cta:hover,
+  .lesson-transport__button:hover,
   .lesson-complete__primary:hover,
   .lesson-complete__secondary:hover {
     transform: none;

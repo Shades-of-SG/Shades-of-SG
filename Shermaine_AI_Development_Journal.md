@@ -10,7 +10,8 @@ This is a personal companion to `AI_DEVELOPMENT_JOURNAL.md`, scoped to sessions 
 
 ## Summary: How Claude Code Has Been Used On This Project
 
-Across four sessions (13 July, 24 July, 4 August, 6 August 2026) and 12 tasks logged below, Claude was used for two roughly equal kinds of work — building/iterating on features, and debugging problems that came up while running the app — plus one documentation handover task.
+Across four sessions (13 July, 24 July, 4 August, 6 August 2026) and 13 tasks logged below, Claude was used for two roughly equal kinds of work — building/iterating on features, and debugging problems that came up while running the app — plus one documentation handover task.
+
 
 ### Coding & feature building
 * **Iterative, screenshot/mockup-driven UI work.** The Creator Dashboard & My Songs redesign (13 Jul, Task 1) was a back-and-forth of small fixes and restyles — chart overflow, non-functional filter pills, "it does not feel cohesive," then a pasted mockup to steer the visual direction — rather than one upfront spec. The same pattern repeated for the Learning Hub timeline and quiz (13 Jul, Task 3) and later a one-line CSS overlap fix (4 Aug, Task 1).
@@ -463,6 +464,90 @@ Claude
 * `cd frontend && npm run build` — succeeds.
 * `cd backend && npx jest --runInBand` — 186 passing; the 2 failures are pre-existing and unrelated, confirmed by reproducing them identically against a clean `git stash`ed checkout.
 * Applied the migration and ran the seed script for real against the live Supabase database with working Cloudinary credentials; confirmed via a direct controller call that `GET /api/instruments/lab-samples` returns complete, correctly-shaped sample maps for Piano, Tabla, Kompang, and Angklung, and confirmed several of the resulting Cloudinary URLs return `200 OK` / `audio/mpeg` when fetched directly.
+
+---
+
+### Task 2: Guided Music Lessons Rebuild — New Songs, Instrument→Song→Difficulty Flow, Free-Play Keyboard
+
+#### AI Tool Used
+Claude
+
+#### Prompts
+* "I want to create lesson data for these songs: Our Singapore, Tomorrow's Here Today, You'll Be Okay, Giants (2026). For every song, generate lesson data for Easy (simple melody), Medium (simple melody with harder rhythm), Hard (simple melody with chords). Each lesson should include song title, difficulty, BPM, ordered notes, measure groupings, suggested practice tips. Use the same schema across all songs... I want to build guided music lessons. Flow: instrument → song → difficulty → lesson begins... progress indicator, play/pause, restart, lesson completion... lessons should be data-driven, songs stored separately from lesson logic, difficulty should determine which notes are shown... design so additional songs can easily be added later" — plus two MuseScore links offered as sheet-music references when asked whether illustrative arrangements were acceptable.
+* Clarifying answers given during plan mode: chose playback-style teaching (tempo-driven Play/Pause/Restart with a progress indicator) over keeping the old call-and-response "tap the right key" mechanic; chose to migrate the 3 existing songs into the new schema/flow rather than keep two parallel lesson systems; confirmed illustrative-but-grounded note data was acceptable once real sheet music proved unreachable (MuseScore blocked automated access with a 403).
+* Approved the written implementation plan via ExitPlanMode, with one explicit condition: "yes, but make sure the rhythm game isnt affected please."
+* "teach me how to play the song after letting the user hear the sample of the song as well, similar to what i had previously."
+* "can you allow the users to click keys on their keyboards to play the notes, similar to instrument discovery lab?"
+* Screenshot of the free-play keyboard + "include sharps/flats in the notes as well please" — the keyboard only showed the instrument's natural notes, so notes like F#4 (visibly used in the song's measure display) had no way to be played.
+* "add all changes made to shermaine's ai development journal with the same date (6 august) and include all changes/debugging done. follow journal format."
+
+#### Files Created
+* `frontend/src/data/songs.js`
+* `frontend/src/utils/songTiming.js`
+* `frontend/src/hooks/useSequencePlayer.js`, `frontend/src/hooks/useSequencePlayer.test.js`
+* `frontend/src/hooks/useSongProgress.js`, `frontend/src/hooks/useSongProgress.test.js`
+* `frontend/src/components/lessons/InstrumentPicker.jsx`, `frontend/src/components/lessons/SongCard.jsx`, `frontend/src/components/lessons/DifficultyPicker.jsx`, `frontend/src/components/lessons/SequenceProgress.jsx`, `frontend/src/components/lessons/LessonKeyboard.jsx`
+* `frontend/src/pages/GuidedMusicLessons.test.jsx`
+
+#### Files Deleted
+* `frontend/src/hooks/useLessonProgress.js` (superseded by `useSongProgress.js` — confirmed unused elsewhere via grep before deleting)
+* `frontend/src/components/lessons/LessonSection.jsx` and `frontend/src/components/lessons/LessonCard.jsx` (the old call-and-response practice mechanic and its fixed-difficulty song card, both replaced outright rather than kept alongside the new flow)
+
+#### Files Modified
+* `frontend/src/pages/GuidedMusicLessons.jsx` (rewritten as a 4-stage machine)
+* `frontend/src/components/lessons/LessonPlayer.jsx` (rewritten for playback transport, then extended twice more for the listen-gate and free-play keyboard)
+* `frontend/src/App.css`
+
+#### Changes Made
+
+**Song data (`data/songs.js`)**
+* Authored all 7 songs — the 4 new ones plus the 3 existing ("Count On Me, Singapore," "Home," "Stand Up for Singapore," the latter two previously locked placeholders with zero note content) — in one consistent schema: `{ id, title, subtitle, description, icon, keySignature, year, difficulties: { easy, medium, hard } }`, each difficulty carrying `bpm`, `isEstimate`, `timeSignature`, an ordered `steps` array (each step `{ measure, beats, type, notes }`, where `notes` is `[]` for a rest, one entry for a melody note, or several for a chord), and `practiceTips`.
+* Grounded the illustrative arrangements in real key/chord/tempo research: "Our Singapore" (D major, 105 BPM, D-G-A-D) and "Tomorrow's Here Today" (D major voicing of a recording in E, 129 BPM, D-G-Bm-A) came from confirmed sources; "You'll Be Okay" and "Giants (2026)" (both released May 2026) had no tempo found anywhere searched, so their BPM is flagged `isEstimate: true`.
+* Built Easy/Medium/Hard mechanically from one melody+chord definition per song via small builder functions, rather than hand-writing roughly 340 note objects: Easy is flat one-beat-per-note; Medium keeps the same pitches but splits one note per measure into a repeated eighth-note pair (more notes, harder rhythm); Hard keeps Easy's rhythm but promotes each measure's downbeat to a full chord (melody note plus that measure's harmony triad, deduplicated by label).
+* Every note is a self-contained `{ label, frequency }` pair rather than a lookup key into the chosen instrument's own note list, so any song plays correctly on any instrument regardless of that instrument's actual range (piano has no sharps; angklung has only 5 notes; kompang/tabla aren't even pitched).
+
+**Playback engine**
+* Added `useSequencePlayer.js`: a state-driven hook (no changes to the existing `useInstrumentAudio.js`) that plays the current step's notes and schedules one `setTimeout` to advance, cancelled via the effect's own cleanup function on pause or step change — that cancellation is what makes Pause freeze exactly in place and Play resume from that same note rather than from the top. `restart()` seeks to step 0, continuing playback if it was already running or staying paused if it wasn't.
+* Added `useSongProgress.js`, replacing `useLessonProgress.js`: tracks per-song, per-difficulty completion under a new `songLessonProgress:<songId>` localStorage key (not a migration of the old `lessonProgress:<id>` shape, since the interaction model changed completely from section-counting to difficulty-completion).
+
+**Page flow**
+* Rebuilt `GuidedMusicLessons.jsx` as a linear instrument → song → difficulty → lesson stage machine, reusing the existing `useLabInstruments()` hook and the Instrument Lab's own `InstrumentCard` for instrument selection, a new `SongCard` grid (dropping the old fixed-difficulty badge and locked "Coming Soon" state, since every song now has real content at every difficulty), a new `DifficultyPicker` showing BPM and estimated duration per tier, and a rewritten `LessonPlayer`.
+* `LessonPlayer` now has two sub-stages, mirroring the flow the lesson used to have: **Step 1 · Listen** — a "▶ Play Sample" button lets the learner hear the full difficulty's sequence before committing, with a "Start Learning the Notes" button that explicitly resets playback to note 1 (even mid-sample) before switching to **Step 2 · Learn** — the tempo-driven Play/Pause/Restart transport, a measure-grouped note-sequence display (`SequenceProgress`), and the difficulty's practice tips.
+* Added `LessonKeyboard.jsx`: a free-play keyboard shown during the Learn stage, letting the learner click a key or press its bound physical letter to hear that note on the chosen instrument — mirroring the Instrument Discovery Lab's `InstrumentPlayer` key-binding pattern. Its note set (and letter assignment) is derived from the actual notes the current song difficulty uses, low to high, not from the instrument's fixed scale — so sharps/flats like F#4 or C#5 are always playable even on an instrument whose own notes are all naturals, and sharp/flat keys get a distinct darker "black key" look.
+
+**CSS**
+* Removed roughly 150 lines of now-dead rules for the deleted call-and-response mechanic (`.lesson-key`, `.lesson-section__*`, `.lesson-phrase*`, the old `.lesson-card*`, `.lesson-listen__play/__hint/__continue`) after confirming via grep that no remaining `.jsx` file referenced them, and updated the reduced-motion media query's selector list to match. Added new rules for the instrument/song/difficulty pickers, the transport buttons, the note-sequence chips, and the free-play keyboard (reusing the Lab's `.lab-keyboard`/`.lab-key` layout, recoloured to the lesson page's rose palette).
+
+#### How AI Helped
+* Ran Explore agents against the existing `GuidedMusicLessons.jsx`/lesson components/`useInstrumentAudio.js` and a Plan agent for the schema/architecture design before writing anything, and asked clarifying questions (interaction model, migration scope, content accuracy) rather than guessing — the interaction-model answer in particular changed the whole shape of the rebuild (playback transport instead of call-and-response).
+* When the user's two MuseScore reference links returned HTTP 403 (bot-blocked) via `WebFetch`, didn't give up on grounding the content — searched chord-chart and BPM-lookup sites instead (chordu.com, songbpm.com, Ultimate Guitar search snippets) to confirm real keys/chords/tempo for two of the four songs, and was upfront that the other two (both brand-new May 2026 releases) had no confirmed tempo anywhere searched.
+* A first draft of `useSequencePlayer` failed ESLint's `react-hooks` rules three separate ways in one pass (ref mutation during render, a self-referencing `useCallback` accessed before its own declaration, and synchronous `setState` inside an effect body) — read each rule's actual explanation rather than disabling the rule, and redesigned the hook around plain state plus an effect's cleanup function instead of refs.
+* Caught a real bug in its own first draft before any test caught it: chord steps were being played via `playChord()`, which looks each note up against the *instrument's own* note list and silently drops anything not on it — exactly the failure mode the "self-contained note data" design was meant to prevent (e.g. every F#4/C#5 chord tone would have been silently dropped on Piano). Fixed by calling `playNote()` directly per note instead.
+* Debugged its own test suite empirically rather than guessing at fixes: an arrow-function `AudioContext` mock threw `is not a constructor` (fixed by using a plain `function`); a missing `close()` method on that mock threw during unmount cleanup; two fake-timer assertions failed when a single large `vi.advanceTimersByTime()` call was used across a chain of recursively-rescheduled timers, traced to React's effect-flush timing and fixed by advancing in per-step chunks each wrapped in its own `act()`; and an ambiguous "multiple elements found" failure was traced to the page's pre-existing hero button and the new "Start Learning" button sharing the same accessible name, fixed by renaming the new one.
+* Verified the "don't break the rhythm game" condition directly rather than asserting it: grepped the entire `src/game/` engine and every `Rhythm*` page/component for every symbol this work touched (zero matches — confirmed it's a fully separate feature sharing only the untouched `useInstrumentAudio.js`/`data/instruments.js`), then explicitly re-ran all 32 rhythm-game tests with the changes in place. Separately, when a full-suite run surfaced 4 unrelated failing tests elsewhere, confirmed via `git stash` that they failed identically on the clean baseline before concluding they were pre-existing and not a regression from this work.
+* Computed the actual maximum number of unique notes any single song/difficulty uses (11, via a one-off Node script against the finished data) before sizing the free-play keyboard's key-binding pool, rather than guessing a number that might run out for a future song.
+
+#### Decisions Made
+* Migrated all 3 pre-existing songs into the new schema/flow rather than keeping the old call-and-response lesson system running alongside it, per the user's explicit choice — one unified page and data model going forward.
+* Kept illustrative note data honest about its own confidence: two songs' BPM came from confirmed sources, the other two are explicitly flagged `isEstimate: true` in the data itself, not just in a comment.
+* Generated Medium/Hard mechanically from each song's single melody+chord definition instead of hand-authoring three full note lists per song, trading a small amount of upfront design complexity for guaranteed musical consistency across tiers and much cheaper future song additions.
+* Made the free-play keyboard's note set (and key bindings) derive from the song's own notes rather than the instrument's fixed scale, so sharps/flats are never unreachable regardless of which instrument is chosen.
+* Gave "Restart" state-aware behaviour (keep playing if already playing, stay paused if not) instead of always forcing playback, while making the Listen→Learn transition unconditionally reset to note 1, since those are different real user intents (seeking within a lesson vs. starting a lesson fresh).
+* Used a new `songLessonProgress:` localStorage key prefix instead of migrating the old `lessonProgress:` shape, since section-completion counts have no meaningful mapping onto difficulty-tier completion — old keys are left as harmless orphaned entries rather than fabricating migrated progress.
+
+#### Remaining Work
+* All 7 songs' note/rhythm data is still simplified and illustrative, not verbatim transcriptions — same standing caveat as the original "Count On Me, Singapore" lesson.
+* "You'll Be Okay" and "Giants (2026)" BPM values are estimates; no confirmed tempo was found for either at authoring time.
+* None of the 4 new songs have real recorded audio wired in yet — they play through the same synthesis-or-real-sample instrument voice as everything else in this feature, per the existing `useInstrumentAudio` swap-in design from the 13 July session.
+* The 4 pre-existing failing tests found while running the full suite (`App.test.jsx`, `ReflectionModeration.test.jsx`, `UserProfileSystem.test.jsx`, `pendingScoreClaim.test.js`) are still unfixed — confirmed unrelated to this work but remain outstanding.
+
+#### Verification
+* `cd frontend && npx eslint <changed files>` — clean after every round of changes, including the two follow-up extensions.
+* `cd frontend && npm run build` — succeeded after every round of changes.
+* CSS brace balance (`{`/`}` count) checked directly after each App.css edit to catch a stray bracket before running anything else.
+* `cd frontend && npx vitest run` on the new/changed files — 15 tests passing across `useSequencePlayer.test.js`, `useSongProgress.test.js`, and `GuidedMusicLessons.test.jsx` (instrument→song→difficulty→lesson navigation, back-navigation at each stage, Play/Pause/Restart timing via fake timers, the Listen→Learn reset, and both click and physical-keydown paths on the free-play keyboard).
+* Explicitly re-ran `RhythmGame.test.jsx`, `RhythmHub.test.jsx`, `RhythmResults.test.jsx`, `RhythmScoreClaim.test.jsx`, `RhythmLeaderboard.test.jsx`, `rhythmScoring.test.js`, and `RegistrationScoreClaimFlow.test.jsx` (32 tests) with all changes in place — all passing, confirming the rhythm game is unaffected.
+* Ran the full frontend suite once; of the failures found, confirmed via `git stash` (reverting to the clean baseline and re-running the same 4 failing files) that they fail identically without this work, i.e. pre-existing and unrelated.
 
 ---
 

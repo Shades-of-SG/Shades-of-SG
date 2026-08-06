@@ -1,103 +1,51 @@
 import { useRef, useState } from 'react'
-import LessonCard from '../components/lessons/LessonCard'
+import DifficultyPicker from '../components/lessons/DifficultyPicker'
+import InstrumentPicker from '../components/lessons/InstrumentPicker'
 import LessonPlayer from '../components/lessons/LessonPlayer'
 import Reveal from '../components/Reveal'
+import SongCard from '../components/lessons/SongCard'
+import { SONGS, getSongById } from '../data/songs'
+import useLabInstruments from '../hooks/useLabInstruments'
 
-/*
-TODO - Shermaine
-
-The note sequences below are simplified, illustrative arrangements written for this
-learning demo — not verbatim transcriptions of the real songs. Replace with an
-accurate arrangement (and real recordings, see hooks/useInstrumentAudio.js) when
-available.
-Build out "Home" and "Stand Up for Singapore" the same way once ready.
-*/
-
-const notePool = [
-  { frequency: 261.63, label: 'C4' },
-  { frequency: 293.66, label: 'D4' },
-  { frequency: 329.63, label: 'E4' },
-  { frequency: 349.23, label: 'F4' },
-  { frequency: 392, label: 'G4' },
-  { frequency: 440, label: 'A4' },
-]
-
-const lessons = [
-  {
-    description: 'A beloved anthem of unity — learn its opening phrase, chorus motif, and closing line.',
-    difficulty: 'Beginner',
-    duration: '10 min',
-    icon: '🎵',
-    id: 'count-on-me',
-    isBuilt: true,
-    sections: [
-      {
-        insight: {
-          demoSequence: ['C4', 'D4', 'E4', 'F4', 'G4'],
-          explanation: 'Notice how each note feels bright and resolved — that upward, hopeful feeling comes from a major scale.',
-          icon: '🎵',
-          prompt: 'Why does this melody sound uplifting?',
-        },
-        notes: notePool,
-        sequence: ['C4', 'C4', 'D4', 'E4'],
-        title: 'Opening Phrase',
-      },
-      {
-        insight: {
-          chord: ['C4', 'E4', 'G4'],
-          explanation: 'Play C, E, and G together and you get a warm, complete-sounding chord — the foundation beneath this phrase.',
-          icon: '🎹',
-          prompt: 'These notes form a chord.',
-        },
-        notes: notePool,
-        sequence: ['G4', 'A4', 'G4', 'E4', 'C4'],
-        title: 'Chorus Motif',
-      },
-      {
-        insight: {
-          demoSequence: ['E4', 'F4', 'G4', 'G4'],
-          explanation: "This closing rhythm echoes a pattern from earlier in the song — repetition is what makes a melody feel familiar.",
-          icon: '🥁',
-          prompt: 'Notice the repeating rhythm pattern.',
-        },
-        notes: notePool,
-        sequence: ['E4', 'F4', 'G4', 'G4'],
-        title: 'Closing Phrase',
-      },
-    ],
-    title: 'Count On Me, Singapore',
-  },
-  {
-    description: 'A heartfelt tribute to Singapore as home, written by Dick Lee.',
-    difficulty: 'Intermediate',
-    icon: '🎵',
-    id: 'home',
-    isBuilt: false,
-    title: 'Home',
-  },
-  {
-    description: 'A rousing march that calls on every Singaporean to stand up for the nation.',
-    difficulty: 'Intermediate',
-    icon: '🎵',
-    id: 'stand-up-for-singapore',
-    isBuilt: false,
-    title: 'Stand Up for Singapore',
-  },
-]
-
+// The guided lesson flow is a strictly linear 4-stage machine:
+// instrument -> song -> difficulty -> lesson. Each stage's data comes from
+// the previous choice; going back is just a fixed prior-stage map, no
+// history stack needed. Songs (data/songs.js) and instruments
+// (data/instruments.js) are both plain data modules the page merely reads
+// from — adding song #8 or instrument #6 never requires touching this file.
 export default function GuidedMusicLessons() {
-  const [selectedLessonId, setSelectedLessonId] = useState(null)
-  const libraryRef = useRef(null)
+  const [stage, setStage] = useState('instrument')
+  const [instrumentId, setInstrumentId] = useState(null)
+  const [songId, setSongId] = useState(null)
+  const [difficultyKey, setDifficultyKey] = useState(null)
+  const stageRef = useRef(null)
 
-  const selectedLesson = lessons.find((lesson) => lesson.id === selectedLessonId)
+  const instruments = useLabInstruments()
+  const instrument = instruments.find((candidate) => candidate.id === instrumentId)
+  const song = getSongById(songId)
 
-  function handleStartLearning() {
-    libraryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  function goToStage(nextStage) {
+    setStage(nextStage)
+    window.scrollTo({ behavior: 'smooth', top: 0 })
   }
 
-  function handleSelectLesson(id) {
-    setSelectedLessonId(id)
-    window.scrollTo({ behavior: 'smooth', top: 0 })
+  function handleStartLearning() {
+    stageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function handleSelectInstrument(id) {
+    setInstrumentId(id)
+    goToStage('song')
+  }
+
+  function handleSelectSong(id) {
+    setSongId(id)
+    goToStage('difficulty')
+  }
+
+  function handleSelectDifficulty(key) {
+    setDifficultyKey(key)
+    goToStage('lesson')
   }
 
   return (
@@ -114,24 +62,43 @@ export default function GuidedMusicLessons() {
         </button>
       </section>
 
-      {selectedLesson ? (
-        <LessonPlayer lesson={selectedLesson} onBack={() => setSelectedLessonId(null)} />
-      ) : (
-        <section className="lesson-library" id="lesson-library" ref={libraryRef}>
-          <Reveal as="div" className="learning-section-heading">
-            <h2>The Lesson Library</h2>
-            <p>Pick a song to begin — completed lessons stay open for you to replay anytime.</p>
-          </Reveal>
+      <div id="lesson-library" ref={stageRef}>
+        {stage === 'instrument' && <InstrumentPicker onSelect={handleSelectInstrument} />}
 
-          <div className="lesson-library__grid">
-            {lessons.map((lesson, index) => (
-              <Reveal delay={index * 80} key={lesson.id}>
-                <LessonCard lesson={lesson} onSelect={handleSelectLesson} />
-              </Reveal>
-            ))}
-          </div>
-        </section>
-      )}
+        {stage === 'song' && (
+          <section aria-label="Choose a song" className="lesson-library">
+            <button className="lesson-player__back" onClick={() => goToStage('instrument')} type="button">
+              <span aria-hidden="true">←</span> Back to Instruments
+            </button>
+
+            <Reveal as="div" className="learning-section-heading">
+              <h2>Choose a Song</h2>
+              <p>Pick a song to begin — completed lessons stay open for you to replay anytime.</p>
+            </Reveal>
+
+            <div className="lesson-library__grid">
+              {SONGS.map((candidate, index) => (
+                <Reveal delay={index * 80} key={candidate.id}>
+                  <SongCard onSelect={handleSelectSong} song={candidate} />
+                </Reveal>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {stage === 'difficulty' && song && (
+          <DifficultyPicker onBack={() => goToStage('song')} onSelect={handleSelectDifficulty} song={song} />
+        )}
+
+        {stage === 'lesson' && song && instrument && difficultyKey && (
+          <LessonPlayer
+            difficultyKey={difficultyKey}
+            instrument={instrument}
+            onBack={() => goToStage('difficulty')}
+            song={song}
+          />
+        )}
+      </div>
     </div>
   )
 }
