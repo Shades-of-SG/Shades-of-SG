@@ -32,3 +32,12 @@ export async function getMyRhythmSummary(userId, token) {
   if (!response.ok) throw new Error(data.message || 'Unable to load rhythm progress.')
   return data.summary
 }
+
+export async function getMyBestScores(token) {
+  const response = await fetch(`${API_URL}/scores/best`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.message || 'Unable to load your best rhythm stats.')
+  return data.best
+}

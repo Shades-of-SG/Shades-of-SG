@@ -95,7 +95,7 @@ test('admin navigation and every legacy redirect select the intended destination
     await page.goto(legacy)
     await expect(page).toHaveURL(new RegExp(`${destination.replace(/[?]/g, '\\?')}$`))
     if (activeTab) {
-      await expect(page.getByRole('navigation', { name: 'Page sections' }).getByRole('button', { name: new RegExp(activeTab, 'i') })).toHaveAttribute('aria-current', 'page')
+      await expect(page.getByRole('navigation', { name: 'Page sections' }).getByRole('button', { name: new RegExp(`^${activeTab}`, 'i') })).toHaveAttribute('aria-current', 'page')
     }
   }
   await expectHealthyPage(page, runtime)
