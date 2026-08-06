@@ -71,7 +71,6 @@ export default function Dashboard() {
               {summary.generationJobs.map((job) => <article className="dashboard-job-item" key={job.id}><strong>{job.song?.title || 'Untitled song'}</strong><span>{job.status}</span>{job.errorMessage ? <small>{job.errorMessage}</small> : null}<Link className="inline-link" to={job.status === 'COMPLETED' ? `/creator/editor/${job.id}` : `/creator/generation/${job.id}`}>{job.status === 'COMPLETED' ? 'Open video editor' : 'View status'}</Link></article>)}
             </div>}
           </SectionCard>
-          <SectionCard title="Play analytics"><strong>Playback starts</strong><p>Open Analytics for persisted song-page views, playback starts, rhythm completions, and scores.</p><Link className="inline-link" to="/creator/analytics">View play analytics</Link></SectionCard>
         </div>
       </section>
     </> : null}

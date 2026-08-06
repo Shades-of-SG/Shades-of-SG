@@ -59,11 +59,7 @@ export default function Login() {
   const googleButtonRef = useRef(null)
   const submissionRef = useRef(false)
   const debouncedEmail = useDebouncedValue(email, 400)
-
-  useEffect(() => {
-    if (!debouncedEmail) return
-    setFieldErrors((current) => ({ ...current, email: EMAIL_PATTERN.test(debouncedEmail) ? '' : 'Enter a valid email address.' }))
-  }, [debouncedEmail])
+  const emailError = fieldErrors.email || (debouncedEmail && !EMAIL_PATTERN.test(debouncedEmail.trim()) ? 'Enter a valid email address.' : '')
 
   const completeSignIn = useCallback((data) => {
     const activeMode = signIn(data.user, data.token)
@@ -169,7 +165,7 @@ export default function Login() {
 
   return <form className="auth-form auth-form--login" onSubmit={handleSubmit}>
     <header className="auth-form__header"><p className="eyebrow">Welcome back</p><h1>Sign in</h1><p>Use the same login for registered, creator, and administrator accounts.</p></header>
-    <label className="field-stack"><span>Email</span><span className="auth-input-shell"><Mail aria-hidden="true" size={19} /><input aria-describedby={fieldErrors.email ? 'login-email-error' : undefined} aria-invalid={Boolean(fieldErrors.email)} aria-label="Email" autoComplete="email" maxLength={320} onChange={(event) => { setEmail(event.target.value); setFieldErrors((current) => ({ ...current, email: '' })) }} placeholder="name@example.com" required type="email" value={email} /></span>{fieldErrors.email ? <span className="field-hint field-hint--error" id="login-email-error">{fieldErrors.email}</span> : null}</label>
+    <label className="field-stack"><span>Email</span><span className="auth-input-shell"><Mail aria-hidden="true" size={19} /><input aria-describedby={emailError ? 'login-email-error' : undefined} aria-invalid={Boolean(emailError)} aria-label="Email" autoComplete="email" maxLength={320} onChange={(event) => { setEmail(event.target.value); setFieldErrors((current) => ({ ...current, email: '' })) }} placeholder="name@example.com" required type="email" value={email} /></span>{emailError ? <span className="field-hint field-hint--error" id="login-email-error">{emailError}</span> : null}</label>
     <label className="field-stack"><span>Password</span><span className="password-field auth-input-shell"><LockKeyhole aria-hidden="true" size={19} /><input aria-describedby={fieldErrors.password ? 'login-password-error' : undefined} aria-invalid={Boolean(fieldErrors.password)} aria-label="Password" autoComplete="current-password" maxLength={128} minLength={8} onChange={(event) => { setPassword(event.target.value); setFieldErrors((current) => ({ ...current, password: '' })) }} placeholder="Enter your password" required type={showPassword ? 'text' : 'password'} value={password} /><PasswordToggle isVisible={showPassword} onToggle={() => setShowPassword((current) => !current)} /></span>{fieldErrors.password ? <span className="field-hint field-hint--error" id="login-password-error">{fieldErrors.password}</span> : null}</label>
     {error ? <p className="form-error" role="alert">{error}</p> : null}
     <button className="primary-button" disabled={isSubmitting} type="submit">{isSubmitting ? 'Signing in...' : 'Sign in'}</button>

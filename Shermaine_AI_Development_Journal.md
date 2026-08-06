@@ -10,7 +10,7 @@ This is a personal companion to `AI_DEVELOPMENT_JOURNAL.md`, scoped to sessions 
 
 ## Summary: How Claude Code Has Been Used On This Project
 
-Across four sessions (13 July, 24 July, 4 August, 6 August 2026) and 13 tasks logged below, Claude was used for two roughly equal kinds of work — building/iterating on features, and debugging problems that came up while running the app — plus one documentation handover task.
+Across four sessions (13 July, 24 July, 4 August, 6 August 2026) and 14 tasks logged below, Claude was used for two roughly equal kinds of work — building/iterating on features, and debugging problems that came up while running the app — plus one documentation handover task.
 
 
 ### Coding & feature building
@@ -20,6 +20,7 @@ Across four sessions (13 July, 24 July, 4 August, 6 August 2026) and 13 tasks lo
 * **Small, scoped additions** — a hardcoded Archived Songs stat card (13 Jul, Task 5) — done directly against the existing pattern with no back-and-forth needed.
 * Claude was explicitly asked to check in before large builds ("checked with the user before coding" for both the Instrument Lab and Guided Lessons), and did so via clarifying questions rather than guessing at route structure, audio approach, or scope.
 * **Replacing synthetic audio with real recordings** (6 Aug, Task 1) — the very swap-in point `useInstrumentAudio` was designed for back in the 13 July session — went through plan mode again: research into royalty-free sample sources, a clarifying question on storage architecture (backend DB + Cloudinary vs. static frontend files) and on sourcing scope (ship only the one instrument with a rock-solid source vs. more), then implementation across a new migration, model fields, a seed pipeline, a public endpoint, and a frontend hydration/preload layer — followed by a second round once the user found a usable sample source for three more instruments.
+* **Iterating on an already-shipped feature across several follow-up requests in one session** (6 Aug, Task 3): the Badge & Keepsake Journal system from 4 August was revisited — original SVG sticker art replacing placeholder icons, a database table added to end a duplication risk flagged in the earlier build, a full sticker-book layout change, then two more feature additions (song-exploration badges reusing an existing analytics event, and instrument-playground progress persistence) layered on in the same conversation as the user kept extending the ask.
 
 ### Debugging
 * **Crash diagnosis from pasted stack traces**, the most common debugging pattern in this journal: a server crashing at import time from a missing `OPENAI_API_KEY` (13 Jul, Task 7), and two separate "package declared in `package.json` but never installed" import failures (`lucide-react` on 13 Jul, `wavesurfer.js` on 24 Jul) — each diagnosed to its root cause before running `npm install`, rather than just reacting to the surface error.
@@ -28,6 +29,7 @@ Across four sessions (13 July, 24 July, 4 August, 6 August 2026) and 13 tasks lo
 * **A production database error** (missing migration on the live Supabase database) diagnosed and fixed directly, but only after explicit confirmation before touching the shared database.
 * **A full revert on request** (13 Jul, Task 2) — when asked to "undo every single change," reverted committed files via `git checkout` and manually removed new CSS with no prior committed version, confirming a clean `git status` afterwards.
 * **Credential/environment troubleshooting isolated from application code** (6 Aug, Task 1): when Cloudinary uploads failed with "Invalid Signature," reproduced the same failure against the pre-existing, untouched upload code path first to rule out a code bug, then tested the raw credentials directly against Cloudinary's own API (bypassing the app entirely) to confirm the secret itself was wrong — twice, the second time isolating a single look-alike character (`1` vs `l`) after an initial fix attempt still failed.
+* **A live production `500` traced to a missed manual step, not a code bug** (6 Aug, Task 3): a new database migration had been written correctly but never actually applied to the real Supabase database this app's `.env` pointed at, since this project runs migrations manually with no auto-sync on startup — confirmed from the README before touching anything, then applied the migration directly and queried the new rows back to prove the fix, repeating the same diagnosis for a second migration later in the same session. A separate dark-mode contrast bug was traced to a hardcoded text color that stopped matching its background once a shared CSS variable flipped value under the dark theme, fixed by finding and following an existing same-pattern fix already present elsewhere in the file.
 
 ### Patterns worth noting
 * Verification was almost always empirical where possible — booting the dev server and reading its logs, checking `node_modules` for an installed version, re-running the exact query that had previously failed — rather than assuming a fix worked.
@@ -548,6 +550,82 @@ Claude
 * `cd frontend && npx vitest run` on the new/changed files — 15 tests passing across `useSequencePlayer.test.js`, `useSongProgress.test.js`, and `GuidedMusicLessons.test.jsx` (instrument→song→difficulty→lesson navigation, back-navigation at each stage, Play/Pause/Restart timing via fake timers, the Listen→Learn reset, and both click and physical-keydown paths on the free-play keyboard).
 * Explicitly re-ran `RhythmGame.test.jsx`, `RhythmHub.test.jsx`, `RhythmResults.test.jsx`, `RhythmScoreClaim.test.jsx`, `RhythmLeaderboard.test.jsx`, `rhythmScoring.test.js`, and `RegistrationScoreClaimFlow.test.jsx` (32 tests) with all changes in place — all passing, confirming the rhythm game is unaffected.
 * Ran the full frontend suite once; of the failures found, confirmed via `git stash` (reverting to the clean baseline and re-running the same 4 failing files) that they fail identically without this work, i.e. pre-existing and unrelated.
+
+---
+
+### Task 3: Badge Sticker Book Overhaul, Song Exploration Badges & Instrument Playground Progress Persistence
+
+#### AI Tool Used
+Claude
+
+#### Prompts
+* "Find the files that are responsible for badges I want to work on my badges next. Please make it such that before the badge flips, it shows the badge name and when its clicked and flipped over, it shows the badge description. Right now, when the badge is earned its labelled like 'Merlion' or 'Esplanade' and I do not want that. As for the sticker design, please generate your own images with inspiration from the images I have attached. Feel free to generate ones that look like Singapore's delicacies, landmarks etc. but please make it look like a sticker/stamp (image with white curved borders as seen in the references). Ensure that these badges are stored in the database. Overall, I want it to be a sticker book (instead of separate pages) where all stickers are greyed out and when a sticker/badge is earned, it appears coloured in."
+* Clarifying answers given: confirmed proceeding with hand-drawn original SVG stickers since no reference images had actually attached to the first message; approved a single grid grouped by category (no pagination); approved adding a new `badge_definitions` database table as the single source of truth for badge display metadata. Two reference images (a Singapore boarding-pass sticker collage featuring a Merlion medallion, and a Vanda Miss Joaquim orchid postage stamp) were then attached mid-turn "for inspiration."
+* "theres an internal server error: Failed to load resource: the server responded with a status of 500 (Internal Server Error) ... :5000/api/badges/catalog:1" (repeated three times).
+* "add 3 more badges for song exploration: first song: explore a song for the first time (click the explore song button); curious bug: explore 3 songs; song explorer: explore 5 songs."
+* A screenshot of the "Consistency" badge section in dark mode + "the text is not visible on dark mode, fix this:"
+* "For the fun challenges on the instrument playground, after the user has completed all 3, please store the progress in the db because right now when I refresh as a logged in user, it resets my progress. Ensure that users cant earn the same badge twice"
+* "add all changes into my ai development journal under the date 6 august and include debugging done as well"
+
+#### Files Created
+* `backend/migrations/026_badge_definitions.sql`, `backend/migrations/027_song_exploration_badges.sql`
+* `backend/models/BadgeDefinition.js`, `backend/models/SongExploration.js`
+* `backend/tests/songExplorationBadges.test.js`
+* `frontend/src/components/profile/badgeStickers.jsx`
+
+#### Files Modified
+* `backend/models/index.js`
+* `backend/routes/badges.js`, `backend/routes/analytics.js`, `backend/routes/instrumentPlayground.js`
+* `backend/services/badgeAwardService.js`, `backend/services/badgeCatalog.js`
+* `backend/tests/badges.test.js`
+* `frontend/src/App.css`, `frontend/src/Profile.css`
+* `frontend/src/components/BadgeShelf.jsx`, `frontend/src/components/lab/InstrumentPlayer.jsx`
+* `frontend/src/components/profile/KeepsakeJournal.jsx`, `frontend/src/components/profile/ProfileBadges.jsx`, `frontend/src/components/profile/badgeDefinitions.js`
+* `frontend/src/services/badgeService.js`, `frontend/src/services/instrumentPlaygroundService.js`
+
+#### Changes Made
+
+**Sticker book redesign**
+* Added a `badge_definitions` table (name, description, category, `image_key`, `sort_order`) as the single source of truth for badge display metadata, ending the pre-existing duplication between a hardcoded backend catalog and a separate hardcoded frontend catalog flagged as a risk during the original 4 August build. `badgeCatalog.js` now holds only earning-condition predicates; `badgeAwardService.js` looks up the description from the new table when awarding.
+* Added a new `GET /api/badges/catalog` route and had the frontend fetch it instead of keeping its own copy.
+* Replaced all lucide-icon placeholders with 9 original flat-vector SVG "sticker/stamp" illustrations (`badgeStickers.jsx`) — a hand-generated scalloped white die-cut border wrapped around Singapore-themed art (Merlion medallion, chicken rice, laksa, kaya toast, Gardens by the Bay supertree, National Gallery, Peranakan tile, Raffles Hotel, Esplanade) — drawn to match the style of the two reference images the user attached.
+* Rebuilt `KeepsakeJournal.jsx` from a paginated-by-category sticker book into one continuous page, still grouped by category via section headings but with no pagination/nav buttons, and changed it to always render the full 9-badge catalog rather than hiding behind an empty state when nothing is earned yet.
+* Fixed the flip direction and content: the front face now shows only the sticker art and the badge's own name (e.g. "Day One"); flipping reveals the description and earned date. The landmark label ("Merlion"/"Esplanade") shown on earned badges was removed entirely, per the explicit complaint.
+* Locked badges now render the same full-color sticker art as earned ones, CSS-greyscaled (`filter: grayscale(1)`) rather than a separate dashed-outline placeholder, so the whole 9-badge book is always visible and "colours in" on earning rather than appearing from nothing.
+* Updated `BadgeShelf.jsx` (the Landing-page badge list) to use the same sticker thumbnails instead of a generic Award icon.
+
+**Song exploration badges**
+* Added a `song_explorations` table (unique per `user_id, song_id`, mirroring the existing `instrument_challenge_progress` dedup pattern) and 3 new badge definitions: "First Song" (1 distinct song explored), "Curious Bug" (3), "Song Explorer" (5).
+* Hooked exploration tracking into the existing `POST /api/analytics/events` handler rather than adding a new frontend click handler: visiting a song's detail page already fires a `SONG_PAGE_VIEWED` analytics event, so that handler now also does a `findOrCreate` against `song_explorations` (so replays/reloads of the same song never double-count) and calls `evaluateAndAward` for logged-in users.
+* Added 3 more sticker designs (orchid, Peranakan shophouse row, Marina Bay Sands) for the new badges.
+
+**Instrument Playground progress persistence**
+* Added a `GET /api/instrument-playground/challenges/progress` route returning a logged-in user's completed challenge ids from the pre-existing `instrument_challenge_progress` table.
+* Wired `InstrumentPlayer.jsx` to fetch that on mount into a `completedChallengeIds` state and seed the existing `reportedChallenges` ref from it, so already-completed challenges are never re-POSTed; the challenge checklist now renders `completedChallengeIds.has(id) || challenge.isComplete(...)` instead of deriving completion purely from the in-session `playedIndexes` set, which previously reset to nothing on every page refresh.
+
+#### How AI Helped
+* Diagnosed the `500` on `/api/badges/catalog` by checking `backend/.env` directly rather than guessing: found the backend was pointed at a live Supabase Postgres database (not local SQLite), and confirmed via the project's own README that this app applies migrations manually with no `sequelize.sync()` on startup — so the newly-written `026_badge_definitions.sql` had simply never been run against that database. Applied it directly with a short `pg` script after confirming the migration was purely additive (`create table if not exists` + `insert ... on conflict do nothing`), then queried the table back to confirm all 9 rows landed before calling it fixed. Did the same for the second song-exploration migration later in the same session.
+* Diagnosed the dark-mode text-visibility bug from the screenshot by tracing the flipped sticker's back-face styling to a hardcoded `color: #5b3a12` (dark brown) sitting on `background: var(--pf-gold)` — and found that `--pf-gold` itself is redefined to a dark brown (`#403627`) under `[data-theme='dark']`, producing dark-on-dark text. Confirmed the fix pattern already existed elsewhere in the same file (`.profile-grade--S` has an explicit `[data-theme='dark']` override for the identical `--pf-gold`-background situation) before applying the general fix: replacing the hardcoded color with `var(--pf-ink)`, which is light in dark mode and dark in light mode, keeping both themes readable without adding a bespoke dark-mode override.
+* Verified badge-duplication safety before changing anything, rather than assuming: traced every `Badge` row insertion in the codebase back to a single `findOrCreate` call in `badgeAwardService.js`, backed by the pre-existing unique `(user_id, name)` database index from the 4 August migration, and confirmed via grep that no other code path (`Badge.create`/`bulkCreate`/`upsert`) exists anywhere in production code — reported this as already solid rather than adding redundant checks.
+* Ran the full backend and frontend test suites after each round of changes, not just the directly-touched tests. When unrelated failures surfaced (a `beatmaps.test.js` timeout under parallel load, `UserProfileSystem.test.jsx`, `pendingScoreClaim.test.js`, and later a `userProfiles.test.js` rhythm-score assertion), reproduced each one in isolation first to rule out cross-test contention, then confirmed via `git stash` that every one of them failed identically on the unmodified branch before concluding they were pre-existing and unrelated to this session's work.
+* Wrote and ran new tests rather than relying on manual inspection: `songExplorationBadges.test.js` exercises the real API end-to-end (visits one song twice — confirms it only counts once — then enough more to earn all three new badges in sequence), and a new case in `badges.test.js` completes the same instrument challenge twice and confirms only one `instrument_challenge_progress` row exists and the new `GET .../progress` route reflects it correctly.
+
+#### Decisions Made
+* Kept the earning-condition logic (login-streak thresholds, reflection counts, etc.) in `badgeCatalog.js` as code rather than moving it into the database, since only the *display* metadata (name, description, category, art) was actually duplicated between backend and frontend — the thresholds themselves aren't data a non-engineer would edit through a table.
+* Hooked song-exploration tracking into the existing `SONG_PAGE_VIEWED` analytics event rather than adding a dedicated new endpoint or frontend click handler, since navigating to a song's detail page (what "click the Explore Song button" actually does) already fires that event — reusing it meant zero new frontend wiring for the exploration-tracking half of the feature.
+* Made the sticker book always render its full 9-badge catalog, greyed out, even for a user with zero earned badges — changing `ProfileBadges.jsx`'s empty-state logic to gate on whether the catalog loaded at all, not on whether the user has earned anything — since "the whole book, greyed out" was the explicit design intent, not an empty state.
+* Fixed the dark-mode contrast bug by switching to an existing theme-aware CSS variable (`--pf-ink`) instead of adding a new `[data-theme='dark']` override rule, since the variable already flips appropriately in both themes and a matching precedent (`.profile-grade--S`) confirmed that was the established pattern in this file.
+
+#### Remaining Work
+* The sticker art was generated as original SVG illustrations inspired by, but not directly matching, the two reference images attached mid-conversation (a boarding-pass collage and an orchid postage stamp) — the user may want the badges restyled closer to one specific reference's look.
+* No automated test exists yet for the sticker book's dark-mode contrast beyond the specific bug just fixed; other newer components in this session (e.g. the new sticker SVGs) haven't been checked against the dark theme as thoroughly as the flip-card fix that prompted this task.
+
+#### Verification
+* `cd backend && npx jest tests/badges.test.js` and `tests/songExplorationBadges.test.js` — all passing, including the new duplicate-completion and distinct-song-exploration cases.
+* `cd frontend && npx vitest run src/pages/Profile.test.jsx` — 17/17 passing after the sticker book rewrite.
+* `cd backend && npx jest --runInBand` and `cd frontend && npx vitest run` (full suites) — all failures found were confirmed pre-existing and unrelated via isolated re-runs and `git stash` comparison against the unmodified branch.
+* `cd frontend && npx eslint` on every changed file — clean.
+* Applied both new migrations directly against the live Supabase database and queried the resulting rows back (9 badge definitions, then 12 after the song-exploration additions) to confirm the `500` was actually resolved, not just fixed in theory.
 
 ---
 

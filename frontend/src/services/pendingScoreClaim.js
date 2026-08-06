@@ -76,6 +76,10 @@ export function storePendingScoreClaim(result, now = Date.now()) {
 }
 
 export function clearPendingScoreClaim(claimId) {
-  const pending = readPendingScoreClaim()
-  if (!pending || pending.claimId === claimId) sessionStorage.removeItem(STORAGE_KEY)
+  try {
+    const pending = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null')
+    if (!validClaim(pending) || pending.claimId === claimId) sessionStorage.removeItem(STORAGE_KEY)
+  } catch {
+    sessionStorage.removeItem(STORAGE_KEY)
+  }
 }

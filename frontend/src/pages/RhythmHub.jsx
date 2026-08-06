@@ -20,10 +20,7 @@ function formatDuration(durationSecs) {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return ''
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
-  const parts = []
-  if (minutes) parts.push(`${minutes} ${minutes === 1 ? 'min' : 'mins'}`)
-  if (seconds) parts.push(`${seconds} ${seconds === 1 ? 'sec' : 'secs'}`)
-  return parts.join(' ')
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
 function formatScore(score) {

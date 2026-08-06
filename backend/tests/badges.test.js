@@ -108,6 +108,21 @@ describe('instrument playground badge', () => {
             .set(authorization(user));
         expect(response.status).toBe(400);
     });
+
+    test('persists progress so it survives a refresh, and completing an already-done challenge again does not duplicate it', async () => {
+        const user = await freshUser('instrument-progress@example.com');
+        const complete = (challengeId) => request(app)
+            .post(`/api/instrument-playground/challenges/${challengeId}/complete`)
+            .set(authorization(user));
+
+        await complete('three-notes');
+        await complete('three-notes'); // repeat completion (e.g. re-triggered client-side) must not duplicate
+
+        const progress = await request(app).get('/api/instrument-playground/challenges/progress').set(authorization(user));
+        expect(progress.status).toBe(200);
+        expect(progress.body.completedChallengeIds).toEqual(['three-notes']);
+        expect(await InstrumentChallengeProgress.count({ where: { challengeId: 'three-notes', userId: user.id } })).toBe(1);
+    });
 });
 
 describe('evaluateAndAward idempotency', () => {

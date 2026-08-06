@@ -12,7 +12,7 @@ const publicSeeds = [
 const creatorSeeds = [
   '/profile', '/settings', '/creator/dashboard', '/creator/studio/new', `/creator/studio/${ids.song}`,
   '/creator/songs', '/creator/generation', `/creator/generation/${ids.job}`, `/creator/editor/${ids.job}`,
-  '/creator/reflections', '/creator/folders', '/creator/analytics', '/creator/profile', '/creator/profile/edit',
+  '/creator/reflections', '/creator/profile', '/creator/profile/edit',
 ]
 
 const adminSeeds = ['/admin', '/admin/creators', '/admin/content', '/admin/community', '/admin/activity']

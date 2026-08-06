@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import useInstrumentAudio from '../../hooks/useInstrumentAudio'
 import { useAuth } from '../../context/AuthContext'
-import { completeInstrumentChallenge } from '../../services/instrumentPlaygroundService'
+import { completeInstrumentChallenge, getInstrumentChallengeProgress } from '../../services/instrumentPlaygroundService'
 
 const CHALLENGES = [
   {
@@ -29,6 +29,9 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
   const [liveMessage, setLiveMessage] = useState(
     () => `${instrument.name} ready. Tap a pad or use your keyboard to play.`
   )
+  // Challenges already completed in a *previous* session, loaded from the backend — without
+  // this, progress derived only from `playedIndexes` resets to nothing on every page refresh.
+  const [completedChallengeIds, setCompletedChallengeIds] = useState(() => new Set())
   const activeNoteTimeout = useRef(null)
   const reportedChallenges = useRef(new Set())
 
@@ -38,17 +41,33 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
 
   useEffect(() => {
     if (!token) return
+    let active = true
+    getInstrumentChallengeProgress(token)
+      .then((ids) => {
+        if (!active) return
+        ids.forEach((id) => reportedChallenges.current.add(id))
+        setCompletedChallengeIds(new Set(ids))
+      })
+      .catch((error) => console.error('[Instrument Playground]', error))
+    return () => { active = false }
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
     const newlyCompleted = CHALLENGES.filter((challenge) => (
       !reportedChallenges.current.has(challenge.id)
       && challenge.isComplete(playedIndexes, instrument.notes.length)
     ))
+    if (!newlyCompleted.length) return
     newlyCompleted.forEach((challenge) => reportedChallenges.current.add(challenge.id))
     // Reported one at a time (not in parallel) so simultaneous challenge completions
     // don't race each other as concurrent writes for the same user.
     newlyCompleted.reduce(
       (chain, challenge) => chain.then(() => completeInstrumentChallenge(challenge.id, token)),
       Promise.resolve()
-    ).catch((error) => {
+    ).then(() => {
+      setCompletedChallengeIds((current) => new Set([...current, ...newlyCompleted.map((challenge) => challenge.id)]))
+    }).catch((error) => {
       console.error('[Instrument Playground]', error)
     })
   }, [instrument.notes.length, playedIndexes, token])
@@ -166,7 +185,8 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
             <p className="lab-challenges__label">Fun Challenges</p>
             <ul className="lab-challenges__list">
               {CHALLENGES.map((challenge) => {
-                const isComplete = challenge.isComplete(playedIndexes, instrument.notes.length)
+                const isComplete = completedChallengeIds.has(challenge.id)
+                  || challenge.isComplete(playedIndexes, instrument.notes.length)
 
                 return (
                   <li className={`lab-challenge ${isComplete ? 'is-complete' : ''}`} key={challenge.id}>

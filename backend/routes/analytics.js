@@ -1,10 +1,11 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const {
-    AnalyticsEvent, Folder, Song, sequelize,
+    AnalyticsEvent, Folder, sequelize, Song, SongExploration,
 } = require('../models');
 const { optionalAuth, requireCreator } = require('../middleware/auth');
 const { isUuid } = require('../middleware/validateUuid');
+const { evaluateAndAward } = require('../services/badgeAwardService');
 const { creatorAnalyticsSummary } = require('../services/creatorAnalyticsService');
 
 const router = express.Router();
@@ -61,6 +62,13 @@ router.post('/events', optionalAuth, async (req, res, next) => {
                 songId,
                 userId,
             }, { transaction });
+
+            // Song exploration badges only count a distinct song once per user, no matter how
+            // many times the page is viewed/reloaded (findOrCreate is a no-op on repeat visits).
+            if (eventType === 'SONG_PAGE_VIEWED' && userId && songId) {
+                await SongExploration.findOrCreate({ transaction, where: { songId, userId } });
+                await evaluateAndAward(userId, { transaction });
+            }
         });
         return res.status(202).json({ accepted: true });
     } catch (error) { return next(error); }

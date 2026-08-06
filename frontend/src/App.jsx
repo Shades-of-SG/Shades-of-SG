@@ -46,8 +46,6 @@ import './Profile.css'
 import CreatorGenerationJobs from './pages/CreatorGenerationJobs'
 import VideoEditor from './pages/VideoEditor'
 import CreatorApplication from './pages/CreatorApplication'
-import CreatorFolders from './pages/CreatorFolders'
-import CreatorAnalytics from './pages/CreatorAnalytics'
 import AdminLayout from './layouts/AdminLayout'
 import AdminActivityPage from './pages/AdminActivityPage'
 import AdminCommunityPage from './pages/AdminCommunityPage'
@@ -160,10 +158,7 @@ function App() {
             <Route element={<CreatorGenerationJobs />} path="/creator/generation" />
             <Route element={<GenerationProgress />} path="/creator/generation/:id" />
             <Route element={<VideoEditor />} path="/creator/editor/:id" />
-            <Route element={<Navigate replace to="/creator/analytics" />} path="/creator/plays" />
             <Route element={<ReflectionModeration />} path="/creator/reflections" />
-            <Route element={<CreatorFolders />} path="/creator/folders" />
-            <Route element={<CreatorAnalytics />} path="/creator/analytics" />
             <Route element={<CreatorProfile />} path="/creator/profile" />
             <Route element={<CreatorProfileSettings />} path="/creator/profile/edit" />
             <Route element={<Navigate replace to="/settings/profile" />} path="/creator/settings" />

@@ -173,27 +173,21 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/creator/reflections')
   })
 
-  it('redirects the legacy creator plays route to the main analytics page', async () => {
-    localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
-    window.history.pushState({}, '', '/creator/plays')
-    vi.stubGlobal('fetch', vi.fn(async () => ({
-      json: async () => ({
-        events: { SONG_PLAYBACK_STARTED: 3 }, generationJobs: {}, reflections: {}, rhythmScores: 2,
-        songs: { PUBLISHED: 1, total: 1 },
-      }),
-      ok: true,
-      status: 200,
-    })))
+  it.each(['/creator/folders', '/creator/analytics', '/creator/plays'])(
+    'does not expose the removed creator page at %s',
+    async (path) => {
+      localStorage.setItem('activeMode', 'creator')
+      localStorage.setItem('authToken', 'creator-token')
+      localStorage.setItem('authUser', JSON.stringify({
+        accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+      }))
+      window.history.pushState({}, '', path)
 
-    render(<AuthProvider><App /></AuthProvider>)
+      render(<AuthProvider><App /></AuthProvider>)
 
-    await waitFor(() => expect(window.location.pathname).toBe('/creator/analytics'))
-    expect(await screen.findByRole('heading', { name: 'My song analytics' })).toBeInTheDocument()
-    expect(screen.getByText('Playback starts')).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Total Plays' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Analytics' })).toHaveAttribute('href', '/creator/analytics')
-  })
+      expect(await screen.findByRole('heading', { name: 'Page Not Found' })).toBeInTheDocument()
+    },
+  )
 
   it('blocks a creator-suspended user from direct creator URLs while keeping regular-user navigation', async () => {
     localStorage.setItem('authToken', 'creator-token')
@@ -534,7 +528,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Archive song' })).toBeEnabled()
   })
 
-  it('renders real dashboard summary counts without fake play totals', async () => {
+  it('renders real dashboard summary counts', async () => {
     localStorage.setItem('authToken', 'creator-token')
     localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/dashboard')
@@ -546,11 +540,8 @@ describe('App', () => {
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByText('Play analytics')).toBeInTheDocument()
-    expect(screen.getByText('Playback starts')).toBeInTheDocument()
-    expect(screen.getByRole('link', {
-      name: 'View play analytics',
-    })).toHaveAttribute('href', '/creator/analytics')
+    expect(await screen.findByText('Total Songs')).toBeInTheDocument()
+    expect(screen.getByText('Published')).toBeInTheDocument()
     expect(screen.queryByText('1,240')).not.toBeInTheDocument()
     expect(screen.queryByText('Plays this week:')).not.toBeInTheDocument()
   })

@@ -219,6 +219,7 @@ describe('authentication onboarding pages', () => {
     renderLogin(fetchMock)
 
     expect(await screen.findByRole('button', { name: 'Continue with Google' })).toBeInTheDocument()
+    await waitFor(() => expect(window.google.accounts.id.initialize).toHaveBeenCalled())
     await act(async () => { await googleCallback({ credential: 'google-id-token' }) })
     expect(await screen.findByText('Creator destination')).toBeInTheDocument()
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/auth/oauth/google'))

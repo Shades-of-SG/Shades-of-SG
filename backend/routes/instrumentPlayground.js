@@ -6,6 +6,18 @@ const { INSTRUMENT_CHALLENGE_IDS } = require('../services/badgeCatalog');
 
 const router = express.Router();
 
+// Lets the frontend restore which challenges are already done on load/refresh, instead of
+// re-deriving completion purely from in-session note presses (which reset on every reload).
+router.get('/challenges/progress', requireAuth, async (req, res, next) => {
+    try {
+        const progress = await InstrumentChallengeProgress.findAll({
+            attributes: ['challengeId'],
+            where: { userId: req.authUserRecord.id },
+        });
+        return res.json({ completedChallengeIds: progress.map((row) => row.challengeId) });
+    } catch (error) { return next(error); }
+});
+
 router.post('/challenges/:challengeId/complete', requireAuth, async (req, res, next) => {
     try {
         const { challengeId } = req.params;
