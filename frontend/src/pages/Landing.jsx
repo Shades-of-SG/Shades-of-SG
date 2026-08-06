@@ -8,7 +8,6 @@ import FeatureCard from '../components/FeatureCard'
 import PageHeader from '../components/PageHeader'
 import ReflectionCard from '../components/ReflectionCard'
 import RhythmStatCard from '../components/RhythmStatCard'
-import SectionCard from '../components/SectionCard'
 import SongCard from '../components/SongCard'
 import StatCard from '../components/StatCard'
 import { useAuth } from '../context/AuthContext'
@@ -77,8 +76,6 @@ export default function Landing() {
   const comboBest = bestScores?.maxCombo
   const rankBest = bestScores?.rank
 
-
-  
   return (
     <div className="page-stack landing-page">
       {user ? <p className="welcome-banner">Welcome, {user.name}</p> : null}
@@ -92,11 +89,11 @@ export default function Landing() {
           />
           <div className="hero-actions">
             <Link className="primary-link" to="/songs">
-              Browse Songs
+              Explore Songs
             </Link>
-            <Link className="secondary-link" to="/rhythm-game">
-              Play Rhythm Game
-            </Link>
+            <a className="secondary-link" href="#journey">
+              Discover How It Works
+            </a>
           </div>
         </div>
       </section>
@@ -216,7 +213,6 @@ export default function Landing() {
               </Link>
           </div>
 
-          
           <div className="feature-row rhythm-stats-row" aria-label="Your best rhythm game stats">
             <RhythmStatCard difficulty={scoreBest?.difficulty} icon={<Trophy />} label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
             <RhythmStatCard difficulty={accuracyBest?.difficulty} icon={<Target />} label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
@@ -271,5 +267,3 @@ export default function Landing() {
     </div>
   )
 }
-
- 

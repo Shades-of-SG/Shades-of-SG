@@ -90,9 +90,9 @@ The following paths that the destructive Public 1 revert would have removed are 
 
 - Frontend production build: passed.
 - Targeted Public 1 backend tests: 30 passed out of 30.
-- Targeted Songs Library frontend tests: 14 passed out of 14.
+- Targeted Landing and Songs Library frontend tests: 17 passed out of 17.
 - Current `main` full frontend baseline: 11 failures and 257 passes.
-- Integration full frontend suite: 15 failures and 259 passes.
+- Integration full frontend suite after compatibility fixes: the same 11 known failures and 263 passes.
+- Lint for all files changed by the compatibility fix: passed.
 
-The integration fixes four Reflection Moderation failures seen on `main`, but introduces failures around Public 1's Landing replacement and several full-suite timeouts. These are semantic/test-expectation differences rather than Git merge conflicts and should be reviewed before merging the integration branch into `main`.
-
+The integration introduces no additional frontend test failures relative to `main`. Compatibility fixes preserve Public 1's landing-page stats, badges and carousels while restoring Main's established hero links, supplying the required auth/service context in landing tests, avoiding unnecessary zero-value count-up animation frames, and removing two integration-specific lint errors.

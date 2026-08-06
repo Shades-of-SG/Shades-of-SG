@@ -266,7 +266,10 @@ function SongReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
     }
   }, [songIds, sort, token])
 
-  useEffect(() => { refresh(1) }, [refresh])
+  useEffect(() => {
+    const timer = window.setTimeout(() => refresh(1), 0)
+    return () => window.clearTimeout(timer)
+  }, [refresh])
 
   async function submitOutcome() {
     if (modal.reason.trim().length < 5) { onFeedback({ message: 'Enter a specific resolution reason.', type: 'error' }); return }
