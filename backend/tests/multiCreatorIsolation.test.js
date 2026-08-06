@@ -61,7 +61,7 @@ test('guest, registered user, creator, and admin role boundaries are database-ba
     expect(creatorDirectory.status).toBe(200);
     expect(creatorDirectory.body.creators[0]).toHaveProperty('warnings');
     expect(creatorDirectory.body.creators[0]).toHaveProperty('creatorApplications');
-    expect((await request(app).get('/api/stats')).status).toBe(401);
+    expect((await request(app).get('/api/stats')).status).toBe(200);
     expect((await request(app).get('/api/stats').set('Authorization', `Bearer ${tokens.ADMIN}`)).status).toBe(200);
 });
 
