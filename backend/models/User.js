@@ -28,13 +28,12 @@ const User = sequelize.define('User', {
         defaultValue: 'REGISTERED',
     },
     accountStatus: {
-        type: DataTypes.ENUM('ACTIVE', 'SUSPENDED', 'DELETED'),
+        type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
         allowNull: false,
         defaultValue: 'ACTIVE',
         field: 'account_status',
     },
     accountSuspensionReason: { type: DataTypes.TEXT, allowNull: true, field: 'account_suspension_reason' },
-    deletedAt: { type: DataTypes.DATE, allowNull: true, field: 'deleted_at' },
     creatorAccessStatus: {
         type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
         allowNull: false,

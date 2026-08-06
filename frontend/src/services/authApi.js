@@ -36,8 +36,3 @@ export async function updateProfile(values, token) {
   const data = await authRequest('/profile', jsonRequest('PUT', values, token))
   return data.user
 }
-
-export const requestEmailChange = (password, newEmail, token) => authRequest('/email-change/request', jsonRequest('POST', { newEmail, password }, token))
-export const verifyEmailChangeOtp = (newEmail, code, token) => authRequest('/email-change/verify', jsonRequest('POST', { code, newEmail }, token))
-export const completeEmailChange = (changeToken, token) => authRequest('/email-change/complete', jsonRequest('POST', { changeToken }, token))
-export const deleteMyAccount = (password, token) => authRequest('/account', jsonRequest('DELETE', { password }, token))

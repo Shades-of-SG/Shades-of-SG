@@ -14,3 +14,12 @@ export async function getCommunityStats() {
     Object.keys(EMPTY_STATS).map((key) => [key, Number.isInteger(data[key]) && data[key] >= 0 ? data[key] : 0]),
   )
 }
+
+export async function getMyStats(token) {
+  const response = await fetch(`${API_URL}/stats/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(data.message || 'Unable to load your statistics.')
+  return data
+}

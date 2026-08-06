@@ -65,11 +65,6 @@ function MainExperience() {
   return <MainLayout role={user && hasActiveAccount(user) ? 'user' : 'guest'} />
 }
 
-function ResetPasswordFromSettings() {
-  const { signOut } = useAuth()
-  return <ResetPassword afterCompletePath="/login" onComplete={signOut} requestPath="/settings/security/password/request" />
-}
-
 function AuthExperience() {
   const { activeMode, user } = useAuth()
 
@@ -129,8 +124,6 @@ function App() {
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="profile" /></ProtectedRoute>} path="/settings/profile" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="account-security" /></ProtectedRoute>} path="/settings/account-security" />
           <Route element={<ProtectedRoute isAllowed={isNormalUser}><Settings section="data-privacy" /></ProtectedRoute>} path="/settings/data-privacy" />
-          <Route element={<ProtectedRoute isAllowed={isNormalUser}><ForgotPassword backLabel="Back to settings" backPath="/settings/account-security" nextPath="/settings/security/password/verify" /></ProtectedRoute>} path="/settings/security/password/request" />
-          <Route element={<ProtectedRoute isAllowed={isNormalUser}><ResetPasswordFromSettings /></ProtectedRoute>} path="/settings/security/password/verify" />
           <Route element={<PrivacyPolicy />} path="/privacy" />
           <Route element={<TermsAndConditions />} path="/terms" />
         </Route>

@@ -62,12 +62,8 @@ function escapeHtml(value) {
 }
 
 function otpTemplate({ code, name, purpose }) {
-    const title = purpose === 'PASSWORD_RESET' ? 'Reset your Shades of SG password'
-        : purpose === 'EMAIL_CHANGE' ? 'Verify your new Shades of SG email address'
-            : 'Verify your Shades of SG email';
-    const action = purpose === 'PASSWORD_RESET' ? 'password reset'
-        : purpose === 'EMAIL_CHANGE' ? 'email address change'
-            : 'account registration';
+    const title = purpose === 'PASSWORD_RESET' ? 'Reset your Shades of SG password' : 'Verify your Shades of SG email';
+    const action = purpose === 'PASSWORD_RESET' ? 'password reset' : 'account registration';
     const safeName = escapeHtml(name || 'there');
     return {
         subject: title,

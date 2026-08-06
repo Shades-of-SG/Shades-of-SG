@@ -3,7 +3,6 @@ import { LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import PasswordToggle from '../components/PasswordToggle'
 import { useAuth } from '../context/AuthContext'
-import useDebouncedValue from '../hooks/useDebouncedValue'
 import { getAuthConfig, getOauthChallenge, loginWithApple, loginWithEmail, loginWithGoogle } from '../services/authApi'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
 import { safeReturnPath, storeRegistrationReturn } from '../services/safeReturnPath'
@@ -58,12 +57,6 @@ export default function Login() {
   const [googleReady, setGoogleReady] = useState(false)
   const googleButtonRef = useRef(null)
   const submissionRef = useRef(false)
-  const debouncedEmail = useDebouncedValue(email, 400)
-
-  useEffect(() => {
-    if (!debouncedEmail) return
-    setFieldErrors((current) => ({ ...current, email: EMAIL_PATTERN.test(debouncedEmail) ? '' : 'Enter a valid email address.' }))
-  }, [debouncedEmail])
 
   const completeSignIn = useCallback((data) => {
     const activeMode = signIn(data.user, data.token)

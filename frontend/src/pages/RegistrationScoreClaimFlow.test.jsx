@@ -26,8 +26,8 @@ function renderApp() {
 function completeRegistrationForm() {
   fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'New Player' } })
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new-player@example.com' } })
-  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'Secure-Pass-123!' } })
-  fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'Secure-Pass-123!' } })
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secure-pass-123' } })
+  fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'secure-pass-123' } })
   fireEvent.click(screen.getByLabelText(/I accept the Terms of Use/))
   fireEvent.click(screen.getByLabelText(/I accept the Privacy Policy/))
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
