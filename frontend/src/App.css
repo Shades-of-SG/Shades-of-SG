@@ -12914,6 +12914,7 @@ textarea {
   .carousel-item {
     flex: 0 0 calc(33.333% - 14px);
   }
+}
 
 .landing-reflections.landing-reflections--two {
   grid-template-columns: repeat(2, minmax(0, 360px));
