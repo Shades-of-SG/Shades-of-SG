@@ -70,7 +70,7 @@ test('primary guest, registered, creator, and admin journeys have no page errors
   const journeys = [
     { account: null, mode: 'user', paths: ['/', '/songs', '/learning', '/rhythm-game', '/reflections'] },
     { account: accounts.registered, mode: 'user', paths: ['/profile', '/settings', '/apply/creator'] },
-    { account: accounts.creator, mode: 'creator', paths: ['/creator/dashboard', '/creator/songs', '/creator/generation', `/creator/editor/${ids.job}`, '/creator/folders', '/creator/analytics', '/creator/profile'] },
+    { account: accounts.creator, mode: 'creator', paths: ['/creator/dashboard', '/creator/songs', '/creator/generation', `/creator/editor/${ids.job}`, '/creator/profile'] },
     { account: accounts.admin, mode: 'user', paths: ['/admin', '/admin/creators', '/admin/content', '/admin/community', '/admin/activity'] },
   ]
 

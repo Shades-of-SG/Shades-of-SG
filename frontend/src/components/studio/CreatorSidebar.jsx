@@ -7,8 +7,6 @@ const navigationItems = [
   { label: 'Studio', shortLabel: 'ST', to: '/creator/studio/new' },
   { label: 'Songs', shortLabel: 'SG', to: '/creator/songs' },
   { label: 'Generation Jobs', shortLabel: 'GJ', to: '/creator/generation' },
-  { label: 'Collections', shortLabel: 'CO', to: '/creator/folders' },
-  { label: 'Analytics', shortLabel: 'AN', to: '/creator/analytics' },
   { label: 'Reflection Moderation', shortLabel: 'RM', to: '/creator/reflections' },
   { label: 'Profile', shortLabel: 'PR', to: '/creator/profile' },
   { label: 'Settings', shortLabel: 'SE', to: '/settings' },

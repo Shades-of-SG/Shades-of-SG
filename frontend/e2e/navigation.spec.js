@@ -59,13 +59,13 @@ test('creator mode exposes every creator tool and opens completed jobs in the ed
 
   const creatorNav = page.getByRole('navigation', { name: 'Creator navigation' })
   const expectedLinks = {
-    Analytics: '/creator/analytics', Collections: '/creator/folders', 'Generation Jobs': '/creator/generation',
-    'My Songs': '/creator/songs', Studio: '/creator/studio/new',
+    'Generation Jobs': '/creator/generation', 'My Songs': '/creator/songs', Studio: '/creator/studio/new',
   }
   for (const [name, href] of Object.entries(expectedLinks)) {
     await expect(creatorNav.getByRole('link', { name })).toHaveAttribute('href', href)
   }
-  await expect(page.getByRole('link', { name: 'View play analytics' })).toHaveAttribute('href', '/creator/analytics')
+  await expect(creatorNav.getByRole('link', { name: 'Collections' })).toHaveCount(0)
+  await expect(creatorNav.getByRole('link', { name: 'Analytics' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Open video editor' })).toHaveAttribute('href', `/creator/editor/${ids.job}`)
   await page.getByRole('link', { name: 'Open video editor' }).click()
   await expect(page.getByRole('heading', { name: 'Timeline Editor' })).toBeVisible()

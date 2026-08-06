@@ -6,8 +6,6 @@ const creatorLinks = [
   { icon: 'edit', label: 'Studio', to: '/creator/studio/new' },
   { icon: 'jobs', label: 'Generation Jobs', to: '/creator/generation' },
   { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
-  { icon: 'music', label: 'Collections', to: '/creator/folders' },
-  { icon: 'dashboard', label: 'Analytics', to: '/creator/analytics' },
 ]
 
 function SidebarIcon({ type }) {

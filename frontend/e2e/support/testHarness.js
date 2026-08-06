@@ -80,9 +80,6 @@ function responseFor(pathname, method, account) {
   if (pathname === '/api/reflections/moderation') return { body: { pagination: { limit: 8, page: 1, total: 0, totalPages: 0 }, reflections: [], stats: { approved: 0, flagged: 0, newToday: 0, newYesterday: 0, pending: 0, rejected: 0 } } }
   if (pathname === '/api/creator-applications/mine') return { body: { applications: [] } }
   if (pathname === '/api/folders') return { body: { folders: [] } }
-  if (pathname === '/api/folders/proposals/mine') return { body: { folders: [] } }
-  if (pathname === '/api/folders/placements/mine') return { body: { proposals: [] } }
-  if (pathname === '/api/analytics/creator') return { body: { events: { RHYTHM_GAME_COMPLETED: 0, SONG_PAGE_VIEWED: 1, SONG_PLAYBACK_STARTED: 1 }, generationJobs: { COMPLETED: 1 }, reflections: { APPROVED: 0 }, rhythmScores: 0, songs: { PUBLISHED: 1, total: 1 } } }
   if (pathname === '/api/transcriptions/status') return { body: { configured: false } }
 
   if (pathname === '/api/admin/analytics') return { body: adminAnalytics() }

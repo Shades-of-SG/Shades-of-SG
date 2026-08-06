@@ -10,7 +10,7 @@ function LocationProbe() {
 describe('creator Sidebar', () => {
   it('returns creators to the dashboard when the brand logo is clicked', () => {
     render(
-      <MemoryRouter initialEntries={['/creator/analytics']}>
+      <MemoryRouter initialEntries={['/creator/songs']}>
         <Sidebar />
         <Routes>
           <Route element={<LocationProbe />} path="*" />
