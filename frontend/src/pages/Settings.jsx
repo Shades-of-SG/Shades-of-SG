@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Accessibility, Camera, Eye, ImageOff, Languages, LockKeyhole, Save, Shield, UserRound } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Accessibility, AlertTriangle, Camera, Eye, ImageOff, Languages, LockKeyhole, Save, Shield, UserRound } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import ChangeEmailFlow from '../components/ChangeEmailFlow'
+import DeleteAccountFlow from '../components/DeleteAccountFlow'
 import InterestTagsAccordion from '../components/InterestTagsAccordion'
 import SettingsNav from '../components/SettingsNav'
 import { useAuth } from '../context/AuthContext'
@@ -51,7 +53,8 @@ export default function Settings({ section = '' }) {
 }
 
 function SettingsForm({ auth, section }) {
-  const { token, updateUser, updateUserProfile, user, userProfile } = auth
+  const { signOut, token, updateUser, updateUserProfile, user, userProfile } = auth
+  const navigate = useNavigate()
   const fileInput = useRef(null)
   const [form, setForm] = useState(() => profileForm(userProfile.profile))
   const [baseline, setBaseline] = useState(() => JSON.stringify(profileForm(userProfile.profile)))
@@ -60,6 +63,8 @@ function SettingsForm({ auth, section }) {
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const [showChangeEmail, setShowChangeEmail] = useState(false)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
 
   useEffect(() => {
     const target = section === 'account-security' ? '#account' : section === 'data-privacy' ? '#privacy' : section === 'profile' ? '#profile' : window.location.hash
@@ -127,6 +132,22 @@ function SettingsForm({ auth, section }) {
     }
   }
 
+  function confirmDelete() {
+    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) setShowDeleteAccount(true)
+  }
+
+  function handleAccountDeleted() {
+    setShowDeleteAccount(false)
+    signOut()
+    navigate('/login', { replace: true })
+  }
+
+  function handleEmailChanged() {
+    setShowChangeEmail(false)
+    signOut()
+    navigate('/login', { replace: true })
+  }
+
   function cancel() {
     if (!userProfile?.profile) return
     const values = profileForm(userProfile.profile)
@@ -166,7 +187,7 @@ function SettingsForm({ auth, section }) {
 
         <section className="account-settings__section" id="account">
           <div className="account-settings__heading"><LockKeyhole aria-hidden="true" /><div><h2>Account</h2><p>Sign-in and security information.</p></div></div>
-          <div className="account-settings-account-row"><div><strong>Email address</strong><span>{userProfile.account.email} · {userProfile.account.emailVerified === false ? 'Verification required' : 'Verified'}</span><small>Email changes require password confirmation and verification of the new address, so they are not available here yet.</small></div><Link to="/forgot-password">Reset password</Link></div>
+          <div className="account-settings-account-row"><div><strong>Email address</strong><span>{userProfile.account.email} · {userProfile.account.emailVerified === false ? 'Verification required' : 'Verified'}</span><small>Changing your email requires your password and verification of the new address.</small></div><div className="account-row-actions"><button className="is-secondary" onClick={() => setShowChangeEmail(true)} type="button">Change email</button><Link to="/settings/security/password/request">Reset password</Link></div></div>
         </section>
 
         <section className="account-settings__section" id="preferences">
@@ -189,8 +210,19 @@ function SettingsForm({ auth, section }) {
           <p className="account-settings__privacy-note"><Eye aria-hidden="true" /> These controls never expose pending, rejected, flagged, or anonymous reflections.</p>
         </section>
 
+        <section className="account-settings__section is-danger">
+          <div className="account-settings__heading"><AlertTriangle aria-hidden="true" /><div><h2>Danger zone</h2><p>Permanently step away from Shades of SG.</p></div></div>
+          <div className="account-settings-danger-row">
+            <div><strong>Delete account</strong><span>This deactivates your account and signs you out everywhere.</span><small>Your account is deactivated immediately: you can no longer sign in and your profile is hidden from other people.</small></div>
+            <button className="is-danger" onClick={confirmDelete} type="button">Delete account</button>
+          </div>
+        </section>
+
         <footer className="account-settings__actions"><button className="is-secondary" disabled={saving || !dirty} onClick={cancel} type="button">Cancel</button><button disabled={saving || !dirty} type="submit"><Save aria-hidden="true" />{saving ? 'Saving…' : 'Save changes'}</button></footer>
       </form>
+
+      {showChangeEmail ? <ChangeEmailFlow currentEmail={userProfile.account.email} onClose={() => setShowChangeEmail(false)} onComplete={handleEmailChanged} token={token} /> : null}
+      {showDeleteAccount ? <DeleteAccountFlow onClose={() => setShowDeleteAccount(false)} onDeleted={handleAccountDeleted} token={token} /> : null}
     </div>
   )
 }

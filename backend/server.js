@@ -131,9 +131,22 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
+async function connectWithRetry(maxAttempts = 5, delayMs = 3000) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            await sequelize.authenticate();
+            return;
+        } catch (error) {
+            if (attempt === maxAttempts) throw error;
+            console.warn(`Database connection attempt ${attempt}/${maxAttempts} failed (${error.message}), retrying in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+    }
+}
+
 async function startServer() {
     try {
-        await sequelize.authenticate();
+        await connectWithRetry();
         await seedAdminAccount();
         console.log('Database connected successfully');
 

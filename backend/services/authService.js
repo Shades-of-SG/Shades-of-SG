@@ -101,9 +101,9 @@ function verifyToken(token) {
     return payload?.id && !payload.purpose ? payload : null;
 }
 
-function createScopedToken({ purpose, userId, version }, lifetimeSeconds = 600) {
+function createScopedToken({ purpose, userId, version, ...extra }, lifetimeSeconds = 600) {
     const now = Math.floor(Date.now() / 1000);
-    return signPayload({ exp: now + lifetimeSeconds, iat: now, purpose, userId, ver: Number(version || 0) });
+    return signPayload({ ...extra, exp: now + lifetimeSeconds, iat: now, purpose, userId, ver: Number(version || 0) });
 }
 
 function verifyScopedToken(token, purpose) {
@@ -112,6 +112,9 @@ function verifyScopedToken(token, purpose) {
 }
 
 function accountSuspensionMessage(user) {
+    if (user?.accountStatus === 'DELETED') {
+        return 'This account has been deleted.';
+    }
     const reason = String(user?.accountSuspensionReason || '').trim();
     return `Your Shades of SG account has been suspended.${reason ? ` Reason: ${reason}` : ''} Contact Shades of SG support if you would like to appeal or believe this is a mistake.`;
 }
