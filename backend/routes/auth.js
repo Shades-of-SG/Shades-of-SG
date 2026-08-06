@@ -27,6 +27,15 @@ function validPassword(password) {
     return typeof password === 'string' && password.length >= 8 && password.length <= 128;
 }
 
+const STRONG_PASSWORD_MESSAGE = 'Password must be 8-128 characters and include an uppercase letter, a lowercase letter, a number, and a special character.';
+function validStrongPassword(password) {
+    return validPassword(password)
+        && /[a-z]/.test(password)
+        && /[A-Z]/.test(password)
+        && /\d/.test(password)
+        && /[^A-Za-z0-9]/.test(password);
+}
+
 function validName(name) {
     return typeof name === 'string' && name.trim().length >= 2 && name.trim().length <= 255;
 }
@@ -107,7 +116,7 @@ router.post('/register', requestLimit, async (req, res, next) => {
         const password = req.body.password;
         if (!validName(name)) return rejectRegistration(timing, res, 400, 'Full name must be between 2 and 255 characters.', 'invalid_name');
         if (!EMAIL_PATTERN.test(email)) return rejectRegistration(timing, res, 400, 'Enter a valid email address.', 'invalid_email');
-        if (!validPassword(password)) return rejectRegistration(timing, res, 400, 'Password must be between 8 and 128 characters.', 'invalid_password');
+        if (!validStrongPassword(password)) return rejectRegistration(timing, res, 400, STRONG_PASSWORD_MESSAGE, 'invalid_password');
         if (req.body.acceptTerms !== true || req.body.acceptPrivacy !== true) {
             return rejectRegistration(timing, res, 400, 'You must accept the Terms of Use and Privacy Policy.', 'agreements_missing');
         }
@@ -213,16 +222,18 @@ router.get('/me', requireAuth, async (req, res, next) => {
     } catch (error) { return next(error); }
 });
 
-router.post('/password-reset/request', requestLimit, async (req, res) => {
+router.post('/password-reset/request', requestLimit, async (req, res, next) => {
     const email = normalizeEmail(req.body.email);
-    const generic = { message: 'If an eligible account exists, a password-reset code will be sent.' };
+    const generic = { message: 'If an eligible account exists, a password-reset code will be sent.', resendCooldownSeconds: 60 };
     try {
         const user = await User.findOne({ where: { accountStatus: 'ACTIVE', email, emailVerificationRequired: false } });
         if (user) {
             await sequelize.transaction((transaction) => issueOtp({ email, name: user.name, purpose: 'PASSWORD_RESET', requestIp: req.ip, transaction, userId: user.id }));
         }
     } catch (error) {
-        // Recovery remains enumeration-safe. Operational details stay server-side without secrets or codes.
+        // A cooldown hit means this email already had a code issued in this flow, so it's safe to
+        // surface truthfully. Any other error stays enumeration-safe behind the generic response.
+        if (error.code === 'OTP_COOLDOWN') return next(error);
         console.error('[Password reset delivery]', error.message);
     }
     return res.status(202).json(generic);
@@ -245,7 +256,7 @@ router.post('/password-reset/verify', verifyLimit, async (req, res, next) => {
 router.post('/password-reset/complete', async (req, res, next) => {
     try {
         const password = req.body.password;
-        if (!validPassword(password)) return res.status(400).json({ message: 'Password must be between 8 and 128 characters.' });
+        if (!validStrongPassword(password)) return res.status(400).json({ message: STRONG_PASSWORD_MESSAGE });
         const payload = verifyScopedToken(req.body.resetToken, 'PASSWORD_RESET');
         if (!payload) return res.status(400).json({ message: 'The password-reset session is invalid or expired.' });
         const user = await User.findByPk(payload.userId);
@@ -274,6 +285,76 @@ router.put('/profile', requireAuth, async (req, res, next) => {
         }
         await user.update({ name });
         return res.json({ user: serializeUser(user) });
+    } catch (error) { return next(error); }
+});
+
+router.post('/email-change/request', requireAuth, requestLimit, async (req, res, next) => {
+    try {
+        const password = req.body.password;
+        const newEmail = normalizeEmail(req.body.newEmail);
+        const user = await User.findByPk(req.authUserRecord.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        if (!verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Incorrect password.' });
+        if (!EMAIL_PATTERN.test(newEmail)) return res.status(400).json({ message: 'Enter a valid email address.' });
+        if (newEmail === user.email) return res.status(400).json({ message: 'Enter an email address different from your current one.' });
+        const emailOwner = await User.findOne({ where: { email: newEmail, id: { [Op.ne]: user.id } } });
+        if (emailOwner) return res.status(409).json({ message: 'An account with this email already exists.' });
+        await sequelize.transaction((transaction) => issueOtp({
+            email: newEmail, name: user.name, purpose: 'EMAIL_CHANGE', requestIp: req.ip, transaction, userId: user.id,
+        }));
+        return res.status(202).json({ message: 'A verification code has been sent to the new email address.', resendCooldownSeconds: 60 });
+    } catch (error) { return next(error); }
+});
+
+router.post('/email-change/verify', requireAuth, verifyLimit, async (req, res, next) => {
+    try {
+        const newEmail = normalizeEmail(req.body.newEmail);
+        const user = await User.findByPk(req.authUserRecord.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        const { otp } = await processOtp({ code: req.body.code, email: newEmail, purpose: 'EMAIL_CHANGE' }, async () => {});
+        if (otp.userId !== user.id) {
+            const error = new Error('The verification code is invalid or expired.');
+            error.statusCode = 400;
+            throw error;
+        }
+        const changeToken = createScopedToken({ newEmail, purpose: 'EMAIL_CHANGE', userId: user.id, version: user.authVersion });
+        return res.json({ changeToken });
+    } catch (error) { return next(error); }
+});
+
+router.post('/email-change/complete', requireAuth, async (req, res, next) => {
+    try {
+        const payload = verifyScopedToken(req.body.changeToken, 'EMAIL_CHANGE');
+        if (!payload || payload.userId !== req.authUserRecord.id) {
+            return res.status(400).json({ message: 'The email-change session is invalid or expired.' });
+        }
+        const user = await User.findByPk(payload.userId);
+        if (!user || Number(user.authVersion || 0) !== Number(payload.ver || 0) || user.accountStatus !== 'ACTIVE') {
+            return res.status(400).json({ message: 'The email-change session is invalid or expired.' });
+        }
+        const newEmail = normalizeEmail(payload.newEmail);
+        const emailOwner = await User.findOne({ where: { email: newEmail, id: { [Op.ne]: user.id } } });
+        if (emailOwner) return res.status(409).json({ message: 'An account with this email already exists.' });
+        await sequelize.transaction(async (transaction) => {
+            await user.update({
+                authVersion: Number(user.authVersion || 0) + 1, email: newEmail, emailVerificationRequired: false,
+            }, { transaction });
+            await invalidateOtps({ email: newEmail, purpose: 'EMAIL_CHANGE', transaction });
+        });
+        return res.json({ message: 'Email updated successfully. Please sign in again.' });
+    } catch (error) { return next(error); }
+});
+
+router.delete('/account', requireAuth, async (req, res, next) => {
+    try {
+        const password = req.body.password;
+        const user = await User.findByPk(req.authUserRecord.id);
+        if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        if (!verifyPassword(password, user.passwordHash)) return res.status(401).json({ message: 'Incorrect password.' });
+        await user.update({
+            accountStatus: 'DELETED', authVersion: Number(user.authVersion || 0) + 1, deletedAt: new Date(),
+        });
+        return res.json({ message: 'Account deleted.' });
     } catch (error) { return next(error); }
 });
 
