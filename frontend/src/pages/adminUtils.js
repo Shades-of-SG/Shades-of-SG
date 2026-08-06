@@ -27,7 +27,7 @@ export function useTab(searchParams, setSearchParams, allowed, fallback) {
   const setActive = (tab) => {
     const next = new URLSearchParams(searchParams)
     next.set('tab', tab)
-    setSearchParams(next, { replace: true })
+    setSearchParams(next)
   }
   return [active, setActive]
 }
