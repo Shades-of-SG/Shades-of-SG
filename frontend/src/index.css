@@ -14,6 +14,8 @@
   --cyan: #38bdf8;
   --Rose: #8b5cf6;
   --error: #ef4444;
+  --shelf-brown: #c9a876;
+  --shelf-brown-dark: #a9835a;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   color: var(--text);
   background: var(--bg);

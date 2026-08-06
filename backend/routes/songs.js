@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const songController = require('../controllers/songController');
-const { requireCreator } = require('../middleware/auth');
+const { optionalAuth, requireAuth, requireCreator } = require('../middleware/auth');
 const { validateUuidParam } = require('../middleware/validateUuid');
 
 const router = express.Router();
@@ -61,6 +61,8 @@ router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);
 router.put('/:id/unarchive', requireCreator, songController.unarchiveSong);
+router.put('/:id/bookmark', requireAuth, songController.toggleBookmark);
+router.post('/:id/report', requireAuth, songController.reportSong);
 router.delete('/:id', requireCreator, songController.deleteSong);
 router.get('/demo-song', (req, res) => res.json({
     song: {
@@ -71,7 +73,7 @@ router.get('/demo-song', (req, res) => res.json({
         video_url: '/videos/placeholder-generation.mp4',
     },
 }));
-router.get('/', songController.listPublicSongs);
+router.get('/', optionalAuth, songController.listPublicSongs);
 router.get('/:id', songController.getPublicSong);
 
 module.exports = router;
