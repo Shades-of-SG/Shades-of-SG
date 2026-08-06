@@ -6,13 +6,35 @@ import {
   Feedback, FilterBar, LoadingRows, Pagination, Panel, StatusBadge,
 } from '../components/admin/AdminUI'
 import ContextAuditHistory from '../components/admin/ContextAuditHistory'
+import SongReportFilterDropdown from '../components/admin/SongReportFilterDropdown'
 import { useAuth } from '../context/AuthContext'
 import useAdminSummary from '../hooks/useAdminSummary'
 import {
-  getAdminUsers, getModerationActions, getSafetyReports, getWarnings, issueWarning,
-  resolveSafetyReport, resolveWarning, updateUserStatus,
+  getAdminUsers, getModerationActions, getSafetyReports, getSongReports, getWarnings, issueWarning,
+  resolveSafetyReport, resolveSongReport, resolveWarning, updateUserStatus,
 } from '../services/adminService'
 import { formatDate, labelFor, relativeTime, useTab } from './adminUtils'
+
+const songReportOutcomeDetails = {
+  DISMISS_REPORT: {
+    confirm: 'Dismiss report',
+    message: 'Report dismissed. No action was taken against the song.',
+    title: 'Dismiss this report?',
+    description: 'The report is marked dismissed and no longer counts toward this song’s pending report total. The song remains published and unchanged.',
+  },
+  MARK_REVIEWED: {
+    confirm: 'Mark reviewed',
+    message: 'Report marked as reviewed.',
+    title: 'Mark this report as reviewed?',
+    description: 'The report is marked reviewed. Use this when you looked into the concern but it did not require removing the song.',
+  },
+  REMOVE_SONG: {
+    confirm: 'Remove song',
+    message: 'Song removed from public listing. It can be restored later from Content management.',
+    title: 'Remove this song from publication?',
+    description: 'The song is archived and stops appearing in the public Song Library. It is not deleted — it can be restored later from Content management. The report is marked reviewed.',
+  },
+}
 
 const caseTypeLabels = {
   ADMIN_FLAG: 'Administrator flag',
@@ -212,11 +234,119 @@ function SafetyActionHistory({ actions }) {
   </Panel>
 }
 
+function SongReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
+  const [reports, setReports] = useState([])
+  const [songSummary, setSongSummary] = useState([])
+  const [selectedId, setSelectedId] = useState('')
+  const [songIds, setSongIds] = useState([])
+  const [sort, setSort] = useState('mostReported')
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 })
+  const [modal, setModal] = useState(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const selected = useMemo(() => reports.find((item) => item.id === selectedId) || null, [reports, selectedId])
+
+  const refresh = useCallback(async (page = 1) => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await getSongReports(token, { limit: 12, page, songIds: songIds.join(','), sort })
+      const next = data.reports || []
+      setReports(next)
+      setSongSummary(data.songSummary || [])
+      setPagination(data.pagination || { page: 1, total: next.length, totalPages: 1 })
+      // Unlike ReportWorkspace's reflection queue, do not auto-select the first row here —
+      // the list should render on its own and only open a case when an admin clicks Review.
+      setSelectedId((current) => next.some((item) => item.id === current) ? current : '')
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [songIds, sort, token])
+
+  useEffect(() => { refresh(1) }, [refresh])
+
+  async function submitOutcome() {
+    if (modal.reason.trim().length < 5) { onFeedback({ message: 'Enter a specific resolution reason.', type: 'error' }); return }
+    setBusy(true)
+    try {
+      await resolveSongReport(selected.id, { outcome: modal.outcome, reason: modal.reason }, token)
+      onFeedback({ message: songReportOutcomeDetails[modal.outcome].message, type: 'status' })
+      setModal(null)
+      await Promise.all([refresh(pagination.page), onSummaryRefresh()])
+    } catch (requestError) {
+      onFeedback({ message: requestError.message, type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitWarning() {
+    if (modal.reason.trim().length < 5) { onFeedback({ message: 'Enter a specific warning reason.', type: 'error' }); return }
+    setBusy(true)
+    try {
+      await issueWarning({ reason: modal.reason, sourceId: selected.songId, sourceType: 'SONG', userId: selected.song?.creatorId }, token)
+      onFeedback({ message: 'Warning recorded in product history. No delivery notification was sent.', type: 'status' })
+      setModal(null)
+      await onSummaryRefresh()
+    } catch (requestError) {
+      onFeedback({ message: requestError.message, type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const hasFilters = songIds.length > 0
+
+  return <>
+    <FilterBar onClear={() => setSongIds([])} showClear={hasFilters}>
+      <SongReportFilterDropdown onChange={setSongIds} options={songSummary} selected={songIds} />
+      <label>Sort<select onChange={(event) => setSort(event.target.value)} value={sort}>
+        <option value="mostReported">Most reported songs first</option>
+        <option value="recent">Most recent report first</option>
+      </select></label>
+    </FilterBar>
+    {error ? <div className="admin-inline-error" role="alert"><span>{reports.length ? 'The queue could not be refreshed. Previously loaded reports remain visible.' : error}</span><button className="admin-button admin-button--ghost" onClick={() => refresh(pagination.page)} type="button">Retry</button></div> : null}
+    {loading && !reports.length ? <LoadingRows /> : reports.length ? <Panel title="Reported songs" subtitle={`${pagination.total} pending song reports awaiting a recorded outcome`}>
+      <DataTable caption="Pending song reports" columns={['Song', 'Reporter', 'Reason', 'Details', 'Reported', 'Action']}>
+        {reports.map((report) => <tr className={selected?.id === report.id ? 'is-selected' : ''} key={report.id}>
+          <td data-label="Song"><button className="admin-row-button" onClick={() => setSelectedId(report.id)} type="button"><strong>{report.song?.title || 'Unknown song'}</strong><small>{report.song?.creator?.name || 'Unknown creator'}</small></button></td>
+          <td data-label="Reporter">{report.reporter?.name || 'Unknown user'}</td>
+          <td data-label="Reason"><StatusBadge status={report.reason}>{labelFor(report.reason)}</StatusBadge></td>
+          <td className="admin-community__wrap" data-label="Details">{report.details || '—'}</td>
+          <td data-label="Reported"><time dateTime={report.createdAt}>{relativeTime(report.createdAt)}</time></td>
+          <td data-label="Action"><div className="admin-table__actions">
+            <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setSelectedId(report.id)} type="button">Review</button>
+          </div></td>
+        </tr>)}
+      </DataTable>
+      <Pagination onNext={() => refresh(pagination.page + 1)} onPrevious={() => refresh(pagination.page - 1)} page={pagination.page} totalPages={pagination.totalPages} />
+    </Panel> : <EmptyState action={error ? <button className="admin-button admin-button--ghost" onClick={() => refresh(1)} type="button">Retry loading reports</button> : null} description={hasFilters ? 'Try clearing the song filter.' : 'Reports submitted from the Song Library will appear here.'} icon={Flag} title={error ? 'Song reports unavailable' : 'No song reports yet.'} />}
+    <DetailDrawer onClose={() => setSelectedId('')} open={Boolean(selected)} title="Song report review">
+      {selected ? <>
+        <section className="admin-detail-drawer__section"><h3>Reported song</h3><p><strong>{selected.song?.title || 'Unknown song'}</strong><br />Creator: {selected.song?.creator?.name || 'Unknown'} · Status: {labelFor(selected.song?.status || 'unknown')}</p>{selected.songId ? <Link className="admin-button admin-button--ghost admin-inline-link" to={`/admin/content?tab=songs&songId=${encodeURIComponent(selected.songId)}`}><ExternalLink />Open full song review</Link> : null}</section>
+        <section className="admin-detail-drawer__section"><h3>Report</h3><p><strong>Reason:</strong> {labelFor(selected.reason)}</p><p>{selected.details || 'No additional details were provided.'}</p><p><strong>Reported by:</strong> {selected.reporter?.name || 'Unknown user'} · {relativeTime(selected.createdAt)}</p></section>
+        <section className="admin-detail-drawer__section"><h3>Record an outcome</h3><div className="admin-form__actions">
+          <button className="admin-button admin-button--primary" disabled={busy} onClick={() => setModal({ outcome: 'DISMISS_REPORT', reason: '', type: 'outcome' })} type="button">Dismiss report</button>
+          <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ outcome: 'MARK_REVIEWED', reason: '', type: 'outcome' })} type="button">Mark reviewed</button>
+          {selected.song?.creatorId ? <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ reason: '', type: 'warning' })} type="button"><AlertTriangle />Warn creator</button> : null}
+        </div></section>
+        <section className="admin-detail-drawer__section admin-report-detail__danger"><button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ outcome: 'REMOVE_SONG', reason: '', type: 'outcome' })} type="button">Remove song from publication</button></section>
+        <ContextAuditHistory entityId={selected.songId} token={token} />
+      </> : null}
+    </DetailDrawer>
+    {modal?.type === 'outcome' ? <ConfirmationModal busy={busy} confirmLabel={songReportOutcomeDetails[modal.outcome].confirm} danger={modal.outcome === 'REMOVE_SONG'} onCancel={() => setModal(null)} onConfirm={submitOutcome} title={songReportOutcomeDetails[modal.outcome].title}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>{songReportOutcomeDetails[modal.outcome].description}</p><label>Administrator reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
+    {modal?.type === 'warning' ? <ConfirmationModal busy={busy} confirmLabel="Record warning" danger onCancel={() => setModal(null)} onConfirm={submitWarning} title={`Warn ${selected?.song?.creator?.name || 'this creator'}?`}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>This warning will link to the reported song and remain in history after resolution. It does not suspend access or claim notification delivery.</p><label>Specific reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
+  </>
+}
+
 export default function AdminCommunityPage() {
   const { token } = useAuth()
   const { data: summary, error: summaryError, loading: summaryLoading, refresh: refreshSummary } = useAdminSummary(token)
   const [params, setParams] = useSearchParams()
-  const [tab, setTab] = useTab(params, setParams, ['reports', 'users', 'warnings'], 'reports')
+  const [tab, setTab] = useTab(params, setParams, ['reports', 'songReports', 'users', 'warnings'], 'reports')
   const [users, setUsers] = useState([])
   const [warnings, setWarnings] = useState([])
   const [actions, setActions] = useState([])
@@ -228,7 +358,7 @@ export default function AdminCommunityPage() {
   const [busy, setBusy] = useState(false)
 
   const refresh = useCallback(async () => {
-    if (tab === 'reports') return
+    if (tab === 'reports' || tab === 'songReports') return
     setLoading(true)
     try {
       if (tab === 'users') {
@@ -292,16 +422,17 @@ export default function AdminCommunityPage() {
     <AdminPageHeader description="Review real reflection flags, linked users, warnings and traceable moderation outcomes." title="Safety & Reports" />
     <AdminTabs active={tab} items={[
       { id: 'reports', label: 'Reports', count: summary?.tabCounts?.reports, countLoading: summaryLoading },
+      { id: 'songReports', label: 'Song Reports', count: summary?.tabCounts?.songReports, countLoading: summaryLoading },
       { id: 'users', label: 'Users', count: summary?.tabCounts?.users, countLoading: summaryLoading },
       { id: 'warnings', label: 'Warnings & Actions', count: summary?.tabCounts?.warnings, countLoading: summaryLoading },
     ]} onChange={(next) => { setLoading(true); clearFilters(); setSelected(null); setTab(next) }} />
     <AdminSummaryError message={summaryError} onRetry={refreshSummary} />
     <Feedback {...feedback} />
     <AdminTabPanel key={tab}>
-      {tab === 'reports' ? <ReportWorkspace onFeedback={setFeedback} onSummaryRefresh={refreshSummary} token={token} /> : <>
+      {tab === 'reports' ? <ReportWorkspace onFeedback={setFeedback} onSummaryRefresh={refreshSummary} token={token} /> : tab === 'songReports' ? <SongReportWorkspace onFeedback={setFeedback} onSummaryRefresh={refreshSummary} token={token} /> : <>
         <FilterBar onClear={clearFilters} showClear={hasFilters}>
           <label>Search<input aria-label={tab === 'users' ? 'Search safety users' : 'Search warning and action history'} onChange={(event) => setFilters((value) => ({ ...value, search: event.target.value }))} placeholder={tab === 'users' ? 'Name or email' : 'Recorded reason'} value={filters.search} /></label>
-          {tab === 'users' ? <><label>Role<select onChange={(event) => setFilters((value) => ({ ...value, role: event.target.value }))} value={filters.role}><option value="">All roles</option><option value="REGISTERED">Registered</option><option value="CREATOR">Creator</option></select></label><label>Member account<select onChange={(event) => setFilters((value) => ({ ...value, accountStatus: event.target.value }))} value={filters.accountStatus}><option value="">All member states</option><option value="ACTIVE">Active</option><option value="SUSPENDED">Suspended</option></select></label></> : <><label>Warning status<select onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value }))} value={filters.status}><option value="">All warnings</option><option value="ACTIVE">Active</option><option value="RESOLVED">Resolved</option></select></label><label>Action<select onChange={(event) => setFilters((value) => ({ ...value, actionType: event.target.value }))} value={filters.actionType}><option value="">All safety actions</option><option value="USER_WARNED">Warning issued</option><option value="USER_WARNING_RESOLVED">Warning resolved</option><option value="REFLECTION_REMOVED_BY_ADMIN">Reflection hidden</option><option value="SAFETY_REPORT_DISMISSED">Flag dismissed</option><option value="CREATOR_SUSPENDED">Creator access suspended</option><option value="USER_SUSPENDED">Member account suspended</option></select></label><label>Since<input aria-label="History since" onChange={(event) => setFilters((value) => ({ ...value, dateFrom: event.target.value }))} type="date" value={filters.dateFrom} /></label></>}
+          {tab === 'users' ? <><label>Role<select onChange={(event) => setFilters((value) => ({ ...value, role: event.target.value }))} value={filters.role}><option value="">All roles</option><option value="REGISTERED">Registered</option><option value="CREATOR">Creator</option></select></label><label>Member account<select onChange={(event) => setFilters((value) => ({ ...value, accountStatus: event.target.value }))} value={filters.accountStatus}><option value="">All member states</option><option value="ACTIVE">Active</option><option value="SUSPENDED">Suspended</option></select></label></> : <><label>Warning status<select onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value }))} value={filters.status}><option value="">All warnings</option><option value="ACTIVE">Active</option><option value="RESOLVED">Resolved</option></select></label><label>Action<select onChange={(event) => setFilters((value) => ({ ...value, actionType: event.target.value }))} value={filters.actionType}><option value="">All safety actions</option><option value="USER_WARNED">Warning issued</option><option value="USER_WARNING_RESOLVED">Warning resolved</option><option value="REFLECTION_REMOVED_BY_ADMIN">Reflection hidden</option><option value="SAFETY_REPORT_DISMISSED">Flag dismissed</option><option value="SONG_REPORT_DISMISSED">Song report dismissed</option><option value="SONG_REPORT_REVIEWED">Song report reviewed</option><option value="SONG_REMOVED_BY_ADMIN">Song removed</option><option value="CREATOR_SUSPENDED">Creator access suspended</option><option value="USER_SUSPENDED">Member account suspended</option></select></label><label>Since<input aria-label="History since" onChange={(event) => setFilters((value) => ({ ...value, dateFrom: event.target.value }))} type="date" value={filters.dateFrom} /></label></>}
         </FilterBar>
         {loading ? <LoadingRows /> : tab === 'users' ? <Panel className="admin-community__users" title="Safety-linked users" subtitle="Only accounts connected to a flag, warning or access action are shown.">
           {users.length ? <DataTable caption="Safety-related users" columns={['User', 'Role', 'Flagged', 'Warnings', 'Member', 'Creator access', 'Latest safety event', 'Action']}>
