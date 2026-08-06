@@ -51,6 +51,7 @@ test('admin analytics returns authoritative tab counts and real listening events
         creators: 1,
         placementRequests: 1,
         reports: 1,
+        songReports: 0,
         songs: 1,
         users: 1,
         warnings: 1,

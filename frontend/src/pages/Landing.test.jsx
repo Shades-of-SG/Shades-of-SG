@@ -1,20 +1,46 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { AuthProvider } from '../context/AuthContext'
 import Landing from './Landing'
 
 const mocks = vi.hoisted(() => ({
+  getCommunityStats: vi.fn(),
+  getMyBestScores: vi.fn(),
+  getMyStats: vi.fn(),
   getPublishedSongs: vi.fn(),
   getReflections: vi.fn(),
+  getUserBadges: vi.fn(),
 }))
 
+vi.mock('../services/badgeService', () => ({ getUserBadges: mocks.getUserBadges }))
 vi.mock('../services/publicSongService', () => ({ getPublishedSongs: mocks.getPublishedSongs }))
 vi.mock('../services/reflectionService', () => ({ getReflections: mocks.getReflections }))
+vi.mock('../services/scoreService', () => ({ getMyBestScores: mocks.getMyBestScores }))
+vi.mock('../services/statsService', () => ({
+  getCommunityStats: mocks.getCommunityStats,
+  getMyStats: mocks.getMyStats,
+}))
+
+function renderLanding() {
+  return render(
+    <MemoryRouter>
+      <AuthProvider>
+        <Landing />
+      </AuthProvider>
+    </MemoryRouter>,
+  )
+}
 
 describe('Landing page', () => {
   beforeEach(() => {
+    localStorage.clear()
+    mocks.getCommunityStats.mockResolvedValue({ reflectionsCount: 9, songsCount: 6, usersCount: 14 })
+    mocks.getMyBestScores.mockResolvedValue(null)
+    mocks.getMyStats.mockResolvedValue({})
     mocks.getPublishedSongs.mockResolvedValue([])
     mocks.getReflections.mockResolvedValue([])
+    mocks.getUserBadges.mockResolvedValue([])
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -30,22 +56,15 @@ describe('Landing page', () => {
   })
 
   it('does not request admin-only platform analytics', async () => {
-    render(
-      <MemoryRouter>
-        <Landing />
-      </MemoryRouter>
-    )
+    renderLanding()
 
     expect(await screen.findByRole('heading', { name: /Discover Singapore through music/i })).toBeInTheDocument()
+    expect(mocks.getCommunityStats).toHaveBeenCalledOnce()
     expect(fetch).not.toHaveBeenCalled()
   })
 
   it('renders the updated hero and linked journey cards', () => {
-    render(
-      <MemoryRouter>
-        <Landing />
-      </MemoryRouter>
-    )
+    renderLanding()
 
     expect(
       screen.getByRole('heading', {
@@ -85,11 +104,7 @@ describe('Landing page', () => {
       },
     ])
 
-    render(
-      <MemoryRouter>
-        <Landing />
-      </MemoryRouter>
-    )
+    renderLanding()
 
     const songsLink = await screen.findByRole('link', { name: /View all songs/ })
     const reflectionsLink = screen.getByRole('link', { name: /View all reflections/ })

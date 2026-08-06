@@ -1,18 +1,34 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Drum, Headphones, MessageCircle } from 'lucide-react'
+import { Award, BookOpen, Drum, Flame, Gamepad2, HelpCircle, Headphones, Medal, MessageCircle, Music, Target, Trophy, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import BadgeShelf from '../components/BadgeShelf'
+import Carousel from '../components/Carousel'
 import EmptyState from '../components/EmptyState'
 import FeatureCard from '../components/FeatureCard'
 import PageHeader from '../components/PageHeader'
 import ReflectionCard from '../components/ReflectionCard'
-import Reveal from '../components/Reveal'
+import RhythmStatCard from '../components/RhythmStatCard'
 import SongCard from '../components/SongCard'
+import StatCard from '../components/StatCard'
+import { useAuth } from '../context/AuthContext'
+import { getUserBadges } from '../services/badgeService'
+import Reveal from '../components/Reveal'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getReflections } from '../services/reflectionService'
+import { getMyBestScores } from '../services/scoreService'
+import { getCommunityStats, getMyStats } from '../services/statsService'
+
+const initialCommunityStats = { usersCount: 0, songsCount: 0, reflectionsCount: 0 }
+const initialUserStats = { badgesCount: 0, triviaAttemptsCount: 0, gamePlaysCount: 0 }
 
 export default function Landing() {
+  const { user, token } = useAuth()
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
+  const [communityStats, setCommunityStats] = useState(initialCommunityStats)
+  const [userStats, setUserStats] = useState(initialUserStats)
+  const [badges, setBadges] = useState(null)
+  const [bestScores, setBestScores] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -22,23 +38,52 @@ export default function Landing() {
     Promise.all([getPublishedSongs(), getReflections()])
       .then(([nextSongs, nextReflections]) => {
         if (!active) return
-        setSongs(nextSongs.slice(0, 3))
-        setReflections(nextReflections.slice(0, 3))
+        setSongs(nextSongs.slice(0, 5))
+        setReflections(nextReflections.slice(0, 5))
       })
       .catch((nextError) => active && setError(nextError.message))
       .finally(() => active && setLoading(false))
 
-    return () => {
-      active = false
-    }
+    getCommunityStats()
+      .then((data) => active && setCommunityStats({ ...initialCommunityStats, ...data }))
+      .catch(() => {})
+
+    return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (!user || !token) return undefined
+    let active = true
+
+    getMyStats(token)
+      .then((data) => active && setUserStats({ ...initialUserStats, ...data }))
+      .catch(() => {})
+
+    getUserBadges(user.id, token)
+      .then((data) => active && setBadges(data.slice(0, 3)))
+      .catch(() => active && setBadges([]))
+
+    getMyBestScores(token)
+      .then((data) => active && setBestScores(data))
+      .catch(() => active && setBestScores(null))
+
+    return () => { active = false }
+  }, [user, token])
+
+  const rhythmLoading = bestScores === undefined
+  const scoreBest = bestScores?.score
+  const accuracyBest = bestScores?.accuracy
+  const comboBest = bestScores?.maxCombo
+  const rankBest = bestScores?.rank
 
   return (
     <div className="page-stack landing-page">
+      {user ? <p className="welcome-banner">Welcome, {user.name}</p> : null}
+
       <section className="hero-panel">
         <div className="hero-panel__content">
           <PageHeader
-            description="Explore local songs, uncover the stories behind them, play cultural activities, and share what the music means to you."
+            description="Explore Singapore stories through published songs, cultural learning, rhythm, and shared memories."
             eyebrow="Music • Memory • Culture"
             title="Discover Singapore through music and memories"
           />
@@ -95,6 +140,35 @@ export default function Landing() {
       <section className="content-section">
         <Reveal as="header" className="landing-section-header landing-heading-reveal">
           <div className="landing-section-header__row">
+            <h2>Stats</h2>
+          </div>
+        </Reveal>
+
+        {user ? (
+          <div className="feature-row stats-row" aria-label="Your statistics">
+            <StatCard description="Keepsakes you've collected so far." icon={<Award />} label="Badges Earned" value={userStats.badgesCount} />
+            <StatCard description="Trivia questions you've answered." icon={<HelpCircle />} label="Trivia Attempts" value={userStats.triviaAttemptsCount} />
+            <StatCard description="Rounds of the rhythm game you've played." icon={<Gamepad2 />} label="Rhythm Plays" value={userStats.gamePlaysCount} />
+          </div>
+        ) : (
+          <div className="feature-row stats-row" aria-label="Community statistics">
+            <StatCard description="Registered users exploring Shades of SG." icon={<Users />} label="Active Explorers" value={communityStats.usersCount} />
+            <StatCard description="Published songs available to explore." icon={<Music />} label="Heritage Songs" value={communityStats.songsCount} />
+            <StatCard description="Community reflections approved and shared." icon={<BookOpen />} label="Stories Shared" value={communityStats.reflectionsCount} />
+          </div>
+        )}
+      </section>
+
+      {user ? (
+        <section className="content-section">
+          <h2>Your Badges</h2>
+          <BadgeShelf badges={badges} />
+        </section>
+      ) : null}
+
+      <section className="content-section">
+        <Reveal as="header" className="landing-section-header landing-heading-reveal">
+          <div className="landing-section-header__row">
             <h2>Featured Songs</h2>
             {songs.length > 0 ? (
               <Link className="landing-section-link" to="/songs">
@@ -115,8 +189,10 @@ export default function Landing() {
             title="No featured songs yet"
           />
         ) : null}
-        <div className="responsive-grid">
-          {songs.map((song, index) => (
+        <Carousel
+          ariaLabel="Featured songs"
+          items={songs}
+          renderItem={(song, index) => (
             <Reveal
               className="landing-card-reveal landing-song-reveal"
               delay={index * 100}
@@ -124,9 +200,27 @@ export default function Landing() {
             >
               <SongCard song={song} />
             </Reveal>
-          ))}
-        </div>
+          )}
+        />
       </section>
+
+      {user ? (
+        <section className="content-section">
+          <div className="landing-section-header__row">
+            <h2>Best Rhythm Game Stats</h2>
+              <Link className="landing-section-link" to="/rhythm-game">
+                Play rhythm game <span aria-hidden="true">&rarr;</span>
+              </Link>
+          </div>
+
+          <div className="feature-row rhythm-stats-row" aria-label="Your best rhythm game stats">
+            <RhythmStatCard difficulty={scoreBest?.difficulty} icon={<Trophy />} label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
+            <RhythmStatCard difficulty={accuracyBest?.difficulty} icon={<Target />} label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
+            <RhythmStatCard difficulty={comboBest?.difficulty} icon={<Flame />} label="Max Combo" loading={rhythmLoading} songTitle={comboBest?.songTitle} value={comboBest?.maxCombo ?? 0} />
+            <RhythmStatCard difficulty={rankBest?.difficulty} icon={<Medal />} isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '—'} />
+          </div>
+        </section>
+      ) : null}
 
       {!loading && !error && reflections.length > 0 ? (
         <section className="content-section">
@@ -145,10 +239,10 @@ export default function Landing() {
               memories.
             </p>
           </Reveal>
-          <div
-            className={`landing-reflections${reflections.length === 2 ? ' landing-reflections--two' : ''}`}
-          >
-            {reflections.map((reflection, index) => (
+          <Carousel
+            ariaLabel="Community reflections"
+            items={reflections}
+            renderItem={(reflection, index) => (
               <Reveal
                 className="landing-card-reveal landing-reflection-reveal"
                 delay={index * 100}
@@ -156,8 +250,8 @@ export default function Landing() {
               >
                 <ReflectionCard reflection={reflection} />
               </Reveal>
-            ))}
-          </div>
+            )}
+          />
         </section>
       ) : null}
 
