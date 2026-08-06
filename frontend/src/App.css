@@ -10345,6 +10345,31 @@ textarea {
   transform: translateY(-2px);
 }
 
+.lab-card__actions {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.lab-card__preview {
+  background: transparent;
+  border: 1px solid rgba(94, 234, 212, 0.4);
+  border-radius: 999px;
+  color: #5eead4;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 6px 16px;
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.lab-card__preview:hover {
+  border-color: rgba(94, 234, 212, 0.8);
+  transform: translateY(-2px);
+}
+
 .lab-player {
   display: grid;
   gap: 20px;
@@ -10650,6 +10675,7 @@ textarea {
 
   .lab-card:hover,
   .lab-card__cta:hover,
+  .lab-card__preview:hover,
   .lab-compare__chip:hover,
   .lab-hero__cta:hover,
   .lab-continue__cta:hover {

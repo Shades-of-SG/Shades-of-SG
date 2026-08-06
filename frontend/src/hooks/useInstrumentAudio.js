@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef } from 'react'
 
 /*
-Swapping in real recordings later:
+Real recordings:
 
-Give an instrument a `samples` map in its data (e.g. { C4: '/audio/angklung/c4.mp3' }).
-playNote() below already checks for this first and will decode + play the real
-recording through the same AudioContext instead of synthesizing a tone — no other
-code needs to change. Until then, every note is generated with an OscillatorNode.
+An instrument's `samples` map (hydrated at runtime by hooks/useLabInstruments.js
+from GET /api/instruments/lab-samples — see backend/audio-sources/) maps a note
+label to either a URL string or { url, playbackRate } for a pitch-shifted
+recording borrowed from another note. playNote() below checks this first and
+decodes + plays the real recording through the same AudioContext instead of
+synthesizing a tone. Any note without an entry (or any instrument whose
+`samples` map hasn't loaded yet/at all) just falls back to an OscillatorNode —
+no special-casing needed anywhere else. preloadInstrument() lets callers warm
+the shared cache ahead of interaction (idle, on hover, on selection).
 */
 
 const audioBufferCache = new Map()
@@ -60,12 +65,59 @@ function playSynthesizedNote(context, note, { envelope = 'sustained', waveform =
   oscillator.stop(now + duration + 0.05)
 }
 
-async function playSampledNote(context, url) {
+async function playSampledNote(context, url, playbackRate = 1) {
   const buffer = await loadSample(context, url)
   const source = context.createBufferSource()
   source.buffer = buffer
+  source.playbackRate.value = playbackRate
   source.connect(context.destination)
   source.start()
+}
+
+// A sample map entry is either a plain URL (played at its recorded pitch) or
+// { url, playbackRate } — a recording borrowed from another note and
+// pitch-shifted, so one recorded one-shot can stand in for several notes
+// (see backend/audio-sources/manifest.json's derivedNotes). Resolved here so
+// both playNote and preloadInstrument handle both shapes the same way.
+function resolveSample(entry) {
+  if (!entry) return null
+  return typeof entry === 'string'
+    ? { playbackRate: 1, url: entry }
+    : { playbackRate: entry.playbackRate ?? 1, url: entry.url }
+}
+
+// A separate, decode-only AudioContext for preloading. Decoding a fetched
+// buffer via decodeAudioData doesn't require a resumed/gesture-unlocked
+// context — only actually starting playback does — so this can run ahead of
+// any user interaction without trying to force an unrequested audio-hardware
+// handshake before a gesture. The decoded AudioBuffer isn't tied to the
+// context that decoded it, so it plays back fine later through whichever
+// AudioContext a playNote() call ends up using.
+let decodeContext = null
+function getDecodeContext() {
+  if (!decodeContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    decodeContext = new AudioContextClass()
+  }
+  return decodeContext
+}
+
+// Warms the shared audioBufferCache for an instrument ahead of interaction —
+// call on idle (gallery mount), on hover, or on selection. Tolerant of
+// missing samples and of individual fetch/decode failures: anything that
+// doesn't resolve just leaves that note to fall back to synthesis later,
+// exactly like an uncached playNote() would. Not a hook — importable
+// directly so it can run without mounting a component's own AudioContext.
+export function preloadInstrument(instrument, { noteLabels } = {}) {
+  if (!instrument?.samples) return Promise.resolve()
+
+  const context = getDecodeContext()
+  const labels = noteLabels || Object.keys(instrument.samples)
+  const urls = labels
+    .map((label) => resolveSample(instrument.samples[label])?.url)
+    .filter(Boolean)
+
+  return Promise.allSettled(urls.map((url) => loadSample(context, url)))
 }
 
 export default function useInstrumentAudio() {
@@ -82,10 +134,10 @@ export default function useInstrumentAudio() {
 
   const playNote = useCallback((instrument, note) => {
     const context = getAudioContext(contextRef)
-    const sampleUrl = instrument.samples?.[note.label]
+    const sample = resolveSample(instrument.samples?.[note.label])
 
-    if (sampleUrl) {
-      playSampledNote(context, sampleUrl)
+    if (sample) {
+      playSampledNote(context, sample.url, sample.playbackRate)
       return
     }
 

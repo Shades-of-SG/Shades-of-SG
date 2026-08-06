@@ -8,7 +8,8 @@
     "start": "node server.js",
     "lint": "eslint .",
     "test": "jest --runInBand",
-    "seed:mock": "node scripts/seedMockJob.js"
+    "seed:mock": "node scripts/seedMockJob.js",
+    "seed:lab-instruments": "node scripts/seedLabInstruments.js"
   },
   "keywords": [],
   "author": "",
