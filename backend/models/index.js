@@ -7,6 +7,7 @@ const Lesson = require('./Lesson');
 const GameScore = require('./GameScore');
 const Reflection = require('./Reflection');
 const Badge = require('./Badge');
+const BadgeDefinition = require('./BadgeDefinition');
 const TriviaQuestion = require('./TriviaQuestion');
 const TriviaAttempt = require('./TriviaAttempt');
 const GenerationJob = require('./GenerationJob');
@@ -32,6 +33,7 @@ const SongReport = require('./SongReport');
 const InstrumentChallengeProgress = require('./InstrumentChallengeProgress');
 const ReflectionComment = require('./ReflectionComment');
 const ReflectionLike = require('./ReflectionLike');
+const SongExploration = require('./SongExploration');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -78,6 +80,11 @@ Badge.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(InstrumentChallengeProgress, { foreignKey: 'userId', as: 'instrumentChallengeProgress' });
 InstrumentChallengeProgress.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(SongExploration, { foreignKey: 'userId', as: 'songExplorations' });
+SongExploration.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Song.hasMany(SongExploration, { foreignKey: 'songId', as: 'explorations' });
+SongExploration.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
 
 Song.hasMany(TriviaQuestion, { foreignKey: 'songId', as: 'triviaQuestions' });
 TriviaQuestion.belongsTo(Song, { foreignKey: 'songId', as: 'song' });
@@ -182,6 +189,7 @@ module.exports = {
     GameScore,
     Reflection,
     Badge,
+    BadgeDefinition,
     TriviaQuestion,
     TriviaAttempt,
     GenerationJob,
@@ -207,4 +215,5 @@ module.exports = {
     InstrumentChallengeProgress,
     ReflectionComment,
     ReflectionLike,
+    SongExploration,
 };
