@@ -52,6 +52,8 @@ import AdminCommunityPage from './pages/AdminCommunityPage'
 import AdminContentPage from './pages/AdminContentPage'
 import AdminCreatorsPage from './pages/AdminCreatorsPage'
 import AdminOverview from './pages/AdminOverview'
+import AdminUserDetailPage from './pages/AdminUserDetailPage'
+import AdminUsersPage from './pages/AdminUsersPage'
 import { hasActiveAccount, hasActiveCreatorAccess } from './utils/accessStatus'
 import AccountAccessSuspended from './components/AccountAccessSuspended'
 import RhythmLeaderboard from './pages/RhythmLeaderboard'
@@ -166,6 +168,8 @@ function App() {
         <Route element={<ProtectedRoute isAllowed={isAdmin} />}>
           <Route element={<AdminLayout />}>
             <Route element={<AdminOverview />} path="/admin" />
+            <Route element={<AdminUsersPage />} path="/admin/users" />
+            <Route element={<AdminUserDetailPage />} path="/admin/users/:userId" />
             <Route element={<AdminCreatorsPage />} path="/admin/creators" />
             <Route element={<AdminContentPage />} path="/admin/content" />
             <Route element={<AdminCommunityPage />} path="/admin/community" />

@@ -406,6 +406,29 @@
 .admin-content__membership label { color: #8994ad; display: grid; font-size: .68rem; font-weight: 800; gap: 5px; }
 .admin-content__membership select { background: rgba(16,22,52,.86); border: 1px solid rgba(196,181,253,.13); border-radius: 9px; color: #eef0f8; font: inherit; min-height: 42px; min-width: 0; padding: 8px 11px; width: 100%; }
 
+/* Users tab + User Information detail page */
+.admin-take-action-menu { gap: 9px; }
+.admin-take-action-menu .admin-button { justify-content: flex-start; }
+.admin-inline-action { margin-left: 8px; min-height: 0; padding: 3px 10px; }
+.admin-profile-detail-list { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }
+.admin-checkbox-field { align-items: start; display: flex; flex-direction: row; gap: 9px; }
+.admin-checkbox-field input { margin-top: 3px; width: auto; }
+.admin-accordion-list { display: grid; gap: 10px; margin-top: 14px; }
+.admin-accordion { background: #0d1330; border: 1px solid rgba(196,181,253,.085); border-radius: 14px; overflow: hidden; }
+.admin-accordion summary { align-items: center; color: #eef0f8; cursor: pointer; display: flex; font-size: .92rem; font-weight: 750; justify-content: space-between; list-style: none; padding: 14px 18px; }
+.admin-accordion summary::-webkit-details-marker { display: none; }
+.admin-accordion summary::after { border-bottom: 2px solid #a78bfa; border-right: 2px solid #a78bfa; content: ''; height: 7px; transform: rotate(45deg); transition: transform .15s ease-in-out; width: 7px; }
+.admin-accordion[open] summary::after { transform: rotate(-135deg); }
+.admin-accordion > .admin-table-wrap,.admin-accordion > .admin-simple-list,.admin-accordion > .admin-empty-state { border-top: 1px solid rgba(196,181,253,.08); }
+.admin-simple-list { display: grid; gap: 8px; list-style: none; margin: 0; padding: 12px 18px 16px; }
+.admin-simple-list li { align-items: center; background: rgba(124,58,237,.065); border-radius: 9px; display: flex; font-size: .82rem; justify-content: space-between; padding: 9px 11px; }
+.admin-simple-list li span { color: #8792aa; font-size: .74rem; }
+.admin-stat-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); margin: 14px 0; }
+.admin-stat-card { background: #0d1330; border: 1px solid rgba(196,181,253,.085); border-radius: 12px; display: grid; gap: 4px; padding: 14px 16px; }
+.admin-stat-card strong { color: #f3f1f9; font-size: 1.4rem; }
+.admin-stat-card span { color: #8792aa; font-size: .72rem; font-weight: 750; }
+.admin-creator-side-data { display: grid; gap: 16px; }
+
 @media (max-width: 1050px) {
   .admin-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .admin-overview-grid { grid-template-columns: 1fr; }
@@ -449,6 +472,10 @@
   .admin-community__users .admin-table { min-width: 0; }
   .admin-community__wrap,.admin-action-details { max-width: none; min-width: 0; }
   .admin-report-detail__actions .admin-button,.admin-report-detail__danger .admin-button { white-space: normal; }
+  .admin-profile-detail-list { grid-template-columns: 1fr; }
+  .admin-accordion summary { padding: 12px 14px; }
+  .admin-stat-grid { grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); }
+  .admin-inline-action { display: inline-block; margin: 6px 0 0; }
 }
 @media (max-width: 520px) {
   .admin-metrics { grid-template-columns: 1fr; }

@@ -575,3 +575,203 @@ The backend was started with `NODE_ENV=test` (forces SQLite regardless of the co
 
 - No automated frontend (Vitest) tests were added for the new `ChangeEmailFlow`/`DeleteAccountFlow` components or the Settings changes — coverage for this session relied on the backend Jest suite plus the manual, browser-driven pass described above.
 - The new migration (`025_account_deletion.sql`) was not applied to the live Supabase database as part of this session, consistent with the project's convention that numbered migrations are applied manually/at deploy time — the `DELETED` status and `deletedAt` column exist in the Sequelize model and were exercised against a local SQLite schema synced from the same models, not against production Postgres.
+
+# Journal entry 06
+
+# Date: 5 August 2026
+
+# Branch: Public 1
+
+# Prompts
+
+> Ensure the changes are responsive and can be seen without issue on multiple devices (e.g. laptop, half screen, phone, etc). Ensure styling (e.g. buttons, etc) and theme is align with the rest of the website. Absolutely do not erase anything from the database. Ensure that there is fallback such as Loading... or 0 (placeholder), etc if database is empty or user doesn't have any records. Along with a summary, please also include the what and how testing was done to ensure that features are working (use case and edge cases). Please try not to change code outside of what is needed so as to not interfere with other codes (these belong to other people). Please clearly list the changes made and the files changed.
+>
+> Song Library should have a reporting system where users can report songs. The song catalogue row should have a report option to report the song at the end of the row before the open column but after the bookmark column. Please be sure to refer to the current reporting system and come up with a plan that includes the user flow and specifically how it works.
+
+Plan-mode clarifications answered before implementation: the report button is hidden for guests (same gate as bookmark); a basic admin review queue should be built (not deferred to a separate task); and the "already reported" state was initially agreed to be session-only.
+
+> [Plan review comment, before approval] This is okay but ensure similar to the report tab, there should be a way to sort the song reports by song since multiple users may send reports about the same song. The sort should be based on which songs are currently reported and should be multi-select like the song library's filter page. Ensure that song reports should have effects on the User tab and the Warnings & actions tab as well as Audit history which already has a resource type 'Song'. Essentially, ensure that the new feature works with the other pre-existing features on admin.
+
+> Follow-up bug report:
+> 1. After reporting and then reloading, the user can still press submit and there is no error. Please make it so that the change persist after refresh so that user cannot send another report on the same song.
+> 2. The Songs Reports should also have that small purple circle that shows the number of song reports. This feature is seen on all the other tabs in Safety & Report and Song Reports should have it as well.
+> 3. When opening the Song Reports page, the Review should not immediately pop out. It should just show the rows and only show up if the admin clicks review.
+> 4. The action filter is not updated to allow for sorting "Song Report Reviewed".
+> 5. Audit history not updated eventhough I can see the row under the Warning & Actions' Safety Action timeline but not under the audit history.
+
+# Decisions Made
+
+- **No prior report/flag system existed anywhere in the app** for user-submitted content (confirmed by exploration before planning) — the closest analogues were the per-user **Bookmark** feature (`song_bookmarks`/`SongBookmark`/`PUT /songs/:id/bookmark`) for the request/response shape, and the **Safety Reports** admin workspace (`ReportWorkspace` in `AdminCommunityPage.jsx`, `moderation_actions`/`audit_logs`) for the review-queue shape. The new feature was built by mirroring both rather than inventing new patterns.
+- **Guest access, admin queue, and persistence were decided explicitly via `AskUserQuestion` before writing code**: report button hidden for guests (matches Bookmark's existing gate); a basic admin "Song Reports" tab was in scope now rather than deferred; duplicate-pending reports are blocked at the application layer (a check-then-create in the controller) rather than a DB constraint, so SQLite (tests) and Postgres behave identically.
+- **Cross-feature integration was planned deliberately, not bolted on**, per the plan-review comment: `'SONG'` was added to the `ModerationAction.targetType` whitelist (`GET /admin/moderation-actions`) and to `POST/GET /admin/warnings`' `sourceType` handling (a warning can now cite a song, not just a reflection), so resolving a report or warning a creator shows up correctly in the Warnings & Actions tab; `GET /admin/users`' safety aggregation was extended with a live count of each creator's pending song reports so the Users tab's existing "Flagged" column reflects them without adding a new persisted counter column (consistent with how reflection-flag counts are already computed on read, not stored).
+- **The song multi-select filter reused the Song Library's own `FilterDropdown` UX rather than a new pattern** — copied (not imported cross-folder) into `components/admin/SongReportFilterDropdown.jsx` since the admin bundle shouldn't depend on the public Song Library folder; wired to a `songSummary` (pending-report count per song) returned by `GET /admin/song-reports`, which also drives the default "most reported songs first" sort.
+- **Follow-up fix 1 (persistence) changed the original session-only decision** once it caused a real bug: the report row's `bookmarked`-style flag now includes a `reported` boolean per authenticated user (via a `SongReport` lookup alongside the existing `SongBookmark` lookup in `listPublicSongs`), so the button is disabled on load after a refresh — no reliance on a client-side `Set` that resets on reload.
+- **Follow-up fix 3 removed auto-selecting the first report on load**, deliberately diverging from `ReportWorkspace`'s existing reflection-queue behaviour (which does auto-select) — the user explicitly asked for the Song Reports queue to only open a case on an explicit "Review" click, so this was treated as an intentional difference between the two workspaces rather than a bug to bring into alignment.
+- **Follow-up fix 5's root cause was a hardcoded priority allow-list**, not a missing write: the `ModerationAction`/`AuditLog` rows for song reports were being written correctly (visible in the unfiltered Warnings & Actions timeline) but `AdminActivityPage.jsx`'s default "Administrative events" scope filters through an `isPriorityRecord()` function with a fixed regex/action list that never recognized `SONG_REPORT_DISMISSED`/`REVIEWED`/`SONG_REMOVED_BY_ADMIN` — added those to the same list rather than changing the default scope or the write path.
+- **Verification used the project's Jest/Vitest suites directly**, comparing failing-test counts against the same suite run via `git stash` both before and after this session's changes, rather than a live browser pass, to confirm every pre-existing failure was unrelated to this feature.
+
+# Files Modified
+
+Created:
+
+- `backend/migrations/025_song_reports.sql`
+- `backend/models/SongReport.js`
+- `backend/tests/songReport.test.js`
+- `frontend/src/services/songReportService.js`
+- `frontend/src/components/songs/ReportSongModal.jsx`
+- `frontend/src/components/admin/SongReportFilterDropdown.jsx`
+
+Modified:
+
+- `backend/models/index.js`
+- `backend/routes/songs.js`
+- `backend/controllers/songController.js`
+- `backend/routes/admin.js`
+- `backend/tests/adminAnalytics.test.js`
+- `frontend/src/services/adminService.js`
+- `frontend/src/pages/AdminCommunityPage.jsx`
+- `frontend/src/pages/AdminActivityPage.jsx`
+- `frontend/src/components/songs/SongCatalogue.jsx`
+- `frontend/src/pages/SongsLibrary.jsx`
+- `frontend/src/pages/SongsLibrary.test.jsx`
+- `frontend/src/SongsLibrary.css`
+
+# Features
+
+# Song Library (Report a Song)
+
+- Added a report (flag) button to each song catalogue row, positioned after Bookmark and before Open as requested, visible only to authenticated users (guests never see it, same gate as Bookmark).
+- Clicking it opens `ReportSongModal`: a reason dropdown (Inappropriate content / Copyright / Spam / Metadata / Other) plus an optional details textarea, with a busy state and an inline error that keeps the modal open on failure.
+- On success, the row's report button becomes disabled and shows "You already reported {song}"; a session confirmation message renders (`role="status"`). Submitting a duplicate report while one is still pending is rejected server-side (`409 ALREADY_REPORTED`) and treated as success client-side rather than shown as an error.
+- **Follow-up fix:** the reported state now persists across a page refresh — `GET /songs` includes a per-user `reported` flag (mirroring the existing `bookmarked` flag), sourced from a live `SongReport` lookup, so a reloaded page disables the button immediately instead of allowing a second submit attempt.
+- New `song_reports` table (`id`, `userId`, `songId`, `reason`, `details`, `status` defaulting to `PENDING`) added via a purely additive migration — no existing table, column, or row is touched.
+
+# Admin — Song Reports (new tab)
+
+- New "Song Reports" tab in Safety & Reports (`AdminCommunityPage.jsx`), modeled on the existing `ReportWorkspace` (Reflections) tab: a list of pending reports, a resolve modal (Dismiss / Mark reviewed / Remove song), and an "Issue warning" action against the song's creator.
+- A song multi-select filter (`SongReportFilterDropdown`, reusing the Song Library's checkbox-dropdown UX) lets an admin narrow the list to specific songs, and a sort toggle switches between "most reported songs first" (default) and "most recent report first".
+- **Follow-up fix:** the tab now shows the same small purple report-count badge every other Safety & Reports tab has, fed by a new `tabCounts.songReports` value (count of currently `PENDING` reports) returned from `GET /admin/analytics`.
+- **Follow-up fix:** opening the tab no longer auto-selects/opens the first report's review panel — the list renders on its own and a case only opens when an admin explicitly clicks into a row or its "Review" button.
+
+# Admin — Users tab / Warnings & Actions / Audit History (cross-feature effects)
+
+- `GET /admin/users`'s existing safety aggregation (used by the Users tab's "Flagged" column and the `scope=safety` filter) now also counts each creator's pending song reports, alongside the pre-existing reflection-flag count — no new persisted counter column, computed on read like the rest of that aggregation.
+- `'SONG'` was added to the `ModerationAction.targetType` whitelist and to the warning `sourceType` handling, so resolving a song report or warning a song's creator writes a `ModerationAction`/`UserWarning`/`AuditLog` row that the Warnings & Actions tab can read and display with the song as its source (title, not just a generic id).
+- **Follow-up fix:** the Warnings & Actions "Action" filter dropdown now includes "Song report dismissed", "Song report reviewed", and "Song removed" — previously these action types existed in the data but had no matching filter option.
+- **Follow-up fix:** Audit History's default "Administrative events" view was silently excluding song-report and song-removal events because of a hardcoded action allow-list (`isPriorityRecord`) that predated this feature; the new action types were added to that list so the events now appear there by default, matching what was already visible in the Warnings & Actions tab's unfiltered timeline.
+
+# Verification
+
+## Automated
+
+- Backend: `npx jest --runInBand` (full suite) — 213/215 passing. The 2 failures (`statsService.test.js`, `userProfiles.test.js`) were confirmed via `git stash` to pre-exist on this branch before any change in this session. New `backend/tests/songReport.test.js` (12 tests) covers: unauthenticated report attempts (`401`), an invalid/missing reason (`400`), a successful report persisting as `PENDING`, a duplicate-pending report from the same user being rejected (`409`/`ALREADY_REPORTED`) while a different user's report on the same song still succeeds, reporting a missing/unpublished song (`404`), the admin queue listing reports and rejecting non-admins (`403`), the song multi-select filter and `sort=mostReported` ordering, resolving a report writing a `ModerationAction` + `AuditLog` row and rejecting a second resolution, "remove song" archiving (not deleting) the song, issuing a warning against a song's creator with the song surfaced as its source, the Users tab's safety aggregation reflecting a creator's pending report count, and — for the persistence follow-up fix — the `reported` flag on `GET /songs` being `true` for the reporter and `false` for every other user and for guests. `adminAnalytics.test.js` was updated for the new `tabCounts.songReports` field.
+- Frontend: `npx vitest run` (full suite) — 251/259 passing. The 8 failing tests (4 files: `App.test.jsx`, `pendingScoreClaim.test.js`, `Landing.test.jsx`, `UserProfileSystem.test.jsx`) were confirmed via `git stash` to pre-exist on this branch, unrelated to any file touched this session. `SongsLibrary.test.jsx` gained 6 new tests: the report button is absent for guests; an authenticated submit shows the confirmation and disables the button; a failed submit keeps the modal open with the error visible; a second click on an already-reported button never calls the service again; an `ALREADY_REPORTED` server response is treated as success; and — for the persistence follow-up fix — a song the server reports as already-reported renders disabled on first load with no click needed.
+
+## Manual / logical review
+
+- No browser-driven (Playwright/screenshot) pass was done this session — verification relied on the automated backend/frontend suites described above, plus reading the rendered CSS to confirm the new report button/modal reuse the existing dark navy/purple `.songs-library-page` theme variables and the responsive grid-column math already in place for the Bookmark column (base template plus the 1100px/820px/640px breakpoints, each widened by one column for the new button, with the row-select click overlay's inset widened to match). A manual pass at desktop/half-screen/phone widths, and a keyboard-only pass through the report modal's focus trap, is recommended before merging.
+- No new automated frontend tests were added for the `AdminCommunityPage.jsx` Song Reports tab itself (no test file existed for that page before this session either); its behaviour (tab badge, no-auto-select, filter options, cross-feature effects) was verified by reading the modified code against the backend tests that exercise the same endpoints it calls, not by a dedicated component test.
+
+# Journal entry 07
+
+# Date: 6 August 2026
+
+# Branch: Integrated Public 1 and Violet 4
+
+# Prompts
+
+> Ensure the changes are responsive and can be seen without issue on multiple devices (e.g. laptop, half screen, phone, etc). Ensure styling (e.g. buttons, etc) and theme is align with the rest of the website. Absolutely do not erase anything from the database. Ensure that there is fallback such as Loading... or 0 (placeholder), etc if database is empty or user doesn't have any records. Along with a summary, please also include the what and how testing was done to ensure that features are working (use case and edge cases). Please try not to change code outside of what is needed so as to not interfere with other codes (these belong to other people). Please clearly list the changes made and the files changed. Where possible, reuse pre-existing code if applicable such as UI, a system flow, etc.
+>
+> 1. Change the soft delete in setting delete account to become hard delete.
+> 2. On the homepage, please change the badge shelf to follow the UI in profile settings but instead of displaying all badges, just display the latest 3 (max 3 but some users may not have that many so account for that) badges obtained by the user.
+> 3. Make a User management system. This is meant for progress tracking so all information pertaining to user information (see database models that have user id). The page should allow for the admin to search the names or emails of the users and should have filters that allow filtering by things such as account role and allow for sorting such as by date joined (These are some ideas). Follow the row look seen in Creators (Make the new tab Users and position it below Overview and above Creators) and there should be 2 buttons at the end of the row. One is 'Take action' (allows Admin to warn, suspend either user access, creator access or both for users with creator role) and delete account. Refer to relevant files and if there is already a system in place or something similar (e.g. warning user), use that to ensure uniformity and consistency amongst website. The other button is View More. It should bring the admin to another page with a back button at the top and the title User Information. First show "Profile" which should list things related to user's account such as id, name, etc based on user table. It should be in a card and the fields should be labelled as "Field Name: Field value" for example, "Name: Lia". The email can be edited by the admin after entering the admin's password (similar to password confirmation in settings) and for password, it should have a reset password and not show the value (E.g. Password: Reset Password). This should trigger the user to receive an email to reset their password with a link which when clicked should lead to the New password and Confirm Password fields (like forget password but no need to input email or do OTP verification step, go straight to changing password then lead back to sign in). Below Profile, There should be the information linked to user such as bookmarked songs (containing song information), rhythm game attempts, etc. Each section (Songs, Rhythm game, Reflections, etc) should be an accordion card so as to have a neater look (Otherwise page will be too crowded). For user with creator role, there should be two tabs under the Profile card (similar look to settings tabs but here, it should preferably be a toggle between either side rather than a way to go to a section below like in settings), one for "User-side Data" and the other for "Creator-side data". Creator-side data should include the statistics seen in the creator dashboard and all relevant information linked to creator that is special to creator accounts (e.g. songs, generated content, state of progress, etc) since user-side data and Creator-side date should be separate for these users. Do not include admin in the rows. There should numerical statistics in the accordion head. For example, a section under User-side Data has an accordion labelled "Badges obtained: 3/9" (Here there is a total number but for other things, it may look like "Rhythm game attempts: 5" with no total value, just a count).
+
+> [Plan review comment, before approval] No need to do this feature as my group mate already worked on it. Just focus on the other 2. In the summary, please state clearly which database changes need to be made throughout so that I can change the supabase myself.
+
+# Decisions Made
+
+- **Feature 2 (homepage badge shelf) was descoped mid-plan-review** — the user confirmed a groupmate had already implemented it, so the approved plan and this implementation cover only hard delete and the admin Users system.
+- **One shared `hardDeleteUser` service, used by both delete paths.** `backend/services/accountDeletionService.js` is called by the self-service `DELETE /auth/account` route (this session) and the new admin `DELETE /admin/users/:id` route, so the cascade logic can never drift between "delete my own account" and "an admin deletes an account."
+- **A published-content guard was added that wasn't explicitly requested, because "hard delete" collides with "never erase anything without the user meaning to."** `songs.creator_id` is `NOT NULL`; hard-deleting a creator with a live `PUBLISHED` song would silently take public content down. Self-service delete now returns `409 PUBLISHED_CONTENT_PRESENT` and refuses; the admin path can proceed anyway by passing `confirmContentDeletion: true`, with the affected song count logged to the audit trail first.
+- **Audit and moderation history are preserved through deletion, not deleted with the user.** `ModerationAction`/`AuditLog` rows referencing the deleted user have their user-reference columns set to `null` (the human-readable snapshot survives in `metadata`); `UserWarning` rows *about* the deleted user are removed outright since they describe a person who no longer exists.
+- **A planned migration grew by one column once implementation revealed a wrong assumption.** The plan going in assumed only admins issue warnings/create folders, so only `moderation_actions.actor_id` and `folders.created_by` needed to become nullable. Re-reading `backend/routes/reflections.js` during implementation showed creators can also warn users and issue moderation actions when moderating their own song's reflections — so `user_warnings.issued_by` needed the same nullable/`ON DELETE SET NULL` treatment, or a creator who ever warned someone could never be hard-deleted. Added to the same migration rather than shipping a second one.
+- **Admin email edit applies immediately after the admin's own password confirmation, with no OTP to the new address.** The self-service `/email-change/*` flow already OTP-verifies the *new* address — but the common admin scenario is fixing a typo'd address the user can't receive mail at, which an OTP-to-new-address step would make impossible. This is a deliberately different, more privileged path from the self-service one; it still validates format/uniqueness and bumps `authVersion` to force re-login.
+- **The "reset password" email link reuses the existing OTP-based flow's completion endpoint and page verbatim, instead of building a second reset mechanism.** The prompt's literal ask ("like forget password but no OTP step, go straight to New Password") maps exactly onto minting a `PASSWORD_RESET`-purpose scoped token (the same `createScopedToken`/`verifyScopedToken` machinery password reset already uses) with a 1-hour lifetime, embedding it as `?token=...` in the emailed link, and having `ResetPassword.jsx` seed its existing `resetToken` state from that query param. Zero new backend completion route or new frontend form was written.
+- **The existing suspend/warn modal was extracted rather than duplicated.** `AccountModal` (member-account suspend/restore) lived as a private function inside `AdminCommunityPage.jsx`; it was moved into the shared `components/admin/AdminUI.jsx` and a parallel `CreatorAccessModal` added alongside it, so the new Users tab and the pre-existing Safety & Reports tab share one implementation and one copy of the suspension wording instead of two.
+- **"View More" is a dedicated full page with a back button, not the admin dashboard's usual slide-over drawer.** Every other admin list (Creators, Safety & Reports) opens a `DetailDrawer` on click; the prompt explicitly asked for a separate page with a back button and the title "User Information," so that pattern was followed here as an intentional, requested departure from the drawer convention rather than folded into it.
+- **Creator-side statistics reuse the creator's own analytics computation, not a copy of it.** The `countThroughOwnedSong`/`groupedOwnedEvents` logic inside `backend/routes/analytics.js`'s `GET /analytics/creator` was extracted into `backend/services/creatorAnalyticsService.js` so both the creator's own dashboard and the new admin `GET /admin/users/:id/creator-stats` route compute identical numbers from one place.
+- **Accordions use the native `<details>/<summary>` element already idiomatic in this codebase** (`InterestTagsAccordion.jsx`, an existing audit-log detail disclosure in `AdminCommunityPage.jsx`), rather than introducing a new accordion component or library.
+- **Verification followed this project's established pattern**: run the full backend and frontend suites, and for any pre-existing failure, confirm via `git stash` that it fails identically on unmodified code before treating it as out of scope.
+
+# Files Modified
+
+Created:
+
+- `backend/services/accountDeletionService.js`
+- `backend/services/creatorAnalyticsService.js`
+- `backend/migrations/026_account_hard_delete.sql`
+- `backend/tests/adminUserManagement.test.js`
+- `frontend/src/pages/AdminUsersPage.jsx`
+- `frontend/src/pages/AdminUsersPage.test.jsx`
+- `frontend/src/pages/AdminUserDetailPage.jsx`
+- `frontend/src/pages/AdminUserDetailPage.test.jsx`
+
+Modified:
+
+- `backend/routes/auth.js`
+- `backend/routes/admin.js`
+- `backend/routes/analytics.js`
+- `backend/models/ModerationAction.js`
+- `backend/models/Folder.js`
+- `backend/models/UserWarning.js`
+- `backend/services/emailService.js`
+- `backend/migrations/025_account_deletion.sql` (comment only, not touching its SQL)
+- `backend/tests/emailChangeAndAccountDeletion.test.js`
+- `frontend/src/components/DeleteAccountFlow.jsx`
+- `frontend/src/pages/Settings.jsx`
+- `frontend/src/pages/ResetPassword.jsx`
+- `frontend/src/layouts/AdminLayout.jsx`
+- `frontend/src/App.jsx`
+- `frontend/src/services/adminService.js`
+- `frontend/src/components/admin/AdminUI.jsx`
+- `frontend/src/components/admin/AdminUI.css`
+- `frontend/src/pages/AdminCommunityPage.jsx`
+- `frontend/src/pages/AdminRoutes.test.jsx`
+
+# Features
+
+# Delete Account (Settings)
+
+- `DELETE /auth/account` no longer sets `accountStatus: 'DELETED'` on the row; it now runs `hardDeleteUser` inside a transaction, which deletes the user's profile, badges, scores, reflections (and any comments/likes on or by them), bookmarks, trivia attempts, instrument-challenge progress, song reports, warnings, creator applications, sessions, auth identities, OTPs and — if the account is a creator — every owned song and that song's children (lessons, generation jobs, scene segments/frames, rhythm beatmaps, trivia questions, bookmarks/reports/folder links from *other* users on that song), before destroying the user row itself.
+- Returns `409 PUBLISHED_CONTENT_PRESENT` and refuses to delete a creator who still owns a published song, so live public content is never silently pulled down by a self-service delete.
+- `DeleteAccountFlow.jsx` and the Settings danger-zone copy were updated to state the deletion is permanent and lists what is erased, and to surface the new 409 message instead of a generic error.
+
+# Admin — Users Tab
+
+- New "Users" entry in the admin sidebar, positioned between Overview and Creators, routed to `/admin/users`.
+- Lists every non-admin account with search (name/email), role filter, member-account-status filter, and a new sort control (newest/oldest joined, name A–Z/Z–A) backed by a new `sort` query param on `GET /admin/users`.
+- Each row ends in exactly two buttons: **Take action** (opens a chooser leading to the pre-existing warn / suspend-member modals, plus a parallel suspend-creator-access modal for creator rows — all writing to the same `UserWarning`/`ModerationAction`/`AuditLog` tables the Safety & Reports tab already uses) and **Delete account** (admin password + reason, hits the new `DELETE /admin/users/:id`, surfaces the published-content 409 with a follow-up confirmation checkbox).
+- The user's name/email cell is a link to the "View More" detail page.
+
+# Admin — User Information Page
+
+- New `/admin/users/:userId` page: a back button (`navigate(-1)`), the title "User Information," and a Profile card listing real `User` columns as literal `Field Name: Field value` text (name, email, role, member/creator access status, suspension reasons if present, date joined, last active, login streaks, email-verified date, user ID).
+- **Email** has an inline "Edit" action: a modal asking for the admin's own password plus the new address, applied immediately on success (no OTP to the new address — see Decisions Made) and forcing the target user to re-authenticate.
+- **Password** shows `Password: [Reset Password]` instead of a value; clicking it (after the admin's own password) emails the user a real, clickable password-reset link (new `POST /admin/users/:id/password-reset-link`, new `passwordResetLinkTemplate`/`sendPasswordResetLinkEmail` in `emailService.js`) that lands directly on the existing "choose a new password" form via `?token=`.
+- Below Profile, six data sections render as `<details>` accordions with the requested numeric-stat summary format — "Bookmarked songs: N", "Rhythm game attempts: N", "Reflections: N", "Badges obtained: N/9", "Trivia attempts: N (M correct)", "Instrument challenge progress: N" — each with its own empty state, sourced from a new read-only `GET /admin/users/:id` aggregate endpoint.
+- For accounts with the `CREATOR` role, an `AdminTabs` toggle switches between **User-side data** (the six accordions above) and **Creator-side data** (song status counts, rhythm/reflection/generation stats, a song table, and application history), the latter lazy-loaded only when that tab is opened via a new `GET /admin/users/:id/creator-stats`.
+- Admins are excluded from every list and every detail lookup (`GET /admin/users`, `GET /admin/users/:id`, and the delete route all filter or 403 on `role === 'ADMIN'`).
+
+# Verification
+
+## Automated
+
+- Backend: `npx jest` (full suite) — 238/240 passing. The 2 failures (`statsService.test.js`, `userProfiles.test.js`) were confirmed via `git stash` to pre-exist on this branch, unrelated to any file touched this session. Rewrote `emailChangeAndAccountDeletion.test.js`'s deletion tests for hard-delete: the row is actually gone; a stale token 401s cleanly; a full cascade test seeds one row of every linked model — including another user's comment/like on the deleted user's reflection, and the deleted user's own comment/like on someone else's reflection — and asserts everything for the deleted user is gone, the other user's own data is untouched, and audit/moderation rows survive with nulled references; a creator with only drafts is deleted successfully; a creator with a published song is refused (`409`) with nothing touched. New `backend/tests/adminUserManagement.test.js` (10 tests) covers: the users list never includes admins and every sort option orders correctly; the detail endpoint returns real zeros (not nulls) for an empty user, 404s for an admin target/unknown id, and 400s for a malformed id; email edit rejects a wrong admin password/bad format/duplicate email and a successful edit forces re-login; the password-reset-link email is captured from the test outbox, the extracted token is accepted end-to-end by the *existing* `/password-reset/complete` endpoint, and reuse of that token after completion is rejected; delete rejects a wrong password/missing reason/self-target/other-admin-target, a real deletion leaves an anonymized moderation record, and the published-content guard requires `confirmContentDeletion`; creator-stats 409s for a non-creator.
+- Frontend: `npx vitest run` (full suite) — 281/286 passing. The 5 failures (`App.test.jsx` ×2, `UserProfileSystem.test.jsx` ×2, `pendingScoreClaim.test.js` ×1) were confirmed via `git stash` to pre-exist on this branch, unrelated to any file touched this session. New `AdminUsersPage.test.jsx` (5 tests): exactly two action buttons per row and a working View More link; admins never render; search and sort re-fetch with the right query params; "Take action" only offers a creator-access option on creator rows; the delete modal refuses to submit without both a reason and a password. New `AdminUserDetailPage.test.jsx` (5 tests): loading state then profile fields rendered as literal `Field: value`; all six accordions render at zero for an empty user without crashing; no Creator-side tab for a non-creator; a creator's tab appears and its stats are fetched lazily only after being clicked; email edit is blocked until both fields are filled, then re-fetches the profile. Extended `AdminRoutes.test.jsx` for the new `/admin/users` route, its heading, and the sidebar ordering (Overview → Users → Creators).
+- `node -c` syntax checks and `npx eslint` on every new/modified file — clean; the two pre-existing `react-hooks/set-state-in-effect` lint errors in `ResetPassword.jsx` were confirmed via `git stash` to predate this session.
+
+## Not verified
+
+- No browser-driven (Playwright/screenshot) pass was done this session — verification relied on the backend/frontend automated suites above, plus reading the rendered CSS to confirm the new admin components (accordions, stat cards, definition list) reuse the existing dark admin theme tokens and the same `data-label` mobile-stacking pattern already used by every other admin table, rather than introducing new responsive code.
+- The new migration (`026_account_hard_delete.sql`) was not applied to the live Supabase database as part of this session, consistent with the project's convention that numbered migrations are applied manually/at deploy time — see the chat summary for the exact SQL the user needs to run themselves.
+- Real end-to-end SMTP delivery of the admin-issued password-reset-link email was not exercised (the test suite captures it from the in-memory test outbox, per this project's existing `emailService.js` test-transport convention) — only the link's token/expiry/reuse behaviour was verified.

@@ -2,8 +2,8 @@ import { AlertTriangle, ExternalLink, Flag, MessageSquareWarning, ShieldAlert, U
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
-  AdminPageHeader, AdminSummaryError, AdminTabPanel, AdminTabs, ConfirmationModal, DataTable, DetailDrawer, EmptyState,
-  Feedback, FilterBar, LoadingRows, Pagination, Panel, StatusBadge,
+  AccountModal, AdminPageHeader, AdminSummaryError, AdminTabPanel, AdminTabs, ConfirmationModal, DataTable,
+  DetailDrawer, EmptyState, Feedback, FilterBar, LoadingRows, Pagination, Panel, StatusBadge,
 } from '../components/admin/AdminUI'
 import ContextAuditHistory from '../components/admin/ContextAuditHistory'
 import SongReportFilterDropdown from '../components/admin/SongReportFilterDropdown'
@@ -211,13 +211,6 @@ function ReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
     {modal?.type === 'warning' ? <ConfirmationModal busy={busy} confirmLabel="Record warning" danger onCancel={() => setModal(null)} onConfirm={submitWarning} title={`Warn ${contributorName(selected)}?`}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>This warning will link to the reported reflection and remain in history after resolution. It does not suspend access or claim notification delivery.</p><label>Specific reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
     {modal?.type === 'account' ? <AccountModal busy={busy} onCancel={() => setModal(null)} onConfirm={submitAccountChange} onReason={(reason) => setModal((value) => ({ ...value, reason }))} reason={modal.reason} user={selected.account} /> : null}
   </>
-}
-
-function AccountModal({ busy, onCancel, onConfirm, onReason, reason, user }) {
-  const restoring = user.accountStatus === 'SUSPENDED'
-  return <ConfirmationModal busy={busy} confirmLabel={restoring ? 'Restore member account' : 'Suspend member account'} danger={!restoring} onCancel={onCancel} onConfirm={onConfirm} title={restoring ? 'Restore this member account?' : 'Suspend this member account?'}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>{restoring
-    ? 'Login and authenticated member access resume on the existing account. Stored profiles, songs, scores, badges, applications, reflections and history are reused; creator access remains in its separately recorded state.'
-    : 'Login and all authenticated member access stop immediately, including creator-only access. Stored profiles, songs, scores, badges, applications, reflections and history remain. Published songs stay public unless separately changed in Content.'}</p><label>Administrator reason (required)<textarea maxLength="1000" minLength="5" onChange={(event) => onReason(event.target.value)} placeholder={restoring ? 'Explain why access is safe to restore' : 'Explain the broader platform risk and include appeal guidance'} required value={reason} /></label></form></ConfirmationModal>
 }
 
 function SafetyActionHistory({ actions }) {

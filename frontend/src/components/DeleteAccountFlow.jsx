@@ -17,7 +17,9 @@ export default function DeleteAccountFlow({ onClose, onDeleted, token }) {
       await deleteMyAccount(password, token)
       onDeleted?.()
     } catch (nextError) {
-      setError(nextError.status === 401 ? 'Incorrect password.' : (nextError.message || 'Unable to delete the account right now.'))
+      if (nextError.status === 401) setError('Incorrect password.')
+      else if (nextError.status === 409) setError(nextError.message || 'This account still owns published content and cannot be deleted yet.')
+      else setError(nextError.message || 'Unable to delete the account right now.')
     } finally {
       setBusy(false)
     }
@@ -29,7 +31,7 @@ export default function DeleteAccountFlow({ onClose, onDeleted, token }) {
         <button aria-label="Close" className="account-flow-modal__actions is-secondary" onClick={onClose} style={{ justifySelf: 'end', minHeight: 'auto', padding: 4 }} type="button"><X aria-hidden="true" size={18} /></button>
         <form onSubmit={submit}>
           <h2>Confirm account deletion</h2>
-          <p>Enter your password to permanently delete this account. This cannot be undone from here.</p>
+          <p>Enter your password to permanently erase this account — your profile, badges, scores, reflections, bookmarks and songs. This cannot be undone.</p>
           <label>
             <span>Password</span>
             <span className="password-field" style={{ alignItems: 'center', display: 'flex', gap: 8 }}>
