@@ -64,6 +64,9 @@ test('rhythm game and result screens always provide exit and return navigation',
 })
 
 test('primary guest, registered, creator, and admin journeys have no page errors or API 404/500 responses', async ({ browser }) => {
+  // 20 full-page navigations across 4 fresh browser contexts — comparably expensive
+  // to link-integrity.spec.js's crawl, which already opts into the same longer budget.
+  test.setTimeout(120_000)
   const journeys = [
     { account: null, mode: 'user', paths: ['/', '/songs', '/learning', '/rhythm-game', '/reflections'] },
     { account: accounts.registered, mode: 'user', paths: ['/profile', '/settings', '/apply/creator'] },
