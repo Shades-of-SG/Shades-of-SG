@@ -19,8 +19,6 @@ function isPriorityRecord(record) {
   if (/CREATOR_APPLICATION_(APPROVED|REJECTED)/.test(action)) return true
   if (/(CREATOR|USER|ACCOUNT)_(SUSPENDED|ACTIVE|RESTORED|WARNED|WARNING_RESOLVED)/.test(action)) return true
   if (/(FOLDER|SONG_FOLDER_PROPOSAL)_(APPROVED|REJECTED)/.test(action)) return true
-  if (/SONG_REPORT_(DISMISSED|REVIEWED)/.test(action)) return true
-  if (action === 'SONG_REMOVED_BY_ADMIN') return true
   if (/REFLECTION_(REJECTED|APPROVED|PENDING)/.test(action)) return record.actorRole === 'ADMIN'
   if (action === 'REFLECTION_MODERATED') return record.actorRole === 'ADMIN'
   return false

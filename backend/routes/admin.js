@@ -3,7 +3,7 @@ const { Op, QueryTypes } = require('sequelize');
 const {
     AnalyticsEvent, AuditLog, CreatorApplication, CreatorApplicationHistory,
     Folder, FolderSongProposal, GameScore, GenerationJob, ModerationAction,
-    Reflection, ReflectionComment, Song, SongFolder, SongReport, User, UserWarning, sequelize,
+    Reflection, ReflectionComment, Song, SongFolder, User, UserWarning, sequelize,
 } = require('../models');
 const { requireAdmin } = require('../middleware/auth');
 const { isUuid, validateUuidParam } = require('../middleware/validateUuid');
@@ -44,20 +44,14 @@ const SAFETY_ACTION_TYPES = [
     'CREATOR_RESTORED', 'CREATOR_SUSPENDED', 'REFLECTION_COMMENT_REMOVED',
     'REFLECTION_COMMENT_RESTORED', 'REFLECTION_FLAGGED',
     'REFLECTION_REMOVED_BY_ADMIN', 'SAFETY_REPORT_DISMISSED',
-    'SAFETY_REPORT_RETURNED_TO_CREATOR', 'SONG_REMOVED_BY_ADMIN',
-    'SONG_REPORT_DISMISSED', 'SONG_REPORT_REVIEWED', 'USER_ACTIVE', 'USER_SUSPENDED',
-    'USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNED_FROM_SONG', 'USER_WARNING_RESOLVED',
+    'SAFETY_REPORT_RETURNED_TO_CREATOR', 'USER_ACTIVE', 'USER_SUSPENDED',
+    'USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNING_RESOLVED',
 ];
 const SAFETY_ACTION_TYPE_SET = new Set(SAFETY_ACTION_TYPES);
 const SAFETY_REPORT_OUTCOMES = {
     DISMISS_REPORT: { action: 'SAFETY_REPORT_DISMISSED', status: 'APPROVED' },
     REMOVE_REFLECTION: { action: 'REFLECTION_REMOVED_BY_ADMIN', status: 'REJECTED' },
     RETURN_TO_CREATOR: { action: 'SAFETY_REPORT_RETURNED_TO_CREATOR', status: 'PENDING' },
-};
-const SONG_REPORT_OUTCOMES = {
-    DISMISS_REPORT: { action: 'SONG_REPORT_DISMISSED', status: 'DISMISSED' },
-    MARK_REVIEWED: { action: 'SONG_REPORT_REVIEWED', status: 'REVIEWED' },
-    REMOVE_SONG: { action: 'SONG_REMOVED_BY_ADMIN', status: 'REVIEWED' },
 };
 
 function paging(query, maximum = 100) {
@@ -378,24 +372,18 @@ router.get('/users', async (req, res, next) => {
         }
         if (req.query.scope) {
             if (String(req.query.scope).toLowerCase() !== 'safety') return res.status(400).json({ message: 'Invalid user scope.' });
-            const [warningRows, flaggedRows, actionRows, songReportRows] = await Promise.all([
+            const [warningRows, flaggedRows, actionRows] = await Promise.all([
                 UserWarning.findAll({ attributes: ['userId'], group: ['userId'], raw: true }),
                 Reflection.findAll({ attributes: ['userId'], group: ['userId'], raw: true, where: { status: 'FLAGGED', userId: { [Op.ne]: null } } }),
                 ModerationAction.findAll({
                     attributes: ['targetUserId'], group: ['targetUserId'], raw: true,
                     where: { actionType: { [Op.in]: SAFETY_ACTION_TYPES }, targetUserId: { [Op.ne]: null } },
                 }),
-                SongReport.findAll({
-                    attributes: [[sequelize.col('song.creator_id'), 'creatorId']],
-                    group: ['song.creator_id'], include: [{ model: Song, as: 'song', attributes: [], required: true }],
-                    raw: true, where: { status: 'PENDING' },
-                }),
             ]);
             const safetyUserIds = [...new Set([
                 ...warningRows.map((row) => row.userId),
                 ...flaggedRows.map((row) => row.userId),
                 ...actionRows.map((row) => row.targetUserId),
-                ...songReportRows.map((row) => row.creatorId),
             ].filter(Boolean))];
             conditions.push({ [Op.or]: [
                 { accountStatus: 'SUSPENDED' }, { creatorAccessStatus: 'SUSPENDED' }, { id: { [Op.in]: safetyUserIds } },
@@ -410,10 +398,6 @@ router.get('/users', async (req, res, next) => {
             include: [
                 { model: Reflection, as: 'reflections', attributes: ['id', 'moderatedAt', 'status', 'updatedAt'], required: false },
                 { model: UserWarning, as: 'warnings', attributes: ['createdAt', 'id', 'resolvedAt', 'status'], required: false },
-                {
-                    model: Song, as: 'songs', attributes: ['id'], required: false,
-                    include: [{ model: SongReport, as: 'reports', attributes: ['createdAt', 'id', 'status'], required: false }],
-                },
             ],
             distinct: true, limit, offset, order: [['createdAt', 'DESC']], subQuery: false, where,
         });
@@ -432,14 +416,11 @@ router.get('/users', async (req, res, next) => {
                 const value = user.get({ plain: true });
                 const reflections = value.reflections || [];
                 const warnings = value.warnings || [];
-                const songs = value.songs || [];
                 const flagged = reflections.filter((reflection) => reflection.status === 'FLAGGED');
-                const pendingSongReports = songs.flatMap((song) => song.reports || []).filter((report) => report.status === 'PENDING');
                 const latestAction = latestActionByUser.get(value.id);
                 const eventCandidates = [
                     latestAction && { createdAt: latestAction.createdAt, reason: latestAction.reason, type: latestAction.actionType },
                     ...flagged.map((reflection) => ({ createdAt: reflection.moderatedAt || reflection.updatedAt, type: 'REFLECTION_FLAGGED' })),
-                    ...pendingSongReports.map((report) => ({ createdAt: report.createdAt, type: 'SONG_REPORT_PENDING' })),
                     ...warnings.map((warning) => ({
                         createdAt: warning.resolvedAt || warning.createdAt,
                         type: warning.status === 'RESOLVED' ? 'USER_WARNING_RESOLVED' : 'USER_WARNED',
@@ -448,13 +429,11 @@ router.get('/users', async (req, res, next) => {
                 return {
                     ...value,
                     activeWarningCount: warnings.filter((warning) => warning.status === 'ACTIVE').length,
-                    flaggedContentCount: flagged.length + pendingSongReports.length,
+                    flaggedContentCount: flagged.length,
                     latestSafetyEvent: eventCandidates[0] || null,
-                    pendingSongReportCount: pendingSongReports.length,
                     reflectionCount: reflections.length,
                     warningCount: warnings.length,
                     reflections: undefined,
-                    songs: undefined,
                     warnings: undefined,
                 };
             }),
@@ -834,7 +813,7 @@ router.get('/analytics', async (req, res, next) => {
     try {
         const singaporeNow = new Date(Date.now() + (8 * 60 * 60 * 1000));
         const activityStart = new Date(Date.UTC(singaporeNow.getUTCFullYear(), singaporeNow.getUTCMonth(), singaporeNow.getUTCDate() - 6) - (8 * 60 * 60 * 1000));
-        const [admins, creators, registeredUsers, songs, publishedSongs, scores, reflections, generationJobs, eventRows, pendingApplications, pendingReflections, flaggedReflections, unresolvedWarnings, suspendedAccounts, recentEvents, creatorApplications, collections, placementRequests, safetyUsers, pendingSongReports] = await Promise.all([
+        const [admins, creators, registeredUsers, songs, publishedSongs, scores, reflections, generationJobs, eventRows, pendingApplications, pendingReflections, flaggedReflections, unresolvedWarnings, suspendedAccounts, recentEvents, creatorApplications, collections, placementRequests, safetyUsers] = await Promise.all([
             User.count({ where: { role: 'ADMIN' } }), User.count({ where: { role: 'CREATOR' } }),
             User.count({ where: { role: 'REGISTERED' } }), Song.count(), Song.count({ where: { status: 'PUBLISHED' } }),
             GameScore.count(), Reflection.count(), GenerationJob.count(), AnalyticsEvent.count({ group: ['eventType'] }),
@@ -849,7 +828,6 @@ router.get('/analytics', async (req, res, next) => {
             Folder.count(),
             FolderSongProposal.count({ where: { status: 'PENDING' } }),
             countSafetyUsers(),
-            SongReport.count({ where: { status: 'PENDING' } }),
         ]);
         const events = Object.fromEntries(eventRows.map((row) => [row.eventType, Number(row.count)]));
         const activityByDate = new Map();
@@ -880,7 +858,6 @@ router.get('/analytics', async (req, res, next) => {
                 creators,
                 placementRequests,
                 reports: flaggedReflections,
-                songReports: pendingSongReports,
                 songs,
                 users: safetyUsers,
                 warnings: unresolvedWarnings,
@@ -1030,94 +1007,6 @@ router.post('/safety-reports/:id/resolve', validateUuidParam('id', 'Report targe
     } catch (error) { return next(error); }
 });
 
-router.get('/song-reports', async (req, res, next) => {
-    try {
-        const { limit, offset, page } = paging(req.query, 50);
-        const status = req.query.status ? String(req.query.status).toUpperCase() : 'PENDING';
-        if (!['PENDING', 'REVIEWED', 'DISMISSED'].includes(status)) return res.status(400).json({ message: 'Invalid song report status.' });
-        const where = { status };
-        let songIds = [];
-        if (req.query.songIds) {
-            songIds = String(req.query.songIds).split(',').map((value) => value.trim()).filter(Boolean);
-            if (songIds.some((id) => !isUuid(id))) return res.status(400).json({ message: 'songIds must be valid UUIDs.' });
-            if (songIds.length) where.songId = { [Op.in]: songIds };
-        }
-        const sort = String(req.query.sort || 'mostReported').toLowerCase();
-        if (!['mostreported', 'recent'].includes(sort)) return res.status(400).json({ message: 'Invalid sort option.' });
-
-        // Global summary of currently-pending reports per song (independent of the songIds filter above)
-        // powers both the "most reported" ordering and the song multi-select filter's option list.
-        const summaryRows = await SongReport.findAll({
-            attributes: ['songId', [sequelize.fn('COUNT', sequelize.col('SongReport.id')), 'pendingCount']],
-            group: ['songId', 'song.id', 'song.title'],
-            include: [{ model: Song, as: 'song', attributes: ['title'], required: true }],
-            raw: true, where: { status: 'PENDING' },
-        });
-        const songSummary = {};
-        summaryRows.forEach((row) => {
-            songSummary[row.songId] = { pendingCount: Number(row.pendingCount), songId: row.songId, songTitle: row['song.title'] };
-        });
-
-        const rows = await SongReport.findAll({
-            include: [
-                {
-                    model: Song, as: 'song', attributes: ['creatorId', 'id', 'status', 'title'], required: true,
-                    include: [{ model: User, as: 'creator', attributes: ['id', 'name'], required: false }],
-                },
-                { model: User, as: 'reporter', attributes: ['email', 'id', 'name'], required: false },
-            ],
-            order: [['createdAt', 'DESC']], where,
-        });
-        let reports = rows.map((row) => row.get({ plain: true }));
-        if (sort === 'mostreported') {
-            reports = reports.sort((left, right) => {
-                const byCount = (songSummary[right.songId]?.pendingCount || 0) - (songSummary[left.songId]?.pendingCount || 0);
-                return byCount !== 0 ? byCount : new Date(right.createdAt) - new Date(left.createdAt);
-            });
-        }
-        const count = reports.length;
-        return res.json({
-            pagination: pageResult([], count, page, limit).pagination,
-            reports: reports.slice(offset, offset + limit),
-            songSummary: Object.values(songSummary).sort((left, right) => right.pendingCount - left.pendingCount),
-        });
-    } catch (error) { return next(error); }
-});
-
-router.post('/song-reports/:id/resolve', validateUuidParam('id', 'Report ID must be a valid UUID.'), async (req, res, next) => {
-    try {
-        const outcome = String(req.body.outcome || '').toUpperCase();
-        const transition = SONG_REPORT_OUTCOMES[outcome];
-        if (!transition) return res.status(400).json({ message: 'Unsupported song report outcome.' });
-        const reason = requiredReason(req.body.reason);
-        if (!reason) return res.status(400).json({ message: 'A resolution reason between 5 and 2000 characters is required.' });
-        const report = await SongReport.findByPk(req.params.id, {
-            include: [{ model: Song, as: 'song', attributes: ['creatorId', 'id', 'status'] }],
-        });
-        if (!report) return res.status(404).json({ message: 'Song report not found.' });
-        if (report.status !== 'PENDING') return res.status(409).json({ message: 'This song report is no longer open.' });
-        await sequelize.transaction(async (transaction) => {
-            await report.update({ status: transition.status }, { transaction });
-            if (outcome === 'REMOVE_SONG' && report.song && report.song.status === 'PUBLISHED') {
-                await report.song.update({ status: 'ARCHIVED' }, { transaction });
-            }
-            await ModerationAction.create({
-                actionType: transition.action, actorId: req.authUserRecord.id,
-                metadata: { outcome, previousStatus: 'PENDING', resultingStatus: transition.status },
-                reason, songId: report.songId, targetId: report.songId,
-                targetType: 'SONG', targetUserId: report.song?.creatorId || null,
-            }, { transaction });
-            await writeAudit({
-                action: transition.action, actorId: req.authUserRecord.id,
-                creatorId: report.song?.creatorId || null, entityId: report.songId,
-                entityType: 'SONG', metadata: { outcome, reason, reportId: report.id },
-                req, songId: report.songId, transaction,
-            });
-        });
-        return res.json({ outcome, report: { id: report.id, status: transition.status } });
-    } catch (error) { return next(error); }
-});
-
 router.get('/warnings', async (req, res, next) => {
     try {
         const { limit, offset, page } = paging(req.query);
@@ -1150,7 +1039,7 @@ router.get('/warnings', async (req, res, next) => {
             include: [{ model: Song, as: 'song', attributes: ['id', 'title'], required: false }],
             order: [['createdAt', 'ASC']],
             where: {
-                actionType: { [Op.in]: ['USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNED_FROM_SONG'] },
+                actionType: { [Op.in]: ['USER_WARNED', 'USER_WARNED_FROM_REFLECTION'] },
                 targetUserId: { [Op.in]: warnedUserIds },
             },
         }) : [];
@@ -1158,13 +1047,9 @@ router.get('/warnings', async (req, res, next) => {
         warningActions.forEach((action) => {
             const warningId = action.metadata?.warningId;
             if (!warningIds.includes(warningId) || sourceByWarning.has(warningId)) return;
-            if (action.targetType === 'REFLECTION') {
-                sourceByWarning.set(warningId, { id: action.targetId, song: action.song, type: 'REFLECTION' });
-            } else if (action.targetType === 'SONG') {
-                sourceByWarning.set(warningId, { id: action.targetId, song: action.song, type: 'SONG' });
-            } else {
-                sourceByWarning.set(warningId, null);
-            }
+            sourceByWarning.set(warningId, action.targetType === 'REFLECTION' ? {
+                id: action.targetId, song: action.song, type: 'REFLECTION',
+            } : null);
         });
         return res.json({
             pagination: pageResult([], count, page, limit).pagination,
@@ -1188,34 +1073,24 @@ router.post('/warnings', async (req, res, next) => {
         const sourceId = req.body.sourceId || null;
         let source = null;
         if (sourceType || sourceId) {
-            if (!['REFLECTION', 'SONG'].includes(sourceType)) return res.status(400).json({ message: 'Unsupported warning source type.' });
+            if (sourceType !== 'REFLECTION') return res.status(400).json({ message: 'Unsupported warning source type.' });
             if (!isUuid(sourceId)) return res.status(400).json({ message: 'sourceId must be a valid UUID.' });
-            if (sourceType === 'SONG') {
-                const song = await Song.findByPk(sourceId, { attributes: ['creatorId', 'id', 'title'] });
-                if (!song) return res.status(404).json({ message: 'Warning source song not found.' });
-                if (song.creatorId !== target.id) return res.status(409).json({ message: 'The warning source does not belong to this user.' });
-                source = { id: song.id, song: { id: song.id, title: song.title }, type: 'SONG' };
-            } else {
-                const reflection = await Reflection.findByPk(sourceId, {
-                    include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
-                });
-                if (!reflection) return res.status(404).json({ message: 'Warning source reflection not found.' });
-                if (reflection.userId !== target.id) return res.status(409).json({ message: 'The warning source does not belong to this user.' });
-                source = { id: reflection.id, song: reflection.song, type: 'REFLECTION' };
-            }
+            const reflection = await Reflection.findByPk(sourceId, {
+                include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
+            });
+            if (!reflection) return res.status(404).json({ message: 'Warning source reflection not found.' });
+            if (reflection.userId !== target.id) return res.status(409).json({ message: 'The warning source does not belong to this user.' });
+            source = { id: reflection.id, song: reflection.song, type: 'REFLECTION' };
         }
-        const warningActionType = source
-            ? (source.type === 'SONG' ? 'USER_WARNED_FROM_SONG' : 'USER_WARNED_FROM_REFLECTION')
-            : 'USER_WARNED';
         const warning = await sequelize.transaction(async (transaction) => {
             const created = await UserWarning.create({ issuedBy: req.authUserRecord.id, reason, userId: target.id }, { transaction });
             await ModerationAction.create({
-                actionType: warningActionType, actorId: req.authUserRecord.id,
+                actionType: source ? 'USER_WARNED_FROM_REFLECTION' : 'USER_WARNED', actorId: req.authUserRecord.id,
                 metadata: { warningId: created.id }, reason, songId: source?.song?.id || null,
                 targetId: source?.id || target.id, targetType: source?.type || 'USER', targetUserId: target.id,
             }, { transaction });
             await writeAudit({
-                action: warningActionType, actorId: req.authUserRecord.id,
+                action: source ? 'USER_WARNED_FROM_REFLECTION' : 'USER_WARNED', actorId: req.authUserRecord.id,
                 entityId: created.id, entityType: 'USER_WARNING',
                 metadata: { sourceId: source?.id || null, sourceType: source?.type || null, targetUserId: target.id },
                 req, songId: source?.song?.id || null, transaction,
@@ -1260,7 +1135,7 @@ router.get('/moderation-actions', async (req, res, next) => {
         }
         if (req.query.targetType) {
             const targetType = String(req.query.targetType).toUpperCase();
-            if (!['REFLECTION', 'REFLECTION_COMMENT', 'SONG', 'USER', 'USER_WARNING'].includes(targetType)) return res.status(400).json({ message: 'Unsupported moderation target type.' });
+            if (!['REFLECTION', 'REFLECTION_COMMENT', 'USER', 'USER_WARNING'].includes(targetType)) return res.status(400).json({ message: 'Unsupported moderation target type.' });
             where.targetType = targetType;
         }
         if (req.query.actorId) {

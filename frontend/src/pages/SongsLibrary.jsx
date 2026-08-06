@@ -3,48 +3,23 @@ import { ArrowLeft, ArrowRight, Music2, Play, Sparkles, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import FilterBar from '../components/FilterBar'
 import Reveal from '../components/Reveal'
-import ReportSongModal from '../components/songs/ReportSongModal'
 import SongCatalogue from '../components/songs/SongCatalogue'
 import SongPreviewPanel from '../components/songs/SongPreviewPanel'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { getPublishedSongs } from '../services/publicSongService'
-import { toggleBookmark as toggleBookmarkRequest } from '../services/bookmarkService'
-import { reportSong as reportSongRequest } from '../services/songReportService'
-import { useAuth } from '../context/AuthContext'
 import CreatorNameLink from '../components/CreatorNameLink'
 
 const PAGE_SIZE = 9
-const emptyFilters = { search: '', theme: [], language: [], mood: [] }
-const FILTER_CATEGORY_LABELS = { theme: 'Theme', language: 'Language', mood: 'Mood' }
-const SORT_LABELS = { creator: 'Creator', newest: 'Newest', title: 'Title' }
+const emptyFilters = { search: '', theme: '', language: '', mood: '' }
 
 function hasFilters(filters) {
-  return Boolean(filters.search.trim()) || ['theme', 'language', 'mood'].some((key) => filters[key].length > 0)
+  return Object.values(filters).some((value) => value.trim())
 }
 
 function byNewest(first, second) {
   const firstDate = Date.parse(first.publishedDate || first.createdAt || 0) || 0
   const secondDate = Date.parse(second.publishedDate || second.createdAt || 0) || 0
   return secondDate - firstDate
-}
-
-function charRank(char) {
-  if (!char) return 2
-  if (/\p{N}/u.test(char)) return 1
-  if (/\p{L}/u.test(char)) return 2
-  return 0
-}
-
-function naturalCompare(first, second) {
-  const a = String(first || '').trim()
-  const b = String(second || '').trim()
-  const rankDiff = charRank(a[0]) - charRank(b[0])
-  if (rankDiff !== 0) return rankDiff
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-}
-
-function creatorLabel(song) {
-  return song.creator?.displayName || song.artist || ''
 }
 
 function SongArtwork({ song }) {
@@ -136,13 +111,11 @@ function Pagination({ currentPage, onPageChange, totalPages }) {
 }
 
 export default function SongsLibrary() {
-  const { isAuthenticated, token } = useAuth()
   const catalogueRef = useRef(null)
   const [songs, setSongs] = useState([])
   const [availableSongs, setAvailableSongs] = useState([])
   const [filters, setFilters] = useState(emptyFilters)
   const [sort, setSort] = useState('featured')
-  const [sortDirection, setSortDirection] = useState('desc')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [requestVersion, setRequestVersion] = useState(0)
@@ -151,25 +124,17 @@ export default function SongsLibrary() {
   const [playingSongId, setPlayingSongId] = useState('')
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [bookmarkPendingIds, setBookmarkPendingIds] = useState(() => new Set())
-  const [reportPendingIds, setReportPendingIds] = useState(() => new Set())
-  const [reportedSongIds, setReportedSongIds] = useState(() => new Set())
-  const [reportModalSong, setReportModalSong] = useState(null)
-  const [reportError, setReportError] = useState('')
-  const [reportFeedback, setReportFeedback] = useState('')
   const filtersActive = hasFilters(filters)
 
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {
       setLoading(true)
-      getPublishedSongs(filters, token)
+      getPublishedSongs(filters)
         .then((data) => {
           if (!active) return
           setSongs(data)
           if (!hasFilters(filters)) setAvailableSongs(data)
-          const alreadyReported = data.filter((song) => song.reported).map((song) => song.id)
-          if (alreadyReported.length) setReportedSongIds((current) => new Set([...current, ...alreadyReported]))
           setError('')
         })
         .catch((nextError) => {
@@ -184,7 +149,7 @@ export default function SongsLibrary() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [filters, requestVersion, token])
+  }, [filters, requestVersion])
 
   useEffect(() => {
     if (availableSongs.length === 0) return undefined
@@ -207,23 +172,11 @@ export default function SongsLibrary() {
 
   const featuredSong = availableSongs[0] || (!filtersActive ? songs[0] : null)
   const sortedSongs = useMemo(() => {
-    let nextSongs = [...songs]
-    if (sort === 'newest') nextSongs.sort(byNewest)
-    else if (sort === 'title') nextSongs.sort((first, second) => naturalCompare(first.title, second.title))
-    else if (sort === 'creator') {
-      nextSongs.sort((first, second) => (
-        naturalCompare(creatorLabel(first), creatorLabel(second)) || first.id.localeCompare(second.id)
-      ))
-    }
-    if (sortDirection === 'asc') nextSongs = nextSongs.reverse()
-    if (isAuthenticated) {
-      const bookmarked = nextSongs.filter((song) => song.bookmarked)
-      const rest = nextSongs.filter((song) => !song.bookmarked)
-      nextSongs = [...bookmarked, ...rest]
-    }
+    const nextSongs = [...songs]
+    if (sort === 'newest') return nextSongs.sort(byNewest)
+    if (sort === 'title') return nextSongs.sort((first, second) => first.title.localeCompare(second.title))
     return nextSongs
-  }, [songs, sort, sortDirection, isAuthenticated])
-
+  }, [songs, sort])
   const totalPages = Math.max(1, Math.ceil(sortedSongs.length / PAGE_SIZE))
   const safePage = Math.min(currentPage, totalPages)
   const startIndex = (safePage - 1) * PAGE_SIZE
@@ -232,13 +185,10 @@ export default function SongsLibrary() {
   const activeSelectedId = selectedSong?.id || ''
 
   const activeFilters = [
-    filters.search && { key: 'search', label: `Search: ${filters.search}`, onRemove: () => updateFilter('search', '') },
-    ...['theme', 'language', 'mood'].flatMap((category) => filters[category].map((value) => ({
-      key: `${category}:${value}`,
-      label: `${FILTER_CATEGORY_LABELS[category]}: ${value}`,
-      onRemove: () => updateFilter(category, filters[category].filter((item) => item !== value)),
-    }))),
-    sort !== 'featured' && { key: 'sort', label: `Sort: ${SORT_LABELS[sort]}`, onRemove: () => changeSort('featured') },
+    filters.search && { key: 'search', label: `Search: ${filters.search}` },
+    filters.theme && { key: 'theme', label: filters.theme },
+    filters.language && { key: 'language', label: filters.language },
+    filters.mood && { key: 'mood', label: filters.mood },
   ].filter(Boolean)
 
   function resetCatalogueContext() {
@@ -256,18 +206,11 @@ export default function SongsLibrary() {
   function clearFilters() {
     resetCatalogueContext()
     setFilters(emptyFilters)
-    setSort('featured')
-    setSortDirection('desc')
   }
 
   function changeSort(value) {
     resetCatalogueContext()
     setSort(value)
-  }
-
-  function changeSortDirection(value) {
-    resetCatalogueContext()
-    setSortDirection(value)
   }
 
   function scrollToCatalogue() {
@@ -286,60 +229,6 @@ export default function SongsLibrary() {
   function selectSong(songId, options = {}) {
     setSelectedSongId(songId)
     if (!options.fromFocus) setMobilePreviewOpen(true)
-  }
-
-  function applyBookmarkState(songId, bookmarked) {
-    const updater = (list) => list.map((song) => (song.id === songId ? { ...song, bookmarked } : song))
-    setSongs(updater)
-    setAvailableSongs(updater)
-  }
-
-  function handleToggleBookmark(songId, bookmarked) {
-    if (!isAuthenticated || bookmarkPendingIds.has(songId)) return
-    const previous = songs.find((song) => song.id === songId)?.bookmarked ?? false
-    applyBookmarkState(songId, bookmarked)
-    setBookmarkPendingIds((current) => new Set(current).add(songId))
-    toggleBookmarkRequest(songId, bookmarked, token)
-      .catch(() => applyBookmarkState(songId, previous))
-      .finally(() => setBookmarkPendingIds((current) => {
-        const next = new Set(current)
-        next.delete(songId)
-        return next
-      }))
-  }
-
-  function handleReportClick(songId) {
-    if (!isAuthenticated || reportedSongIds.has(songId) || reportPendingIds.has(songId)) return
-    const song = songs.find((item) => item.id === songId)
-    if (!song) return
-    setReportError('')
-    setReportModalSong(song)
-  }
-
-  function submitReport({ reason, details }) {
-    if (!reportModalSong) return
-    const songId = reportModalSong.id
-    setReportError('')
-    setReportPendingIds((current) => new Set(current).add(songId))
-    reportSongRequest(songId, { details, reason }, token)
-      .then(() => {
-        setReportedSongIds((current) => new Set(current).add(songId))
-        setReportModalSong(null)
-        setReportFeedback(`Thanks — we've received your report for "${reportModalSong.title}".`)
-      })
-      .catch((nextError) => {
-        if (nextError.code === 'ALREADY_REPORTED') {
-          setReportedSongIds((current) => new Set(current).add(songId))
-          setReportModalSong(null)
-          return
-        }
-        setReportError(nextError.message || 'Could not submit report. Please try again.')
-      })
-      .finally(() => setReportPendingIds((current) => {
-        const next = new Set(current)
-        next.delete(songId)
-        return next
-      }))
   }
 
   return (
@@ -378,23 +267,14 @@ export default function SongsLibrary() {
           </div>
         </div>
 
-        <FilterBar
-          direction={sortDirection}
-          filters={{ ...filters, ...options }}
-          hasActiveFilters={filtersActive || sort !== 'featured'}
-          onChange={updateFilter}
-          onClear={clearFilters}
-          onDirectionChange={changeSortDirection}
-          onSortChange={changeSort}
-          sort={sort}
-        />
+        <FilterBar filters={{ ...filters, ...options }} hasActiveFilters={filtersActive} onChange={updateFilter} onClear={clearFilters} onSortChange={changeSort} sort={sort} />
 
         <div className="songs-catalogue-summary">
           <p aria-live="polite">{sortedSongs.length > 0 ? `Showing ${startIndex + 1}–${Math.min(startIndex + PAGE_SIZE, sortedSongs.length)} of ${sortedSongs.length} songs` : 'Showing 0 songs'}</p>
           {activeFilters.length > 0 ? (
             <div aria-label="Active filters" className="songs-active-filters">
               {activeFilters.map((filter) => (
-                <button aria-label={`Remove ${filter.label} filter`} key={filter.key} onClick={filter.onRemove} type="button">{filter.label} <X aria-hidden="true" size={14} /></button>
+                <button aria-label={`Remove ${filter.label} filter`} key={filter.key} onClick={() => updateFilter(filter.key, '')} type="button">{filter.label} <X aria-hidden="true" size={14} /></button>
               ))}
             </div>
           ) : null}
@@ -412,22 +292,7 @@ export default function SongsLibrary() {
         {!loading && !error && pageSongs.length > 0 ? (
           <div className="songs-catalogue-layout">
             <div className="songs-catalogue-main">
-              <SongCatalogue
-                isAuthenticated={isAuthenticated}
-                bookmarkPendingIds={bookmarkPendingIds}
-                onReport={handleReportClick}
-                onSelect={selectSong}
-                onToggleBookmark={handleToggleBookmark}
-                playingSongId={playingSongId}
-                reportedSongIds={reportedSongIds}
-                reportPendingIds={reportPendingIds}
-                rhythmBySong={rhythmBySong}
-                searchTerm={filters.search}
-                selectedSongId={activeSelectedId}
-                songs={pageSongs}
-                startIndex={startIndex}
-              />
-              {reportFeedback ? <p aria-live="polite" className="songs-library-report-feedback" role="status">{reportFeedback}</p> : null}
+              <SongCatalogue onSelect={selectSong} playingSongId={playingSongId} rhythmBySong={rhythmBySong} selectedSongId={activeSelectedId} songs={pageSongs} startIndex={startIndex} />
               <Pagination currentPage={safePage} onPageChange={changePage} totalPages={totalPages} />
             </div>
             <SongPreviewPanel
@@ -447,16 +312,6 @@ export default function SongsLibrary() {
           <div className="songs-empty-state"><Music2 aria-hidden="true" size={36} /><h2>No songs found</h2><p>Try changing or clearing your filters.</p>{filtersActive ? <button onClick={clearFilters} type="button">Clear filters</button> : null}</div>
         ) : null}
       </section>
-
-      {reportModalSong ? (
-        <ReportSongModal
-          busy={reportPendingIds.has(reportModalSong.id)}
-          error={reportError}
-          onCancel={() => setReportModalSong(null)}
-          onSubmit={submitReport}
-          song={reportModalSong}
-        />
-      ) : null}
     </div>
   )
 }

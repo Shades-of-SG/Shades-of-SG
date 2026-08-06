@@ -1,6 +1,6 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
@@ -100,22 +100,14 @@ function auditSong(req, action, song, metadata = {}) {
     });
 }
 
-function parseMultiValue(rawValue) {
-    return String(rawValue || '')
-        .split(',')
-        .map((value) => value.trim())
-        .filter(Boolean);
-}
-
 async function listPublicSongs(req, res, next) {
     try {
-        const where = {
-            creatorId: { [Op.ne]: null },
+        const where = { 
+            creatorId: { [Op.ne]: null }, 
             status: 'PUBLISHED',
             title: { [Op.ne]: 'Beatmap Song' }
         };
-        const themes = parseMultiValue(req.query.theme);
-        if (themes.length) where.theme = { [Op.in]: themes };
+        if (req.query.theme) where.theme = req.query.theme;
         const songs = await Song.findAll({
             where,
             include: [{
@@ -125,25 +117,18 @@ async function listPublicSongs(req, res, next) {
             order: [['publishedDate', 'DESC'], ['title', 'ASC']],
         });
         const search = String(req.query.search || '').trim().toLowerCase();
-        const languages = parseMultiValue(req.query.language).map((value) => value.toLowerCase());
-        const moods = parseMultiValue(req.query.mood).map((value) => value.toLowerCase());
+        const language = String(req.query.language || '').trim().toLowerCase();
+        const mood = String(req.query.mood || '').trim().toLowerCase();
         const filtered = songs.filter((song) => {
-            const searchable = [song.title, song.artist].filter(Boolean).join(' ').toLowerCase();
-            const songLanguages = (song.languages || []).map((value) => String(value).toLowerCase());
-            const songMoods = (song.moodTags || []).map((value) => String(value).toLowerCase());
+            const searchable = [song.title, song.artist, song.description, song.theme, ...(song.languages || [])]
+                .filter(Boolean).join(' ').toLowerCase();
+            const languages = (song.languages || []).map((value) => String(value).toLowerCase());
+            const moods = (song.moodTags || []).map((value) => String(value).toLowerCase());
             return (!search || searchable.includes(search))
-                && (!languages.length || languages.some((value) => songLanguages.includes(value)))
-                && (!moods.length || moods.some((value) => songMoods.includes(value)));
+                && (!language || languages.includes(language))
+                && (!mood || moods.includes(mood));
         });
-        const bookmarkedIds = req.authUser?.id
-            ? new Set((await SongBookmark.findAll({ where: { userId: req.authUser.id }, attributes: ['songId'] }))
-                .map((row) => row.songId))
-            : new Set();
-        const reportedIds = req.authUser?.id
-            ? new Set((await SongReport.findAll({ where: { status: 'PENDING', userId: req.authUser.id }, attributes: ['songId'] }))
-                .map((row) => row.songId))
-            : new Set();
-        return res.json({ songs: filtered.map((song) => withPublicCreator(song, bookmarkedIds, reportedIds)) });
+        return res.json({ songs: filtered.map(withPublicCreator) });
     } catch (error) { return next(error); }
 }
 
@@ -165,7 +150,7 @@ async function getPublicSong(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Set()) {
+function withPublicCreator(song) {
     const value = song.get({ plain: true });
     const creator = value.creator;
     value.creator = creator ? {
@@ -173,48 +158,7 @@ function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Se
         displayName: creator.profile?.displayName || creator.name,
         id: creator.id,
     } : null;
-    value.bookmarked = bookmarkedIds.has(value.id);
-    value.reported = reportedIds.has(value.id);
     return value;
-}
-
-async function toggleBookmark(req, res, next) {
-    try {
-        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
-        if (!song) return res.status(404).json({ message: 'Song not found.' });
-        const bookmarked = Boolean(req.body.bookmarked);
-        const userId = req.authUserRecord.id;
-        if (bookmarked) {
-            await SongBookmark.findOrCreate({ where: { userId, songId: song.id } });
-        } else {
-            await SongBookmark.destroy({ where: { userId, songId: song.id } });
-        }
-        return res.json({ bookmarked });
-    } catch (error) { return next(error); }
-}
-
-const REPORT_REASONS = new Set(['INAPPROPRIATE', 'COPYRIGHT', 'SPAM', 'METADATA', 'OTHER']);
-
-async function reportSong(req, res, next) {
-    try {
-        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
-        if (!song) return res.status(404).json({ message: 'Song not found.' });
-
-        const reason = String(req.body.reason || '').toUpperCase();
-        if (!REPORT_REASONS.has(reason)) {
-            return res.status(400).json({ message: 'Please choose a valid report reason.' });
-        }
-        const details = req.body.details ? String(req.body.details).trim().slice(0, 1000) : null;
-        const userId = req.authUserRecord.id;
-
-        const existingPending = await SongReport.findOne({ where: { userId, songId: song.id, status: 'PENDING' } });
-        if (existingPending) {
-            return res.status(409).json({ code: 'ALREADY_REPORTED', message: 'You already have a pending report for this song.' });
-        }
-
-        const report = await SongReport.create({ details, reason, songId: song.id, userId });
-        return res.status(201).json({ report: { id: report.id, reason: report.reason, status: report.status } });
-    } catch (error) { return next(error); }
 }
 
 async function listCreatorSongs(req, res, next) {
@@ -561,4 +505,4 @@ async function extractAudio(req, res, next) {
     }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, reportSong, toggleBookmark, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

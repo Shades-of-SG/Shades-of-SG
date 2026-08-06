@@ -2,17 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import SongsLibrary from './SongsLibrary'
-import { AuthProvider } from '../context/AuthContext'
 
 const mocks = vi.hoisted(() => ({
   getBeatmapSummary: vi.fn(),
   getPublishedSongs: vi.fn(),
-  reportSong: vi.fn(),
 }))
 
 vi.mock('../services/publicSongService', () => ({ getPublishedSongs: mocks.getPublishedSongs }))
 vi.mock('../services/beatmapService', () => ({ getBeatmapSummary: mocks.getBeatmapSummary }))
-vi.mock('../services/songReportService', () => ({ reportSong: mocks.reportSong }))
 
 const songs = [
   {
@@ -57,13 +54,10 @@ const songs = [
 function filteredSongs(filters = {}) {
   return songs.filter((song) => {
     const search = filters.search?.toLowerCase()
-    const themes = filters.theme || []
-    const languages = filters.language || []
-    const moods = filters.mood || []
-    return (!themes.length || themes.includes(song.theme))
-      && (!languages.length || languages.some((value) => song.languages.includes(value)))
-      && (!moods.length || moods.some((value) => song.moodTags.includes(value)))
-      && (!search || [song.title, song.artist].join(' ').toLowerCase().includes(search))
+    return (!filters.theme || song.theme === filters.theme)
+      && (!filters.language || song.languages.includes(filters.language))
+      && (!filters.mood || song.moodTags.includes(filters.mood))
+      && (!search || [song.title, song.artist, song.theme, ...song.languages].join(' ').toLowerCase().includes(search))
   })
 }
 
@@ -85,12 +79,10 @@ describe('Songs Library', () => {
 
   function renderPage() {
     return render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/songs']}>
-          <SongsLibrary />
-          <LocationProbe />
-        </MemoryRouter>
-      </AuthProvider>,
+      <MemoryRouter initialEntries={['/songs']}>
+        <SongsLibrary />
+        <LocationProbe />
+      </MemoryRouter>,
     )
   }
 
@@ -140,14 +132,13 @@ describe('Songs Library', () => {
     renderPage()
     await screen.findByText('3 songs available')
 
-    fireEvent.click(screen.getByRole('button', { name: 'All themes' }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Community' }))
+    fireEvent.change(screen.getByLabelText('Theme'), { target: { value: 'Community' } })
 
     await waitFor(() => expect(mocks.getPublishedSongs).toHaveBeenLastCalledWith({
-      language: [], mood: [], search: '', theme: ['Community'],
-    }, null))
+      language: '', mood: '', search: '', theme: 'Community',
+    }))
     expect(await screen.findByText('Showing 1–1 of 1 songs')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remove Theme: Community filter' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Community filter' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(await screen.findByText('Showing 1–3 of 3 songs')).toBeInTheDocument()
@@ -202,118 +193,6 @@ describe('Songs Library', () => {
 
     expect(screen.getByText('Preview couldn’t be loaded')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
-  })
-})
-
-describe('Songs Library - reporting', () => {
-  function renderAuthenticatedPage() {
-    localStorage.setItem('authToken', 'reporter-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'reporter-1', role: 'REGISTERED' }))
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
-      json: async () => ({ badges: [], profile: { displayName: 'Reporter' }, reflections: [], rhythm: {} }),
-      ok: true,
-      status: 200,
-    })))
-    return render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/songs']}><SongsLibrary /></MemoryRouter>
-      </AuthProvider>,
-    )
-  }
-
-  beforeEach(() => {
-    localStorage.clear()
-    mocks.getPublishedSongs.mockImplementation((filters) => Promise.resolve(filteredSongs(filters)))
-    mocks.getBeatmapSummary.mockResolvedValue([])
-  })
-
-  afterEach(() => {
-    cleanup()
-    vi.clearAllMocks()
-    vi.restoreAllMocks()
-    vi.unstubAllGlobals()
-    localStorage.clear()
-  })
-
-  it('hides the report action for guests', async () => {
-    render(
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/songs']}><SongsLibrary /></MemoryRouter>
-      </AuthProvider>,
-    )
-    await screen.findByText('3 songs available')
-
-    expect(screen.queryByRole('button', { name: /^Report / })).not.toBeInTheDocument()
-  })
-
-  it('disables the report button on load when the server says the song was already reported (persists across refresh)', async () => {
-    mocks.getPublishedSongs.mockImplementation((filters) => Promise.resolve(
-      filteredSongs(filters).map((song) => (song.id === 'home' ? { ...song, reported: true } : song)),
-    ))
-    renderAuthenticatedPage()
-    await screen.findByText('3 songs available')
-
-    expect(screen.getByRole('button', { name: /You already reported Home/ })).toBeDisabled()
-    fireEvent.click(screen.getByRole('button', { name: /You already reported Home/ }))
-    expect(mocks.reportSong).not.toHaveBeenCalled()
-  })
-
-  it('lets an authenticated user submit a report and shows a confirmation', async () => {
-    mocks.reportSong.mockResolvedValue({ report: { id: 'report-1', reason: 'SPAM', status: 'PENDING' } })
-    renderAuthenticatedPage()
-    await screen.findByText('3 songs available')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Report Home' }))
-    expect(await screen.findByRole('heading', { name: /Report .Home./ })).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'SPAM' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Submit report' }))
-
-    await waitFor(() => expect(mocks.reportSong).toHaveBeenCalledWith('home', { details: null, reason: 'SPAM' }, 'reporter-token'))
-    expect(await screen.findByRole('status')).toHaveTextContent(/Thanks.*Home/)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /You already reported Home/ })).toBeDisabled()
-  })
-
-  it('keeps the dialog open and shows an error when the report request fails', async () => {
-    mocks.reportSong.mockRejectedValue(new Error('Network error, please try again.'))
-    renderAuthenticatedPage()
-    await screen.findByText('3 songs available')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Report Home' }))
-    await screen.findByRole('dialog')
-    fireEvent.click(screen.getByRole('button', { name: 'Submit report' }))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Network error, please try again.')
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Report Home' })).not.toBeDisabled()
-  })
-
-  it('does not submit a second report once a song is already reported', async () => {
-    mocks.reportSong.mockResolvedValue({ report: { id: 'report-1', reason: 'SPAM', status: 'PENDING' } })
-    renderAuthenticatedPage()
-    await screen.findByText('3 songs available')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Report Home' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Submit report' }))
-    await waitFor(() => expect(mocks.reportSong).toHaveBeenCalledTimes(1))
-
-    const reportedButton = screen.getByRole('button', { name: /You already reported Home/ })
-    fireEvent.click(reportedButton)
-    expect(mocks.reportSong).toHaveBeenCalledTimes(1)
-  })
-
-  it('treats an already-reported response from the server as success', async () => {
-    const alreadyReportedError = Object.assign(new Error('You already have a pending report for this song.'), { code: 'ALREADY_REPORTED' })
-    mocks.reportSong.mockRejectedValue(alreadyReportedError)
-    renderAuthenticatedPage()
-    await screen.findByText('3 songs available')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Report Home' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Submit report' }))
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(screen.getByRole('button', { name: /You already reported Home/ })).toBeDisabled()
   })
 })
 
