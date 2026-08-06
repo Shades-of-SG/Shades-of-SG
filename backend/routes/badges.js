@@ -1,8 +1,17 @@
 const express = require('express');
-const { Badge, User } = require('../models');
+const { Badge, BadgeDefinition, User } = require('../models');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
+
+// The full badge catalog (name, description, category, sticker art) — used by the frontend to
+// render locked/unlocked stickers without duplicating this metadata in its own JS.
+router.get('/catalog', requireAuth, async (req, res, next) => {
+    try {
+        const definitions = await BadgeDefinition.findAll({ order: [['sortOrder', 'ASC']] });
+        return res.json({ definitions });
+    } catch (error) { return next(error); }
+});
 
 router.get('/:userId', requireAuth, async (req, res, next) => {
     try {
