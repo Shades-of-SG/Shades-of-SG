@@ -1,16 +1,24 @@
-import { useState } from 'react'
-import useInstrumentAudio from '../../hooks/useInstrumentAudio'
+import { useEffect, useState } from 'react'
+import useInstrumentAudio, { preloadInstrument } from '../../hooks/useInstrumentAudio'
+import useLabInstruments from '../../hooks/useLabInstruments'
 import useLessonProgress from '../../hooks/useLessonProgress'
 import LessonSection from './LessonSection'
 
-const lessonVoice = {
-  envelope: 'sustained',
-  waveform: 'triangle',
-}
-
 export default function LessonPlayer({ lesson, onBack }) {
+  const instruments = useLabInstruments()
+  // Every built lesson's note pool today is a subset of Piano's range —
+  // future lessons that want a different voice can look up another
+  // instrument here the same way. Falls back to a plain synthesized voice
+  // if, somehow, the static instrument list doesn't have it.
+  const lessonVoice = instruments.find((instrument) => instrument.id === 'piano')
+    || { envelope: 'sustained', waveform: 'triangle' }
   const { playMelody } = useInstrumentAudio()
   const { markSectionComplete, progress, resetProgress } = useLessonProgress(lesson.id)
+
+  useEffect(() => {
+    preloadInstrument(lessonVoice)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonVoice.id, lessonVoice.samples])
   const [stage, setStage] = useState(() =>
     progress.completedSections > 0 && progress.completedSections < lesson.sections.length
       ? progress.completedSections

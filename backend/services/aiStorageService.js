@@ -4,14 +4,16 @@ const { Readable } = require('stream')
 
 /**
  * (PHASE 1) Uploads an audio stream (File Buffer or URL pipe) to Cloudinary
+ * @param {Buffer|import('stream').Readable} fileData
+ * @param {{ folder?: string, publicId?: string }} [options] - defaults preserve the original single-folder behavior
  */
-const uploadAudioStream = (fileData) => {
-  // ... (Your existing code untouched)
+const uploadAudioStream = (fileData, { folder = 'shades-of-sg/audio', publicId } = {}) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         resource_type: 'video', // Mandated by Cloudinary for audio
-        folder: 'shades-of-sg/audio',
+        folder,
+        ...(publicId ? { public_id: publicId } : {}),
       },
       (error, result) => {
         if (error) {
