@@ -4,3 +4,8 @@ database.sqlite-journal
 *.db
 storage
 cookies.txt
+
+# Raw instrument sample audio (developer-provided before running seed:lab-instruments;
+# only the small text manifest describing licenses/filenames is committed)
+audio-sources/**/*.mp3
+audio-sources/**/*.wav
