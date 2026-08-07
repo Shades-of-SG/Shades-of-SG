@@ -757,7 +757,6 @@ const confirmScenes = async (req, res, next) => {
         }
         return {
           songId: job.songId,
-          sceneOrder: index + 1,
           startTime: parseFloat(s.startTime || s.start_time || 0),
           endTime: parseFloat(s.endTime || s.end_time || 0),
           lyrics: s.lyrics || '',
@@ -1041,13 +1040,12 @@ const handleAssistantCommand = async (req, res, next) => {
       throw err
     }
 
-    // 1. Fetch job and verify creator ownership
-    const job = await GenerationJob.findOne({
-      where: { id: jobId },
+    // 1. Find the target GenerationJob and verify creator ownership via Song
+    const job = await GenerationJob.findByPk(jobId, {
       include: [{
         model: Song,
         as: 'song',
-        attributes: ['id', 'title', 'artist', 'theme', 'creatorId'],
+        attributes: ['id', 'title', 'artist', 'theme', 'description', 'aiSummary', 'rawLyrics', 'creatorId'],
         where: { creatorId: req.authUserRecord.id },
       }],
     })
@@ -1064,12 +1062,12 @@ const handleAssistantCommand = async (req, res, next) => {
     const segments = await SceneSegment.findAll({
       where: { songId: song.id },
       order: [['startTime', 'ASC']],
-      attributes: ['id', 'sceneOrder', 'startTime', 'endTime', 'lyrics', 'visualPrompt'],
+      attributes: ['id', 'startTime', 'endTime', 'lyrics', 'visualPrompt'],
     })
 
     const sceneContext = segments.map((s, i) => ({
       id: s.id,
-      sceneNumber: s.sceneOrder || i + 1,
+      sceneNumber: i + 1,
       startTime: s.startTime,
       endTime: s.endTime,
       lyrics: s.lyrics || '',
@@ -1082,43 +1080,53 @@ const handleAssistantCommand = async (req, res, next) => {
 
     // 3. Build prompts
     const systemPrompt = `You are an AI Video Editor Copilot for a Singapore heritage music video platform.
-You help creators modify their video scene segments using natural language commands.
+You help creators review, critique, answer questions about, and modify their video scene segments using natural language commands.
 
 You will receive:
-- A creator's natural language edit command
+- Full song context (title, artist, theme, description, lyrics)
 - The currently active scene (if any)
-- A list of all scene segments with their IDs, timestamps, lyrics, and visual prompts
+- A list of all scene segments with timestamps, lyrics, and visual prompts
 
-Your job is to interpret the command and output a structured edit patch.
+Rules for Questions, Critique & Advice ("CHAT_RESPONSE"):
+1. If the user asks a question, requests advice, or asks if a scene is good (e.g., "is this a good opening frame?", "what should this frame be?", "does this match the song?"):
+   - Set action to "CHAT_RESPONSE".
+   - Start immediately with a direct answer (e.g., "Yes — ...", "No — ...", or "Great opening choice — ...").
+   - Keep the response SHORT, CONCISE, and PUNCHY (2 to 3 sentences maximum).
+   - Reference the specific song theme, lyrics, or description to justify your answer directly.
+   - Do NOT write long essays, wordy paragraphs, or generic filler!
+   - Set targetSceneSegmentIds to [], newPrompt to null, and newLyrics to null.
 
-Rules:
-- "UPDATE_PROMPT": change the visual prompt of one or more target scenes
-- "UPDATE_LYRICS": correct/update the lyrics text of one or more target scenes
-- "PROPAGATE_CHORUS": apply the same prompt change to all scenes with matching lyrics (chorus repeat detection)
-- For scene references like "Scene 2" or "the second scene", match by sceneNumber
-- For "active scene" or "current scene", use the activeSceneSegmentId provided
-- For chorus propagation commands, set all matching scene IDs in targetSceneSegmentIds
-- newPrompt: if action involves prompt change, write an enhanced cinematic DALL-E prompt incorporating the creator's intent; otherwise null
-- newLyrics: if action involves lyrics correction, provide corrected text; otherwise null
-- explanation: one clear, friendly sentence explaining what will change
+Rules for Prompt Modifications ("UPDATE_PROMPT" / "PROPAGATE_CHORUS"):
+1. If the user explicitly asks to rewrite, change, or enhance a prompt (e.g. "make this frame more creative", "change Scene 1 to a night shot"):
+   - Set action to "UPDATE_PROMPT" or "PROPAGATE_CHORUS".
+   - Write a BOLD, VIVID, DISTINCT, and highly creative new visual prompt in "newPrompt".
+   - Provide a 1-sentence explanation of what changed in "explanation".
+
+Rules for Lyric Corrections ("UPDATE_LYRICS"):
+1. Provide corrected text in "newLyrics" and 1-sentence explanation in "explanation".
 
 Output STRICTLY valid JSON matching this schema — no markdown, no extra keys:
 {
-  "action": "UPDATE_PROMPT" | "UPDATE_LYRICS" | "PROPAGATE_CHORUS",
+  "action": "CHAT_RESPONSE" | "UPDATE_PROMPT" | "UPDATE_LYRICS" | "PROPAGATE_CHORUS",
   "targetSceneSegmentIds": ["uuid1", "uuid2"],
   "newPrompt": "string or null",
   "newLyrics": "string or null",
-  "explanation": "1-sentence explanation"
+  "explanation": "concise 2-3 sentence direct answer/advice OR 1-sentence edit explanation"
 }`
 
-    const userMessage = `Song: "${song.title}" by ${song.artist || 'Unknown'} | Theme: ${song.theme || 'Singaporean Heritage'}
+    const userMessage = `Song Context:
+- Title: "${song.title}"
+- Artist: ${song.artist || 'Unknown'}
+- Theme: ${song.theme || 'Singaporean Heritage'}
+- Description: ${song.description || 'N/A'}
+- Lyrics Excerpt: "${(song.rawLyrics || '').substring(0, 600) || 'N/A'}"
 
-Active Scene: ${activeScene ? `Scene ${activeScene.sceneNumber} (${activeScene.startTime}s–${activeScene.endTime}s): "${activeScene.lyrics}"` : 'None selected'}
+Active Scene: ${activeScene ? `Scene ${activeScene.sceneNumber} (${activeScene.startTime}s–${activeScene.endTime}s): Lyrics: "${activeScene.lyrics}" | Visual Prompt: "${activeScene.visualPrompt}"` : 'None selected'}
 
 All Scenes:
 ${JSON.stringify(sceneContext, null, 2)}
 
-Creator Command: ${command.trim()}`
+User Question / Command: "${command.trim()}"`
 
     // 4. Call DeepSeek (or GPT-4o-mini fallback) — same pattern as regenerateSingleScenePrompt
     const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
@@ -1160,22 +1168,27 @@ Creator Command: ${command.trim()}`
     }
 
     // Validate required patch fields
-    const validActions = ['UPDATE_PROMPT', 'UPDATE_LYRICS', 'PROPAGATE_CHORUS']
+    const validActions = ['CHAT_RESPONSE', 'UPDATE_PROMPT', 'UPDATE_LYRICS', 'PROPAGATE_CHORUS']
     if (!validActions.includes(patch.action)) {
-      patch.action = 'UPDATE_PROMPT' // safe default
+      patch.action = 'CHAT_RESPONSE'
     }
-    if (!Array.isArray(patch.targetSceneSegmentIds) || patch.targetSceneSegmentIds.length === 0) {
-      // Fall back to active scene or first scene
-      patch.targetSceneSegmentIds = activeSceneSegmentId
-        ? [activeSceneSegmentId]
-        : segments.length > 0 ? [segments[0].id] : []
-    }
-    // Sanitize: only include IDs that actually exist in this song
-    const validIds = new Set(segments.map(s => s.id))
-    patch.targetSceneSegmentIds = patch.targetSceneSegmentIds.filter(id => validIds.has(id))
 
-    patch.newPrompt = patch.newPrompt || null
-    patch.newLyrics = patch.newLyrics || null
+    if (patch.action === 'CHAT_RESPONSE') {
+      patch.targetSceneSegmentIds = []
+      patch.newPrompt = null
+      patch.newLyrics = null
+    } else {
+      if (!Array.isArray(patch.targetSceneSegmentIds) || patch.targetSceneSegmentIds.length === 0) {
+        patch.targetSceneSegmentIds = activeSceneSegmentId
+          ? [activeSceneSegmentId]
+          : segments.length > 0 ? [segments[0].id] : []
+      }
+      const validIds = new Set(segments.map(s => s.id))
+      patch.targetSceneSegmentIds = patch.targetSceneSegmentIds.filter(id => validIds.has(id))
+      patch.newPrompt = patch.newPrompt || null
+      patch.newLyrics = patch.newLyrics || null
+    }
+
     patch.explanation = patch.explanation || 'AI edits ready to apply.'
 
     console.log(`[Copilot] Patch ready: action=${patch.action}, targets=${patch.targetSceneSegmentIds.length} scene(s)`)

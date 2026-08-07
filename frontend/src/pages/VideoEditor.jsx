@@ -705,7 +705,13 @@ export default function VideoEditor() {
       if (result.success && result.patch) {
         const { patch } = result
         setCopilotLog(prev => [...prev, { role: 'assistant', text: patch.explanation, patch }])
-        setPendingPatch(patch)
+        
+        const isActionable = patch.action !== 'CHAT_RESPONSE' && (Boolean(patch.newPrompt) || Boolean(patch.newLyrics))
+        if (isActionable) {
+          setPendingPatch(patch)
+        } else {
+          setPendingPatch(null)
+        }
 
         if (patch.targetSceneSegmentIds?.length > 0) {
           const highlightMap = {}
@@ -944,7 +950,7 @@ export default function VideoEditor() {
           <button
             id="copilot-toggle-btn"
             onClick={() => setShowCopilotDrawer(prev => !prev)}
-            title="AI Copilot (Shift+A)"
+            title="Shades Assistant (Shift+A)"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -964,7 +970,7 @@ export default function VideoEditor() {
             }}
           >
             <Sparkles size={15} />
-            AI Copilot
+            Shades Assistant
           </button>
           <button
             className="studio-button studio-button--secondary"
@@ -1273,11 +1279,11 @@ export default function VideoEditor() {
               <Sparkles size={16} color="#fff" />
             </div>
             <div>
-              <h3 style={{margin:0,color:'#e2e8f0',fontSize:'0.9375rem',fontWeight:700}}>AI Copilot</h3>
+              <h3 style={{margin:0,color:'#e2e8f0',fontSize:'0.9375rem',fontWeight:700}}>Shades Assistant</h3>
               <p style={{margin:0,color:'#64748b',fontSize:'0.6875rem'}}>Natural language scene editor</p>
             </div>
           </div>
-          <button onClick={()=>setShowCopilotDrawer(false)} style={{background:'transparent',border:'none',color:'#64748b',cursor:'pointer',padding:'4px',borderRadius:'6px',display:'flex'}} onMouseOver={e=>e.currentTarget.style.color='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.color='#64748b'} aria-label="Close AI Copilot"><X size={18}/></button>
+          <button onClick={()=>setShowCopilotDrawer(false)} style={{background:'transparent',border:'none',color:'#64748b',cursor:'pointer',padding:'4px',borderRadius:'6px',display:'flex'}} onMouseOver={e=>e.currentTarget.style.color='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.color='#64748b'} aria-label="Close Shades Assistant"><X size={18}/></button>
         </div>
 
         {/* Quick Action Chips */}
@@ -1297,11 +1303,11 @@ export default function VideoEditor() {
         </div>
 
         {/* Command/Response Log */}
-        <div ref={copilotLogRef} style={{flex:1,overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+        <div ref={copilotLogRef} className="custom-scrollbar" style={{flex:1,overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
           {copilotLog.length===0&&(
             <div style={{textAlign:'center',padding:'40px 20px',color:'#334155'}}>
               <MessageSquare size={32} style={{margin:'0 auto 12px',display:'block',opacity:.4}}/>
-              <p style={{margin:0,fontSize:'0.875rem',lineHeight:1.5}}>Ask the Copilot to modify scenes.<br/><span style={{fontSize:'0.75rem'}}>e.g. "Make Scene 3 a rainy street at night"</span></p>
+              <p style={{margin:0,fontSize:'0.875rem',lineHeight:1.5}}>Ask Shades Assistant to modify scenes.<br/><span style={{fontSize:'0.75rem'}}>e.g. "Make Scene 3 a rainy street at night"</span></p>
             </div>
           )}
           {copilotLog.map((entry,i)=>(
@@ -1310,20 +1316,42 @@ export default function VideoEditor() {
                 {entry.role==='assistant'&&(
                   <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px'}}>
                     <Sparkles size={11} color="#a78bfa"/>
-                    <span style={{color:'#a78bfa',fontSize:'0.6875rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Copilot</span>
-                    {entry.patch&&<span style={{marginLeft:'auto',background:'rgba(124,58,237,.25)',color:'#c4b5fd',fontSize:'0.625rem',fontWeight:700,padding:'1px 6px',borderRadius:'4px',textTransform:'uppercase',letterSpacing:'0.05em'}}>{entry.patch.action?.replace('_',' ')}</span>}
+                    <span style={{color:'#a78bfa',fontSize:'0.6875rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Shades</span>
+                    {entry.patch && entry.patch.action !== 'CHAT_RESPONSE' && (
+                      <span style={{marginLeft:'auto',background:'rgba(124,58,237,.25)',color:'#c4b5fd',fontSize:'0.625rem',fontWeight:700,padding:'1px 6px',borderRadius:'4px',textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                        {entry.patch.action?.replace('_',' ')}
+                      </span>
+                    )}
                   </div>
                 )}
                 {entry.text}
               </div>
-              {entry.role==='assistant'&&entry.patch&&pendingPatch===entry.patch&&(
+              {entry.role==='assistant'&&entry.patch&&entry.patch.action!=='CHAT_RESPONSE'&&(entry.patch.newPrompt||entry.patch.newLyrics)&&pendingPatch===entry.patch&&(
                 <div style={{width:'88%',background:'rgba(124,58,237,.08)',border:'1px solid rgba(139,92,246,.3)',borderRadius:'10px',padding:'12px',display:'flex',flexDirection:'column',gap:'8px'}}>
                   <div style={{display:'flex',alignItems:'center',gap:'6px',color:'#94a3b8',fontSize:'0.75rem'}}>
                     <Zap size={12} color="#f59e0b"/>
                     <span style={{color:'#f59e0b',fontWeight:600}}>{entry.patch.targetSceneSegmentIds?.length||0} scene(s)</span>
                     <span>will be updated</span>
                   </div>
-                  {entry.patch.newPrompt&&<p style={{margin:0,color:'#64748b',fontSize:'0.7rem',fontStyle:'italic',borderLeft:'2px solid rgba(139,92,246,.4)',paddingLeft:'8px',lineHeight:1.4}}>{entry.patch.newPrompt.substring(0,120)}{entry.patch.newPrompt.length>120?'…':''}</p>}
+                  {entry.patch.newPrompt && (
+                    <div
+                      className="custom-scrollbar"
+                      style={{
+                        maxHeight: '100px',
+                        overflowY: 'auto',
+                        margin: 0,
+                        color: '#94a3b8',
+                        fontSize: '0.75rem',
+                        fontStyle: 'italic',
+                        borderLeft: '2px solid rgba(139, 92, 246, 0.5)',
+                        paddingLeft: '8px',
+                        paddingRight: '6px',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      {entry.patch.newPrompt}
+                    </div>
+                  )}
                   <div style={{display:'flex',gap:'8px'}}>
                     <button id="copilot-apply-btn" onClick={handleApplyPatch} disabled={isApplyingPatch}
                       style={{flex:1,padding:'8px 12px',background:isApplyingPatch?'#4c1d95':'linear-gradient(135deg,#7c3aed,#6d28d9)',border:'none',borderRadius:'7px',color:'#fff',fontSize:'0.8125rem',fontWeight:700,cursor:isApplyingPatch?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',boxShadow:isApplyingPatch?'none':'0 4px 12px rgba(124,58,237,.4)',transition:'all .2s'}}>
@@ -1342,7 +1370,7 @@ export default function VideoEditor() {
           {copilotLoading&&(
             <div style={{display:'flex',alignItems:'center',gap:'8px',color:'#64748b',fontSize:'0.75rem'}}>
               <Loader2 size={14} style={{animation:'spin 1s linear infinite',color:'#7c3aed'}}/>
-              Copilot is thinking...
+              Shades is thinking...
             </div>
           )}
         </div>
