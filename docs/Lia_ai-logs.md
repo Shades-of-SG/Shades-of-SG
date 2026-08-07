@@ -775,3 +775,354 @@ Modified:
 - No browser-driven (Playwright/screenshot) pass was done this session — verification relied on the backend/frontend automated suites above, plus reading the rendered CSS to confirm the new admin components (accordions, stat cards, definition list) reuse the existing dark admin theme tokens and the same `data-label` mobile-stacking pattern already used by every other admin table, rather than introducing new responsive code.
 - The new migration (`026_account_hard_delete.sql`) was not applied to the live Supabase database as part of this session, consistent with the project's convention that numbered migrations are applied manually/at deploy time — see the chat summary for the exact SQL the user needs to run themselves.
 - Real end-to-end SMTP delivery of the admin-issued password-reset-link email was not exercised (the test suite captures it from the in-memory test outbox, per this project's existing `emailService.js` test-transport convention) — only the link's token/expiry/reuse behaviour was verified.
+
+# Extra Journal Entries for Claude
+1. Using Claude to try and fix database connection error. It was unsuccessful but it did make changes to a file to allow for more retries rather than giving up at the first sign of failure.
+2. Using Claude to fix failed frontend tests when merging. Made a small code change to a regex expression and the next re-test was successful.
+
+# Copilot
+Note: Majority of these codes are no longer in use and/or were rejected. This is just summaries from the conversations across sessions.
+
+# 01
+🔐 Two‑Factor Authentication (2FA)
+You added an enable2fa boolean column in your User table.
+
+true → user must verify OTP before login completes.
+
+false → normal login.
+
+Backend /login route:
+
+Checks credentials.
+
+If enable2fa = true → returns { requireOtp: true, email } (no token yet).
+
+If enable2fa = false → returns { user, token }.
+
+Frontend Login.jsx:
+
+If requireOtp is true → calls /send-email-otp.
+
+Shows OTP input.
+
+On verification → calls /verify-login-otp.
+
+Backend returns { success, user, token }.
+
+Frontend stores token + user in localStorage and navigates to dashboard.
+
+🚫 User Ban System
+You added an isBanned boolean column in your User table.
+
+Backend checks:
+
+In /login: if isBanned = true → return 403 with “This account has been banned.”
+
+In /register: if email belongs to a banned user → block registration.
+
+Frontend: shows error messages when login/register fails due to ban.
+
+🛠 OTP Handling Fixes
+Originally, /verify-email-otp tried to findOne user even during registration → caused errors because user didn’t exist yet.
+
+Solution: split OTP verification into two routes:
+
+/verify-email-otp → used in Register.
+
+Only checks OTP validity.
+
+Returns { success: true, message: "OTP verified" }.
+
+/verify-login-otp → used in Login.
+
+Checks OTP.
+
+Fetches user.
+
+Returns { success: true, user, token }.
+
+🛠 Await Issue
+You saw SyntaxError: await is only valid in async functions because your /verify-email-otp route wasn’t marked async.
+
+Fix: declare the route as async so you can await User.findOne(...).
+
+✅ Current State
+Login with 2FA: works fully — OTP is sent, verified, and user logs in with proper token + user object.
+
+Register with OTP: works — OTP is verified before creating the user, no more errors about missing bio.
+
+Ban system: works — banned users cannot log in or register.
+
+Frontend alerts: OTP sent and OTP verified alerts now show, consistent with Register.
+
+📂 File Paths Updated
+Backend:
+
+backend/routes/authRoutes.js → updated /login, /send-email-otp, /verify-email-otp, /verify-login-otp.
+
+Frontend:
+
+frontend/src/pages/Login.jsx → added OTP states, success state, alerts, and correct handling of verifyLoginOtp.
+
+frontend/src/pages/Register.jsx → continues to use verifyEmailOtp for registration OTP.
+
+frontend/src/services/authApi.js → now has both verifyEmailOtp and verifyLoginOtp.
+
+# 02
+🎵 Carousel Fixes
+Back arrow issue: Cleaned up duplicate prevSlide/nextSlide functions and replaced with simple index‑based logic so both arrows cycle correctly without blanks.
+
+Reflection carousel: Added similar logic so it cycles after the last card instead of leaving blank space.
+
+Arrow positioning: Fixed arrows hiding behind cards by adding z-index: 10 in CSS.
+
+Card spacing: Added padding/margin so cards aren’t squished together.
+
+Hover headroom: Added margin above cards so hover lift isn’t cut off.
+
+📝 Reflection Cards
+New component: Created frontend/src/components/ReflectionCard.jsx to mirror SongCard but without initials.
+
+Uniform size: Added CSS for rounded boxes, fixed width/height, consistent spacing.
+
+Text truncation: Used -webkit-line-clamp with line-clamp fallback so reflections show up to 4 lines, wrapping inside the box, then ....
+
+Display name logic: Shows displayName if set → else user.name from User table → else "User" → else "Anonymous".
+
+Song title: Reflections now join with Song model so they display the actual song title instead of “Unknown Song.”
+
+Filter pending: Backend query excludes reflections with status = 'PENDING'.
+
+📊 Stats Section
+Community stats: Added /api/stats route returning counts for registered users (excluding creators), published songs, and approved reflections.
+
+User stats: Added /api/stats/me route requiring JWT to return badges, trivia attempts, and rhythm plays.
+
+Frontend integration: Landing page fetches both community and user stats, showing either depending on login state.
+
+FeatureCard component: Built reusable card for “What you can do” section and stats row.
+
+Styling: Added hover effects and grid layout for feature and stat cards.
+
+⚙️ Backend Setup
+Models: Defined associations in backend/models/index.js so reflections belong to songs and users.
+
+User model: Added backend/models/User.js with id and name.
+
+Reflection service: Updated to include Song and User joins, filter approved reflections, and return correct attributes.
+
+Stats service: Added backend/services/statsService.js to count users, songs, reflections.
+
+Routes: Added backend/routes/reflections.js and backend/routes/stats.js with public /stats and protected /stats/me.
+
+🛠 Debugging & Fixes
+Illegal return error: Fixed misplaced return () => { ... }, [] by moving cleanup into useEffect.
+
+401 Unauthorized: Explained that /stats should be public, /stats/me requires JWT. Adjusted backend routes accordingly.
+
+Database connection error: Resolved ENOTFOUND by correcting Supabase DB host in .env (use direct db.<project-ref>.supabase.co instead of pooler host).
+
+Clear filter button: Explained it was disabled by !hasActiveFilters. Fixed by computing hasActiveFilters correctly or removing disabled.
+
+✅ Overall Outcome
+Carousels now cycle smoothly with functional arrows and no blank spaces.
+
+Reflection cards are styled consistently, truncate text properly, and show correct song/user info.
+
+Stats section displays both community and user stats with clean cards.
+
+Backend routes and services are structured for songs, reflections, users, and stats.
+
+Common errors (401, ENOTFOUND, illegal return, disabled button) were debugged and resolved.
+
+# 03
+🔐 Authentication & Backend
+Password hashing mismatch: Your Supabase user rows didn’t match your backend’s PBKDF2 hashing logic. We fixed this by showing how to migrate users with your hashPassword() function so login works.
+
+Axios integration: You replaced fetch with Axios in authApi.js for cleaner requests, automatic JSON handling, and easier error management.
+
+Token handling: We added logic to store both authToken and refreshToken in localStorage, plus helpers for saving and retrieving user info.
+
+Axios interceptors:
+
+Request interceptor automatically attaches Authorization: Bearer <token> to every request.
+
+Response interceptor handles 401 Unauthorized by refreshing tokens or logging out if refresh fails.
+
+Backend refresh route: We built /auth/refresh using your crypto‑based token logic, so expired tokens can be renewed seamlessly.
+
+🌐 Frontend & Environment
+API_URL setup: We clarified that your frontend should point to your own Express backend (localhost for dev, deployed URL for production), not directly to Supabase’s REST API.
+
+CORS errors: We fixed the “blocked by CORS policy” issue by adding cors middleware in your backend and allowing requests from your frontend origin (http://localhost:5173).
+
+🖥️ Frontend Auth Flow
+authApi.js final version: Contains loginWithEmail, registerWithEmail, logout, getStoredUser, and getStoredToken.
+
+Persistent login: On app startup, getStoredUser() restores the user from localStorage so sessions survive page refreshes.
+
+Optional Auth Context: Suggested wrapping this in a React AuthProvider for global access to user state and logout.
+
+🎵 FilterBar Component
+Error fix: The crash came from calling .toLowerCase() on null. We fixed it by guarding with song.title || "" and song.description || "".
+
+Real‑time search: Removed the debounce setTimeout in useEffect so search updates instantly as you type, just like your filters.
+
+🧠 Summary
+Backend: migrated users to PBKDF2, added refresh route, fixed CORS.
+
+Frontend: switched to Axios, added interceptors, stored tokens/users, restored sessions on startup.
+
+UI: fixed FilterBar null error and made search real‑time.
+
+# 04
+🔐 Backend Authentication
+JWT creation & verification
+
+createToken(user) signs a JWT with AUTH_TOKEN_SECRET.
+
+authMiddleware verifies the token using the same secret.
+
+Ensured both sides use the same .env secret to avoid “Invalid token.”
+
+Delete account route
+
+Fixed logic to compare UUID strings (req.user.id === req.params.id) instead of using parseInt.
+
+Simplified checks: Unauthorized if token missing, Forbidden if token doesn’t match URL id.
+
+🖥️ Frontend Auth & Session
+SessionContext vs AuthContext
+
+Guest sessions were interfering with JWT.
+
+Updated signIn to clear guest session after login.
+
+Optionally merge guest data (scores, etc.) into user object before clearing.
+
+Local Storage
+
+Confirmed user and token are stored correctly after login.
+
+Ensured API calls use Authorization: Bearer <JWT> header.
+
+🧪 Testing with Postman
+Login → POST /api/auth/login → copy token.
+
+Delete account → DELETE /api/auth/delete-account/:id with header:
+
+Code
+Authorization: Bearer <JWT>
+Verified token payload matches user id using jwt.io or Postman.
+
+📝 Register Form Enhancements
+Confirm Password field added with Yup validation (oneOf([Yup.ref('password')])).
+
+Show/Hide toggles separated for password and confirm password (independent states).
+
+Validation before OTP:
+
+OTP only sent if name, email, password, confirm password all pass validation and availability checks.
+
+Prevents wasted OTP requests.
+
+Inline error messages per field:
+
+Name → “Name already taken.”
+
+Email → “Invalid email” or “Email already registered.”
+
+Password → specific Yup errors (length, uppercase, number).
+
+Confirm Password → “Passwords must match.”
+
+Real‑time validation feedback:
+
+Email → shows “✅ Valid email” or “❌ Invalid email” immediately.
+
+Password → shows errors until all rules pass.
+
+Confirm Password → ❌ until it matches, ✅ when correct.
+
+✅ Current State
+Backend now correctly verifies JWT.
+
+Frontend stores and sends JWT instead of guest session id.
+
+Register form has confirm password, independent show/hide toggles, inline error messages, and real‑time validation.
+
+OTP flow only proceeds when all validations succeed.
+
+Postman testing confirms JWT validity and protected route access.
+
+# 05
+🛠️ Dependency Installation
+Identified missing packages: @mui/material, @mui/icons-material, and their peer dependencies (@emotion/react, @emotion/styled).
+
+📂 Import Path Corrections
+Ensured imports in FilterBar.jsx use the correct paths.
+
+🧹 Cache & Reinstall
+Recommended clearing out node_modules and package-lock.json to fix ENOENT errors.
+
+Reinstalled dependencies and restarted Vite.
+
+📜 Package.json Verification
+Confirmed dependencies.
+
+# 06
+🔐 AuthContext Fixes
+Error cause: localStorage.getItem('authUser') was returning the literal string "undefined", which breaks JSON.parse.
+
+Defensive initialization: Wrapped the parse in a try/catch and added a check so "undefined" or corrupted JSON falls back to null.
+
+Safe sign‑in: Updated signIn to store JSON.stringify(nextUser ?? null) so undefined never gets saved.
+
+Sign‑out: Confirmed your removeItem logic is already correct.
+
+🌐 Axios Integration
+Request interceptor: Automatically attaches Authorization: Bearer <token> to every outgoing request.
+
+Response interceptor: Handles 401 Unauthorized errors by calling a /auth/refresh endpoint with the stored refreshToken.
+
+Seamless retry: If refresh succeeds, saves the new token and retries the original request transparently.
+
+Logout fallback: If refresh fails, clears tokens and redirects the user to /login.
+
+# 07
+🗂️ Frontend (Settings.jsx)
+Organized the Settings page into logical sections using SectionCard:
+
+Account → email change, password link, delete account.
+
+Privacy → checkboxes for name visibility, public profile, reflection notifications.
+
+Notifications → checkboxes for email activity, likes, weekly summary.
+
+Accessibility/Display → dropdowns for font size, theme, language.
+
+Added placeholders for an Edit Profile form (display name, bio, photo upload, interests).
+
+🗄️ Database (User.js)
+Current schema only has name, email, passwordHash, and role.
+
+Proposed extension to support preferences:
+
+Privacy flags (showNameOnReflections, showProfilePublicly, etc.).
+
+Notification flags (emailNotifications, likeNotifications, weeklySummary).
+
+Display preferences (fontSize, theme, language).
+
+Profile fields (displayName, bio, profilePhoto).
+
+🔧 Next Steps Identified
+Backend API endpoints → need routes/controllers for updating settings (e.g., PUT /api/users/:id/settings).
+
+Schema decision → confirm whether preferences live in the same users table or a separate user_preferences table.
+
+Frontend state management → clarify if you’re using React Context, Redux, or local state for persisting settings.
+
+Authentication flow → ensure JWT/session middleware secures sensitive updates (password, delete account).
+
+👉 In short: we mapped out the frontend structure, drafted the database schema extensions, and flagged the backend/API decisions needed before wiring everything together.
