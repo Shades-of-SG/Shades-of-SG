@@ -262,6 +262,7 @@ export default function VideoEditor() {
   const [editLyrics, setEditLyrics] = useState('')
   const [editPropagateToChorus, setEditPropagateToChorus] = useState(false)
   const [editSceneInfo, setEditSceneInfo] = useState(null) // { sceneNumber, startTime, endTime, sceneId }
+  const [editBlocks, setEditBlocks] = useState([]) // [{ id, startTime, endTime, text }]
   const [isSavingLyrics, setIsSavingLyrics] = useState(false)
   // ── AI Copilot Drawer state ──
   const [showCopilotDrawer, setShowCopilotDrawer] = useState(false)
@@ -455,24 +456,68 @@ export default function VideoEditor() {
   }, [handleSkipBack, handleSkipForward])
 
   /**
-   * Opens the Edit Scene modal pre-filled with the current frame's data.
+   * Opens the Edit Scene modal pre-filled with the current frame's data and atomic lyric blocks.
    */
   const handleOpenEditModal = useCallback(() => {
     if (frames.length === 0) return
     const currentFrame = frames[currentFrameIndex]
+    const sceneStartTime = currentFrame.startTime ?? 0
+    const sceneEndTime = currentFrame.endTime ?? 0
+
     setEditVisualPrompt(currentFrame.visualPrompt || '')
     setEditLyrics(currentFrame.lyrics || '')
     setEditPropagateToChorus(false)
     setEditSceneInfo({
       sceneNumber: currentFrameIndex + 1,
-      startTime: currentFrame.startTime,
-      endTime: currentFrame.endTime,
-      // SceneSegment ID is stored on the frame as sceneSegmentId (from GeneratedFrame)
-      // or fallback to frame.id when the frame IS the segment (legacy flat structure)
+      startTime: sceneStartTime,
+      endTime: sceneEndTime,
       sceneId: currentFrame.sceneSegmentId || currentFrame.id,
     })
+
+    // Extract matching atomic lyric blocks from transcriptionSegments
+    const matchingSegs = Array.isArray(transcriptionSegments) ? transcriptionSegments.filter(seg => {
+      const start = seg.start ?? seg.startTime ?? 0
+      const end = seg.end ?? seg.endTime ?? 0
+      return (start >= sceneStartTime && end <= sceneEndTime) ||
+             (start <= sceneEndTime && end >= sceneStartTime)
+    }) : []
+
+    let initialBlocks = []
+    if (matchingSegs.length > 0) {
+      initialBlocks = matchingSegs.map((seg, i) => ({
+        id: seg.id || `seg-${i}-${seg.start ?? seg.startTime}`,
+        startTime: seg.start ?? seg.startTime ?? sceneStartTime,
+        endTime: seg.end ?? seg.endTime ?? sceneEndTime,
+        text: seg.text || seg.lyrics || '',
+      }))
+    } else {
+      // Fallback: split frame lyrics by newline and subdivide scene time range
+      const rawLyrics = currentFrame.lyrics || ''
+      const lines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean)
+      const count = lines.length || 1
+      const totalDuration = Math.max(0.1, sceneEndTime - sceneStartTime)
+      const lineDuration = totalDuration / count
+
+      initialBlocks = (lines.length > 0 ? lines : [rawLyrics]).map((line, i) => ({
+        id: `fallback-block-${i}-${Date.now()}`,
+        startTime: sceneStartTime + (i * lineDuration),
+        endTime: i === count - 1 ? sceneEndTime : sceneStartTime + ((i + 1) * lineDuration),
+        text: line,
+      }))
+    }
+
+    setEditBlocks(initialBlocks)
     setShowEditModal(true)
-  }, [frames, currentFrameIndex])
+  }, [frames, currentFrameIndex, transcriptionSegments])
+
+  const handleUpdateBlockText = (index, newText) => {
+    setEditBlocks(prev => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], text: newText }
+      setEditLyrics(updated.map(b => b.text).filter(Boolean).join('\n'))
+      return updated
+    })
+  }
 
   /**
    * Submits the edit-advanced request, then hot-swaps updated image URLs
@@ -509,6 +554,41 @@ export default function VideoEditor() {
             }
           })
         )
+
+        // Live-sync video subtitle captions overlay state with atomic block precision
+        setTranscriptionSegments(prevSegments => {
+          if (!prevSegments || prevSegments.length === 0) return prevSegments
+          const updatedLyrics = editLyrics.trim()
+          const currentLyrics = (frames[currentFrameIndex]?.lyrics || '').trim()
+
+          return prevSegments.map(seg => {
+            const start = seg.start ?? seg.startTime ?? 0
+            const end = seg.end ?? seg.endTime ?? 0
+
+            // 1. Direct block id match
+            const matchedBlockById = editBlocks.find(b => b.id && b.id === seg.id)
+            if (matchedBlockById) {
+              return { ...seg, text: matchedBlockById.text, lyrics: matchedBlockById.text }
+            }
+
+            // 2. Direct timestamp overlap match with a specific block in editBlocks
+            const matchedBlockByTime = editBlocks.find(b => (
+              (start >= b.startTime && end <= b.endTime) ||
+              (start <= b.endTime && end >= b.startTime)
+            ))
+            if (matchedBlockByTime) {
+              return { ...seg, text: matchedBlockByTime.text, lyrics: matchedBlockByTime.text }
+            }
+
+            // 3. Chorus propagation match
+            if (editPropagateToChorus && (seg.text || seg.lyrics || '').trim() === currentLyrics) {
+              return { ...seg, text: updatedLyrics, lyrics: updatedLyrics }
+            }
+
+            return seg
+          })
+        })
+
         setHasEdits(true)
         setShowEditModal(false)
       } else {
@@ -555,13 +635,39 @@ export default function VideoEditor() {
         const result = await updateSegmentLyrics(songId, editSceneInfo.sceneId, editLyrics.trim(), token)
 
         if (result.success) {
+          const updatedLyrics = editLyrics.trim()
           setFrames(prevFrames =>
             prevFrames.map(frame => {
               const matchId = frame.sceneSegmentId || frame.id
               if (matchId !== editSceneInfo.sceneId) return frame
-              return { ...frame, lyrics: editLyrics.trim() }
+              return { ...frame, lyrics: updatedLyrics }
             })
           )
+
+          // Live-sync video subtitle captions overlay state with atomic block precision
+          setTranscriptionSegments(prevSegments => {
+            if (!prevSegments || prevSegments.length === 0) return prevSegments
+            return prevSegments.map(seg => {
+              const start = seg.start ?? seg.startTime ?? 0
+              const end = seg.end ?? seg.endTime ?? 0
+
+              const matchedBlockById = editBlocks.find(b => b.id && b.id === seg.id)
+              if (matchedBlockById) {
+                return { ...seg, text: matchedBlockById.text, lyrics: matchedBlockById.text }
+              }
+
+              const matchedBlockByTime = editBlocks.find(b => (
+                (start >= b.startTime && end <= b.endTime) ||
+                (start <= b.endTime && end >= b.startTime)
+              ))
+              if (matchedBlockByTime) {
+                return { ...seg, text: matchedBlockByTime.text, lyrics: matchedBlockByTime.text }
+              }
+
+              return seg
+            })
+          })
+
           setHasEdits(true)
           setShowEditModal(false)
         } else {
@@ -666,6 +772,24 @@ export default function VideoEditor() {
             return { ...frame, imageUrl: update.imageUrl, visualPrompt: update.visualPrompt, lyrics: update.lyrics }
           })
         )
+
+        // Live-sync video subtitle captions overlay state
+        setTranscriptionSegments(prevSegments => {
+          if (!prevSegments || prevSegments.length === 0) return prevSegments
+          return prevSegments.map(seg => {
+            const start = seg.start ?? seg.startTime ?? 0
+            const end = seg.end ?? seg.endTime ?? 0
+            const matchedScene = allUpdatedScenes.find(s => (
+              (start >= s.startTime && end <= s.endTime) ||
+              (start <= s.endTime && end >= s.startTime)
+            ))
+            if (matchedScene && matchedScene.lyrics) {
+              return { ...seg, text: matchedScene.lyrics, lyrics: matchedScene.lyrics }
+            }
+            return seg
+          })
+        })
+
         setHasEdits(true)
       }
 
@@ -1343,37 +1467,78 @@ export default function VideoEditor() {
               />
             </div>
 
-            {/* Lyrics */}
+            {/* Atomic Lyric Block Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label htmlFor="edit-lyrics" style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Lyrics <span style={{ color: '#475569', fontWeight: 400, textTransform: 'none' }}>(correct typos)</span>
-              </label>
-              <textarea
-                id="edit-lyrics"
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Lyrics &amp; Subtitle Lines ({editBlocks.length} Block{editBlocks.length !== 1 ? 's' : ''})
+                </label>
+                <span style={{ color: '#475569', fontSize: '0.6875rem' }}>
+                  Atomic timestamps
+                </span>
+              </div>
+
+              <div
                 className="custom-scrollbar"
-                value={editLyrics}
-                onChange={e => setEditLyrics(e.target.value)}
-                disabled={isRegenerating}
-                placeholder="Scene lyrics text..."
-                rows={2}
                 style={{
-                  width: '100%',
-                  background: 'rgba(15,23,42,0.8)',
-                  color: '#e2e8f0',
-                  border: '1px solid rgba(100,116,139,0.4)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontSize: '0.875rem',
-                  lineHeight: 1.6,
-                  resize: 'vertical',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  paddingRight: '4px',
                 }}
-                onFocus={e => e.target.style.borderColor = 'rgba(139,92,246,0.7)'}
-                onBlur={e => e.target.style.borderColor = 'rgba(100,116,139,0.4)'}
-              />
+              >
+                {editBlocks.map((block, idx) => (
+                  <div
+                    key={block.id || idx}
+                    style={{
+                      background: 'rgba(15,23,42,0.8)',
+                      border: '1px solid rgba(71,85,105,0.4)',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{
+                        background: 'rgba(124,58,237,0.2)',
+                        color: '#c4b5fd',
+                        border: '1px solid rgba(139,92,246,0.3)',
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        fontFamily: 'monospace',
+                      }}>
+                        [{formatTime(block.startTime)} - {formatTime(block.endTime)}] Block #{idx + 1}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={block.text}
+                      onChange={e => handleUpdateBlockText(idx, e.target.value)}
+                      disabled={isRegenerating || isSavingLyrics}
+                      placeholder={`Line ${idx + 1} lyrics...`}
+                      style={{
+                        width: '100%',
+                        background: 'rgba(30,41,59,0.7)',
+                        border: '1px solid rgba(100,116,139,0.3)',
+                        borderRadius: '6px',
+                        padding: '8px 10px',
+                        color: '#e2e8f0',
+                        fontSize: '0.8125rem',
+                        outline: 'none',
+                        transition: 'border-color 0.2s',
+                      }}
+                      onFocus={e => e.target.style.borderColor = 'rgba(139,92,246,0.7)'}
+                      onBlur={e => e.target.style.borderColor = 'rgba(100,116,139,0.3)'}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Chorus Propagation Checkbox */}
