@@ -76,15 +76,42 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
   const [dragState, setDragState] = useState(null) // { pillKey, fromSceneIdx }
   const [dropTarget, setDropTarget] = useState(null)
 
+  const normalizeKey = (str) => {
+    if (!str || typeof str !== 'string') return ''
+    return str.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim()
+  }
+
+  const syncChorusPrompts = useCallback((scenes) => {
+    const chorusMap = new Map()
+    scenes.forEach(s => {
+      const lyrics = (s.pills.map(p => p.text).join(' ') || s.lyrics || '').trim()
+      const key = normalizeKey(lyrics)
+      if (key && key.length > 5 && s.visualPrompt && s.visualPrompt.trim() && !chorusMap.has(key)) {
+        chorusMap.set(key, s.visualPrompt.trim())
+      }
+    })
+
+    return scenes.map(scene => {
+      const lyrics = (scene.pills.map(p => p.text).join(' ') || scene.lyrics || '').trim()
+      const key = normalizeKey(lyrics)
+      if (key && chorusMap.has(key)) {
+        const syncedPrompt = chorusMap.get(key)
+        return { ...scene, visualPrompt: syncedPrompt }
+      }
+      return scene
+    })
+  }, [])
+
   // ─── Recalculate scene start/end times from pills ───
   const recalcTimes = useCallback((scenes) => {
-    return scenes.map(scene => {
+    const updated = scenes.map(scene => {
       if (scene.pills.length === 0) return scene
       const starts = scene.pills.map(p => p.start)
       const ends = scene.pills.map(p => p.end)
       return { ...scene, startTime: Math.min(...starts), endTime: Math.max(...ends) }
     })
-  }, [])
+    return syncChorusPrompts(updated)
+  }, [syncChorusPrompts])
 
   // ─── Drag Handlers ───
   const handleDragStart = (e, pillKey, sceneIdx) => {
@@ -145,10 +172,13 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
     ))
 
     // Update in scene pills
-    setEditingScenes(prev => prev.map(scene => ({
-      ...scene,
-      pills: scene.pills.map(p => p._key === key ? { ...p, text: newText } : p)
-    })))
+    setEditingScenes(prev => {
+      const updated = prev.map(scene => ({
+        ...scene,
+        pills: scene.pills.map(p => p._key === key ? { ...p, text: newText } : p)
+      }))
+      return syncChorusPrompts(updated)
+    })
 
     setEditingPillKey(null)
     setEditingPillText('')
@@ -161,7 +191,20 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
 
   // ─── Visual Prompt Editing ───
   const updatePrompt = (sceneIdx, newPrompt) => {
-    setEditingScenes(prev => prev.map((s, i) => i === sceneIdx ? { ...s, visualPrompt: newPrompt } : s))
+    setEditingScenes(prev => {
+      const targetScene = prev[sceneIdx]
+      const targetLyrics = (targetScene.pills.map(p => p.text).join(' ') || targetScene.lyrics || '').trim()
+      const targetKey = normalizeKey(targetLyrics)
+
+      return prev.map((s, i) => {
+        if (i === sceneIdx) return { ...s, visualPrompt: newPrompt }
+        const sLyrics = (s.pills.map(p => p.text).join(' ') || s.lyrics || '').trim()
+        if (targetKey && targetKey.length > 5 && normalizeKey(sLyrics) === targetKey) {
+          return { ...s, visualPrompt: newPrompt }
+        }
+        return s
+      })
+    })
   }
 
   // ─── Regenerate Single Prompt ───
@@ -191,6 +234,24 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
         endTime: afterIdx >= 0 ? prev[afterIdx].endTime : 0,
         lyrics: '',
         visualPrompt: '',
+        pills: [],
+      }
+      const updated = [...prev]
+      updated.splice(afterIdx + 1, 0, newScene)
+      return updated
+    })
+  }
+
+  // ─── Fill Instrumental Gap ───
+  const handleFillInstrumentalGap = (afterIdx, gapStart, gapEnd) => {
+    setEditingScenes(prev => {
+      const newScene = {
+        _key: `scene-inst-${Date.now()}`,
+        startTime: Number(gapStart.toFixed(2)),
+        endTime: Number(gapEnd.toFixed(2)),
+        lyrics: '🎵 [Instrumental Breakdown]',
+        visualPrompt: 'Cinematic wide shot of Singapore urban landscape with atmospheric lighting, camera slowly panning across architectural landmarks.',
+        blocks: [],
         pills: [],
       }
       const updated = [...prev]
@@ -312,18 +373,46 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
           >
             {/* Scene Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <strong style={{ color: '#818cf8', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Scene {sceneIdx + 1}
-                </strong>
-                <span style={{
-                  fontSize: '0.7rem', fontFamily: 'monospace',
-                  backgroundColor: 'rgba(15, 23, 42, 0.8)', color: '#94a3b8',
-                  padding: '2px 8px', borderRadius: '4px',
-                }}>
-                  {formatTime(scene.startTime)} – {formatTime(scene.endTime)}
-                </span>
-              </div>
+              {(() => {
+                const currentLyrics = (scene.pills.map(p => p.text).join(' ') || scene.lyrics || '').trim()
+                const currentKey = normalizeKey(currentLyrics)
+                const isChorusRepeat = currentKey.length > 5 && editingScenes.some((s, idx) => {
+                  if (idx === sceneIdx) return false
+                  const otherLyrics = (s.pills.map(p => p.text).join(' ') || s.lyrics || '').trim()
+                  return normalizeKey(otherLyrics) === currentKey
+                })
+
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#818cf8', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Scene {sceneIdx + 1}
+                    </strong>
+                    <span style={{
+                      fontSize: '0.7rem', fontFamily: 'monospace',
+                      backgroundColor: 'rgba(15, 23, 42, 0.8)', color: '#94a3b8',
+                      padding: '2px 8px', borderRadius: '4px',
+                    }}>
+                      {formatTime(scene.startTime)} – {formatTime(scene.endTime)}
+                    </span>
+                    {isChorusRepeat && (
+                      <span style={{
+                        fontSize: '0.6875rem',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        color: '#34d399',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}>
+                        🔁 Chorus Synced (Reuses Image)
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
               <button
                 onClick={() => deleteScene(sceneIdx)}
                 disabled={scene.pills.length > 0}
@@ -351,9 +440,25 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
               marginBottom: '0.75rem',
             }}>
               {scene.pills.length === 0 && (
-                <span style={{ color: '#475569', fontSize: '0.75rem', fontStyle: 'italic', padding: '0.25rem' }}>
-                  Drag lyric pills here...
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.25rem' }}>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    color: '#c084fc',
+                    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    🎵 Instrumental / Visual-Only Scene
+                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                    (No lyrics assigned — drag lyric pills here if needed)
+                  </span>
+                </div>
               )}
               {scene.pills.map(pill => (
                 <LyricPill
@@ -371,10 +476,11 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
               ))}
             </div>
 
-            {/* Visual Prompt */}
+            {/* Visual Prompt Container */}
             <div style={{
               backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '0.75rem',
               borderRadius: '8px', border: '1px solid rgba(51, 65, 85, 0.4)',
+              height: 'fit-content',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                 <span style={{
@@ -403,6 +509,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
                 </button>
               </div>
               <textarea
+                className="custom-scrollbar"
                 value={scene.visualPrompt}
                 onChange={(e) => updatePrompt(sceneIdx, e.target.value)}
                 rows={3}
@@ -412,14 +519,63 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
                   padding: '0.5rem', borderRadius: '6px',
                   border: '1px solid rgba(99, 102, 241, 0.2)',
                   resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                  minHeight: 'auto',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  boxSizing: 'border-box',
                 }}
                 placeholder="Describe the visual scene for image generation..."
               />
             </div>
           </div>
 
-          {/* Add Scene button between scenes */}
-          <AddSceneButton onClick={() => addSceneAfter(sceneIdx)} />
+          {/* Add Scene button & Instrumental Gap banner between scenes */}
+          {(() => {
+            const nextScene = editingScenes[sceneIdx + 1]
+            const hasGap = nextScene && (nextScene.startTime - scene.endTime >= 0.5)
+            const gapDuration = hasGap ? (nextScene.startTime - scene.endTime).toFixed(1) : 0
+
+            return (
+              <>
+                {hasGap && (
+                  <div style={{
+                    margin: '0.5rem 0',
+                    padding: '0.5rem 1rem',
+                    background: 'rgba(30, 41, 59, 0.6)',
+                    border: '1px dashed rgba(168, 85, 247, 0.4)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 600 }}>
+                      🎵 Instrumental Gap Detected: {formatTime(scene.endTime)} → {formatTime(nextScene.startTime)} ({gapDuration}s)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleFillInstrumentalGap(sceneIdx, scene.endTime, nextScene.startTime)}
+                      style={{
+                        background: 'rgba(168, 85, 247, 0.2)',
+                        border: '1px solid rgba(168, 85, 247, 0.5)',
+                        color: '#e9d5ff',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <Plus className="w-3 h-3" /> Fill Instrumental Gap
+                    </button>
+                  </div>
+                )}
+                <AddSceneButton onClick={() => addSceneAfter(sceneIdx)} />
+              </>
+            )
+          })()}
         </div>
       ))}
 

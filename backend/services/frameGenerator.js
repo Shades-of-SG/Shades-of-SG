@@ -30,9 +30,11 @@ function normalizeCacheKey(str) {
     .trim()
 }
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 /**
  * Generates a single image frame from a visual prompt string.
- * Runs GPT Image 2 first, falls back to GPT Image 1 Mini, then a static placeholder.
+ * Runs GPT Image 2 first, handles 429 rate limit retries, falls back to GPT Image 1 Mini, then a static placeholder.
  * Uploads the result to Cloudinary and returns the final secure URL.
  *
  * @param {string} prompt - The visual prompt (max 4000 chars enforced internally).
@@ -44,50 +46,68 @@ async function generateSingleFrame(prompt) {
 
   console.log(`[generateSingleFrame] Calling GPT Image 2...`)
 
-  try {
-    console.log(`[OpenAI] Attempting GPT Image 2 with key prefix: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`)
-    const response = await openai.images.generate({
-      model: 'gpt-image-2',
-      prompt: safePrompt,
-      size: '1792x1024',
-      n: 1,
-    })
+  let attempts = 0
+  const maxAttempts = 3
 
-    if (response.data?.[0]?.b64_json) {
-      openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json
-    } else {
-      openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link
-      if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0]
-    }
-    if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI response: ${JSON.stringify(response.data)}`)
-  } catch (openaiError) {
-    // Fallback to GPT Image 1 Mini on any primary failure
-    console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini.`)
-
-    let fallbackPrompt = safePrompt.substring(0, 1000)
-    if (openaiError.message.toLowerCase().includes('safety') || openaiError.message.toLowerCase().includes('rejected')) {
-      console.warn(`[Safety Filter] Triggered! Replacing prompt with safe override.`)
-      fallbackPrompt = 'A beautiful, peaceful, abstract cinematic visualization of music and glowing light, safe for all audiences, vibrant colors'
-    }
-
+  while (attempts < maxAttempts) {
     try {
-      const fallbackResponse = await openai.images.generate({
-        model: 'gpt-image-1-mini',
-        prompt: fallbackPrompt,
-        size: '1536x1024',
+      attempts++
+      console.log(`[OpenAI] Attempting GPT Image 2 (Attempt ${attempts}/${maxAttempts}) with key prefix: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`)
+      const response = await openai.images.generate({
+        model: 'gpt-image-2',
+        prompt: safePrompt,
+        size: '1792x1024',
         n: 1,
       })
 
-      if (fallbackResponse.data?.[0]?.b64_json) {
-        openAiImageUrl = 'data:image/png;base64,' + fallbackResponse.data[0].b64_json
+      if (response.data?.[0]?.b64_json) {
+        openAiImageUrl = 'data:image/png;base64,' + response.data[0].b64_json
       } else {
-        openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link
-        if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0]
+        openAiImageUrl = response.data?.[0]?.url || response.data?.[0]?.image_url || response.data?.[0]?.asset_url || response.data?.[0]?.link
+        if (!openAiImageUrl && typeof response.data?.[0] === 'string') openAiImageUrl = response.data[0]
       }
-      if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`)
-    } catch (ultimateError) {
-      console.warn(`[Ultimate Fallback] OpenAI failed completely (${ultimateError.message}). Using placeholder image.`)
-      openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
+      if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI response: ${JSON.stringify(response.data)}`)
+      break
+    } catch (openaiError) {
+      const isRateLimit = openaiError.status === 429 ||
+                          (openaiError.message && (openaiError.message.includes('429') || openaiError.message.toLowerCase().includes('rate limit')))
+
+      if (isRateLimit && attempts < maxAttempts) {
+        const backoffMs = attempts * 20000
+        console.warn(`[Rate Limit 429] GPT Image 2 rate limited. Pausing ${backoffMs / 1000}s before retry attempt ${attempts + 1}...`)
+        await delay(backoffMs)
+        continue
+      }
+
+      // Fallback to GPT Image 1 Mini on primary non-retriable failure
+      console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini.`)
+
+      let fallbackPrompt = safePrompt.substring(0, 1000)
+      if (openaiError.message?.toLowerCase().includes('safety') || openaiError.message?.toLowerCase().includes('rejected')) {
+        console.warn(`[Safety Filter] Triggered! Replacing prompt with safe override.`)
+        fallbackPrompt = 'A beautiful, peaceful, abstract cinematic visualization of music and glowing light, safe for all audiences, vibrant colors'
+      }
+
+      try {
+        const fallbackResponse = await openai.images.generate({
+          model: 'gpt-image-1-mini',
+          prompt: fallbackPrompt,
+          size: '1536x1024',
+          n: 1,
+        })
+
+        if (fallbackResponse.data?.[0]?.b64_json) {
+          openAiImageUrl = 'data:image/png;base64,' + fallbackResponse.data[0].b64_json
+        } else {
+          openAiImageUrl = fallbackResponse.data?.[0]?.url || fallbackResponse.data?.[0]?.image_url || fallbackResponse.data?.[0]?.asset_url || fallbackResponse.data?.[0]?.link
+          if (!openAiImageUrl && typeof fallbackResponse.data?.[0] === 'string') openAiImageUrl = fallbackResponse.data[0]
+        }
+        if (!openAiImageUrl) throw new Error(`Missing image URL in OpenAI fallback response: ${JSON.stringify(fallbackResponse.data)}`)
+      } catch (ultimateError) {
+        console.warn(`[Ultimate Fallback] OpenAI failed completely (${ultimateError.message}). Using placeholder image.`)
+        openAiImageUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024&h=1024&fit=crop'
+      }
+      break
     }
   }
 
@@ -167,13 +187,15 @@ async function generateFrames(jobId, songId) {
 
     console.log(`[Frame Generator] Optimization: Found ${uniqueGenerationTasks.size} unique scenes out of ${segments.length} segments.`)
 
-    // 3. Generate unique frames in parallel chunks to speed things up
+    // 3. Generate unique frames in parallel chunks of 4 with a 62s rate limit cooldown
     const uniqueSegments = Array.from(uniqueGenerationTasks.values())
-    const chunkSize = 5
+    const chunkSize = 4
+    const totalChunks = Math.ceil(uniqueSegments.length / chunkSize)
 
     for (let i = 0; i < uniqueSegments.length; i += chunkSize) {
+      const chunkIndex = Math.floor(i / chunkSize)
       const chunk = uniqueSegments.slice(i, i + chunkSize)
-      console.log(`[Frame Generator] Processing chunk ${Math.floor(i / chunkSize) + 1} of ${Math.ceil(uniqueSegments.length / chunkSize)}...`)
+      console.log(`[Frame Generator] Processing chunk ${chunkIndex + 1} of ${totalChunks}...`)
 
       await Promise.all(chunk.map(async (segment) => {
         const cacheKey = segmentToCacheKey.get(segment.id)
@@ -181,6 +203,11 @@ async function generateFrames(jobId, songId) {
         const finalImageUrl = await generateSingleFrame(segment.visualPrompt)
         imagePromptCache.set(cacheKey, finalImageUrl)
       }))
+
+      if (chunkIndex < totalChunks - 1) {
+        console.log(`[Frame Generator] Rate limit cooldown: Pausing 62s before next batch to respect OpenAI 5 IPM limit...`)
+        await delay(62000)
+      }
     }
 
     // 4. Database Saving

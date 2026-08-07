@@ -919,10 +919,13 @@ const editFrameAdvanced = async (req, res, next) => {
     const promptChanged = visualPrompt.trim() !== oldPrompt.trim()
     const shouldRegenerate = promptChanged || forceRegenerate || !segment.imageUrl
 
-    // 2. Persist updated lyrics and visualPrompt on the target segment
+    // 2. Persist updated lyrics, visualPrompt, and blocks on the target segment
     const updatedLyrics = typeof lyrics === 'string' ? lyrics : segment.lyrics
     segment.lyrics = updatedLyrics
     segment.visualPrompt = visualPrompt.trim()
+    if (req.body.blocks && Array.isArray(req.body.blocks)) {
+      segment.blocks = req.body.blocks
+    }
     await segment.save()
 
     // 3. Sync song.lyrics — re-join all SceneSegment lyrics for this song
@@ -959,6 +962,7 @@ const editFrameAdvanced = async (req, res, next) => {
       imageUrl: newImageUrl,
       visualPrompt: segment.visualPrompt,
       lyrics: segment.lyrics,
+      blocks: segment.blocks,
       startTime: segment.startTime,
       endTime: segment.endTime,
     }]
@@ -976,6 +980,9 @@ const editFrameAdvanced = async (req, res, next) => {
       for (const sibling of siblings) {
         sibling.visualPrompt = segment.visualPrompt
         sibling.imageUrl = newImageUrl
+        if (req.body.blocks && Array.isArray(req.body.blocks)) {
+          sibling.blocks = req.body.blocks
+        }
         await sibling.save()
 
         // Re-link GeneratedFrame records without regenerating the image
@@ -989,6 +996,7 @@ const editFrameAdvanced = async (req, res, next) => {
           imageUrl: newImageUrl,
           visualPrompt: sibling.visualPrompt,
           lyrics: sibling.lyrics,
+          blocks: sibling.blocks,
           startTime: sibling.startTime,
           endTime: sibling.endTime,
         })

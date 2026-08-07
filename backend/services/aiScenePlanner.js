@@ -368,6 +368,18 @@ ${blocksStr}`
       }
     })
 
+    // Chorus / Refrain prompt normalization: ensure identical normalized lyrics share the exact same visual prompt
+    const chorusPromptMap = new Map()
+    sceneRecords.forEach(seg => {
+      const normKey = normalizeText(seg.lyrics)
+      if (!normKey) return
+      if (!chorusPromptMap.has(normKey)) {
+        chorusPromptMap.set(normKey, seg.visualPrompt)
+      } else {
+        seg.visualPrompt = chorusPromptMap.get(normKey)
+      }
+    })
+
     // Wipe out existing SceneSegments for this song to ensure clean state
     await SceneSegment.destroy({ where: { songId: songId } })
     await SceneSegment.bulkCreate(sceneRecords)

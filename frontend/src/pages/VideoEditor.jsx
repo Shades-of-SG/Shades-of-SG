@@ -543,6 +543,7 @@ export default function VideoEditor() {
         {
           visualPrompt: editVisualPrompt,
           lyrics: editLyrics,
+          blocks: editBlocks,
           propagateToChorus: editPropagateToChorus,
           forceRegenerate,
         },
@@ -570,33 +571,19 @@ export default function VideoEditor() {
         // Live-sync video subtitle captions overlay state with atomic block precision
         setTranscriptionSegments(prevSegments => {
           if (!prevSegments || prevSegments.length === 0) return prevSegments
-          const updatedLyrics = editLyrics.trim()
-          const currentLyrics = (frames[currentFrameIndex]?.lyrics || '').trim()
-
           return prevSegments.map(seg => {
-            const start = seg.start ?? seg.startTime ?? 0
-            const end = seg.end ?? seg.endTime ?? 0
+            const segStart = seg.start ?? seg.startTime ?? 0
+            const segEnd = seg.end ?? seg.endTime ?? 0
 
-            // 1. Direct block id match
-            const matchedBlockById = editBlocks.find(b => b.id && b.id === seg.id)
-            if (matchedBlockById) {
-              return { ...seg, text: matchedBlockById.text, lyrics: matchedBlockById.text }
+            const matchingBlock = editBlocks.find(b =>
+              (b.id && b.id === seg.id) ||
+              (b.startTime === segStart && b.endTime === segEnd) ||
+              (segStart < b.endTime && segEnd > b.startTime)
+            )
+
+            if (matchingBlock) {
+              return { ...seg, text: matchingBlock.text, lyrics: matchingBlock.text }
             }
-
-            // 2. Direct timestamp overlap match with a specific block in editBlocks
-            const matchedBlockByTime = editBlocks.find(b => (
-              (start >= b.startTime && end <= b.endTime) ||
-              (start <= b.endTime && end >= b.startTime)
-            ))
-            if (matchedBlockByTime) {
-              return { ...seg, text: matchedBlockByTime.text, lyrics: matchedBlockByTime.text }
-            }
-
-            // 3. Chorus propagation match
-            if (editPropagateToChorus && (seg.text || seg.lyrics || '').trim() === currentLyrics) {
-              return { ...seg, text: updatedLyrics, lyrics: updatedLyrics }
-            }
-
             return seg
           })
         })
@@ -660,22 +647,18 @@ export default function VideoEditor() {
           setTranscriptionSegments(prevSegments => {
             if (!prevSegments || prevSegments.length === 0) return prevSegments
             return prevSegments.map(seg => {
-              const start = seg.start ?? seg.startTime ?? 0
-              const end = seg.end ?? seg.endTime ?? 0
+              const segStart = seg.start ?? seg.startTime ?? 0
+              const segEnd = seg.end ?? seg.endTime ?? 0
 
-              const matchedBlockById = editBlocks.find(b => b.id && b.id === seg.id)
-              if (matchedBlockById) {
-                return { ...seg, text: matchedBlockById.text, lyrics: matchedBlockById.text }
+              const matchingBlock = editBlocks.find(b =>
+                (b.id && b.id === seg.id) ||
+                (b.startTime === segStart && b.endTime === segEnd) ||
+                (segStart < b.endTime && segEnd > b.startTime)
+              )
+
+              if (matchingBlock) {
+                return { ...seg, text: matchingBlock.text, lyrics: matchingBlock.text }
               }
-
-              const matchedBlockByTime = editBlocks.find(b => (
-                (start >= b.startTime && end <= b.endTime) ||
-                (start <= b.endTime && end >= b.startTime)
-              ))
-              if (matchedBlockByTime) {
-                return { ...seg, text: matchedBlockByTime.text, lyrics: matchedBlockByTime.text }
-              }
-
               return seg
             })
           })
