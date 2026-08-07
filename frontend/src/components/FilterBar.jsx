@@ -136,7 +136,7 @@ export default function FilterBar({
         <SortDropdown direction={direction} onDirectionChange={onDirectionChange} onSortChange={onSortChange} sort={sort} />
 
         <button className="songs-clear-filters" disabled={!hasActiveFilters} onClick={onClear} type="button">
-          Clear filters
+          Clear
         </button>
       </div>
     </form>
