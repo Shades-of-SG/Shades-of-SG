@@ -786,7 +786,6 @@ const confirmScenes = async (req, res, next) => {
     }
 
     if (compiledLyrics) {
-      song.lyrics = compiledLyrics
       song.rawLyrics = compiledLyrics
       await song.save()
     }
@@ -899,7 +898,7 @@ const editFrameAdvanced = async (req, res, next) => {
 
     // 1. Find the target SceneSegment and verify creator ownership via parent Song
     const segment = await SceneSegment.findByPk(id, {
-      include: [{ model: Song, as: 'song', attributes: ['id', 'creatorId', 'lyrics'] }],
+      include: [{ model: Song, as: 'song', attributes: ['id', 'creatorId'] }],
     })
 
     if (!segment) {
@@ -915,6 +914,10 @@ const editFrameAdvanced = async (req, res, next) => {
     }
 
     const songId = segment.songId
+    const oldPrompt = segment.visualPrompt || ''
+    const forceRegenerate = req.body.forceRegenerate === true
+    const promptChanged = visualPrompt.trim() !== oldPrompt.trim()
+    const shouldRegenerate = promptChanged || forceRegenerate || !segment.imageUrl
 
     // 2. Persist updated lyrics and visualPrompt on the target segment
     const updatedLyrics = typeof lyrics === 'string' ? lyrics : segment.lyrics
@@ -930,22 +933,25 @@ const editFrameAdvanced = async (req, res, next) => {
     const compiledLyrics = allSegments.map(s => s.lyrics).filter(Boolean).join('\n')
     const song = await Song.findByPk(songId)
     if (song && compiledLyrics) {
-      song.lyrics = compiledLyrics
+      song.rawLyrics = compiledLyrics
       await song.save()
     }
 
-    // 4. Generate a fresh frame image for the updated prompt
-    console.log(`[editFrameAdvanced] Generating new frame for SceneSegment ${id}...`)
-    const newImageUrl = await generateSingleFrame(segment.visualPrompt)
+    // 4. Generate image if prompt changed, forced, or missing
+    let newImageUrl = segment.imageUrl
+    if (shouldRegenerate) {
+      console.log(`[editFrameAdvanced] Visual prompt changed or forced. Generating new frame for ${id}...`)
+      newImageUrl = await generateSingleFrame(segment.visualPrompt)
+      segment.imageUrl = newImageUrl
+      await segment.save()
 
-    // 5. Update the SceneSegment's imageUrl and its child GeneratedFrame record(s)
-    segment.imageUrl = newImageUrl
-    await segment.save()
-
-    await GeneratedFrame.update(
-      { imageUrl: newImageUrl },
-      { where: { sceneSegmentId: id } }
-    )
+      await GeneratedFrame.update(
+        { imageUrl: newImageUrl },
+        { where: { sceneSegmentId: id } }
+      )
+    } else {
+      console.log(`[editFrameAdvanced] Prompt untouched. Updating text/lyrics without image regeneration.`)
+    }
 
     // 6. Build the list of updated scenes starting with the primary target
     const updatedScenes = [{

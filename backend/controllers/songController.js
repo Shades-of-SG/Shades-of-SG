@@ -533,4 +533,52 @@ async function generateTrivia(req, res, next) {
     } catch (error) { return next(error); }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getCurationDetails, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateCurationDetails, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo, generateArticle, generateTrivia };
+async function updateSegmentLyrics(req, res, next) {
+    try {
+        const { id: songId, segmentId } = req.params;
+        const { lyrics } = req.body;
+
+        const song = await Song.findOne({
+            where: { id: songId, creatorId: req.authUserRecord.id },
+        });
+        if (!song) {
+            const err = new Error('Song not found or unauthorized.');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const segment = await SceneSegment.findOne({
+            where: { id: segmentId, songId },
+        });
+        if (!segment) {
+            const err = new Error('Scene segment not found.');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        segment.lyrics = typeof lyrics === 'string' ? lyrics.trim() : segment.lyrics;
+        await segment.save();
+
+        // Re-compile rawLyrics on Song
+        const allSegments = await SceneSegment.findAll({
+            where: { songId },
+            order: [['startTime', 'ASC']],
+        });
+        const compiledLyrics = allSegments.map(s => s.lyrics).filter(Boolean).join('\n');
+        if (compiledLyrics) {
+            song.rawLyrics = compiledLyrics;
+            await song.save();
+        }
+
+        return res.json({
+            success: true,
+            segment: {
+                id: segment.id,
+                lyrics: segment.lyrics,
+                visualPrompt: segment.visualPrompt,
+            },
+        });
+    } catch (error) { return next(error); }
+}
+
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getCurationDetails, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateCurationDetails, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo, generateArticle, generateTrivia, updateSegmentLyrics };

@@ -198,3 +198,21 @@ export function sendAssistantCommand(jobId, payload, token) {
     token,
   })
 }
+
+/**
+ * PUT /api/songs/:songId/segment/:segmentId
+ * Updates only the lyrics for a specific SceneSegment without regenerating frames.
+ *
+ * @param {string} songId - Parent Song UUID.
+ * @param {string} segmentId - SceneSegment UUID.
+ * @param {string} lyrics - Updated lyrics string.
+ * @param {string} token - Bearer auth token.
+ */
+export function updateSegmentLyrics(songId, segmentId, lyrics, token) {
+  return request(`/songs/${encodeURIComponent(songId)}/segment/${encodeURIComponent(segmentId)}`, {
+    body: JSON.stringify({ lyrics }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PUT',
+    token,
+  })
+}

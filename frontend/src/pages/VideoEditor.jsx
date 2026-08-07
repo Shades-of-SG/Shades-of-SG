@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles, X, Edit3, Sparkles, MessageSquare, Send, Zap } from 'lucide-react'
+import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles, X, Edit3, Sparkles, MessageSquare, Send, Zap, Save } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
 import { API_URL } from '../services/apiConfig'
-import { editFrameAdvanced, sendAssistantCommand } from '../services/songService'
+import { editFrameAdvanced, sendAssistantCommand, updateSegmentLyrics } from '../services/songService'
 
 /**
  * Extracts and flattens all frames from sceneSegments,
@@ -24,6 +24,7 @@ function extractFrames(songData) {
           startTime: segment.startTime,
           endTime: segment.endTime,
           lyrics: segment.lyrics,
+          visualPrompt: segment.visualPrompt || frame.visualPrompt || '',
         })
       })
     }
@@ -261,6 +262,7 @@ export default function VideoEditor() {
   const [editLyrics, setEditLyrics] = useState('')
   const [editPropagateToChorus, setEditPropagateToChorus] = useState(false)
   const [editSceneInfo, setEditSceneInfo] = useState(null) // { sceneNumber, startTime, endTime, sceneId }
+  const [isSavingLyrics, setIsSavingLyrics] = useState(false)
   // ── AI Copilot Drawer state ──
   const [showCopilotDrawer, setShowCopilotDrawer] = useState(false)
   const [copilotInput, setCopilotInput] = useState('')
@@ -476,7 +478,7 @@ export default function VideoEditor() {
    * Submits the edit-advanced request, then hot-swaps updated image URLs
    * in React state without re-initializing WaveSurfer or touching audio.
    */
-  const handleEditFrameAdvanced = async () => {
+  const handleEditFrameAdvanced = async (forceRegenerate = false) => {
     if (!editSceneInfo?.sceneId) return
     setIsRegenerating(true)
     try {
@@ -487,17 +489,15 @@ export default function VideoEditor() {
           visualPrompt: editVisualPrompt,
           lyrics: editLyrics,
           propagateToChorus: editPropagateToChorus,
+          forceRegenerate,
         },
         token
       )
 
       if (result.success && Array.isArray(result.updatedScenes)) {
-        // Hot-swap: build a Set of updated scene IDs → new imageUrl for O(1) lookup
         const updatesMap = new Map(result.updatedScenes.map(s => [s.id, s]))
-
         setFrames(prevFrames =>
           prevFrames.map(frame => {
-            // Match by sceneSegmentId (GeneratedFrame) or id (flat SceneSegment)
             const matchId = frame.sceneSegmentId || frame.id
             const update = updatesMap.get(matchId)
             if (!update) return frame
@@ -520,6 +520,64 @@ export default function VideoEditor() {
     } finally {
       setIsRegenerating(false)
     }
+  }
+
+  /**
+   * Smart submit for Edit Scene modal:
+   * - If ONLY lyrics were changed (prompt unchanged), updates lyrics directly via updateSegmentLyrics API
+   *   without running expensive AI image generation.
+   * - If prompt was changed (or forced), triggers AI image re-generation.
+   */
+  const handleEditFrameSubmit = async () => {
+    if (!editSceneInfo?.sceneId) return
+    const currentFrame = frames[currentFrameIndex]
+    const originalPrompt = (currentFrame?.visualPrompt || '').trim()
+    const originalLyrics = (currentFrame?.lyrics || '').trim()
+
+    const promptChanged = editVisualPrompt.trim() !== originalPrompt
+    const lyricsChanged = editLyrics.trim() !== originalLyrics
+
+    // 1. If prompt changed (or user requested chorus propagation), run AI generation
+    if (promptChanged || editPropagateToChorus) {
+      return handleEditFrameAdvanced(promptChanged)
+    }
+
+    // 2. If ONLY lyrics changed, update lyrics directly via PUT /api/songs/:songId/segment/:segmentId
+    if (lyricsChanged) {
+      const songId = jobData?.song?.id || currentFrame?.songId
+      if (!songId) {
+        return handleEditFrameAdvanced(false)
+      }
+
+      setIsSavingLyrics(true)
+      try {
+        const token = localStorage.getItem('authToken')
+        const result = await updateSegmentLyrics(songId, editSceneInfo.sceneId, editLyrics.trim(), token)
+
+        if (result.success) {
+          setFrames(prevFrames =>
+            prevFrames.map(frame => {
+              const matchId = frame.sceneSegmentId || frame.id
+              if (matchId !== editSceneInfo.sceneId) return frame
+              return { ...frame, lyrics: editLyrics.trim() }
+            })
+          )
+          setHasEdits(true)
+          setShowEditModal(false)
+        } else {
+          alert('Failed to update lyrics: ' + (result.message || 'Unknown error'))
+        }
+      } catch (e) {
+        console.error('[UpdateSegmentLyrics]', e)
+        alert('Error updating lyrics: ' + (e.message || 'Unknown error'))
+      } finally {
+        setIsSavingLyrics(false)
+      }
+      return
+    }
+
+    // 3. If neither changed, just close modal
+    setShowEditModal(false)
   }
 
   // ── AI Copilot Handlers ──
@@ -1183,18 +1241,23 @@ export default function VideoEditor() {
             padding: '16px',
           }}
         >
-          <div style={{
-            background: 'linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%)',
-            border: '1px solid rgba(139,92,246,0.35)',
-            borderRadius: '16px',
-            padding: '28px',
-            width: '100%',
-            maxWidth: '520px',
-            boxShadow: '0 32px 64px -12px rgba(0,0,0,.7), 0 0 0 1px rgba(139,92,246,0.15)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-          }}>
+          <div
+            className="custom-scrollbar"
+            style={{
+              background: 'linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%)',
+              border: '1px solid rgba(139,92,246,0.35)',
+              borderRadius: '16px',
+              padding: '28px',
+              width: '100%',
+              maxWidth: '520px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 32px 64px -12px rgba(0,0,0,.7), 0 0 0 1px rgba(139,92,246,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+            }}
+          >
             {/* Modal Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
@@ -1205,16 +1268,43 @@ export default function VideoEditor() {
                   {editSceneInfo ? `${formatTime(editSceneInfo.startTime)} → ${formatTime(editSceneInfo.endTime)}` : ''}
                 </p>
               </div>
-              <button
-                onClick={() => setShowEditModal(false)}
-                disabled={isRegenerating}
-                style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }}
-                onMouseOver={e => e.currentTarget.style.color = '#e2e8f0'}
-                onMouseOut={e => e.currentTarget.style.color = '#64748b'}
-                aria-label="Close edit modal"
-              >
-                <X size={20} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleEditFrameAdvanced(true)}
+                  disabled={isRegenerating || isSavingLyrics || !editVisualPrompt.trim()}
+                  title="Force new DALL-E image generation"
+                  style={{
+                    background: 'rgba(124,58,237,0.2)',
+                    border: '1px solid rgba(139,92,246,0.4)',
+                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    color: '#c4b5fd',
+                    cursor: (isRegenerating || isSavingLyrics || !editVisualPrompt.trim()) ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseOver={e => { if (!isRegenerating && !isSavingLyrics && editVisualPrompt.trim()) e.currentTarget.style.background = 'rgba(124,58,237,0.35)' }}
+                  onMouseOut={e => e.currentTarget.style.background = 'rgba(124,58,237,0.2)'}
+                >
+                  {isRegenerating ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={12} />}
+                  ↻ Force New Image
+                </button>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  disabled={isRegenerating || isSavingLyrics}
+                  style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }}
+                  onMouseOver={e => e.currentTarget.style.color = '#e2e8f0'}
+                  onMouseOut={e => e.currentTarget.style.color = '#64748b'}
+                  aria-label="Close edit modal"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Divider */}
@@ -1227,11 +1317,12 @@ export default function VideoEditor() {
               </label>
               <textarea
                 id="edit-visual-prompt"
+                className="custom-scrollbar"
                 value={editVisualPrompt}
                 onChange={e => setEditVisualPrompt(e.target.value)}
                 disabled={isRegenerating}
                 placeholder="Describe the cinematic scene to generate..."
-                rows={4}
+                rows={6}
                 style={{
                   width: '100%',
                   background: 'rgba(15,23,42,0.8)',
@@ -1259,11 +1350,12 @@ export default function VideoEditor() {
               </label>
               <textarea
                 id="edit-lyrics"
+                className="custom-scrollbar"
                 value={editLyrics}
                 onChange={e => setEditLyrics(e.target.value)}
                 disabled={isRegenerating}
                 placeholder="Scene lyrics text..."
-                rows={3}
+                rows={2}
                 style={{
                   width: '100%',
                   background: 'rgba(15,23,42,0.8)',
@@ -1341,7 +1433,7 @@ export default function VideoEditor() {
             <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
               <button
                 onClick={() => setShowEditModal(false)}
-                disabled={isRegenerating}
+                disabled={isRegenerating || isSavingLyrics}
                 style={{
                   flex: '0 0 auto',
                   padding: '11px 20px',
@@ -1351,51 +1443,71 @@ export default function VideoEditor() {
                   color: '#94a3b8',
                   fontSize: '0.875rem',
                   fontWeight: 600,
-                  cursor: isRegenerating ? 'not-allowed' : 'pointer',
+                  cursor: (isRegenerating || isSavingLyrics) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s',
                 }}
-                onMouseOver={e => { if (!isRegenerating) e.currentTarget.style.background = 'rgba(71,85,105,0.6)' }}
+                onMouseOver={e => { if (!isRegenerating && !isSavingLyrics) e.currentTarget.style.background = 'rgba(71,85,105,0.6)' }}
                 onMouseOut={e => { e.currentTarget.style.background = 'rgba(51,65,85,0.6)' }}
               >
                 Cancel
               </button>
-              <button
-                id="edit-scene-submit-btn"
-                onClick={handleEditFrameAdvanced}
-                disabled={isRegenerating || !editVisualPrompt.trim()}
-                style={{
-                  flex: 1,
-                  padding: '11px 20px',
-                  background: (isRegenerating || !editVisualPrompt.trim()) ? '#4c1d95' : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '0.875rem',
-                  fontWeight: 700,
-                  cursor: (isRegenerating || !editVisualPrompt.trim()) ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  opacity: (!editVisualPrompt.trim() && !isRegenerating) ? 0.6 : 1,
-                  boxShadow: (!isRegenerating && editVisualPrompt.trim()) ? '0 4px 15px -3px rgba(124,58,237,0.5)' : 'none',
-                  transition: 'all 0.2s',
-                }}
-                onMouseOver={e => { if (!isRegenerating && editVisualPrompt.trim()) e.currentTarget.style.transform = 'translateY(-1px)' }}
-                onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)' }}
-              >
-                {isRegenerating ? (
-                  <>
-                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                    Generating{editPropagateToChorus ? ' & Syncing' : ''}...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} />
-                    Re-generate &amp; Sync Frame
-                  </>
-                )}
-              </button>
+
+              {(() => {
+                const currentFrame = frames[currentFrameIndex]
+                const originalPrompt = (currentFrame?.visualPrompt || '').trim()
+                const originalLyrics = (currentFrame?.lyrics || '').trim()
+                const promptChanged = editVisualPrompt.trim() !== originalPrompt
+                const lyricsChanged = editLyrics.trim() !== originalLyrics
+                const isBusy = isRegenerating || isSavingLyrics
+
+                let buttonLabel = '💾 Save Lyrics & Changes'
+                let buttonIcon = <Save size={16} />
+
+                if (isRegenerating) {
+                  buttonLabel = `Generating${editPropagateToChorus ? ' & Syncing' : ''}...`
+                  buttonIcon = <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                } else if (isSavingLyrics) {
+                  buttonLabel = 'Saving Lyrics...'
+                  buttonIcon = <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                } else if (promptChanged || editPropagateToChorus) {
+                  buttonLabel = '✨ Re-generate Image & Save'
+                  buttonIcon = <RefreshCw size={16} />
+                } else {
+                  buttonLabel = '💾 Save Lyrics & Changes'
+                  buttonIcon = <Save size={16} />
+                }
+
+                return (
+                  <button
+                    id="edit-scene-submit-btn"
+                    onClick={handleEditFrameSubmit}
+                    disabled={isBusy || !editVisualPrompt.trim()}
+                    style={{
+                      flex: 1,
+                      padding: '11px 20px',
+                      background: (isBusy || !editVisualPrompt.trim()) ? '#4c1d95' : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.875rem',
+                      fontWeight: 700,
+                      cursor: (isBusy || !editVisualPrompt.trim()) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      opacity: (!editVisualPrompt.trim() && !isBusy) ? 0.6 : 1,
+                      boxShadow: (!isBusy && editVisualPrompt.trim()) ? '0 4px 15px -3px rgba(124,58,237,0.5)' : 'none',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseOver={e => { if (!isBusy && editVisualPrompt.trim()) e.currentTarget.style.transform = 'translateY(-1px)' }}
+                    onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+                  >
+                    {buttonIcon}
+                    {buttonLabel}
+                  </button>
+                )
+              })()}
             </div>
           </div>
         </div>

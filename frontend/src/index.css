@@ -48,18 +48,27 @@ button {
   min-height: 100svh;
 }
 
-/* Custom Scrollbar for Filmstrip */
-.custom-scrollbar::-webkit-scrollbar {
-  height: 8px;
+/* Sleek Custom Scrollbars (Horizontal & Vertical) */
+.custom-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--violet) rgba(30, 41, 59, 0.5); /* Firefox */
 }
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;  /* Vertical scrollbar width */
+  height: 6px; /* Horizontal scrollbar height */
+}
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(30, 41, 59, 0.5);
-  border-radius: 4px;
+  border-radius: 999px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--violet);
-  border-radius: 4px;
+  border-radius: 999px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a78bfa;
 }
