@@ -188,10 +188,18 @@ function createSceneFromGroup(group) {
 
   const visualPrompt = promptParts.length > 0 ? promptParts.join(' ') : null
 
+  const blocks = group.map((s) => ({
+    id: s.id || `block_${s.start ?? s.startTime ?? 0}_${s.end ?? s.endTime ?? 0}`,
+    startTime: Number((s.start ?? s.startTime ?? 0).toFixed(2)),
+    endTime: Number((s.end ?? s.endTime ?? 0).toFixed(2)),
+    text: (s.text || s.lyrics || '').trim(),
+  }))
+
   return {
     startTime,
     endTime,
     lyrics,
+    blocks,
     ...(visualPrompt ? { visualPrompt } : {}),
   }
 }
@@ -331,13 +339,32 @@ ${blocksStr}`
       const lyrics = sanitizeLyrics(scene.lyrics || scene.text)
       const st = Number(scene.startTime)
       const et = Number(scene.endTime)
+      const sceneStart = isNaN(st) ? 0 : Number(st.toFixed(2))
+      const sceneEnd = isNaN(et) ? 0 : Number(et.toFixed(2))
+
+      let blocks = Array.isArray(scene.blocks) && scene.blocks.length > 0 ? scene.blocks : []
+      if (blocks.length === 0) {
+        const assignedTranscriptionBlocks = rawSegments.filter(b => {
+          const bStart = b.start ?? b.startTime ?? 0
+          const bEnd = b.end ?? b.endTime ?? 0
+          return bStart < sceneEnd && bEnd > sceneStart
+        })
+        blocks = assignedTranscriptionBlocks.map(b => ({
+          id: b.id || `block_${b.start ?? b.startTime}_${b.end ?? b.endTime}`,
+          startTime: Number((b.start ?? b.startTime ?? 0).toFixed(2)),
+          endTime: Number((b.end ?? b.endTime ?? 0).toFixed(2)),
+          text: (b.text || b.lyrics || '').trim(),
+        }))
+      }
+
       return {
         jobId: jobId,
         songId: songId,
-        startTime: isNaN(st) ? 0 : Number(st.toFixed(2)),
-        endTime: isNaN(et) ? 0 : Number(et.toFixed(2)),
+        startTime: sceneStart,
+        endTime: sceneEnd,
         lyrics: lyrics,
         visualPrompt: scene.visualPrompt || buildDefaultVisualPrompt(song, lyrics),
+        blocks: blocks,
       }
     })
 

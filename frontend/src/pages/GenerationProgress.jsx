@@ -27,18 +27,32 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
       endTime: s.endTime,
       lyrics: s.lyrics || '',
       visualPrompt: s.visualPrompt || '',
+      blocks: s.blocks || [],
       pills: [],
     }))
 
     // Assign segments (pills) to scenes based on time overlap during initialization
     if (segments.length > 0 && scenes.length > 0) {
       const assigned = new Set()
-      scenes.forEach(scene => {
-        scene.pills = segments.filter(seg => {
-          if (assigned.has(seg._key)) return false
-          const segMid = (seg.start + seg.end) / 2
-          return segMid >= scene.startTime && segMid <= scene.endTime
-        })
+      scenes.forEach((scene, sceneIdx) => {
+        const sceneOrig = initialScenes[sceneIdx]
+        if (Array.isArray(sceneOrig?.blocks) && sceneOrig.blocks.length > 0) {
+          const blockIds = new Set(sceneOrig.blocks.map(b => b.id))
+          scene.pills = segments.filter(seg => {
+            if (assigned.has(seg._key)) return false
+            if (seg.id && blockIds.has(seg.id)) return true
+            const segStart = seg.start ?? seg.startTime ?? 0
+            const segEnd = seg.end ?? seg.endTime ?? segStart
+            return segStart < scene.endTime && segEnd > scene.startTime
+          })
+        } else {
+          scene.pills = segments.filter(seg => {
+            if (assigned.has(seg._key)) return false
+            const segStart = seg.start ?? seg.startTime ?? 0
+            const segEnd = seg.end ?? seg.endTime ?? segStart
+            return segStart < scene.endTime && segEnd > scene.startTime
+          })
+        }
         scene.pills.forEach(p => assigned.add(p._key))
       })
 

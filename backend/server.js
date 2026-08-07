@@ -23,6 +23,7 @@ const {
     ensureRhythmBeatmapSchema,
     ensureSongSchema,
     ensureSongMediaSchema,
+    ensureSceneSegmentSchema,
 } = require('./services/schemaService');
 
 const app = express();
@@ -94,6 +95,7 @@ async function startServer() {
         await ensureGenerationJobSchema(sequelize);
         await ensureRhythmBeatmapSchema(sequelize);
         await ensureSongMediaSchema(sequelize);
+        await ensureSceneSegmentSchema(sequelize);
         await seedCreatorAccount();
         await seedDefaultInstruments();
         console.log('Database connected successfully');

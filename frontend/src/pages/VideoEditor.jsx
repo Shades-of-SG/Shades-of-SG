@@ -474,36 +474,46 @@ export default function VideoEditor() {
       sceneId: currentFrame.sceneSegmentId || currentFrame.id,
     })
 
-    // Extract matching atomic lyric blocks from transcriptionSegments
-    const matchingSegs = Array.isArray(transcriptionSegments) ? transcriptionSegments.filter(seg => {
-      const start = seg.start ?? seg.startTime ?? 0
-      const end = seg.end ?? seg.endTime ?? 0
-      return (start >= sceneStartTime && end <= sceneEndTime) ||
-             (start <= sceneEndTime && end >= sceneStartTime)
-    }) : []
-
     let initialBlocks = []
-    if (matchingSegs.length > 0) {
-      initialBlocks = matchingSegs.map((seg, i) => ({
-        id: seg.id || `seg-${i}-${seg.start ?? seg.startTime}`,
-        startTime: seg.start ?? seg.startTime ?? sceneStartTime,
-        endTime: seg.end ?? seg.endTime ?? sceneEndTime,
-        text: seg.text || seg.lyrics || '',
+
+    // 1. Prefer explicit frame.blocks if present
+    if (Array.isArray(currentFrame.blocks) && currentFrame.blocks.length > 0) {
+      initialBlocks = currentFrame.blocks.map((b, i) => ({
+        id: b.id || `block-${i}-${b.startTime}`,
+        startTime: b.startTime ?? sceneStartTime,
+        endTime: b.endTime ?? sceneEndTime,
+        text: b.text || b.lyrics || '',
       }))
     } else {
-      // Fallback: split frame lyrics by newline and subdivide scene time range
-      const rawLyrics = currentFrame.lyrics || ''
-      const lines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean)
-      const count = lines.length || 1
-      const totalDuration = Math.max(0.1, sceneEndTime - sceneStartTime)
-      const lineDuration = totalDuration / count
+      // 2. Fall back to transcriptionSegments using strict interior overlap (< and >)
+      const matchingSegs = Array.isArray(transcriptionSegments) ? transcriptionSegments.filter(seg => {
+        const start = seg.start ?? seg.startTime ?? 0
+        const end = seg.end ?? seg.endTime ?? 0
+        return start < sceneEndTime && end > sceneStartTime
+      }) : []
 
-      initialBlocks = (lines.length > 0 ? lines : [rawLyrics]).map((line, i) => ({
-        id: `fallback-block-${i}-${Date.now()}`,
-        startTime: sceneStartTime + (i * lineDuration),
-        endTime: i === count - 1 ? sceneEndTime : sceneStartTime + ((i + 1) * lineDuration),
-        text: line,
-      }))
+      if (matchingSegs.length > 0) {
+        initialBlocks = matchingSegs.map((seg, i) => ({
+          id: seg.id || `seg-${i}-${seg.start ?? seg.startTime}`,
+          startTime: seg.start ?? seg.startTime ?? sceneStartTime,
+          endTime: seg.end ?? seg.endTime ?? sceneEndTime,
+          text: seg.text || seg.lyrics || '',
+        }))
+      } else {
+        // 3. Fallback: split frame lyrics by newline and subdivide scene time range
+        const rawLyrics = currentFrame.lyrics || ''
+        const lines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean)
+        const count = lines.length || 1
+        const totalDuration = Math.max(0.1, sceneEndTime - sceneStartTime)
+        const lineDuration = totalDuration / count
+
+        initialBlocks = (lines.length > 0 ? lines : [rawLyrics]).map((line, i) => ({
+          id: `fallback-block-${i}-${Date.now()}`,
+          startTime: sceneStartTime + (i * lineDuration),
+          endTime: i === count - 1 ? sceneEndTime : sceneStartTime + ((i + 1) * lineDuration),
+          text: line,
+        }))
+      }
     }
 
     setEditBlocks(initialBlocks)
@@ -546,11 +556,13 @@ export default function VideoEditor() {
             const matchId = frame.sceneSegmentId || frame.id
             const update = updatesMap.get(matchId)
             if (!update) return frame
+            const isTarget = matchId === editSceneInfo?.sceneId
             return {
               ...frame,
               imageUrl: update.imageUrl,
               visualPrompt: update.visualPrompt,
               lyrics: update.lyrics,
+              blocks: isTarget ? editBlocks : (update.blocks || frame.blocks),
             }
           })
         )
@@ -640,7 +652,7 @@ export default function VideoEditor() {
             prevFrames.map(frame => {
               const matchId = frame.sceneSegmentId || frame.id
               if (matchId !== editSceneInfo.sceneId) return frame
-              return { ...frame, lyrics: updatedLyrics }
+              return { ...frame, lyrics: updatedLyrics, blocks: editBlocks }
             })
           )
 

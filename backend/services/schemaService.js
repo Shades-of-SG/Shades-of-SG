@@ -169,6 +169,24 @@ async function ensureGameScoreSchema(sequelize) {
     }
 }
 
+async function ensureSceneSegmentSchema(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    const columns = await queryInterface.describeTable('scene_segments');
+
+    if (!columns.blocks) {
+        await queryInterface.addColumn('scene_segments', 'blocks', {
+            allowNull: false,
+            defaultValue: [],
+            type: DataTypes.JSON,
+        });
+    }
+
+    await sequelize.query(`
+        ALTER TABLE scene_segments 
+        ADD COLUMN IF NOT EXISTS blocks JSONB DEFAULT '[]'::jsonb;
+    `);
+}
+
 module.exports = {
     ensureGameScoreSchema,
     ensureGenerationJobSchema,
@@ -177,4 +195,5 @@ module.exports = {
     ensureSongSchema,
     ensureRhythmBeatmapSchema,
     ensureSongMediaSchema,
+    ensureSceneSegmentSchema,
 };
