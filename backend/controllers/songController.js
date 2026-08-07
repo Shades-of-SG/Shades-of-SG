@@ -5,6 +5,7 @@ const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
 const aiCurationPlanner = require('../services/aiCurationPlanner');
+const { syncSongTranscriptionSegments } = require('../services/transcriptionService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -246,6 +247,7 @@ async function publishSong(req, res, next) {
         await reconcileCompletedGeneration(song, latestJob);
         const missing = publishValidation(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
+        await syncSongTranscriptionSegments(song.id);
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
         return res.json({ song });
     } catch (error) { return next(error); }
@@ -559,7 +561,7 @@ async function updateSegmentLyrics(req, res, next) {
         segment.lyrics = typeof lyrics === 'string' ? lyrics.trim() : segment.lyrics;
         await segment.save();
 
-        // Re-compile rawLyrics on Song
+        // Re-compile rawLyrics on Song & sync transcriptionSegments
         const allSegments = await SceneSegment.findAll({
             where: { songId },
             order: [['startTime', 'ASC']],
@@ -569,6 +571,7 @@ async function updateSegmentLyrics(req, res, next) {
             song.rawLyrics = compiledLyrics;
             await song.save();
         }
+        await syncSongTranscriptionSegments(songId);
 
         return res.json({
             success: true,

@@ -40,6 +40,7 @@ ${JSON.stringify(availableInstrumentsInfo, null, 2)}
 <output_format>
 You must return ONLY a JSON object following this exact schema:
 {
+  "songDescription": "<string, a concise, engaging 1-2 sentence description of the song itself (e.g., 'An uplifting pop track celebrating Singapore urban life and vibrant night cityscapes.'). Do NOT include historical facts or educational background here, just a direct, short song description>",
   "aiSummary": "<string, a rich, educational mini-article consisting of 3 to 4 detailed paragraphs separated by double line breaks (\\n\\n). It must cover the song's historical era, cultural significance, Singapore heritage context (e.g. independence era, National Day history, community traditions), and musical story>",
   "culturalSummary": "<string, a concise 2-sentence summary of the song's heritage background>",
   "trivia": [
@@ -56,7 +57,8 @@ RULES:
 1. "aiSummary" MUST be a detailed 3-4 paragraph educational mini-article. Separate paragraphs with double line breaks (\\n\\n).
 2. "trivia" MUST contain exactly 5 multiple choice questions. Every question MUST be strictly factual and derived from the facts presented in your "aiSummary". Each MUST have 4 options and a correctAnswer matching one of the options.
 3. "matchedInstrumentIds" MUST contain 1 to 4 instrument UUIDs chosen ONLY from the provided <available_instruments> list that best match the song's style/heritage.
-4. Return ONLY valid JSON with no markdown formatting.
+4. "songDescription" MUST be a short 1-2 sentence musical and thematic description of the song itself.
+5. Return ONLY valid JSON with no markdown formatting.
 </output_format>`;
 
   const userMessage = `Song Title: ${song.title}
@@ -90,12 +92,18 @@ ${song.rawLyrics || 'No lyrics provided.'}`;
     throw new Error(`Failed to parse AI Curation JSON response: ${parseError.message}`, { cause: parseError });
   }
 
-  const { aiSummary, culturalSummary, trivia, matchedInstrumentIds } = parsedData;
+  const { songDescription, aiSummary, culturalSummary, trivia, matchedInstrumentIds } = parsedData;
   const finalArticle = (aiSummary || culturalSummary || '').trim();
 
-  // 1. Update Song aiSummary (preserving description)
-  if (finalArticle) {
-    await song.update({ aiSummary: finalArticle });
+  // 1. Update Song aiSummary and short description (if default or missing)
+  const shortDesc = (songDescription || '').trim() || `An evocative musical piece celebrating ${song.title} with atmospheric melodies and cultural storytelling.`;
+  const updates = {};
+  if (finalArticle) updates.aiSummary = finalArticle;
+  if (!song.description || song.description.trim() === '' || song.description === 'AI Generated') {
+    updates.description = shortDesc;
+  }
+  if (Object.keys(updates).length > 0) {
+    await song.update(updates);
   }
 
   // 2. Seed trivia questions

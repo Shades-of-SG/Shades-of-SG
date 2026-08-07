@@ -100,11 +100,29 @@ const styles = {
     boxShadow: '0 10px 15px -3px rgba(124,58,237,.25)',
     transition: 'transform 100ms ease',
   },
-  scrubber: {
+  scrubberContainer: {
     flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    position: 'relative',
+    paddingLeft: 0,
+    paddingRight: 0,
+    marginLeft: 0,
+    marginRight: 0,
+  },
+  scrubber: {
+    width: '100%',
+    margin: 0,
+    padding: 0,
+    appearance: 'none',
+    WebkitAppearance: 'none',
     accentColor: '#7c3aed',
     cursor: 'pointer',
     height: '4px',
+    borderRadius: '2px',
+    outline: 'none',
+    left: 0,
+    marginLeft: 0,
   },
   timeDisplay: {
     fontSize: '0.75rem',
@@ -380,17 +398,23 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
 
-        {/* Scrubber */}
-        <input
-          type="range"
-          min="0"
-          max={duration || 0}
-          step="0.1"
-          value={currentTime}
-          onChange={handleSeek}
-          aria-label="Video progress"
-          style={styles.scrubber}
-        />
+        {/* Scrubber Container */}
+        <div style={styles.scrubberContainer}>
+          <input
+            type="range"
+            min="0"
+            max={duration || 0}
+            step="0.1"
+            value={currentTime}
+            onChange={handleSeek}
+            aria-label="Video progress"
+            className="custom-video-scrubber"
+            style={{
+              ...styles.scrubber,
+              background: `linear-gradient(90deg, #7c3aed ${duration ? (currentTime / duration) * 100 : 0}%, rgba(255, 255, 255, 0.2) ${duration ? (currentTime / duration) * 100 : 0}%)`,
+            }}
+          />
+        </div>
 
         {/* Fullscreen (inline, for non-fullscreen mode) */}
         {!isFullscreen && (

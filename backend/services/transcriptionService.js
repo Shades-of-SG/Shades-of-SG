@@ -262,6 +262,78 @@ function groupLinesIntoStanzas(lines) {
         .join('\n');
 }
 
+/**
+ * Re-compiles and syncs song.transcriptionSegments from all current SceneSegment records for a given song.
+ * Ensures public captions (e.g. in SongExperience) stay live-synced with edited lyrics and atomic blocks.
+ *
+ * @param {number|string} songId
+ */
+async function syncSongTranscriptionSegments(songId) {
+    const { Song, SceneSegment } = require('../models');
+    const song = await Song.findByPk(songId);
+    if (!song) return;
+
+    const sceneSegments = await SceneSegment.findAll({
+        where: { songId },
+        order: [['startTime', 'ASC']],
+    });
+
+    if (!sceneSegments || sceneSegments.length === 0) return;
+
+    const newTranscriptionSegments = [];
+
+    for (const seg of sceneSegments) {
+        if (Array.isArray(seg.blocks) && seg.blocks.length > 0) {
+            for (const b of seg.blocks) {
+                newTranscriptionSegments.push({
+                    id: b.id || `block_${b.startTime}_${b.endTime}`,
+                    start: Number(b.startTime),
+                    end: Number(b.endTime),
+                    startTime: Number(b.startTime),
+                    endTime: Number(b.endTime),
+                    text: (b.text || b.lyrics || '').trim(),
+                    lyrics: (b.text || b.lyrics || '').trim(),
+                });
+            }
+        } else {
+            const rawLyrics = (seg.lyrics || '').trim();
+            const lines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length > 1) {
+                const totalDuration = Math.max(0.1, seg.endTime - seg.startTime);
+                const lineDuration = totalDuration / lines.length;
+                lines.forEach((line, idx) => {
+                    const st = Number((seg.startTime + (idx * lineDuration)).toFixed(2));
+                    const et = idx === lines.length - 1 ? seg.endTime : Number((seg.startTime + ((idx + 1) * lineDuration)).toFixed(2));
+                    newTranscriptionSegments.push({
+                        id: `seg_${seg.id}_${idx}`,
+                        start: st,
+                        end: et,
+                        startTime: st,
+                        endTime: et,
+                        text: line,
+                        lyrics: line,
+                    });
+                });
+            } else {
+                newTranscriptionSegments.push({
+                    id: seg.id,
+                    start: Number(seg.startTime),
+                    end: Number(seg.endTime),
+                    startTime: Number(seg.startTime),
+                    endTime: Number(seg.endTime),
+                    text: rawLyrics,
+                    lyrics: rawLyrics,
+                });
+            }
+        }
+    }
+
+    song.transcriptionSegments = newTranscriptionSegments;
+    song.changed('transcriptionSegments', true);
+    await song.save();
+    return newTranscriptionSegments;
+}
+
 module.exports = {
     DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
@@ -269,6 +341,7 @@ module.exports = {
     MAX_TRANSCRIPTION_BYTES,
     isPromptEcho,
     normalizeMimeType,
+    syncSongTranscriptionSegments,
     transcribeMedia,
     transcribeMediaBuffer,
 };

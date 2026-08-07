@@ -9,7 +9,7 @@ const { OpenAI } = require('openai')
 const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
 const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
-const { transcribeMediaBuffer } = require('../services/transcriptionService')
+const { transcribeMediaBuffer, syncSongTranscriptionSegments } = require('../services/transcriptionService')
 
 const activePipelineJobs = new Map()
 
@@ -928,7 +928,7 @@ const editFrameAdvanced = async (req, res, next) => {
     }
     await segment.save()
 
-    // 3. Sync song.lyrics — re-join all SceneSegment lyrics for this song
+    // 3. Sync song.lyrics & song.transcriptionSegments
     const allSegments = await SceneSegment.findAll({
       where: { songId },
       order: [['startTime', 'ASC']],
@@ -939,6 +939,7 @@ const editFrameAdvanced = async (req, res, next) => {
       song.rawLyrics = compiledLyrics
       await song.save()
     }
+    await syncSongTranscriptionSegments(songId)
 
     // 4. Generate image if prompt changed, forced, or missing
     let newImageUrl = segment.imageUrl

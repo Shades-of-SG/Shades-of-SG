@@ -663,7 +663,6 @@ export default function VideoEditor() {
             })
           })
 
-          setHasEdits(true)
           setShowEditModal(false)
         } else {
           alert('Failed to update lyrics: ' + (result.message || 'Unknown error'))
@@ -1115,22 +1114,55 @@ export default function VideoEditor() {
 
           {/* Lyrics / Granular Whisper Captions Overlay */}
           {(() => {
-            const activeWhisperSeg = Array.isArray(transcriptionSegments) && transcriptionSegments.find((seg) => {
-              const start = seg.start ?? seg.startTime ?? 0
-              const end = seg.end ?? seg.endTime ?? 0
-              return currentTime >= start && currentTime <= end
-            })
-            const captionText = activeWhisperSeg ? activeWhisperSeg.text : frames[currentFrameIndex]?.lyrics
+            const currentFrame = frames[currentFrameIndex]
+            let captionText = ''
+
+            if (currentFrame?.blocks && currentFrame.blocks.length > 0) {
+              // 1. Check frame's explicit atomic blocks
+              const exactBlock = currentFrame.blocks.find(
+                (b) => currentTime >= b.startTime && currentTime <= b.endTime
+              )
+              if (exactBlock) {
+                captionText = exactBlock.text
+              } else if (currentTime >= (currentFrame.startTime ?? 0) && currentTime <= (currentFrame.endTime ?? Infinity)) {
+                // Smooth gap handling within frame boundaries: retain active block across micro-gaps
+                const pastBlocks = currentFrame.blocks.filter((b) => currentTime >= b.startTime)
+                if (pastBlocks.length > 0) {
+                  captionText = pastBlocks[pastBlocks.length - 1].text
+                } else {
+                  captionText = currentFrame.blocks[0].text
+                }
+              }
+            } else {
+              // 2. Check transcriptionSegments if frame has no explicit blocks
+              const activeWhisperSeg =
+                Array.isArray(transcriptionSegments) &&
+                transcriptionSegments.find((seg) => {
+                  const start = seg.start ?? seg.startTime ?? 0
+                  const end = seg.end ?? seg.endTime ?? 0
+                  return currentTime >= start && currentTime <= end
+                })
+
+              if (activeWhisperSeg) {
+                captionText = activeWhisperSeg.text || activeWhisperSeg.lyrics || ''
+              } else {
+                // 3. Fallback: only show full frame lyrics if single line (no newlines)
+                const rawLyrics = currentFrame?.lyrics || ''
+                if (!rawLyrics.includes('\n')) {
+                  captionText = rawLyrics
+                }
+              }
+            }
 
             return showCaptions && captionText ? (
-              <div style={{ 
-                ...styles.lyricsOverlay, 
-                bottom: (isFullscreen && showControls) ? '80px' : '20px',
-                transition: 'bottom 0.3s ease' 
-              }}>
-                <p style={styles.lyricsText}>
-                  {captionText}
-                </p>
+              <div
+                style={{
+                  ...styles.lyricsOverlay,
+                  bottom: isFullscreen && showControls ? '80px' : '20px',
+                  transition: 'bottom 0.3s ease',
+                }}
+              >
+                <p style={styles.lyricsText}>{captionText}</p>
               </div>
             ) : null
           })()}
