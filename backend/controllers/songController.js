@@ -6,6 +6,7 @@ const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
 const { writeAudit } = require('../services/auditService');
 const { getSongPublishMissing } = require('../services/songPublishingService');
+const { formatSongSectionsLyrics } = require('../services/songSectionService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -166,7 +167,7 @@ async function getPublicSong(req, res, next) {
 }
 
 function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Set()) {
-    const value = song.get({ plain: true });
+    const value = withSectionLyrics(song.get({ plain: true }));
     const creator = value.creator;
     value.creator = creator ? {
         avatarUrl: creator.profile?.avatarUrl || null,
@@ -175,6 +176,13 @@ function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Se
     } : null;
     value.bookmarked = bookmarkedIds.has(value.id);
     value.reported = reportedIds.has(value.id);
+    return value;
+}
+
+function withSectionLyrics(value) {
+    if (Array.isArray(value.sectionRecommendations) && value.sectionRecommendations.length) {
+        return { ...value, rawLyrics: formatSongSectionsLyrics(value.sectionRecommendations) };
+    }
     return value;
 }
 
@@ -235,7 +243,7 @@ async function listCreatorSongs(req, res, next) {
 }
 
 function serializeCreatorSong(song) {
-    const value = song.get({ plain: true });
+    const value = withSectionLyrics(song.get({ plain: true }));
     const jobs = [...(value.generationJobs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const latestGenerationJob = jobs[0] || null;
     delete value.generationJobs;
@@ -272,7 +280,7 @@ async function getCreatorSong(req, res, next) {
     try {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        return res.json({ song });
+        return res.json({ song: withSectionLyrics(song.get({ plain: true })) });
     } catch (error) { return next(error); }
 }
 

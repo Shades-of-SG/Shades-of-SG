@@ -1,4 +1,6 @@
-const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
+const { toFile } = require('openai');
+const { getWhisperClient } = require('./whisperClient');
+
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
 const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
 const PROMPT_ECHO_TEXT = 'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.';
@@ -71,11 +73,7 @@ async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
 }
 
 async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
-    if (!process.env.OPENAI_API_KEY) {
-        const error = new Error('OpenAI transcription is not configured.');
-        error.status = 503;
-        throw error;
-    }
+    const whisper = getWhisperClient();
 
     if (!mediaBuffer || !fileName || !mimeType) {
         const error = new Error('A media file, file name, and MIME type are required.');
@@ -97,25 +95,18 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
-    const formData = new FormData();
-    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL);
-    formData.append('response_format', 'verbose_json');
-    formData.append('timestamp_granularities[]', 'segment');
-    formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
-
-    const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: formData,
-    });
-
-    const responseBody = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        const error = new Error(responseBody?.error?.message || 'Unable to transcribe media.');
-        error.status = response.status;
+    const file = await toFile(mediaBuffer, fileName, { type: normalizedMimeType });
+    let responseBody;
+    try {
+        responseBody = await whisper.audio.transcriptions.create({
+            file,
+            model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,
+            response_format: 'verbose_json',
+            timestamp_granularities: ['segment'],
+        });
+    } catch (cause) {
+        const error = new Error(cause?.message || 'Unable to transcribe media.', { cause });
+        error.status = Number(cause?.status || cause?.statusCode) || 502;
         throw error;
     }
 

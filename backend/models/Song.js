@@ -55,6 +55,16 @@ const Song = sequelize.define('Song', {
         allowNull: true,
         field: 'transcription_segments',
     },
+    sectionRecommendations: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        field: 'section_recommendations',
+    },
+    sectionRecommendationsConfirmedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'section_recommendations_confirmed_at',
+    },
     description: {
         type: DataTypes.TEXT,
         allowNull: true,

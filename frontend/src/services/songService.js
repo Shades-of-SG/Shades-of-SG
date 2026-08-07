@@ -126,3 +126,21 @@ export function importYouTubeAudio(songId, youtubeUrl, token) {
     }
   ).then((data) => data.song)
 }
+
+export function recommendSongSections(songId, token, { replaceConfirmed = false } = {}) {
+  return request(`/songs/${encodeURIComponent(songId)}/sections/recommend`, {
+    body: JSON.stringify({ replaceConfirmed }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    token,
+  })
+}
+
+export function saveSongSections(songId, sections, token, { confirmed = true } = {}) {
+  return request(`/songs/${encodeURIComponent(songId)}/sections`, {
+    body: JSON.stringify({ confirmed, sections }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PUT',
+    token,
+  })
+}

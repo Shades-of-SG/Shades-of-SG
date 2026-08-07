@@ -87,6 +87,20 @@ async function ensureSongSchema(sequelize) {
             type: DataTypes.JSON,
         });
     }
+
+    if (!columns.section_recommendations) {
+        await queryInterface.addColumn('songs', 'section_recommendations', {
+            allowNull: true,
+            type: DataTypes.JSON,
+        });
+    }
+
+    if (!columns.section_recommendations_confirmed_at) {
+        await queryInterface.addColumn('songs', 'section_recommendations_confirmed_at', {
+            allowNull: true,
+            type: DataTypes.DATE,
+        });
+    }
 }
 
 async function ensureGenerationJobSchema(sequelize) {

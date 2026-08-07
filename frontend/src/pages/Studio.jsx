@@ -6,12 +6,13 @@ import MetadataStepper from '../components/studio/MetadataStepper'
 import PreviewPublishPanel from '../components/studio/PreviewPublishPanel'
 import PublishReadinessModal from '../components/studio/PublishReadinessModal'
 import SongInformationCard from '../components/studio/SongInformationCard'
+import SongSectionsCard from '../components/studio/SongSectionsCard'
 import StudioFooter from '../components/studio/StudioFooter'
 import StudioHeader from '../components/studio/StudioHeader'
 import RhythmBeatmapPanel from '../components/studio/RhythmBeatmapPanel'
 import { useAuth } from '../context/AuthContext'
 import { API_URL } from '../services/apiConfig'
-import { createDraft, getCreatorSong, getPublishReadiness, importYouTubeAudio, publishSong, startGeneration, updateDraft, uploadAudio, uploadCover, uploadVideo } from '../services/songService'
+import { createDraft, getCreatorSong, getPublishReadiness, importYouTubeAudio, publishSong, saveSongSections, startGeneration, updateDraft, uploadAudio, uploadCover, uploadVideo } from '../services/songService'
 
 const emptyForm = { artist: '', description: '', otherLanguage: '', theme: '', title: '', youtubeLink: '' }
 
@@ -146,7 +147,16 @@ export default function Studio() {
     if (studioStep !== 2 || transcriptionStatus.configured !== null) return undefined
     fetch(`${API_URL}/transcriptions/status`)
       .then((response) => response.json())
-      .then((data) => setTranscriptionStatus({ configured: Boolean(data.configured), error: data.configured ? '' : 'AI transcription is not configured.' }))
+      .then((data) => {
+        const whisperConfigured = Boolean(data.configured)
+        const sectionsConfigured = data.sectionAnalysis ? Boolean(data.sectionAnalysis.configured) : true
+        const error = !whisperConfigured
+          ? 'Add OPENAI_API_KEY for Whisper transcription.'
+          : !sectionsConfigured
+            ? 'Add DEEPSEEK_API_KEY for song-section recommendations.'
+            : ''
+        setTranscriptionStatus({ configured: whisperConfigured && sectionsConfigured, error })
+      })
       .catch(() => setTranscriptionStatus({ configured: false, error: 'Unable to reach the transcription backend.' }))
     return undefined
   }, [studioStep, transcriptionStatus.configured])
@@ -321,10 +331,12 @@ export default function Studio() {
   async function saveExtractedLyrics(
     extractedLyrics,
     extractedSegments,
-    preferredSongId = songId
+    preferredSongId = songId,
+    extractedSections = null
   ) {
+    let updatedSong
     if (preferredSongId) {
-      const updatedSong = await updateDraft(
+      updatedSong = await updateDraft(
         preferredSongId,
         {
           rawLyrics: extractedLyrics,
@@ -333,34 +345,34 @@ export default function Studio() {
         token
       )
 
-      setSong(updatedSong)
-      setLastSavedAt(
-        new Date(updatedSong.updatedAt || Date.now())
+    } else {
+      updatedSong = await createDraft(
+        {
+          ...values(),
+          rawLyrics: extractedLyrics,
+          transcriptionSegments: extractedSegments,
+        },
+        token
       )
-
-      return updatedSong
+      setSongId(updatedSong.id)
+      navigate(`/creator/studio/${updatedSong.id}`, { replace: true })
     }
 
-    const createdSong = await createDraft(
-      {
-        ...values(),
-        rawLyrics: extractedLyrics,
-        transcriptionSegments: extractedSegments,
-      },
-      token
-    )
+    if (extractedSections?.length) {
+      const sectionResult = await saveSongSections(updatedSong.id, extractedSections, token, { confirmed: false })
+      const sectionLyrics = sectionResult.lyrics || extractedLyrics
+      updatedSong = {
+        ...updatedSong,
+        rawLyrics: sectionLyrics,
+        sectionRecommendations: sectionResult.sections,
+        sectionRecommendationsConfirmedAt: sectionResult.confirmedAt,
+      }
+      setLyrics(sectionLyrics)
+    }
 
-    setSong(createdSong)
-    setSongId(createdSong.id)
-    setLastSavedAt(
-      new Date(createdSong.updatedAt || Date.now())
-    )
-
-    navigate(`/creator/studio/${createdSong.id}`, {
-      replace: true,
-    })
-
-    return createdSong
+    setSong(updatedSong)
+    setLastSavedAt(new Date(updatedSong.updatedAt || Date.now()))
+    return updatedSong
   }
 
   async function extractLyrics() {
@@ -378,9 +390,11 @@ export default function Studio() {
       if (selectedMediaFile) {
         payload = {
           fileName: selectedMediaFile.name,
+          includeSectionRecommendations: true,
           mediaBase64:
             await readFileAsBase64(selectedMediaFile),
           mimeType: mimeType(selectedMediaFile),
+          ...(transcriptionSongId ? { songId: transcriptionSongId } : {}),
         }
       } else {
         const youtubeUrl = formData.youtubeLink.trim()
@@ -418,6 +432,7 @@ export default function Studio() {
         }
 
         payload = {
+          includeSectionRecommendations: true,
           songId: transcriptionSongId,
         }
       }
@@ -449,6 +464,7 @@ export default function Studio() {
 
       const extractedLyrics = data.lyrics || ''
       const extractedSegments = data.segments || null
+      const extractedSections = data.sectionRecommendations || null
 
       setLyrics(extractedLyrics)
       setTranscriptionSegments(extractedSegments)
@@ -456,7 +472,8 @@ export default function Studio() {
       await saveExtractedLyrics(
         extractedLyrics,
         extractedSegments,
-        transcriptionSongId
+        transcriptionSongId,
+        extractedSections
       )
 
       setExtractionStatus('success')
@@ -637,21 +654,38 @@ export default function Studio() {
             )}
 
             {studioStep === 2 && (
-              <LyricsCard
-                canExtractLyrics={Boolean(
-                  selectedMediaFile ||
-                  formData.youtubeLink.trim() ||
-                  song?.videoUrl ||
-                  song?.audioUrl
-                )}
-                extractionError={extractionError}
-                extractionStatus={extractionStatus}
-                lyrics={lyrics}
-                onExtractLyrics={extractLyrics}
-                onLyricsChange={setLyrics}
-                transcriptionStatus={transcriptionStatus}
-                youtubeLink={formData.youtubeLink}
-              />
+              <>
+                <LyricsCard
+                  canExtractLyrics={Boolean(
+                    selectedMediaFile ||
+                    formData.youtubeLink.trim() ||
+                    song?.videoUrl ||
+                    song?.audioUrl
+                  )}
+                  extractionError={extractionError}
+                  extractionStatus={extractionStatus}
+                  lyrics={lyrics}
+                  onExtractLyrics={extractLyrics}
+                  onLyricsChange={setLyrics}
+                  transcriptionStatus={transcriptionStatus}
+                  youtubeLink={formData.youtubeLink}
+                />
+                <SongSectionsCard
+                  key={`${songId}:${song?.sectionRecommendationsConfirmedAt || 'draft'}:${song?.sectionRecommendations?.length || 0}`}
+                  onSaved={({ lyrics: sectionLyrics, ...sectionState }) => {
+                    if (typeof sectionLyrics === 'string') setLyrics(sectionLyrics)
+                    setSong((current) => ({
+                      ...current,
+                      ...sectionState,
+                      ...(typeof sectionLyrics === 'string' ? { rawLyrics: sectionLyrics } : {}),
+                    }))
+                  }}
+                  song={song}
+                  songId={songId}
+                  token={token}
+                  transcriptionSegments={transcriptionSegments}
+                />
+              </>
             )}
 
             {studioStep === 3 && (

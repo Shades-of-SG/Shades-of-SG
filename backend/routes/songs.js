@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const songController = require('../controllers/songController');
+const songSectionsController = require('../controllers/songSectionsController');
 const { optionalAuth, requireAuth, requireCreator } = require('../middleware/auth');
 const { validateUuidParam } = require('../middleware/validateUuid');
 
@@ -51,6 +52,8 @@ router.get('/creator', requireCreator, songController.listCreatorSongs);
 router.get('/creator/dashboard/summary', requireCreator, songController.getCreatorDashboardSummary);
 router.get('/creator/:id', requireCreator, songController.getCreatorSong);
 router.post('/:id/extract-audio', requireCreator, songController.extractAudio);
+router.post('/:id/sections/recommend', requireCreator, songSectionsController.recommendSections);
+router.put('/:id/sections', requireCreator, songSectionsController.saveSections);
 router.post('/', requireCreator, upload.single('audioFile'), songController.createSong);
 router.put('/:id/metadata', requireCreator, songController.updateSong);
 router.post('/:id/audio', requireCreator, upload.single('audioFile'), songController.uploadSongAudio);

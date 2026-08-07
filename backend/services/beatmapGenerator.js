@@ -2,7 +2,7 @@ const { SceneSegment } = require('../models')
 const { DIFFICULTY_CONFIG } = require('../config/rhythm')
 const { parseAndNormalizeBeatmap } = require('./beatmapValidator')
 const { generateFallbackBeatmap } = require('./fallbackBeatmapGenerator')
-const { getOpenAIClient } = require('./openaiClient')
+const { requestDeepSeekJson } = require('./deepseekJsonService')
 
 const TARGET_NOTE_INTERVAL_MS = Object.freeze({ EASY: 4000, MEDIUM: 3000, HARD: 2000 })
 
@@ -23,7 +23,7 @@ function parseAiBeatmap(raw, options) {
 function buildPrompt(song, difficulty, segments) {
   const config = DIFFICULTY_CONFIG[difficulty]
   return {
-    system: `You design playable four-lane rhythm charts from supplied timing metadata. Return only JSON with difficulty, bpm, offsetMs, and notes. Each note has lane 0-3, integer startMs, type tap or hold; holds also have integer endMs. Do not imply waveform analysis. The chart must span the complete supplied duration, with notes distributed throughout the song and activity in its final 10%. Keep same-lane notes non-overlapping, at most ${config.maxSimultaneous} simultaneous notes, minimum pattern spacing about ${config.minGapMs}ms, hold duration ${config.holdMinMs}-${config.holdMaxMs}ms, and hold share about ${Math.round(config.holdChance * 100)}%.`,
+    system: `You design playable four-lane rhythm charts from supplied timing metadata. Return valid JSON only with difficulty, bpm, offsetMs, and notes. Each note has lane 0-3, integer startMs, type tap or hold; holds also have integer endMs. Do not imply waveform analysis. The chart must span the complete supplied duration, with notes distributed throughout the song and activity in its final 10%. Keep same-lane notes non-overlapping, at most ${config.maxSimultaneous} simultaneous notes, minimum pattern spacing about ${config.minGapMs}ms, hold duration ${config.holdMinMs}-${config.holdMaxMs}ms, and hold share about ${Math.round(config.holdChance * 100)}%. Use section timing to shape density when supplied, but never fabricate missing lyrics.`,
     user: JSON.stringify({
       title: song.title,
       artist: song.artist || null,
@@ -34,6 +34,13 @@ function buildPrompt(song, difficulty, segments) {
       lyrics: song.rawLyrics || null,
       timingSource: segments.length ? 'scene-segment timestamps' : 'duration metadata',
       segments: segments.map((segment) => ({ startMs: Math.round(segment.startTime * 1000), endMs: Math.round(segment.endTime * 1000), lyrics: segment.lyrics || null })),
+      songSections: (song.sectionRecommendations || []).map((section) => ({
+        type: section.type,
+        label: section.label,
+        startMs: Math.round(Number(section.startTime) * 1000),
+        endMs: Math.round(Number(section.endTime) * 1000),
+        lyrics: section.lyrics || null,
+      })),
     }),
   }
 }
@@ -41,16 +48,13 @@ function buildPrompt(song, difficulty, segments) {
 async function requestAiBeatmap(song, difficulty, repair = null) {
   const segments = await SceneSegment.findAll({ where: { songId: song.id }, order: [['startTime', 'ASC']], attributes: ['startTime', 'endTime', 'lyrics'] })
   const prompt = buildPrompt(song, difficulty, segments)
-  const response = await getOpenAIClient().chat.completions.create({
-    model: process.env.OPENAI_BEATMAP_MODEL || 'gpt-4o-mini',
-    response_format: { type: 'json_object' },
-    temperature: 0.35,
-    messages: [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: repair ? `${prompt.user}\nThe prior response failed validation: ${repair.error}. Return a corrected complete JSON object.` : prompt.user },
-    ],
+  const durationMs = Math.round(Number(song.durationSecs) * 1000)
+  return requestDeepSeekJson({
+    purpose: `${difficulty.toLowerCase()} beatmap generation`,
+    system: prompt.system,
+    user: repair ? `${prompt.user}\nThe prior response failed validation: ${repair.error}. Return a corrected complete JSON object.` : prompt.user,
+    validate: (value) => parseAiBeatmap(value, { difficulty, durationMs }),
   })
-  return response.choices?.[0]?.message?.content
 }
 
 async function generateBeatmap(song, difficulty, { aiRequest = requestAiBeatmap } = {}) {

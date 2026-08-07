@@ -56,7 +56,8 @@ Backend:
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`: registration and password-reset email delivery.
 - `SMTP_TIMEOUT_MS`: SMTP network timeout in milliseconds; defaults to 10000 and is capped at 25000.
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`: media credentials.
-- `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: lyric transcription. Use `whisper-1` for the segment timestamps required by precise scene timing; GPT-4o transcription models return untimed lyrics and use the planner's fallback timing path.
+- `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: Creator Studio Whisper transcription plus existing unrelated OpenAI image/video features. Keep `OPENAI_TRANSCRIPTION_MODEL=whisper-1` so the lyrics workflow receives segment timestamps.
+- `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL`: DeepSeek JSON generation for Creator Studio song-section recommendations and rhythm beatmaps. Defaults are `https://api.deepseek.com` and `deepseek-v4-pro`.
 - `YT_DLP_PATH`: optional yt-dlp executable path.
 - `PLACEHOLDER_VIDEO_URL`: optional publicly reachable temporary MP4.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`: optional first-admin operational bootstrap.
@@ -70,7 +71,7 @@ Frontend:
 ## Render, Vercel, Supabase, and Cloudinary
 
 1. Create Supabase PostgreSQL and apply every numbered migration in `backend/migrations` in order, including the OAuth identity migration.
-2. Configure Render with the database URL, strong auth secret, exact `FRONTEND_URL`, Cloudinary credentials, and required AI/media variables.
+2. Configure Render with the database URL, strong auth secret, exact `FRONTEND_URL`, Cloudinary credentials, `OPENAI_API_KEY` for Whisper, and `DEEPSEEK_API_KEY` for section/beatmap generation.
 3. Deploy `backend` with `npm install` and `npm start`.
 4. Configure Vercel with `VITE_API_URL=https://<render-service>/api` and build `frontend` using `npm run build`.
 5. Bootstrap the first admin if needed, remove the deployed bootstrap password, and approve creators through the application workflow.
