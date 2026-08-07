@@ -3,7 +3,7 @@ const path = require('path')
 const { GenerationJob, Song, SceneSegment, GeneratedFrame } = require('../models')
 const { generateScenePlan } = require('../services/aiScenePlanner')
 const { generateSongCurationDetails } = require('../services/aiCurationPlanner')
-const { generateFrames } = require('../services/frameGenerator')
+const { generateFrames, generateSingleFrame, normalizeCacheKey } = require('../services/frameGenerator')
 const { assembleVideo } = require('../services/videoAssembler')
 const { OpenAI } = require('openai')
 const cloudinary = require('../config/cloudinary')
@@ -875,6 +875,306 @@ ${lyrics.trim()}`
   }
 }
 
+// ==========================================
+// Post-Generation Advanced Frame Edit
+// ==========================================
+
+/**
+ * POST /api/generation/frame/:id/edit-advanced
+ * Edits the visual prompt and lyrics of a SceneSegment, regenerates its frame image,
+ * and optionally propagates the new image + prompt to all matching chorus siblings.
+ *
+ * Body: { visualPrompt: string, lyrics: string, propagateToChorus: boolean }
+ */
+const editFrameAdvanced = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { visualPrompt, lyrics, propagateToChorus } = req.body
+
+    if (!visualPrompt || typeof visualPrompt !== 'string' || !visualPrompt.trim()) {
+      const err = new Error('visualPrompt is required.')
+      err.statusCode = 400
+      throw err
+    }
+
+    // 1. Find the target SceneSegment and verify creator ownership via parent Song
+    const segment = await SceneSegment.findByPk(id, {
+      include: [{ model: Song, as: 'song', attributes: ['id', 'creatorId', 'lyrics'] }],
+    })
+
+    if (!segment) {
+      const err = new Error('SceneSegment not found.')
+      err.statusCode = 404
+      throw err
+    }
+
+    if (segment.song?.creatorId !== req.authUserRecord.id) {
+      const err = new Error('Forbidden: you do not own this scene.')
+      err.statusCode = 403
+      throw err
+    }
+
+    const songId = segment.songId
+
+    // 2. Persist updated lyrics and visualPrompt on the target segment
+    const updatedLyrics = typeof lyrics === 'string' ? lyrics : segment.lyrics
+    segment.lyrics = updatedLyrics
+    segment.visualPrompt = visualPrompt.trim()
+    await segment.save()
+
+    // 3. Sync song.lyrics — re-join all SceneSegment lyrics for this song
+    const allSegments = await SceneSegment.findAll({
+      where: { songId },
+      order: [['startTime', 'ASC']],
+    })
+    const compiledLyrics = allSegments.map(s => s.lyrics).filter(Boolean).join('\n')
+    const song = await Song.findByPk(songId)
+    if (song && compiledLyrics) {
+      song.lyrics = compiledLyrics
+      await song.save()
+    }
+
+    // 4. Generate a fresh frame image for the updated prompt
+    console.log(`[editFrameAdvanced] Generating new frame for SceneSegment ${id}...`)
+    const newImageUrl = await generateSingleFrame(segment.visualPrompt)
+
+    // 5. Update the SceneSegment's imageUrl and its child GeneratedFrame record(s)
+    segment.imageUrl = newImageUrl
+    await segment.save()
+
+    await GeneratedFrame.update(
+      { imageUrl: newImageUrl },
+      { where: { sceneSegmentId: id } }
+    )
+
+    // 6. Build the list of updated scenes starting with the primary target
+    const updatedScenes = [{
+      id: segment.id,
+      imageUrl: newImageUrl,
+      visualPrompt: segment.visualPrompt,
+      lyrics: segment.lyrics,
+      startTime: segment.startTime,
+      endTime: segment.endTime,
+    }]
+
+    // 7. Global Chorus Propagation
+    if (propagateToChorus === true) {
+      const normalizedKey = normalizeCacheKey(updatedLyrics)
+      console.log(`[editFrameAdvanced] Propagating to chorus siblings with key: "${normalizedKey.substring(0, 40)}..."...`)
+
+      // Find all sibling SceneSegments with matching normalized lyrics (excluding the primary target)
+      const siblings = allSegments.filter(
+        s => s.id !== id && normalizeCacheKey(s.lyrics) === normalizedKey
+      )
+
+      for (const sibling of siblings) {
+        sibling.visualPrompt = segment.visualPrompt
+        sibling.imageUrl = newImageUrl
+        await sibling.save()
+
+        // Re-link GeneratedFrame records without regenerating the image
+        await GeneratedFrame.update(
+          { imageUrl: newImageUrl },
+          { where: { sceneSegmentId: sibling.id } }
+        )
+
+        updatedScenes.push({
+          id: sibling.id,
+          imageUrl: newImageUrl,
+          visualPrompt: sibling.visualPrompt,
+          lyrics: sibling.lyrics,
+          startTime: sibling.startTime,
+          endTime: sibling.endTime,
+        })
+      }
+
+      console.log(`[editFrameAdvanced] Propagated to ${siblings.length} chorus sibling(s).`)
+    }
+
+    return res.json({
+      success: true,
+      updatedFrameId: id,
+      updatedScenes,
+    })
+  } catch (error) {
+    console.error('[editFrameAdvanced Error]:', error)
+    next(error)
+  }
+}
+
+// ==========================================
+// AI Copilot: Natural Language Scene Editor
+// ==========================================
+
+/**
+ * POST /api/generation/job/:jobId/assistant-command
+ * Read-only: parses a natural language edit command via DeepSeek and returns
+ * a structured JSON patch for the frontend to preview and optionally apply.
+ * Does NOT modify any database records.
+ *
+ * Body: { command: string, activeSceneSegmentId: string | null }
+ * Returns: { success: true, patch: { action, targetSceneSegmentIds, newPrompt, newLyrics, explanation } }
+ */
+const handleAssistantCommand = async (req, res, next) => {
+  try {
+    const { jobId } = req.params
+    const { command, activeSceneSegmentId } = req.body
+
+    if (!command || typeof command !== 'string' || !command.trim()) {
+      const err = new Error('command is required.')
+      err.statusCode = 400
+      throw err
+    }
+
+    // 1. Fetch job and verify creator ownership
+    const job = await GenerationJob.findOne({
+      where: { id: jobId },
+      include: [{
+        model: Song,
+        as: 'song',
+        attributes: ['id', 'title', 'artist', 'theme', 'creatorId'],
+        where: { creatorId: req.authUserRecord.id },
+      }],
+    })
+
+    if (!job) {
+      const err = new Error('Generation job not found.')
+      err.statusCode = 404
+      throw err
+    }
+
+    const song = job.song
+
+    // 2. Load all SceneSegments as compact scene context for the LLM
+    const segments = await SceneSegment.findAll({
+      where: { songId: song.id },
+      order: [['startTime', 'ASC']],
+      attributes: ['id', 'sceneOrder', 'startTime', 'endTime', 'lyrics', 'visualPrompt'],
+    })
+
+    const sceneContext = segments.map((s, i) => ({
+      id: s.id,
+      sceneNumber: s.sceneOrder || i + 1,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      lyrics: s.lyrics || '',
+      visualPrompt: (s.visualPrompt || '').substring(0, 200), // truncate for token budget
+    }))
+
+    const activeScene = activeSceneSegmentId
+      ? sceneContext.find(s => s.id === activeSceneSegmentId) || null
+      : null
+
+    // 3. Build prompts
+    const systemPrompt = `You are an AI Video Editor Copilot for a Singapore heritage music video platform.
+You help creators modify their video scene segments using natural language commands.
+
+You will receive:
+- A creator's natural language edit command
+- The currently active scene (if any)
+- A list of all scene segments with their IDs, timestamps, lyrics, and visual prompts
+
+Your job is to interpret the command and output a structured edit patch.
+
+Rules:
+- "UPDATE_PROMPT": change the visual prompt of one or more target scenes
+- "UPDATE_LYRICS": correct/update the lyrics text of one or more target scenes
+- "PROPAGATE_CHORUS": apply the same prompt change to all scenes with matching lyrics (chorus repeat detection)
+- For scene references like "Scene 2" or "the second scene", match by sceneNumber
+- For "active scene" or "current scene", use the activeSceneSegmentId provided
+- For chorus propagation commands, set all matching scene IDs in targetSceneSegmentIds
+- newPrompt: if action involves prompt change, write an enhanced cinematic DALL-E prompt incorporating the creator's intent; otherwise null
+- newLyrics: if action involves lyrics correction, provide corrected text; otherwise null
+- explanation: one clear, friendly sentence explaining what will change
+
+Output STRICTLY valid JSON matching this schema — no markdown, no extra keys:
+{
+  "action": "UPDATE_PROMPT" | "UPDATE_LYRICS" | "PROPAGATE_CHORUS",
+  "targetSceneSegmentIds": ["uuid1", "uuid2"],
+  "newPrompt": "string or null",
+  "newLyrics": "string or null",
+  "explanation": "1-sentence explanation"
+}`
+
+    const userMessage = `Song: "${song.title}" by ${song.artist || 'Unknown'} | Theme: ${song.theme || 'Singaporean Heritage'}
+
+Active Scene: ${activeScene ? `Scene ${activeScene.sceneNumber} (${activeScene.startTime}s–${activeScene.endTime}s): "${activeScene.lyrics}"` : 'None selected'}
+
+All Scenes:
+${JSON.stringify(sceneContext, null, 2)}
+
+Creator Command: ${command.trim()}`
+
+    // 4. Call DeepSeek (or GPT-4o-mini fallback) — same pattern as regenerateSingleScenePrompt
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY
+    const baseURL = process.env.DEEPSEEK_API_KEY
+      ? (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com')
+      : undefined
+    const model = process.env.DEEPSEEK_API_KEY
+      ? (process.env.DEEPSEEK_MODEL || 'deepseek-chat')
+      : 'gpt-4o-mini'
+
+    const openaiClient = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) })
+
+    console.log(`[Copilot] Sending command to ${model}: "${command.trim().substring(0, 80)}..."`)
+
+    const response = await openaiClient.chat.completions.create({
+      model,
+      response_format: { type: 'json_object' },
+      temperature: 0.4,
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    })
+
+    // 5. Parse and validate patch
+    const rawText = (response.choices[0]?.message?.content || '').trim()
+    let cleanedText = rawText.replace(/```json|```/g, '').trim()
+    cleanedText = cleanedText.replace(/[\r\n\t]+/g, ' ')
+
+    let patch
+    try {
+      patch = JSON.parse(cleanedText)
+    } catch (parseErr) {
+      console.error('[Copilot] Failed to parse LLM JSON response:', cleanedText)
+      const err = new Error('AI returned an unparseable response. Please try rephrasing your command.')
+      err.statusCode = 502
+      throw err
+    }
+
+    // Validate required patch fields
+    const validActions = ['UPDATE_PROMPT', 'UPDATE_LYRICS', 'PROPAGATE_CHORUS']
+    if (!validActions.includes(patch.action)) {
+      patch.action = 'UPDATE_PROMPT' // safe default
+    }
+    if (!Array.isArray(patch.targetSceneSegmentIds) || patch.targetSceneSegmentIds.length === 0) {
+      // Fall back to active scene or first scene
+      patch.targetSceneSegmentIds = activeSceneSegmentId
+        ? [activeSceneSegmentId]
+        : segments.length > 0 ? [segments[0].id] : []
+    }
+    // Sanitize: only include IDs that actually exist in this song
+    const validIds = new Set(segments.map(s => s.id))
+    patch.targetSceneSegmentIds = patch.targetSceneSegmentIds.filter(id => validIds.has(id))
+
+    patch.newPrompt = patch.newPrompt || null
+    patch.newLyrics = patch.newLyrics || null
+    patch.explanation = patch.explanation || 'AI edits ready to apply.'
+
+    console.log(`[Copilot] Patch ready: action=${patch.action}, targets=${patch.targetSceneSegmentIds.length} scene(s)`)
+
+    return res.json({
+      success: true,
+      patch,
+    })
+  } catch (error) {
+    console.error('[handleAssistantCommand Error]:', error)
+    next(error)
+  }
+}
+
 module.exports = {
   startGeneration,
   getGenerationStatus,
@@ -885,6 +1185,8 @@ module.exports = {
   retryGeneration,
   confirmScenes,
   regenerateSingleScenePrompt,
+  editFrameAdvanced,
+  handleAssistantCommand,
   runGenerationPipeline,
   resumeFromPhase3,
   completeGeneration,

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles } from 'lucide-react'
+import { Loader2, Play, Pause, Square, SkipBack, SkipForward, Maximize, Minimize, RefreshCw, Subtitles, X, Edit3, Sparkles, MessageSquare, Send, Zap } from 'lucide-react'
 import WaveSurfer from 'wavesurfer.js'
 import CreatorPageShell from '../components/CreatorPageShell'
 import { API_URL } from '../services/apiConfig'
+import { editFrameAdvanced, sendAssistantCommand } from '../services/songService'
 
 /**
  * Extracts and flattens all frames from sceneSegments,
@@ -254,8 +255,23 @@ export default function VideoEditor() {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const [isRegenerating, setIsRegenerating] = useState(false)
-  const [showRegenerateInput, setShowRegenerateInput] = useState(false)
-  const [userFeedback, setUserFeedback] = useState('')
+  // ── Edit Scene Modal state ──
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editVisualPrompt, setEditVisualPrompt] = useState('')
+  const [editLyrics, setEditLyrics] = useState('')
+  const [editPropagateToChorus, setEditPropagateToChorus] = useState(false)
+  const [editSceneInfo, setEditSceneInfo] = useState(null) // { sceneNumber, startTime, endTime, sceneId }
+  // ── AI Copilot Drawer state ──
+  const [showCopilotDrawer, setShowCopilotDrawer] = useState(false)
+  const [copilotInput, setCopilotInput] = useState('')
+  const [copilotLog, setCopilotLog] = useState([]) // [{ role: 'user'|'assistant', text, patch? }]
+  const [copilotLoading, setCopilotLoading] = useState(false)
+  const [pendingPatch, setPendingPatch] = useState(null)
+  const [highlightedSceneIds, setHighlightedSceneIds] = useState({}) // { [sceneSegmentId]: true }
+  const [isApplyingPatch, setIsApplyingPatch] = useState(false)
+  const copilotLogRef = useRef(null)
+  const copilotHighlightTimerRef = useRef(null)
+  // ── legacy state kept for compatibility ──
   const [showCaptions, setShowCaptions] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
@@ -427,40 +443,192 @@ export default function VideoEditor() {
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         toggleFullscreen()
+      } else if ((e.key === 'a' || e.key === 'A') && e.shiftKey) {
+        e.preventDefault()
+        setShowCopilotDrawer(prev => !prev)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleSkipBack, handleSkipForward])
 
-  const handleRegenerateFrame = async () => {
-    if (frames.length === 0) return;
-    const currentFrame = frames[currentFrameIndex];
-    setIsRegenerating(true);
+  /**
+   * Opens the Edit Scene modal pre-filled with the current frame's data.
+   */
+  const handleOpenEditModal = useCallback(() => {
+    if (frames.length === 0) return
+    const currentFrame = frames[currentFrameIndex]
+    setEditVisualPrompt(currentFrame.visualPrompt || '')
+    setEditLyrics(currentFrame.lyrics || '')
+    setEditPropagateToChorus(false)
+    setEditSceneInfo({
+      sceneNumber: currentFrameIndex + 1,
+      startTime: currentFrame.startTime,
+      endTime: currentFrame.endTime,
+      // SceneSegment ID is stored on the frame as sceneSegmentId (from GeneratedFrame)
+      // or fallback to frame.id when the frame IS the segment (legacy flat structure)
+      sceneId: currentFrame.sceneSegmentId || currentFrame.id,
+    })
+    setShowEditModal(true)
+  }, [frames, currentFrameIndex])
+
+  /**
+   * Submits the edit-advanced request, then hot-swaps updated image URLs
+   * in React state without re-initializing WaveSurfer or touching audio.
+   */
+  const handleEditFrameAdvanced = async () => {
+    if (!editSceneInfo?.sceneId) return
+    setIsRegenerating(true)
     try {
-      const res = await fetch(`${API_URL}/generation/frame/${currentFrame.id}/regenerate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
-        body: JSON.stringify({ userFeedback })
-      });
-      const result = await res.json();
-      if (result.success && result.data) {
-        const newFrames = [...frames];
-        newFrames[currentFrameIndex].imageUrl = result.data.imageUrl;
-        setFrames(newFrames);
-        setHasEdits(true);
-        setShowRegenerateInput(false);
-        setUserFeedback('');
+      const token = localStorage.getItem('authToken')
+      const result = await editFrameAdvanced(
+        editSceneInfo.sceneId,
+        {
+          visualPrompt: editVisualPrompt,
+          lyrics: editLyrics,
+          propagateToChorus: editPropagateToChorus,
+        },
+        token
+      )
+
+      if (result.success && Array.isArray(result.updatedScenes)) {
+        // Hot-swap: build a Set of updated scene IDs → new imageUrl for O(1) lookup
+        const updatesMap = new Map(result.updatedScenes.map(s => [s.id, s]))
+
+        setFrames(prevFrames =>
+          prevFrames.map(frame => {
+            // Match by sceneSegmentId (GeneratedFrame) or id (flat SceneSegment)
+            const matchId = frame.sceneSegmentId || frame.id
+            const update = updatesMap.get(matchId)
+            if (!update) return frame
+            return {
+              ...frame,
+              imageUrl: update.imageUrl,
+              visualPrompt: update.visualPrompt,
+              lyrics: update.lyrics,
+            }
+          })
+        )
+        setHasEdits(true)
+        setShowEditModal(false)
       } else {
-        alert('Failed to regenerate: ' + result.message);
+        alert('Edit failed: ' + (result.message || 'Unknown error'))
       }
-    } catch(e) {
-      console.error(e);
-      alert('Error regenerating frame');
+    } catch (e) {
+      console.error('[EditFrameAdvanced]', e)
+      alert('Error editing frame: ' + (e.message || 'Unknown error'))
     } finally {
-      setIsRegenerating(false);
+      setIsRegenerating(false)
     }
   }
+
+  // ── AI Copilot Handlers ──
+
+  /**
+   * Sends the natural language command to DeepSeek, appends to log,
+   * highlights affected filmstrip thumbnails, sets the pending patch for preview.
+   */
+  const handleSendCopilotCommand = useCallback(async () => {
+    const command = copilotInput.trim()
+    if (!command || copilotLoading) return
+
+    const token = localStorage.getItem('authToken')
+    const activeFrame = frames[currentFrameIndex]
+    const activeSceneSegmentId = activeFrame ? (activeFrame.sceneSegmentId || activeFrame.id || null) : null
+
+    setCopilotLog(prev => [...prev, { role: 'user', text: command }])
+    setCopilotInput('')
+    setCopilotLoading(true)
+    setPendingPatch(null)
+
+    try {
+      const result = await sendAssistantCommand(id, { command, activeSceneSegmentId }, token)
+
+      if (result.success && result.patch) {
+        const { patch } = result
+        setCopilotLog(prev => [...prev, { role: 'assistant', text: patch.explanation, patch }])
+        setPendingPatch(patch)
+
+        if (patch.targetSceneSegmentIds?.length > 0) {
+          const highlightMap = {}
+          patch.targetSceneSegmentIds.forEach(sid => { highlightMap[sid] = true })
+          setHighlightedSceneIds(highlightMap)
+          if (copilotHighlightTimerRef.current) clearTimeout(copilotHighlightTimerRef.current)
+          copilotHighlightTimerRef.current = setTimeout(() => setHighlightedSceneIds({}), 8000)
+        }
+      } else {
+        setCopilotLog(prev => [...prev, { role: 'assistant', text: result.message || 'No patch returned from AI.' }])
+      }
+    } catch (e) {
+      setCopilotLog(prev => [...prev, { role: 'assistant', text: `Error: ${e.message || 'Failed to reach AI Copilot.'}` }])
+    } finally {
+      setCopilotLoading(false)
+      setTimeout(() => { if (copilotLogRef.current) copilotLogRef.current.scrollTop = copilotLogRef.current.scrollHeight }, 50)
+    }
+  }, [copilotInput, copilotLoading, frames, currentFrameIndex, id])
+
+  /**
+   * Applies the pending AI patch by calling editFrameAdvanced for each target scene.
+   * Hot-swaps frame state without re-initializing WaveSurfer.
+   */
+  const handleApplyPatch = useCallback(async () => {
+    if (!pendingPatch || isApplyingPatch) return
+    const token = localStorage.getItem('authToken')
+    setIsApplyingPatch(true)
+
+    try {
+      const { targetSceneSegmentIds, newPrompt, newLyrics, action } = pendingPatch
+      const propagateToChorus = action === 'PROPAGATE_CHORUS'
+      const allUpdatedScenes = []
+
+      for (const sceneId of targetSceneSegmentIds) {
+        const matchedFrame = frames.find(f => (f.sceneSegmentId || f.id) === sceneId)
+        const payload = {
+          visualPrompt: newPrompt || matchedFrame?.visualPrompt || 'Cinematic scene',
+          lyrics: newLyrics !== null ? newLyrics : (matchedFrame?.lyrics || ''),
+          propagateToChorus,
+        }
+        try {
+          const result = await editFrameAdvanced(sceneId, payload, token)
+          if (result.success && Array.isArray(result.updatedScenes)) {
+            allUpdatedScenes.push(...result.updatedScenes)
+          }
+        } catch (sceneErr) {
+          console.error(`[Copilot Apply] Failed for scene ${sceneId}:`, sceneErr)
+        }
+      }
+
+      if (allUpdatedScenes.length > 0) {
+        const updatesMap = new Map(allUpdatedScenes.map(s => [s.id, s]))
+        setFrames(prevFrames =>
+          prevFrames.map(frame => {
+            const matchId = frame.sceneSegmentId || frame.id
+            const update = updatesMap.get(matchId)
+            if (!update) return frame
+            return { ...frame, imageUrl: update.imageUrl, visualPrompt: update.visualPrompt, lyrics: update.lyrics }
+          })
+        )
+        setHasEdits(true)
+      }
+
+      setCopilotLog(prev => [...prev, { role: 'assistant', text: `✓ Applied to ${allUpdatedScenes.length} scene(s) successfully. Thumbnails updated.` }])
+      setPendingPatch(null)
+      setHighlightedSceneIds({})
+      if (copilotHighlightTimerRef.current) clearTimeout(copilotHighlightTimerRef.current)
+      setTimeout(() => { if (copilotLogRef.current) copilotLogRef.current.scrollTop = copilotLogRef.current.scrollHeight }, 50)
+    } catch (e) {
+      console.error('[Copilot Apply]', e)
+      setCopilotLog(prev => [...prev, { role: 'assistant', text: `Apply failed: ${e.message}` }])
+    } finally {
+      setIsApplyingPatch(false)
+    }
+  }, [pendingPatch, isApplyingPatch, frames])
+
+  const handleClearPatch = useCallback(() => {
+    setPendingPatch(null)
+    setHighlightedSceneIds({})
+    if (copilotHighlightTimerRef.current) clearTimeout(copilotHighlightTimerRef.current)
+  }, [])
 
   const handlePublishToStudio = async () => {
     const songId = jobData?.song?.id
@@ -596,7 +764,32 @@ export default function VideoEditor() {
       description="Refine your scenes, adjust timings, and export the final masterpiece."
       className="px-2 md:px-4"
       actions={
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button
+            id="copilot-toggle-btn"
+            onClick={() => setShowCopilotDrawer(prev => !prev)}
+            title="AI Copilot (Shift+A)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              background: showCopilotDrawer
+                ? 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)'
+                : 'rgba(124,58,237,0.15)',
+              border: '1px solid rgba(139,92,246,0.4)',
+              borderRadius: '8px',
+              color: showCopilotDrawer ? '#fff' : '#a78bfa',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: showCopilotDrawer ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
+            }}
+          >
+            <Sparkles size={15} />
+            AI Copilot
+          </button>
           <button
             className="studio-button studio-button--secondary"
             onClick={() => navigate(`/creator/generation/${id}`)}
@@ -654,39 +847,33 @@ export default function VideoEditor() {
             transition: 'opacity 0.3s ease',
             pointerEvents: (isFullscreen && !showControls) ? 'none' : 'auto'
           }}>
-            {/* Regenerate Button & Input Overlay */}
+            {/* Edit Scene Button — opens the advanced modal */}
             {frames.length > 0 && (
               <div style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 10 }}>
-                {showRegenerateInput ? (
-                  <div style={{ background: 'rgba(0,0,0,0.8)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px', backdropFilter: 'blur(4px)' }}>
-                    <textarea 
-                      placeholder="What should change? (Optional)" 
-                      value={userFeedback}
-                      onChange={e => setUserFeedback(e.target.value)}
-                      style={{ width: '250px', height: '60px', background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', padding: '8px', fontSize: '14px', resize: 'none' }}
-                    />
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={handleRegenerateFrame} disabled={isRegenerating} style={{ flex: 1, background: '#8b5cf6', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}>
-                        {isRegenerating ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Confirm'}
-                      </button>
-                      <button onClick={() => setShowRegenerateInput(false)} disabled={isRegenerating} style={{ flex: 1, background: '#334155', color: '#fff', border: 'none', padding: '6px', borderRadius: '4px', cursor: 'pointer' }}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button 
-                    onClick={() => setShowRegenerateInput(true)}
-                    title="Regenerate Frame"
-                    style={{
-                      background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '8px', padding: '8px', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)'
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.8)'}
-                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.6)'}
-                  >
-                    <RefreshCw size={20} />
-                  </button>
-                )}
+                <button
+                  onClick={handleOpenEditModal}
+                  title="Edit Scene / Regenerate Frame"
+                  style={{
+                    background: 'rgba(0,0,0,0.6)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(4px)',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseOver={e => e.currentTarget.style.background = 'rgba(124,58,237,0.75)'}
+                  onMouseOut={e => e.currentTarget.style.background = 'rgba(0,0,0,0.6)'}
+                >
+                  <Edit3 size={16} />
+                  Edit Scene
+                </button>
               </div>
             )}
 
@@ -829,7 +1016,19 @@ export default function VideoEditor() {
                 height={80}
                 loading="lazy"
                 onClick={() => handleThumbnailClick(index)}
-                style={thumbnailStyle(index === currentFrameIndex)}
+                style={(() => {
+                  const sceneId = frame.sceneSegmentId || frame.id
+                  const isHighlighted = Boolean(highlightedSceneIds[sceneId])
+                  const base = thumbnailStyle(index === currentFrameIndex)
+                  if (!isHighlighted) return base
+                  return {
+                    ...base,
+                    outline: '2px solid #f59e0b',
+                    outlineOffset: '2px',
+                    boxShadow: '0 0 12px rgba(245,158,11,0.6)',
+                    animation: 'copilot-pulse 1.2s ease-in-out infinite',
+                  }
+                })()}
               />
             ))}
           </div>
@@ -844,6 +1043,363 @@ export default function VideoEditor() {
         </div>
 
       </div>
+
+      {/* ═══════ AI COPILOT PULSE KEYFRAMES ═══════ */}
+      <style>{`@keyframes copilot-pulse { 0%,100%{box-shadow:0 0 8px rgba(245,158,11,.5)} 50%{box-shadow:0 0 20px rgba(245,158,11,.9)} }`}</style>
+
+      {/* ═══════ AI COPILOT DRAWER ═══════ */}
+      <div style={{
+        position:'fixed',top:0,right:0,bottom:0,width:'380px',zIndex:900,
+        transform:showCopilotDrawer?'translateX(0)':'translateX(100%)',
+        transition:'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+        display:'flex',flexDirection:'column',
+        background:'linear-gradient(180deg,#0d1117 0%,#0f172a 100%)',
+        borderLeft:'1px solid rgba(139,92,246,0.25)',
+        boxShadow:showCopilotDrawer?'-8px 0 40px rgba(0,0,0,.6)':'none',
+      }}>
+        {/* Header */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'18px 20px 14px',borderBottom:'1px solid rgba(51,65,85,.6)',background:'rgba(124,58,237,.08)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+            <div style={{width:'32px',height:'32px',borderRadius:'8px',background:'linear-gradient(135deg,#7c3aed,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 12px rgba(124,58,237,.4)'}}>
+              <Sparkles size={16} color="#fff" />
+            </div>
+            <div>
+              <h3 style={{margin:0,color:'#e2e8f0',fontSize:'0.9375rem',fontWeight:700}}>AI Copilot</h3>
+              <p style={{margin:0,color:'#64748b',fontSize:'0.6875rem'}}>Natural language scene editor</p>
+            </div>
+          </div>
+          <button onClick={()=>setShowCopilotDrawer(false)} style={{background:'transparent',border:'none',color:'#64748b',cursor:'pointer',padding:'4px',borderRadius:'6px',display:'flex'}} onMouseOver={e=>e.currentTarget.style.color='#e2e8f0'} onMouseOut={e=>e.currentTarget.style.color='#64748b'} aria-label="Close AI Copilot"><X size={18}/></button>
+        </div>
+
+        {/* Quick Action Chips */}
+        <div style={{padding:'12px 16px 10px',borderBottom:'1px solid rgba(51,65,85,.4)',display:'flex',flexWrap:'wrap',gap:'6px'}}>
+          <p style={{margin:'0 0 8px 0',color:'#64748b',fontSize:'0.6875rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',width:'100%'}}>Quick Actions</p>
+          {[
+            {label:'🌅 Warmer lighting',cmd:'Make the active scene warmer with golden sunset lighting'},
+            {label:'🔁 Propagate chorus',cmd:'Propagate the active scene prompt to all repeated chorus scenes'},
+            {label:'✏️ Fix active typo',cmd:'Fix any typos in the lyrics of the active scene'},
+          ].map(chip=>(
+            <button key={chip.label} onClick={()=>setCopilotInput(chip.cmd)}
+              style={{padding:'5px 10px',borderRadius:'20px',fontSize:'0.75rem',fontWeight:500,background:'rgba(30,41,59,.8)',border:'1px solid rgba(71,85,105,.5)',color:'#94a3b8',cursor:'pointer',transition:'all .15s'}}
+              onMouseOver={e=>{e.currentTarget.style.background='rgba(124,58,237,.2)';e.currentTarget.style.color='#c4b5fd';e.currentTarget.style.borderColor='rgba(139,92,246,.5)'}}
+              onMouseOut={e=>{e.currentTarget.style.background='rgba(30,41,59,.8)';e.currentTarget.style.color='#94a3b8';e.currentTarget.style.borderColor='rgba(71,85,105,.5)'}}
+            >{chip.label}</button>
+          ))}
+        </div>
+
+        {/* Command/Response Log */}
+        <div ref={copilotLogRef} style={{flex:1,overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
+          {copilotLog.length===0&&(
+            <div style={{textAlign:'center',padding:'40px 20px',color:'#334155'}}>
+              <MessageSquare size={32} style={{margin:'0 auto 12px',display:'block',opacity:.4}}/>
+              <p style={{margin:0,fontSize:'0.875rem',lineHeight:1.5}}>Ask the Copilot to modify scenes.<br/><span style={{fontSize:'0.75rem'}}>e.g. "Make Scene 3 a rainy street at night"</span></p>
+            </div>
+          )}
+          {copilotLog.map((entry,i)=>(
+            <div key={i} style={{display:'flex',flexDirection:'column',alignItems:entry.role==='user'?'flex-end':'flex-start',gap:'6px'}}>
+              <div style={{maxWidth:'88%',padding:'10px 14px',borderRadius:entry.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',background:entry.role==='user'?'linear-gradient(135deg,#5b21b6,#4338ca)':'rgba(30,41,59,.9)',border:entry.role==='user'?'none':'1px solid rgba(51,65,85,.6)',color:'#e2e8f0',fontSize:'0.8125rem',lineHeight:1.5}}>
+                {entry.role==='assistant'&&(
+                  <div style={{display:'flex',alignItems:'center',gap:'6px',marginBottom:'4px'}}>
+                    <Sparkles size={11} color="#a78bfa"/>
+                    <span style={{color:'#a78bfa',fontSize:'0.6875rem',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>Copilot</span>
+                    {entry.patch&&<span style={{marginLeft:'auto',background:'rgba(124,58,237,.25)',color:'#c4b5fd',fontSize:'0.625rem',fontWeight:700,padding:'1px 6px',borderRadius:'4px',textTransform:'uppercase',letterSpacing:'0.05em'}}>{entry.patch.action?.replace('_',' ')}</span>}
+                  </div>
+                )}
+                {entry.text}
+              </div>
+              {entry.role==='assistant'&&entry.patch&&pendingPatch===entry.patch&&(
+                <div style={{width:'88%',background:'rgba(124,58,237,.08)',border:'1px solid rgba(139,92,246,.3)',borderRadius:'10px',padding:'12px',display:'flex',flexDirection:'column',gap:'8px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'6px',color:'#94a3b8',fontSize:'0.75rem'}}>
+                    <Zap size={12} color="#f59e0b"/>
+                    <span style={{color:'#f59e0b',fontWeight:600}}>{entry.patch.targetSceneSegmentIds?.length||0} scene(s)</span>
+                    <span>will be updated</span>
+                  </div>
+                  {entry.patch.newPrompt&&<p style={{margin:0,color:'#64748b',fontSize:'0.7rem',fontStyle:'italic',borderLeft:'2px solid rgba(139,92,246,.4)',paddingLeft:'8px',lineHeight:1.4}}>{entry.patch.newPrompt.substring(0,120)}{entry.patch.newPrompt.length>120?'…':''}</p>}
+                  <div style={{display:'flex',gap:'8px'}}>
+                    <button id="copilot-apply-btn" onClick={handleApplyPatch} disabled={isApplyingPatch}
+                      style={{flex:1,padding:'8px 12px',background:isApplyingPatch?'#4c1d95':'linear-gradient(135deg,#7c3aed,#6d28d9)',border:'none',borderRadius:'7px',color:'#fff',fontSize:'0.8125rem',fontWeight:700,cursor:isApplyingPatch?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',boxShadow:isApplyingPatch?'none':'0 4px 12px rgba(124,58,237,.4)',transition:'all .2s'}}>
+                      {isApplyingPatch?(<><Loader2 size={14} style={{animation:'spin 1s linear infinite'}}/>Applying...</>):(<><Zap size={14}/>1-Click Apply AI Edits</>)}
+                    </button>
+                    <button onClick={handleClearPatch} disabled={isApplyingPatch}
+                      style={{padding:'8px 10px',background:'transparent',border:'1px solid rgba(71,85,105,.5)',borderRadius:'7px',color:'#64748b',fontSize:'0.75rem',cursor:'pointer',transition:'all .2s'}}
+                      onMouseOver={e=>e.currentTarget.style.borderColor='rgba(100,116,139,.8)'}
+                      onMouseOut={e=>e.currentTarget.style.borderColor='rgba(71,85,105,.5)'}
+                    >Dismiss</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {copilotLoading&&(
+            <div style={{display:'flex',alignItems:'center',gap:'8px',color:'#64748b',fontSize:'0.75rem'}}>
+              <Loader2 size={14} style={{animation:'spin 1s linear infinite',color:'#7c3aed'}}/>
+              Copilot is thinking...
+            </div>
+          )}
+        </div>
+
+        {/* Pinned Input Row */}
+        <div style={{padding:'12px 16px 16px',borderTop:'1px solid rgba(51,65,85,.5)',background:'rgba(15,23,42,.8)',display:'flex',flexDirection:'column',gap:'8px'}}>
+          <div style={{display:'flex',gap:'8px'}}>
+            <input
+              id="copilot-command-input"
+              type="text"
+              value={copilotInput}
+              onChange={e=>setCopilotInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSendCopilotCommand()}}}
+              disabled={copilotLoading}
+              placeholder="Tell the AI what to change..."
+              style={{flex:1,background:'rgba(15,23,42,.9)',border:'1px solid rgba(71,85,105,.5)',borderRadius:'8px',padding:'10px 12px',color:'#e2e8f0',fontSize:'0.875rem',outline:'none',transition:'border-color .2s'}}
+              onFocus={e=>e.target.style.borderColor='rgba(139,92,246,.7)'}
+              onBlur={e=>e.target.style.borderColor='rgba(71,85,105,.5)'}
+            />
+            <button
+              id="copilot-send-btn"
+              onClick={handleSendCopilotCommand}
+              disabled={copilotLoading||!copilotInput.trim()}
+              style={{padding:'10px 14px',background:(!copilotLoading&&copilotInput.trim())?'linear-gradient(135deg,#7c3aed,#6d28d9)':'rgba(51,65,85,.6)',border:'none',borderRadius:'8px',color:'#fff',cursor:(!copilotLoading&&copilotInput.trim())?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',boxShadow:(!copilotLoading&&copilotInput.trim())?'0 4px 12px rgba(124,58,237,.35)':'none'}}
+            >
+              {copilotLoading?<Loader2 size={18} style={{animation:'spin 1s linear infinite'}}/>:<Send size={18}/>}
+            </button>
+          </div>
+          <p style={{margin:0,color:'#334155',fontSize:'0.6875rem',textAlign:'center'}}>Enter to send · Shift+A to toggle · Previewed before applying</p>
+        </div>
+      </div>
+
+      {/* ═══════ EDIT SCENE / FRAME MODAL ═══════ */}
+      {showEditModal && (
+        <div
+          id="edit-scene-modal-backdrop"
+          onClick={e => { if (e.target.id === 'edit-scene-modal-backdrop') setShowEditModal(false) }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <div style={{
+            background: 'linear-gradient(145deg, #0f172a 0%, #1e1b4b 100%)',
+            border: '1px solid rgba(139,92,246,0.35)',
+            borderRadius: '16px',
+            padding: '28px',
+            width: '100%',
+            maxWidth: '520px',
+            boxShadow: '0 32px 64px -12px rgba(0,0,0,.7), 0 0 0 1px rgba(139,92,246,0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.125rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+                  Edit Scene {editSceneInfo?.sceneNumber}
+                </h2>
+                <p style={{ margin: '4px 0 0', color: '#7c3aed', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'monospace' }}>
+                  {editSceneInfo ? `${formatTime(editSceneInfo.startTime)} → ${formatTime(editSceneInfo.endTime)}` : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={isRegenerating}
+                style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }}
+                onMouseOver={e => e.currentTarget.style.color = '#e2e8f0'}
+                onMouseOut={e => e.currentTarget.style.color = '#64748b'}
+                aria-label="Close edit modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'rgba(51,65,85,0.7)' }} />
+
+            {/* Visual Prompt */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label htmlFor="edit-visual-prompt" style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Visual Prompt
+              </label>
+              <textarea
+                id="edit-visual-prompt"
+                value={editVisualPrompt}
+                onChange={e => setEditVisualPrompt(e.target.value)}
+                disabled={isRegenerating}
+                placeholder="Describe the cinematic scene to generate..."
+                rows={4}
+                style={{
+                  width: '100%',
+                  background: 'rgba(15,23,42,0.8)',
+                  color: '#e2e8f0',
+                  border: '1px solid rgba(100,116,139,0.4)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.6,
+                  resize: 'vertical',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(139,92,246,0.7)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(100,116,139,0.4)'}
+              />
+            </div>
+
+            {/* Lyrics */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label htmlFor="edit-lyrics" style={{ color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Lyrics <span style={{ color: '#475569', fontWeight: 400, textTransform: 'none' }}>(correct typos)</span>
+              </label>
+              <textarea
+                id="edit-lyrics"
+                value={editLyrics}
+                onChange={e => setEditLyrics(e.target.value)}
+                disabled={isRegenerating}
+                placeholder="Scene lyrics text..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  background: 'rgba(15,23,42,0.8)',
+                  color: '#e2e8f0',
+                  border: '1px solid rgba(100,116,139,0.4)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.6,
+                  resize: 'vertical',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(139,92,246,0.7)'}
+                onBlur={e => e.target.style.borderColor = 'rgba(100,116,139,0.4)'}
+              />
+            </div>
+
+            {/* Chorus Propagation Checkbox */}
+            <label
+              htmlFor="edit-propagate-chorus"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                cursor: isRegenerating ? 'not-allowed' : 'pointer',
+                padding: '12px 14px',
+                background: editPropagateToChorus ? 'rgba(124,58,237,0.12)' : 'rgba(30,41,59,0.5)',
+                border: `1px solid ${editPropagateToChorus ? 'rgba(139,92,246,0.5)' : 'rgba(51,65,85,0.6)'}`,
+                borderRadius: '10px',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <input
+                id="edit-propagate-chorus"
+                type="checkbox"
+                checked={editPropagateToChorus}
+                onChange={e => setEditPropagateToChorus(e.target.checked)}
+                disabled={isRegenerating}
+                style={{ display: 'none' }}
+              />
+              {/* Custom checkbox visual */}
+              <div style={{
+                flexShrink: 0,
+                width: '18px',
+                height: '18px',
+                borderRadius: '4px',
+                background: editPropagateToChorus ? '#7c3aed' : 'transparent',
+                border: `2px solid ${editPropagateToChorus ? '#7c3aed' : '#475569'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: '1px',
+                transition: 'all 0.15s ease',
+              }}>
+                {editPropagateToChorus && (
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <div>
+                <div style={{ color: '#cbd5e1', fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.4 }}>
+                  Apply to all repeated chorus scenes
+                </div>
+                <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '2px', lineHeight: 1.4 }}>
+                  Re-links the new image &amp; prompt to every scene with matching lyrics — no duplicate generation.
+                </div>
+              </div>
+            </label>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+              <button
+                onClick={() => setShowEditModal(false)}
+                disabled={isRegenerating}
+                style={{
+                  flex: '0 0 auto',
+                  padding: '11px 20px',
+                  background: 'rgba(51,65,85,0.6)',
+                  border: '1px solid rgba(100,116,139,0.3)',
+                  borderRadius: '8px',
+                  color: '#94a3b8',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isRegenerating ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={e => { if (!isRegenerating) e.currentTarget.style.background = 'rgba(71,85,105,0.6)' }}
+                onMouseOut={e => { e.currentTarget.style.background = 'rgba(51,65,85,0.6)' }}
+              >
+                Cancel
+              </button>
+              <button
+                id="edit-scene-submit-btn"
+                onClick={handleEditFrameAdvanced}
+                disabled={isRegenerating || !editVisualPrompt.trim()}
+                style={{
+                  flex: 1,
+                  padding: '11px 20px',
+                  background: (isRegenerating || !editVisualPrompt.trim()) ? '#4c1d95' : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '0.875rem',
+                  fontWeight: 700,
+                  cursor: (isRegenerating || !editVisualPrompt.trim()) ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: (!editVisualPrompt.trim() && !isRegenerating) ? 0.6 : 1,
+                  boxShadow: (!isRegenerating && editVisualPrompt.trim()) ? '0 4px 15px -3px rgba(124,58,237,0.5)' : 'none',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={e => { if (!isRegenerating && editVisualPrompt.trim()) e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                {isRegenerating ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                    Generating{editPropagateToChorus ? ' & Syncing' : ''}...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} />
+                    Re-generate &amp; Sync Frame
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </CreatorPageShell>
   )
 }

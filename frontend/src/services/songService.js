@@ -162,3 +162,39 @@ export function regenerateScenePrompt(songId, lyrics, token) {
     token,
   })
 }
+
+/**
+ * POST /api/generation/frame/:sceneId/edit-advanced
+ * Edits a SceneSegment's visual prompt and lyrics, regenerates its frame, and
+ * optionally propagates the new image + prompt to all matching chorus siblings.
+ *
+ * @param {string} sceneId - The SceneSegment UUID (not a GeneratedFrame ID).
+ * @param {{ visualPrompt: string, lyrics: string, propagateToChorus: boolean }} payload
+ * @param {string} token - Bearer auth token.
+ */
+export function editFrameAdvanced(sceneId, payload, token) {
+  return request(`/generation/frame/${encodeURIComponent(sceneId)}/edit-advanced`, {
+    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    token,
+  })
+}
+
+/**
+ * POST /api/generation/job/:jobId/assistant-command
+ * Sends a natural language command to the AI Copilot. Returns a structured
+ * JSON patch for preview — does NOT apply any changes to the database.
+ *
+ * @param {string} jobId - The GenerationJob UUID.
+ * @param {{ command: string, activeSceneSegmentId: string|null }} payload
+ * @param {string} token - Bearer auth token.
+ */
+export function sendAssistantCommand(jobId, payload, token) {
+  return request(`/generation/job/${encodeURIComponent(jobId)}/assistant-command`, {
+    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    token,
+  })
+}
