@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronDown, Search, SlidersHorizontal } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react' //For X, its literally called 'X'
 import FilterDropdown from './songs/FilterDropdown'
 
 const SORT_OPTIONS = [
@@ -136,7 +136,7 @@ export default function FilterBar({
         <SortDropdown direction={direction} onDirectionChange={onDirectionChange} onSortChange={onSortChange} sort={sort} />
 
         <button className="songs-clear-filters" disabled={!hasActiveFilters} onClick={onClear} type="button">
-          Clear
+          <X /> {/*<X /> or "Clear"*/}
         </button>
       </div>
     </form>
