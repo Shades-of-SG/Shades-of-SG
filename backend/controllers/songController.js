@@ -1,12 +1,14 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport, SongInstrument } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
+const aiCurationPlanner = require('../services/aiCurationPlanner');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
 const { writeAudit } = require('../services/auditService');
 const { getSongPublishMissing } = require('../services/songPublishingService');
 const { formatSongSectionsLyrics } = require('../services/songSectionService');
+const { syncSongTranscriptionSegments } = require('../services/transcriptionService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -569,4 +571,200 @@ async function extractAudio(req, res, next) {
     }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, reportSong, toggleBookmark, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };
+async function getCurationDetails(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await Song.findByPk(id, {
+            include: [{ model: Instrument, as: 'instruments' }],
+        });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+
+        const triviaQuestions = await TriviaQuestion.findAll({
+            where: { songId: id },
+            order: [['createdAt', 'ASC']],
+        });
+        const allInstruments = await Instrument.findAll({
+            order: [['name', 'ASC']],
+        });
+
+        const latestJob = await GenerationJob.findOne({ where: { songId: id }, order: [['createdAt', 'DESC']] });
+
+        return res.json({
+            success: true,
+            data: {
+                song,
+                latestJobId: latestJob?.id || null,
+                aiSummary: song.aiSummary || song.description || '',
+                description: song.description || '',
+                triviaQuestions,
+                associatedInstruments: song.instruments || [],
+                allInstruments,
+            },
+        });
+    } catch (error) { return next(error); }
+}
+
+async function updateCurationDetails(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await Song.findByPk(id);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+
+        const { aiSummary, description, triviaQuestions, instrumentIds } = req.body;
+
+        const updatePayload = {};
+        if (aiSummary !== undefined) {
+            updatePayload.aiSummary = String(aiSummary || '');
+        }
+        if (description !== undefined) {
+            updatePayload.description = String(description || '');
+        }
+        if (Object.keys(updatePayload).length > 0) {
+            await song.update(updatePayload);
+        }
+
+        if (Array.isArray(triviaQuestions)) {
+            await TriviaQuestion.destroy({ where: { songId: id } });
+            const triviaRecords = triviaQuestions.map((q) => ({
+                songId: id,
+                prompt: q.prompt,
+                type: q.type || 'MULTIPLE_CHOICE',
+                options: Array.isArray(q.options) ? q.options : [],
+                correctAnswer: q.correctAnswer,
+            }));
+            if (triviaRecords.length > 0) {
+                await TriviaQuestion.bulkCreate(triviaRecords);
+            }
+        }
+
+        if (Array.isArray(instrumentIds)) {
+            await SongInstrument.destroy({ where: { songId: id } });
+            const songInstRecords = instrumentIds.map((instrumentId) => ({
+                songId: id,
+                instrumentId,
+            }));
+            if (songInstRecords.length > 0) {
+                await SongInstrument.bulkCreate(songInstRecords);
+            }
+        }
+
+        const updatedSong = await Song.findByPk(id, {
+            include: [{ model: Instrument, as: 'instruments' }],
+        });
+        const updatedTrivia = await TriviaQuestion.findAll({
+            where: { songId: id },
+            order: [['createdAt', 'ASC']],
+        });
+
+        const latestJob = await GenerationJob.findOne({ where: { songId: id }, order: [['createdAt', 'DESC']] });
+
+        return res.json({
+            success: true,
+            data: {
+                song: updatedSong,
+                latestJobId: latestJob?.id || null,
+                aiSummary: updatedSong.aiSummary || updatedSong.description || '',
+                description: updatedSong.description,
+                triviaQuestions: updatedTrivia,
+                associatedInstruments: updatedSong.instruments || [],
+            },
+        });
+    } catch (error) { return next(error); }
+}
+
+async function generateArticle(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const result = await aiCurationPlanner.generateSongArticle(id);
+        return res.json({ success: true, data: result });
+    } catch (error) { return next(error); }
+}
+
+async function generateTrivia(req, res, next) {
+    try {
+        const { id } = req.params;
+        const song = await findOwnedSong(req);
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const result = await aiCurationPlanner.generateSongTrivia(id);
+        return res.json({ success: true, data: result });
+    } catch (error) { return next(error); }
+}
+
+async function updateSegmentLyrics(req, res, next) {
+    try {
+        const { id: songId, segmentId } = req.params;
+        const { lyrics } = req.body;
+
+        const song = await Song.findOne({
+            where: { id: songId, creatorId: req.authUserRecord.id },
+        });
+        if (!song) {
+            const err = new Error('Song not found or unauthorized.');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        const segment = await SceneSegment.findOne({
+            where: { id: segmentId, songId },
+        });
+        if (!segment) {
+            const err = new Error('Scene segment not found.');
+            err.statusCode = 404;
+            throw err;
+        }
+
+        segment.lyrics = typeof lyrics === 'string' ? lyrics.trim() : segment.lyrics;
+        await segment.save();
+
+        // Re-compile rawLyrics on Song & sync transcriptionSegments
+        const allSegments = await SceneSegment.findAll({
+            where: { songId },
+            order: [['startTime', 'ASC']],
+        });
+        const compiledLyrics = allSegments.map(s => s.lyrics).filter(Boolean).join('\n');
+        if (compiledLyrics) {
+            song.rawLyrics = compiledLyrics;
+            await song.save();
+        }
+        await syncSongTranscriptionSegments(songId);
+
+        return res.json({
+            success: true,
+            segment: {
+                id: segment.id,
+                lyrics: segment.lyrics,
+                visualPrompt: segment.visualPrompt,
+            },
+        });
+    } catch (error) { return next(error); }
+}
+
+module.exports = {
+    archiveSong,
+    createSong,
+    deleteSong,
+    extractAudio,
+    generateArticle,
+    generateTrivia,
+    getCreatorDashboardSummary,
+    getCreatorSong,
+    getCurationDetails,
+    getPublicSong,
+    getPublishReadiness,
+    listCreatorSongs,
+    listPublicSongs,
+    publishSong,
+    reportSong,
+    toggleBookmark,
+    unarchiveSong,
+    unpublishSong,
+    updateCurationDetails,
+    updateSegmentLyrics,
+    updateSong,
+    uploadCoverImage,
+    uploadSongAudio,
+    uploadSongVideo,
+};
+

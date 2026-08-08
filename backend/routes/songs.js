@@ -60,10 +60,15 @@ router.post('/:id/audio', requireCreator, upload.single('audioFile'), songContro
 router.post('/:id/video', requireCreator, videoUpload.single('videoFile'), songController.uploadSongVideo);
 router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), songController.uploadCoverImage);
 router.get('/:id/readiness', requireCreator, songController.getPublishReadiness);
+router.get('/:id/curation', requireCreator, songController.getCurationDetails);
+router.put('/:id/curation', requireCreator, songController.updateCurationDetails);
+router.post('/:id/curation/generate-article', requireCreator, songController.generateArticle);
+router.post('/:id/curation/generate-trivia', requireCreator, songController.generateTrivia);
 router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);
 router.put('/:id/unarchive', requireCreator, songController.unarchiveSong);
+router.put('/:id/segment/:segmentId', requireCreator, songController.updateSegmentLyrics);
 router.put('/:id/bookmark', requireAuth, songController.toggleBookmark);
 router.post('/:id/report', requireAuth, songController.reportSong);
 router.delete('/:id', requireCreator, songController.deleteSong);
