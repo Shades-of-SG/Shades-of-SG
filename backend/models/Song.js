@@ -9,7 +9,7 @@ const Song = sequelize.define('Song', {
     },
     creatorId: {
         type: DataTypes.UUID,
-        allowNull: true,
+        allowNull: false,
         field: 'creator_id',
     },
     title: {
@@ -55,14 +55,19 @@ const Song = sequelize.define('Song', {
         allowNull: true,
         field: 'transcription_segments',
     },
+    sectionRecommendations: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        field: 'section_recommendations',
+    },
+    sectionRecommendationsConfirmedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'section_recommendations_confirmed_at',
+    },
     description: {
         type: DataTypes.TEXT,
         allowNull: true,
-    },
-    aiSummary: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        field: 'ai_summary',
     },
     videoUrl: {
         type: DataTypes.TEXT,
@@ -86,6 +91,11 @@ const Song = sequelize.define('Song', {
         type: DataTypes.DATE,
         allowNull: true,
         field: 'published_date',
+    },
+    bookmark: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
     },
 }, {
     tableName: 'songs',

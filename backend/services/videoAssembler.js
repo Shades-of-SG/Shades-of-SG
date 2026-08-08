@@ -94,30 +94,8 @@ async function assembleVideo(jobId, songId, burnCaptions = false) {
 
     const song = await Song.findByPk(songId)
     if (!song) throw new Error(`Song ${songId} not found`)
-
-    // Audio URL fallback: recover from local temp files if audioUrl is missing
-    if (!song.audioUrl) {
-      const localCandidates = [
-        path.join(tempDir, `audio_${jobId}.mp3`),
-        path.join(tempDir, `${jobId}_audio.mp3`),
-      ]
-      let recoveredPath = null
-      for (const candidate of localCandidates) {
-        if (fs.existsSync(candidate)) {
-          recoveredPath = candidate
-          break
-        }
-      }
-      if (recoveredPath) {
-        console.log(`[videoAssembler] Recovering audio from local file: ${recoveredPath}`)
-        const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(recoveredPath))
-        await song.update({ audioUrl: uploaded.audioUrl, audioPublicId: uploaded.audioPublicId })
-        console.log(`[videoAssembler] Recovered audioUrl: ${uploaded.audioUrl}`)
-      }
-      if (!song.audioUrl) {
-        throw new Error('Audio extraction file is missing. Please retry Phase 1.')
-      }
-    }
+    if (job.songId !== song.id) throw new Error('Generation job does not belong to the requested song')
+    if (!song.audioUrl) throw new Error(`Song ${songId} has no audioUrl`)
 
     const segments = await SceneSegment.findAll({
       where: { songId },

@@ -12,27 +12,67 @@ const generationRouter = require('./routes/aiGeneration');
 const badgesRouter = require('./routes/badges');
 const beatmapsRouter = require('./routes/beatmaps');
 const statsRouter = require('./routes/stats');
-const { seedCreatorAccount } = require('./services/authService');
+const creatorApplicationsRouter = require('./routes/creatorApplications');
+const foldersRouter = require('./routes/folders');
+const analyticsRouter = require('./routes/analytics');
+const adminRouter = require('./routes/admin');
+const creatorsRouter = require('./routes/creators');
+const usersRouter = require('./routes/users');
+const instrumentPlaygroundRouter = require('./routes/instrumentPlayground');
+const instrumentsRouter = require('./routes/instruments');
+const { seedAdminAccount } = require('./services/authService');
 const { seedDefaultInstruments } = require('./services/instrumentService');
 const { GenerationJob, Song } = require('./models');
-const {
-    ensureGameScoreSchema,
-    ensureGenerationJobSchema,
-    ensureGuestReflectionSchema,
-    ensureReflectionModerationSchema,
-    ensureRhythmBeatmapSchema,
-    ensureSongSchema,
-    ensureSongMediaSchema,
-    ensureSceneSegmentSchema,
-} = require('./services/schemaService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
-const allowedOrigins = [
-    'http://localhost:5173',
-    process.env.FRONTEND_URL,
-].filter(Boolean);
+function normalizeOrigin(value) {
+    try {
+        const url = new URL(String(value || '').trim());
+        return ['http:', 'https:'].includes(url.protocol) ? url.origin : null;
+    } catch {
+        return null;
+    }
+}
+
+function allowedOrigins() {
+    return new Set([
+        'http://localhost:5173',
+        process.env.FRONTEND_URL,
+        ...String(process.env.FRONTEND_URLS || '').split(','),
+    ].map(normalizeOrigin).filter(Boolean));
+}
+
+function normalizeOriginPattern(value) {
+    const pattern = String(value || '').trim();
+    if ((pattern.match(/\*/g) || []).length !== 1) return null;
+    const placeholder = 'cors-preview-wildcard';
+    try {
+        const url = new URL(pattern.replace('*', placeholder));
+        if (url.protocol !== 'https:' || url.origin !== pattern.replace('*', placeholder)) return null;
+        return url.origin.replace(placeholder, '*');
+    } catch {
+        return null;
+    }
+}
+
+function allowedOriginPatterns() {
+    return String(process.env.FRONTEND_URL_PATTERNS || '')
+        .split(',')
+        .map(normalizeOriginPattern)
+        .filter(Boolean);
+}
+
+function matchesAllowedOriginPattern(origin) {
+    return allowedOriginPatterns().some((pattern) => {
+        const expression = pattern
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            .replace('\\*', '[^.]+');
+        return new RegExp(`^${expression}$`).test(origin);
+    });
+}
 
 app.use(
     cors({
@@ -42,7 +82,7 @@ app.use(
                 return callback(null, true);
             }
 
-            if (allowedOrigins.includes(origin)) {
+            if (allowedOrigins().has(origin) || matchesAllowedOriginPattern(origin)) {
                 return callback(null, true);
             }
 
@@ -76,6 +116,14 @@ app.use('/api/generation', generationRouter);
 app.use('/api/transcriptions', transcriptionsRouter);
 app.use('/api/badges', badgesRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/creator-applications', creatorApplicationsRouter);
+app.use('/api/folders', foldersRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/creators', creatorsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/instrument-playground', instrumentPlaygroundRouter);
+app.use('/api/instruments', instrumentsRouter);
 
 // Global 404 JSON Handler to prevent Express HTML fallbacks
 app.use((req, res) => {
@@ -84,20 +132,28 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
+async function connectWithRetry(maxAttempts = 5, delayMs = 3000) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            await sequelize.authenticate();
+            return;
+        } catch (error) {
+            if (attempt === maxAttempts) throw error;
+            console.warn(`Database connection attempt ${attempt}/${maxAttempts} failed (${error.message}), retrying in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+    }
+}
+
 async function startServer() {
     try {
-        await sequelize.authenticate();
-        await sequelize.sync();
-        await ensureGameScoreSchema(sequelize);
-        await ensureGuestReflectionSchema(sequelize);
-        await ensureReflectionModerationSchema(sequelize);
-        await ensureSongSchema(sequelize);
-        await ensureGenerationJobSchema(sequelize);
-        await ensureRhythmBeatmapSchema(sequelize);
-        await ensureSongMediaSchema(sequelize);
-        await ensureSceneSegmentSchema(sequelize);
-        await seedCreatorAccount();
-        await seedDefaultInstruments();
+        await connectWithRetry();
+        await seedAdminAccount();
+        try {
+            await seedDefaultInstruments();
+        } catch (e) {
+            console.warn('[Startup] seedDefaultInstruments skipped:', e.message);
+        }
         console.log('Database connected successfully');
 
         // Rescue stuck jobs from previous interrupted runs
@@ -120,9 +176,9 @@ async function startServer() {
             console.error('[Startup] Failed to rescue stuck jobs:', e);
         }
 
-        app.listen(PORT, () => {
+        app.listen(PORT, HOST, () => {
             console.log(
-                `Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`
+                `Server is running in ${process.env.NODE_ENV || 'development'} mode on ${HOST}:${PORT}`
             );
         });
     } catch (error) {

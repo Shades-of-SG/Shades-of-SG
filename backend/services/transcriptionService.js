@@ -1,4 +1,6 @@
-const OPENAI_TRANSCRIPTION_URL = 'https://api.openai.com/v1/audio/transcriptions';
+const { toFile } = require('openai');
+const { getWhisperClient } = require('./whisperClient');
+
 const MAX_TRANSCRIPTION_BYTES = 25 * 1024 * 1024;
 const DEFAULT_TRANSCRIPTION_MODEL = 'whisper-1';
 const PROMPT_ECHO_TEXT = 'Preserve repeated choruses, repeated phrases, ad-libs, and line breaks as much as possible.';
@@ -71,11 +73,7 @@ async function transcribeMedia({ fileName, mediaBase64, mimeType }) {
 }
 
 async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
-    if (!process.env.OPENAI_API_KEY) {
-        const error = new Error('OpenAI transcription is not configured.');
-        error.status = 503;
-        throw error;
-    }
+    const whisper = getWhisperClient();
 
     if (!mediaBuffer || !fileName || !mimeType) {
         const error = new Error('A media file, file name, and MIME type are required.');
@@ -97,25 +95,18 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
-    const formData = new FormData();
-    formData.append('model', process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL);
-    formData.append('response_format', 'verbose_json');
-    formData.append('timestamp_granularities[]', 'segment');
-    formData.append('file', new Blob([mediaBuffer], { type: normalizedMimeType }), fileName);
-
-    const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: formData,
-    });
-
-    const responseBody = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        const error = new Error(responseBody?.error?.message || 'Unable to transcribe media.');
-        error.status = response.status;
+    const file = await toFile(mediaBuffer, fileName, { type: normalizedMimeType });
+    let responseBody;
+    try {
+        responseBody = await whisper.audio.transcriptions.create({
+            file,
+            model: process.env.OPENAI_TRANSCRIPTION_MODEL || DEFAULT_TRANSCRIPTION_MODEL,
+            response_format: 'verbose_json',
+            timestamp_granularities: ['segment'],
+        });
+    } catch (cause) {
+        const error = new Error(cause?.message || 'Unable to transcribe media.', { cause });
+        error.status = Number(cause?.status || cause?.statusCode) || 502;
         throw error;
     }
 
@@ -126,15 +117,12 @@ async function transcribeMediaBuffer({ fileName, mediaBuffer, mimeType }) {
         throw error;
     }
 
-    let formattedLyrics = '';
-    if (responseBody.segments && responseBody.segments.length > 0) {
-        formattedLyrics = responseBody.segments
+    const formattedLyrics = responseBody.segments && responseBody.segments.length > 0
+        ? responseBody.segments
             .map(s => s.text.trim())
             .filter(Boolean)
-            .join('\n');
-    } else {
-        formattedLyrics = formatLyricsDraft(rawLyrics);
-    }
+            .join('\n')
+        : formatLyricsDraft(rawLyrics);
 
     return {
         lyrics: formattedLyrics,
@@ -262,78 +250,6 @@ function groupLinesIntoStanzas(lines) {
         .join('\n');
 }
 
-/**
- * Re-compiles and syncs song.transcriptionSegments from all current SceneSegment records for a given song.
- * Ensures public captions (e.g. in SongExperience) stay live-synced with edited lyrics and atomic blocks.
- *
- * @param {number|string} songId
- */
-async function syncSongTranscriptionSegments(songId) {
-    const { Song, SceneSegment } = require('../models');
-    const song = await Song.findByPk(songId);
-    if (!song) return;
-
-    const sceneSegments = await SceneSegment.findAll({
-        where: { songId },
-        order: [['startTime', 'ASC']],
-    });
-
-    if (!sceneSegments || sceneSegments.length === 0) return;
-
-    const newTranscriptionSegments = [];
-
-    for (const seg of sceneSegments) {
-        if (Array.isArray(seg.blocks) && seg.blocks.length > 0) {
-            for (const b of seg.blocks) {
-                newTranscriptionSegments.push({
-                    id: b.id || `block_${b.startTime}_${b.endTime}`,
-                    start: Number(b.startTime),
-                    end: Number(b.endTime),
-                    startTime: Number(b.startTime),
-                    endTime: Number(b.endTime),
-                    text: (b.text || b.lyrics || '').trim(),
-                    lyrics: (b.text || b.lyrics || '').trim(),
-                });
-            }
-        } else {
-            const rawLyrics = (seg.lyrics || '').trim();
-            const lines = rawLyrics.split('\n').map(l => l.trim()).filter(Boolean);
-            if (lines.length > 1) {
-                const totalDuration = Math.max(0.1, seg.endTime - seg.startTime);
-                const lineDuration = totalDuration / lines.length;
-                lines.forEach((line, idx) => {
-                    const st = Number((seg.startTime + (idx * lineDuration)).toFixed(2));
-                    const et = idx === lines.length - 1 ? seg.endTime : Number((seg.startTime + ((idx + 1) * lineDuration)).toFixed(2));
-                    newTranscriptionSegments.push({
-                        id: `seg_${seg.id}_${idx}`,
-                        start: st,
-                        end: et,
-                        startTime: st,
-                        endTime: et,
-                        text: line,
-                        lyrics: line,
-                    });
-                });
-            } else {
-                newTranscriptionSegments.push({
-                    id: seg.id,
-                    start: Number(seg.startTime),
-                    end: Number(seg.endTime),
-                    startTime: Number(seg.startTime),
-                    endTime: Number(seg.endTime),
-                    text: rawLyrics,
-                    lyrics: rawLyrics,
-                });
-            }
-        }
-    }
-
-    song.transcriptionSegments = newTranscriptionSegments;
-    song.changed('transcriptionSegments', true);
-    await song.save();
-    return newTranscriptionSegments;
-}
-
 module.exports = {
     DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
@@ -341,7 +257,6 @@ module.exports = {
     MAX_TRANSCRIPTION_BYTES,
     isPromptEcho,
     normalizeMimeType,
-    syncSongTranscriptionSegments,
     transcribeMedia,
     transcribeMediaBuffer,
 };

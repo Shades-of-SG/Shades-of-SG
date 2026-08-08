@@ -52,6 +52,7 @@ export default function LyricsCard({
     hasYoutubeOnly,
     isCheckingTranscription,
     isTranscriptionUnavailable,
+    configurationError: transcriptionStatus?.error,
   })
 
   useEffect(() => {
@@ -276,6 +277,7 @@ function getGenerationStatus({
   hasYoutubeOnly,
   isCheckingTranscription,
   isTranscriptionUnavailable,
+  configurationError,
 }) {
   if (isCheckingTranscription) {
     return {
@@ -288,8 +290,8 @@ function getGenerationStatus({
 
   if (isTranscriptionUnavailable) {
     return {
-      description: 'Add OPENAI_API_KEY in backend/.env, then restart the backend.',
-      label: 'AI transcription not configured',
+      description: configurationError || 'Configure the backend AI providers, then restart the backend.',
+      label: 'Lyrics AI workflow not configured',
       progress: 8,
       tone: 'error',
     }

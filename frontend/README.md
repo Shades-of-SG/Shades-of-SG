@@ -1,16 +1,28 @@
 # React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This directory contains the Shades of SG React 19 and Vite 8 single-page application. It provides public, registered-user, creator, and administrator routes defined in `src/App.jsx`.
 
-Currently, two official plugins are available:
+Install and verify from this directory with:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+npm test
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+Copy `.env.example` to `.env` and set `VITE_API_URL` to the backend API base including `/api`. Do not commit real deployment values.
 
 ## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The current project does not enable React Compiler. Components use standard React hooks and the existing Vite React plugin. Any future compiler adoption should be tested against the media player, rhythm engine, authentication context, and current component suite before changing production configuration.
+
+The frontend is organised into `pages`, `components`, `layouts`, `services`, `context`, `hooks`, `game`, `utils`, and `data`. Frontend route guards guide navigation, but the Express API remains the authorization boundary.
 
 ## Expanding the ESLint configuration
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The project uses the JavaScript ESLint configuration in `frontend/eslint.config.js`. Keep new code covered by the existing React Hooks and React Refresh rules. If TypeScript is introduced later, add type-aware rules only as part of a deliberate project-wide migration.
+
+Vitest component/service tests use jsdom. Playwright intercepts `/api/**` with deterministic fixtures and does not validate a live backend or database. See [`../docs/guides/PLAYWRIGHT_TESTING.md`](../docs/guides/PLAYWRIGHT_TESTING.md) and [`../docs/reference/ROUTE_INVENTORY.md`](../docs/reference/ROUTE_INVENTORY.md).

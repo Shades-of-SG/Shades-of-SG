@@ -4,11 +4,12 @@ import BrandLogo from '../BrandLogo'
 
 const navigationItems = [
   { label: 'Dashboard', shortLabel: 'DB', to: '/creator/dashboard' },
-  { label: 'Studio', shortLabel: 'ST', to: '/creator/studio' },
+  { label: 'Studio', shortLabel: 'ST', to: '/creator/studio/new' },
   { label: 'Songs', shortLabel: 'SG', to: '/creator/songs' },
+  { label: 'Generation Jobs', shortLabel: 'GJ', to: '/creator/generation' },
   { label: 'Reflection Moderation', shortLabel: 'RM', to: '/creator/reflections' },
   { label: 'Profile', shortLabel: 'PR', to: '/creator/profile' },
-  { label: 'Settings', shortLabel: 'SE', to: '/creator/settings' },
+  { label: 'Settings', shortLabel: 'SE', to: '/settings' },
 ]
 
 export default function CreatorSidebar({ collapsed = false, drawerOpen = false, isDrawerMode = false, onCloseDrawer, onToggleCollapse }) {

@@ -35,11 +35,6 @@ const SceneSegment = sequelize.define('SceneSegment', {
         allowNull: false,
         field: 'visual_prompt',
     },
-    blocks: {
-        type: DataTypes.JSON,
-        allowNull: false,
-        defaultValue: [],
-    },
 }, {
     tableName: 'scene_segments',
     underscored: true,

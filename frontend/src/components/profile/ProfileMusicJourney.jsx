@@ -3,17 +3,17 @@ import ProfileEmptyState from './ProfileEmptyState'
 import ProfileSectionHeader from './ProfileSectionHeader'
 import { formatProfileDate, scoreGrade } from './profileUtils'
 
-export default function ProfileMusicJourney({ error, loading, onRetry, scores }) {
+export default function ProfileMusicJourney({ error, loading, onRetry, scores, subtitle = 'Top rhythm game scores', title = 'My Music Journey' }) {
   return (
     <section className="profile-section">
-      <ProfileSectionHeader subtitle="Recent rhythm game scores" title="My Music Journey" />
+      <ProfileSectionHeader subtitle={subtitle} title={title} />
       {loading ? <div className="profile-score-list">{[1, 2, 3].map((value) => <span className="profile-skeleton profile-skeleton--score" key={value} />)}</div> : null}
       {error ? <div className="profile-error" role="alert"><p>{error}</p><button onClick={onRetry} type="button">Retry</button></div> : null}
-      {!loading && !error && !scores.length ? <ProfileEmptyState actionLabel="Play rhythm game" description="Choose a published song and complete a rhythm session to begin your journey." title="No rhythm scores yet" to="/rhythm-game" variant="music" /> : null}
+      {!loading && !error && !scores.length ? <ProfileEmptyState actionLabel="Play rhythm game" description="Play a rhythm game to begin your music journey." title="No rhythm scores yet" to="/rhythm-game" variant="music" /> : null}
       {!loading && !error && scores.length ? (
         <div className="profile-score-list">
-          {scores.slice(0, 5).map((entry) => {
-            const grade = scoreGrade(entry.accuracy)
+          {scores.slice(0, 3).map((entry) => {
+            const grade = entry.rank || scoreGrade(entry.accuracy)
             const hasAccuracy = grade !== null
             const details = [entry.difficulty, formatProfileDate(entry.createdAt)].filter(Boolean).join(' · ')
             return (

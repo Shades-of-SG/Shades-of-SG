@@ -1,11 +1,35 @@
 import { API_URL } from './apiConfig'
+import { notifyAuthExpired } from '../utils/authEvents'
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, options)
-  const data = response.status === 204 ? null : await response.json().catch(() => ({}))
+  const response = await fetch(
+    `${API_URL}${path}`,
+    options
+  )
+
+  const data =
+    response.status === 204
+      ? null
+      : await response.json().catch(() => ({}))
+
+  const hasAuthHeader = Boolean(
+    options.headers?.Authorization
+  )
+
+  if (
+    response.status === 401 &&
+    hasAuthHeader
+  ) {
+    notifyAuthExpired()
+  }
 
   if (!response.ok) {
-    const error = new Error(data?.message || data?.error?.message || 'Something went wrong. Please try again.')
+    const error = new Error(
+      data?.message ||
+        data?.error?.message ||
+        'Something went wrong. Please try again.'
+    )
+
     error.status = response.status
     throw error
   }
@@ -21,6 +45,37 @@ export async function getReflections(token, songId = '') {
   const query = songId ? `?songId=${encodeURIComponent(songId)}` : ''
   const data = await request(`/reflections${query}`, { headers: authHeaders(token) })
   return data.reflections
+}
+
+export async function getReflectionComments(reflectionId, token) {
+  const data = await request(`/reflections/${encodeURIComponent(reflectionId)}/comments`, { headers: authHeaders(token) })
+  return data.comments
+}
+
+export async function createReflectionComment(reflectionId, content, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments`, {
+    body: JSON.stringify({ content }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'POST',
+  })
+}
+
+export function deleteReflectionComment(reflectionId, commentId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}`, {
+    headers: authHeaders(token), method: 'DELETE',
+  })
+}
+
+export function likeReflection(reflectionId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/like`, {
+    headers: authHeaders(token), method: 'POST',
+  })
+}
+
+export function unlikeReflection(reflectionId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/like`, {
+    headers: authHeaders(token), method: 'DELETE',
+  })
 }
 
 export async function getMyReflections(token) {
@@ -56,6 +111,15 @@ export async function moderateReflection(id, values, token) {
     method: 'PUT',
   })
   return data.reflection
+}
+
+export async function warnReflectionAuthor(id, reason, token) {
+  const data = await request(`/reflections/${id}/warn`, {
+    body: JSON.stringify({ reason }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'POST',
+  })
+  return data.warning
 }
 
 export async function getReflectionSongs() {

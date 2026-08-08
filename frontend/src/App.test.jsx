@@ -22,21 +22,113 @@ describe('App', () => {
       </AuthProvider>,
     )
 
-    expect(screen.getByRole('heading', { level: 1, name: /shades of sg/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /browse songs/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /explore songs/i })).toBeInTheDocument()
   })
 
-  it('opens a direct root visit as the logged-out public landing page', () => {
-    localStorage.setItem('authToken', 'stale-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+  it('keeps registration success reachable after verification signs the user in', () => {
+    localStorage.setItem('authToken', 'registered-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'user-1', name: 'Bellen', role: 'REGISTERED' }))
+    window.history.pushState({}, '', '/registration-success')
 
-    render(<AuthProvider resetOnPublicEntry><App /></AuthProvider>)
+    render(<AuthProvider><App /></AuthProvider>)
 
-    expect(screen.getByRole('heading', { level: 1, name: /shades of sg/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Login' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument()
-    expect(localStorage.getItem('authToken')).toBeNull()
-    expect(localStorage.getItem('authUser')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Email verified' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Continue to your profile' })).toHaveAttribute('href', '/profile')
+  })
+
+  it('preserves an authenticated creator in User Mode across a direct root refresh', () => {
+    localStorage.setItem('activeMode', 'user')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open user menu for Rose/i })).toBeInTheDocument()
+    expect(localStorage.getItem('authToken')).toBe('creator-token')
+    expect(localStorage.getItem('activeMode')).toBe('user')
+  })
+
+  it('switches an approved creator from the creator portal to the normal user shell', async () => {
+    localStorage.setItem('activeMode', 'creator')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ counts: {}, generationJobs: [], recentSongs: [] }),
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByText('Creator Mode')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /open creator menu for Rose.*creator mode/i }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to User Mode' }))
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(localStorage.getItem('activeMode')).toBe('user')
+    expect(JSON.parse(localStorage.getItem('authUser')).role).toBe('CREATOR')
+    expect(screen.getByRole('button', { name: /open user menu for Rose/i })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Creator navigation' })).not.toBeInTheDocument()
+  })
+
+  it('switches an approved creator from the normal user menu to Creator Mode', async () => {
+    localStorage.setItem('activeMode', 'user')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ counts: {}, generationJobs: [], recentSongs: [] }),
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    fireEvent.click(screen.getByRole('button', { name: /open user menu for Rose/i }))
+    expect(screen.getByText('User Mode')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Switch to Creator Mode' }))
+
+    await waitFor(() => expect(window.location.pathname).toBe('/creator/dashboard'))
+    expect(localStorage.getItem('activeMode')).toBe('creator')
+    expect(JSON.parse(localStorage.getItem('authUser')).role).toBe('CREATOR')
+    expect(await screen.findByText('Creator Mode')).toBeInTheDocument()
+  })
+
+  it('does not expose the Creator Mode switch to a creator with suspended creator access', () => {
+    localStorage.setItem('activeMode', 'creator')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED', creatorSuspensionReason: 'Programme review pending.',
+      id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    fireEvent.click(screen.getByRole('button', { name: /open user menu for Rose/i }))
+    expect(screen.queryByRole('menuitem', { name: 'Switch to Creator Mode' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('status').some((status) => /creator access has been suspended/i.test(status.textContent))).toBe(true)
+    expect(screen.getAllByRole('status').some((status) => status.textContent.includes('Programme review pending.'))).toBe(true)
+    expect(localStorage.getItem('activeMode')).toBe('user')
+  })
+
+  it('uses CreatorRoute to keep User Mode out of direct creator URLs', async () => {
+    localStorage.setItem('activeMode', 'user')
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(screen.queryByRole('navigation', { name: 'Creator navigation' })).not.toBeInTheDocument()
   })
 
   it('uses only the top-navbar account menu on registered settings pages', () => {
@@ -54,13 +146,14 @@ describe('App', () => {
     window.history.pushState({}, '', '/creator/reflections')
     render(<AuthProvider><App /></AuthProvider>)
 
-    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /reflection moderation/i })).not.toBeInTheDocument()
   })
 
   it('allows an authenticated creator to open reflection moderation', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/reflections')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
       json: async () => String(url).includes('/moderation')
@@ -80,15 +173,83 @@ describe('App', () => {
     expect(window.location.pathname).toBe('/creator/reflections')
   })
 
+  it.each(['/creator/folders', '/creator/analytics', '/creator/plays'])(
+    'does not expose the removed creator page at %s',
+    async (path) => {
+      localStorage.setItem('activeMode', 'creator')
+      localStorage.setItem('authToken', 'creator-token')
+      localStorage.setItem('authUser', JSON.stringify({
+        accountStatus: 'ACTIVE', creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+      }))
+      window.history.pushState({}, '', path)
+
+      render(<AuthProvider><App /></AuthProvider>)
+
+      expect(await screen.findByRole('heading', { name: 'Page Not Found' })).toBeInTheDocument()
+    },
+  )
+
+  it('blocks a creator-suspended user from direct creator URLs while keeping regular-user navigation', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED',
+      creatorSuspensionReason: 'Programme review pending.', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: /creator tools are temporarily unavailable/i })).toBeInTheDocument()
+    expect(screen.getByText(/You can continue using Shades of SG as a regular user/)).toBeInTheDocument()
+    expect(screen.getByText('Programme review pending.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /continue to your profile/i })).toHaveAttribute('href', '/profile')
+    expect(screen.queryByRole('navigation', { name: /creator navigation/i })).not.toBeInTheDocument()
+  })
+
+  it('lets a creator-suspended user open the regular user profile', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'ACTIVE', creatorAccessStatus: 'SUSPENDED',
+      id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/profile')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/badges/') ? { badges: [] } : String(url).includes('/scores/mine') ? { scores: [] } : { reflections: [] },
+      ok: true,
+      status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: 'My Memories' })).toBeInTheDocument()
+    expect(screen.getByText(/You can continue using Shades of SG as a regular user/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Creator account actions')).not.toBeInTheDocument()
+  })
+
+  it('shows the reason and appeal guidance for a fully suspended cached account', async () => {
+    localStorage.setItem('authToken', 'creator-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      accountStatus: 'SUSPENDED', accountSuspensionReason: 'Account safety review.',
+      creatorAccessStatus: 'ACTIVE', id: 'creator-1', name: 'Rose', role: 'CREATOR',
+    }))
+    window.history.pushState({}, '', '/creator/dashboard')
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: /Your Shades of SG account is unavailable/i })).toBeInTheDocument()
+    expect(screen.getByText('Account safety review.')).toBeInTheDocument()
+    expect(screen.getByText(/appeal/i)).toBeInTheDocument()
+  })
+
   it('sends the creator token when loading generation progress', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/generation/job-123')
     const fetchMock = vi.fn(async () => ({
       json: async () => ({
         data: {
           id: 'job-123',
-          song: { artist: 'Violet', sceneSegments: [], title: 'Generation Test' },
+          song: { artist: 'Rose', sceneSegments: [], title: 'Generation Test' },
           status: 'COMPLETED',
         },
         success: true,
@@ -110,7 +271,7 @@ describe('App', () => {
 
   it('loads an existing creator draft into Studio by song id', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-123')
     const savedAt = new Date('2026-07-20T14:34:00.000Z')
     vi.stubGlobal('fetch', vi.fn(async (url) => ({
@@ -134,17 +295,31 @@ describe('App', () => {
     expect(screen.getByDisplayValue('Studio Artist')).toBeInTheDocument()
     expect(screen.getByText('Saved media: saved-track.mp3')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute('href', 'https://media.example/saved-track.mp3')
-    expect(screen.getByRole('heading', { name: 'Rhythm Game' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Rhythm Game' })
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Lyrics' })
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Beatmap' })
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Rhythm Game' })
+    ).toBeInTheDocument()
     expect(screen.getAllByText(`Draft last saved ${savedAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`).length).toBeGreaterThan(0)
     expect(window.location.pathname).toBe('/creator/studio/song-123')
   })
 
   it('shows publishing tasks only after Publish is attempted and uses friendly video choices', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-456')
     const savedSong = {
-      artist: 'Violet', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/cover.jpg',
+      artist: 'Rose', audioUrl: 'https://media.example/song.mp3', coverImageUrl: 'https://media.example/cover.jpg',
       description: 'Description', durationSecs: 120, id: 'song-456', languages: ['English'], moodTags: [],
       otherLanguages: [], rawLyrics: 'Lyrics', status: 'DRAFT', theme: 'Community', title: 'Modal Song', updatedAt: new Date().toISOString(),
     }
@@ -160,6 +335,7 @@ describe('App', () => {
     expect(await screen.findByDisplayValue('Modal Song')).toBeInTheDocument()
     expect(screen.queryByText(/Publishing requirements remaining|videoUrl|status READY/)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
+    fireEvent.click(screen.getByRole('button', {name: 'Next: Beatmap',}))
     fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
 
@@ -171,10 +347,10 @@ describe('App', () => {
 
   it('publishes with a saved MP4 song-media upload without asking for another video', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-mp4')
     const savedSong = {
-      artist: 'Violet', audioFileName: 'finished-song.mp4', audioUrl: 'https://media.example/finished-song.mp4',
+      artist: 'Rose', audioFileName: 'finished-song.mp4', audioUrl: 'https://media.example/finished-song.mp4',
       coverImageUrl: 'https://media.example/cover.jpg', description: 'Description', durationSecs: 120,
       id: 'song-mp4', languages: ['English'], moodTags: [], otherLanguages: [], rawLyrics: 'Lyrics',
       status: 'GENERATING', theme: 'Community', title: 'Uploaded Video Song', updatedAt: new Date().toISOString(),
@@ -191,8 +367,15 @@ describe('App', () => {
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByDisplayValue('Uploaded Video Song')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'English' })).toBeChecked()
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Lyrics' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Beatmap' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Preview & Publish' })
+    )
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
 
     expect(await screen.findByText('Song published successfully.')).toBeInTheDocument()
@@ -202,10 +385,10 @@ describe('App', () => {
 
   it('uploads the MP4 selected in the publish prompt and publishes immediately', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/song-upload-final')
     const draft = {
-      artist: 'Violet', audioUrl: 'https://media.example/source.mp3', coverImageUrl: 'https://media.example/cover.jpg',
+      artist: 'Rose', audioUrl: 'https://media.example/source.mp3', coverImageUrl: 'https://media.example/cover.jpg',
       description: 'Description', durationSecs: 120, id: 'song-upload-final', languages: ['English'], moodTags: [],
       otherLanguages: [], rawLyrics: 'Lyrics', status: 'DRAFT', theme: 'Community', title: 'Final Upload Song',
       updatedAt: new Date().toISOString(),
@@ -223,8 +406,15 @@ describe('App', () => {
 
     render(<AuthProvider><App /></AuthProvider>)
     expect(await screen.findByDisplayValue('Final Upload Song')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Lyrics' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Next: Preview & Publish' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Lyrics' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Beatmap' })
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Next: Preview & Publish' })
+    )
     fireEvent.click(screen.getAllByRole('button', { name: 'Publish Song' })[0])
     const file = new File(['video'], 'final.mp4', { type: 'video/mp4' })
     fireEvent.change(await screen.findByLabelText('Upload finished video'), { target: { files: [file] } })
@@ -236,7 +426,7 @@ describe('App', () => {
 
   it('shows save errors only after Save Draft and dismisses them after five seconds', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/new')
     vi.useFakeTimers()
     render(<AuthProvider><App /></AuthProvider>)
@@ -253,13 +443,14 @@ describe('App', () => {
 
   it('creates metadata first and uploads a new MP4 through the video endpoint', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/studio/new')
     const draft = { id: 'mp4-draft', status: 'DRAFT', title: 'MP4 Draft', updatedAt: new Date().toISOString() }
     const ready = { ...draft, status: 'READY', videoUrl: 'https://media.example/uploaded.mp4' }
     const fetchMock = vi.fn(async (url) => {
       const path = String(url)
       if (path.includes('/transcriptions/status')) return { json: async () => ({ configured: true }), ok: true, status: 200 }
+      if (path.endsWith('/songs/creator/mp4-draft')) return { json: async () => ({ song: ready }), ok: true, status: 200 }
       if (path.endsWith('/songs')) return { json: async () => ({ song: draft }), ok: true, status: 201 }
       if (path.endsWith('/songs/mp4-draft/video')) return { json: async () => ({ song: ready }), ok: true, status: 200 }
       return { json: async () => ({ beatmaps: [] }), ok: true, status: 200 }
@@ -286,7 +477,7 @@ describe('App', () => {
 
   it('renders creator-scoped My Songs data instead of mock songs', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/songs')
     vi.stubGlobal('fetch', vi.fn(async () => ({
       json: async () => ({ songs: [{
@@ -311,7 +502,7 @@ describe('App', () => {
 
   it('uses the archive icon as an archive and unarchive toggle', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/songs')
     let status = 'ARCHIVED'
     vi.stubGlobal('fetch', vi.fn(async (url) => {
@@ -337,9 +528,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Archive song' })).toBeEnabled()
   })
 
-  it('renders real dashboard summary counts without fake play totals', async () => {
+  it('renders real dashboard summary counts', async () => {
     localStorage.setItem('authToken', 'creator-token')
-    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Violet', role: 'CREATOR' }))
+    localStorage.setItem('authUser', JSON.stringify({ id: 'creator-1', name: 'Rose', role: 'CREATOR' }))
     window.history.pushState({}, '', '/creator/dashboard')
     vi.stubGlobal('fetch', vi.fn(async () => ({
       json: async () => ({
@@ -349,8 +540,8 @@ describe('App', () => {
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByText('Play analytics')).toBeInTheDocument()
-    expect(screen.getByText('Unavailable')).toBeInTheDocument()
+    expect(await screen.findByText('Total Songs')).toBeInTheDocument()
+    expect(screen.getByText('Published')).toBeInTheDocument()
     expect(screen.queryByText('1,240')).not.toBeInTheDocument()
     expect(screen.queryByText('Plays this week:')).not.toBeInTheDocument()
   })
@@ -366,8 +557,8 @@ describe('App', () => {
       ok: true, status: 200,
     })))
     render(<AuthProvider><App /></AuthProvider>)
-    expect(await screen.findByRole('heading', { name: 'Published Song' })).toBeInTheDocument()
-    expect(screen.getByText('Public Artist')).toBeInTheDocument()
+    expect(await screen.findAllByRole('heading', { name: 'Published Song' })).toHaveLength(2)
+    expect(screen.getAllByText('Public Artist')).toHaveLength(3)
     expect(screen.getByRole('link', { name: 'Explore Song' })).toHaveAttribute('href', '/songs/published-1')
     expect(screen.queryByText('Demo Song')).not.toBeInTheDocument()
   })
@@ -389,6 +580,55 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Open Playground' })).toHaveAttribute('href', '/songs/published-42/playground')
     expect(screen.getByRole('link', { name: 'Play Medium Rhythm' })).toHaveAttribute('href', '/game/published-42?difficulty=MEDIUM')
     expect(screen.getByRole('link', { name: 'Share a Reflection' })).toHaveAttribute('href', '/reflections?song_id=published-42')
+    expect(screen.getByRole('button', { name: /play angklung/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play kompang/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play erhu/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play tabla/i })).toBeInTheDocument()
+    expect(screen.getByText(/which band performed the 2016 ndp theme song/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'B. 53A' })).toBeInTheDocument()
+  })
+
+  it('prioritizes linked API instruments over Song Experience placeholders', async () => {
+    window.history.pushState({}, '', '/songs/published-with-instruments')
+    vi.stubGlobal('fetch', vi.fn(async (url) => ({
+      json: async () => String(url).includes('/beatmaps') ? { beatmaps: [] } : ({ song: {
+        artist: 'Instrument Artist', id: 'published-with-instruments', instruments: [{
+          description: 'A linked instrument description.', id: 'linked-kulintang', imageUrl: 'https://media.example/kulintang.jpg', name: 'Kulintang', origin: 'Southeast Asia',
+        }], status: 'PUBLISHED', title: 'Linked Instrument Song', triviaQuestions: [{
+          correctAnswer: 'API answer', options: ['API answer', 'Other answer'], prompt: 'API quiz question?',
+        }],
+      } }),
+      ok: true, status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('button', { name: /play kulintang: a linked instrument description/i })).toBeInTheDocument()
+    expect(screen.getByAltText('Kulintang')).toHaveAttribute('src', 'https://media.example/kulintang.jpg')
+    expect(screen.queryByRole('button', { name: /play angklung/i })).not.toBeInTheDocument()
+    expect(screen.getByText('API quiz question?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'A. API answer' })).toBeInTheDocument()
+    expect(screen.queryByText(/which band performed the 2016 ndp theme song/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the recovered instrument placeholders in an empty song playground', async () => {
+    window.history.pushState({}, '', '/songs/playground-song/playground')
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      json: async () => ({ song: {
+        artist: 'Playground Artist', id: 'playground-song', instruments: [], languages: ['English'], status: 'PUBLISHED', theme: 'Community', title: 'Playground Song',
+      } }),
+      ok: true, status: 200,
+    })))
+
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByRole('heading', { name: 'Playground Song Playground' })).toBeInTheDocument()
+    expect(screen.getByText('Angklung')).toBeInTheDocument()
+    expect(screen.getByText('Kompang')).toBeInTheDocument()
+    expect(screen.getByText('Erhu')).toBeInTheDocument()
+    expect(screen.getByText('Tabla')).toBeInTheDocument()
+    expect(screen.getByText(/bamboo instrument shaken to produce a note/i)).toBeInTheDocument()
+    expect(screen.queryByText(/instruments unavailable/i)).not.toBeInTheDocument()
   })
 
   it('keeps a published song usable while disabling rhythm when no beatmap is published', async () => {
@@ -430,7 +670,10 @@ describe('App', () => {
     expect(screen.getAllByRole('article')).toHaveLength(1)
     expect(screen.getAllByRole('heading', { name: 'Playable Published Song' })).toHaveLength(1)
     expect(screen.getAllByAltText('Playable Published Song cover artwork')).toHaveLength(1)
-    expect(screen.getByText('3 difficulties available')).toBeInTheDocument()
+    expect(screen.queryByText('Scores not saved for guests')).not.toBeInTheDocument()
+    expect(screen.getByText('Playing as a guest')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search by song title or artist')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Leaderboard' })).toHaveAttribute('href', '/rhythm-game/leaderboard')
     expect(screen.getByText('1:00')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Play Playable Published Song on Easy difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')
     expect(screen.getByRole('link', { name: 'Play Playable Published Song on Medium difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=MEDIUM')
@@ -456,7 +699,8 @@ describe('App', () => {
 
     expect(await screen.findAllByRole('article')).toHaveLength(2)
     expect(screen.getAllByRole('article')[0]).toHaveTextContent('Zulu Beat')
-    expect(screen.getAllByText('1 difficulty available')).toHaveLength(2)
+    expect(screen.queryByText('Scores not saved for guests')).not.toBeInTheDocument()
+    expect(screen.getByText('Playing as a guest')).toBeInTheDocument()
     expect(screen.getByText('1:05')).toBeInTheDocument()
     expect(screen.getByText('2:05')).toBeInTheDocument()
 

@@ -1,10 +1,15 @@
 import { API_URL } from './apiConfig'
+import { notifyAuthExpired, } from '../utils/authEvents'
 
 async function request(path, { token, ...options } = {}) {
   const headers = { ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
   const response = await fetch(`${API_URL}${path}`, { ...options, headers })
   const data = await response.json().catch(() => ({}))
+  if (response.status === 401) {
+    notifyAuthExpired()
+  }
+  
   if (!response.ok) {
     const error = new Error(data.message || data.error?.message || 'Song request failed.')
     error.status = response.status
@@ -108,6 +113,38 @@ export function getCreatorDashboardSummary(token) {
   return request('/songs/creator/dashboard/summary', { token })
 }
 
+export function importYouTubeAudio(songId, youtubeUrl, token) {
+  return request(
+    `/songs/${encodeURIComponent(songId)}/extract-audio`,
+    {
+      body: JSON.stringify({ youtubeUrl }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'POST',
+      token,
+    }
+  ).then((data) => data.song)
+}
+
+export function recommendSongSections(songId, token, { replaceConfirmed = false } = {}) {
+  return request(`/songs/${encodeURIComponent(songId)}/sections/recommend`, {
+    body: JSON.stringify({ replaceConfirmed }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    token,
+  })
+}
+
+export function saveSongSections(songId, sections, token, { confirmed = true } = {}) {
+  return request(`/songs/${encodeURIComponent(songId)}/sections`, {
+    body: JSON.stringify({ confirmed, sections }),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PUT',
+    token,
+  })
+}
+
 export function getSongCuration(songId, token) {
   return request(`/songs/${encodeURIComponent(songId)}/curation`, { token }).then((data) => data.data)
 }
@@ -167,10 +204,6 @@ export function regenerateScenePrompt(songId, lyrics, token) {
  * POST /api/generation/frame/:sceneId/edit-advanced
  * Edits a SceneSegment's visual prompt and lyrics, regenerates its frame, and
  * optionally propagates the new image + prompt to all matching chorus siblings.
- *
- * @param {string} sceneId - The SceneSegment UUID (not a GeneratedFrame ID).
- * @param {{ visualPrompt: string, lyrics: string, propagateToChorus: boolean }} payload
- * @param {string} token - Bearer auth token.
  */
 export function editFrameAdvanced(sceneId, payload, token) {
   return request(`/generation/frame/${encodeURIComponent(sceneId)}/edit-advanced`, {
@@ -183,12 +216,7 @@ export function editFrameAdvanced(sceneId, payload, token) {
 
 /**
  * POST /api/generation/job/:jobId/assistant-command
- * Sends a natural language command to the AI Copilot. Returns a structured
- * JSON patch for preview — does NOT apply any changes to the database.
- *
- * @param {string} jobId - The GenerationJob UUID.
- * @param {{ command: string, activeSceneSegmentId: string|null }} payload
- * @param {string} token - Bearer auth token.
+ * Sends a natural language command to the AI Copilot.
  */
 export function sendAssistantCommand(jobId, payload, token) {
   return request(`/generation/job/${encodeURIComponent(jobId)}/assistant-command`, {
@@ -202,11 +230,6 @@ export function sendAssistantCommand(jobId, payload, token) {
 /**
  * PUT /api/songs/:songId/segment/:segmentId
  * Updates only the lyrics for a specific SceneSegment without regenerating frames.
- *
- * @param {string} songId - Parent Song UUID.
- * @param {string} segmentId - SceneSegment UUID.
- * @param {string} lyrics - Updated lyrics string.
- * @param {string} token - Bearer auth token.
  */
 export function updateSegmentLyrics(songId, segmentId, lyrics, token) {
   return request(`/songs/${encodeURIComponent(songId)}/segment/${encodeURIComponent(segmentId)}`, {

@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Piano",
+    "slug": "piano",
+    "license": "CC BY 3.0",
+    "attribution": "Piano samples: Salamander Grand Piano V3 by Alexander Holm (archive.org/details/SalamanderGrandPianoV3), CC BY 3.0",
+    "notes": {
+      "C4": "piano/C4.mp3",
+      "A4": "piano/A4.mp3",
+      "C5": "piano/C5.mp3",
+      "Ds4": "piano/Ds4.mp3",
+      "Fs4": "piano/Fs4.mp3"
+    },
+    "derivedNotes": {
+      "D4": { "from": "Ds4", "semitones": -1 },
+      "E4": { "from": "Ds4", "semitones": 1 },
+      "F4": { "from": "Fs4", "semitones": -1 },
+      "G4": { "from": "Fs4", "semitones": 1 },
+      "B4": { "from": "C5", "semitones": -1 }
+    }
+  },
+  {
+    "name": "Tabla",
+    "slug": "tabla",
+    "license": "Standard License (Sample Focus)",
+    "attribution": null,
+    "notes": {
+      "Dha": "tabla/tabla-single-hit-full.mp3",
+      "Ge": "tabla/tabla-single-hit-low.mp3",
+      "Na": "tabla/tabla-single-hit-high.mp3"
+    },
+    "derivedNotes": {
+      "Tin": { "from": "Na", "semitones": 2 }
+    },
+    "_source": "Full/High/Low one-shots from https://samplefocus.com/collections/tabla-single-hits — Tin is Na pitch-shifted up a whole tone rather than a 4th separately-licensed file."
+  },
+  {
+    "name": "Kompang",
+    "slug": "kompang",
+    "license": "Standard License (Sample Focus)",
+    "attribution": null,
+    "notes": {
+      "Low": "kompang/frame-drum-low-a.mp3",
+      "Mid": "kompang/frame-drum-a.mp3",
+      "High": "kompang/frame-drum-b.mp3",
+      "Slap": "kompang/frame-drum-hard-b.mp3"
+    },
+    "_source": "Real kompang recordings aren't available royalty-free, so this uses generic frame-drum one-shots instead (kompang IS a frame drum): https://samplefocus.com/samples/frame-drum-low-a, frame-drum-a, frame-drum-b, frame-drum-hard-b."
+  },
+  {
+    "name": "Angklung",
+    "slug": "angklung",
+    "license": "Standard License (Sample Focus)",
+    "attribution": null,
+    "notes": {
+      "C4": "angklung/angklung-short-one-shot.mp3"
+    },
+    "derivedNotes": {
+      "D4": { "from": "C4", "semitones": 2 },
+      "F4": { "from": "C4", "semitones": 5 },
+      "G4": { "from": "C4", "semitones": 7 },
+      "A4": { "from": "C4", "semitones": 9 }
+    },
+    "_source": "One real recording ('Angklung Short - One Shot' from https://samplefocus.com/samples/angklung-short-one-shot) pitch-shifted to cover the other 4 notes — angklung's timbre is fairly consistent across its range."
+  }
+]

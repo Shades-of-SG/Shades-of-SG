@@ -1,3 +1,7 @@
+-- Owner: Shared - Ferlyn Ng and Htet Aung
+-- Feature area: Creator song and generation lifecycle
+-- Purpose: Aligns song metadata, media, lifecycle states, and generation job states
+
 -- Safe lifecycle migration. Application writes require creator ownership immediately.
 -- Existing orphaned creator_id rows must be reviewed before a later NOT NULL constraint.
 alter table songs add column if not exists languages jsonb not null default '[]'::jsonb;

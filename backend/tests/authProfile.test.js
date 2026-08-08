@@ -28,10 +28,10 @@ test('registered user can update supported profile fields', async () => {
     const response = await request(app)
         .put('/api/auth/profile')
         .set(authorization(user))
-        .send({ email: 'updated@example.com', name: 'Updated Keeper' });
+        .send({ email: 'memory@example.com', name: 'Updated Keeper' });
 
     expect(response.status).toBe(200);
-    expect(response.body.user).toMatchObject({ email: 'updated@example.com', id: user.id, name: 'Updated Keeper', role: 'REGISTERED' });
+    expect(response.body.user).toMatchObject({ email: 'memory@example.com', id: user.id, name: 'Updated Keeper', role: 'REGISTERED' });
     expect(response.body.user.createdAt).toBeTruthy();
 });
 
@@ -48,4 +48,16 @@ test('profile update rejects an email owned by another account', async () => {
 
     expect(response.status).toBe(409);
     expect(response.body.message).toMatch(/already exists/i);
+});
+
+test('profile update cannot replace the login email without a verified change flow', async () => {
+    const response = await request(app)
+        .put('/api/auth/profile')
+        .set(authorization(user))
+        .send({ email: 'unused-new-address@example.com', name: 'Updated Keeper' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/require verification/i);
+    await user.reload();
+    expect(user.email).toBe('memory@example.com');
 });

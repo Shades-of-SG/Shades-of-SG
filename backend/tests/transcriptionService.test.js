@@ -1,3 +1,11 @@
+const mockWhisperCreate = jest.fn();
+
+jest.mock('../services/whisperClient', () => ({
+    getWhisperClient: jest.fn(() => ({
+        audio: { transcriptions: { create: mockWhisperCreate } },
+    })),
+}));
+
 const {
     DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
@@ -8,16 +16,15 @@ const {
 
 describe('transcription service', () => {
     const originalApiKey = process.env.OPENAI_API_KEY;
-    const originalFetch = global.fetch;
     const originalTranscriptionModel = process.env.OPENAI_TRANSCRIPTION_MODEL;
 
     beforeEach(() => {
         process.env.OPENAI_API_KEY = 'test-key';
         delete process.env.OPENAI_TRANSCRIPTION_MODEL;
+        mockWhisperCreate.mockReset();
     });
 
     afterEach(() => {
-        global.fetch = originalFetch;
         if (originalApiKey === undefined) delete process.env.OPENAI_API_KEY;
         else process.env.OPENAI_API_KEY = originalApiKey;
         if (originalTranscriptionModel === undefined) delete process.env.OPENAI_TRANSCRIPTION_MODEL;
@@ -25,11 +32,7 @@ describe('transcription service', () => {
     });
 
     function mockSuccessfulTranscription(responseBody) {
-        global.fetch = jest.fn().mockResolvedValue({
-            json: jest.fn().mockResolvedValue(responseBody),
-            ok: true,
-            status: 200,
-        });
+        mockWhisperCreate.mockResolvedValue(responseBody);
     }
 
     async function transcribeTestAudio() {
@@ -40,19 +43,19 @@ describe('transcription service', () => {
         });
     }
 
-    test('requests timestamped segments without sending the old lyric prompt', async () => {
+    test('requests timestamped Whisper segments with the supported SDK shape', async () => {
         mockSuccessfulTranscription({
             text: 'A lyric line',
             segments: [{ end: 1.5, start: 0, text: 'A lyric line' }],
         });
 
         const result = await transcribeTestAudio();
-        const requestBody = global.fetch.mock.calls[0][1].body;
+        const request = mockWhisperCreate.mock.calls[0][0];
 
-        expect(requestBody.get('model')).toBe(DEFAULT_TRANSCRIPTION_MODEL);
-        expect(requestBody.get('response_format')).toBe('verbose_json');
-        expect(requestBody.getAll('timestamp_granularities[]')).toEqual(['segment']);
-        expect(requestBody.has('prompt')).toBe(false);
+        expect(request.model).toBe(DEFAULT_TRANSCRIPTION_MODEL);
+        expect(request.response_format).toBe('verbose_json');
+        expect(request.timestamp_granularities).toEqual(['segment']);
+        expect(request.prompt).toBeUndefined();
         expect(result.model).toBe(DEFAULT_TRANSCRIPTION_MODEL);
         expect(result.segments).toHaveLength(1);
         expect(getTranscriptionConfigStatus().model).toBe(DEFAULT_TRANSCRIPTION_MODEL);
@@ -63,12 +66,14 @@ describe('transcription service', () => {
         mockSuccessfulTranscription({ text: 'A lyric line', segments: [] });
 
         const result = await transcribeTestAudio();
-        const requestBody = global.fetch.mock.calls[0][1].body;
-
-        expect(requestBody.get('model')).toBe('whisper-1');
+        expect(mockWhisperCreate.mock.calls[0][0].model).toBe('whisper-1');
         expect(result.model).toBe('whisper-1');
         expect(result.segments).toEqual([]);
-        expect(getTranscriptionConfigStatus().model).toBe('whisper-1');
+    });
+
+    test('maps provider failures without exposing credentials', async () => {
+        mockWhisperCreate.mockRejectedValue(Object.assign(new Error('rate limited'), { status: 429 }));
+        await expect(transcribeTestAudio()).rejects.toMatchObject({ message: 'rate limited', status: 429 });
     });
 
     test('rejects a transcription that only echoes the old prompt', async () => {

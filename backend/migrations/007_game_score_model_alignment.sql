@@ -1,3 +1,7 @@
+-- Owner: Shared - Ferlyn Ng and Htet Aung
+-- Feature area: Rhythm score persistence
+-- Purpose: Aligns saved scores with combo, rank, and history requirements
+
 -- Align legacy score tables with the existing GameScore model.
 -- Additive and backfilled so existing score history remains intact.
 alter table game_scores

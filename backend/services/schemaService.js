@@ -88,10 +88,17 @@ async function ensureSongSchema(sequelize) {
         });
     }
 
-    if (!columns.ai_summary) {
-        await queryInterface.addColumn('songs', 'ai_summary', {
+    if (!columns.section_recommendations) {
+        await queryInterface.addColumn('songs', 'section_recommendations', {
             allowNull: true,
-            type: DataTypes.TEXT,
+            type: DataTypes.JSON,
+        });
+    }
+
+    if (!columns.section_recommendations_confirmed_at) {
+        await queryInterface.addColumn('songs', 'section_recommendations_confirmed_at', {
+            allowNull: true,
+            type: DataTypes.DATE,
         });
     }
 }
@@ -161,30 +168,25 @@ async function ensureGameScoreSchema(sequelize) {
         });
     }
 
+    if (!columns.claim_id) {
+        await queryInterface.addColumn('game_scores', 'claim_id', {
+            allowNull: true,
+            type: DataTypes.UUID,
+        });
+    }
+
     const indexes = await queryInterface.showIndex('game_scores');
     if (!indexes.some((index) => index.name === 'game_scores_user_created_at_idx')) {
         await queryInterface.addIndex('game_scores', ['user_id', 'created_at'], {
             name: 'game_scores_user_created_at_idx',
         });
     }
-}
-
-async function ensureSceneSegmentSchema(sequelize) {
-    const queryInterface = sequelize.getQueryInterface();
-    const columns = await queryInterface.describeTable('scene_segments');
-
-    if (!columns.blocks) {
-        await queryInterface.addColumn('scene_segments', 'blocks', {
-            allowNull: false,
-            defaultValue: [],
-            type: DataTypes.JSON,
+    if (!indexes.some((index) => index.name === 'game_scores_claim_id_unique_idx')) {
+        await queryInterface.addIndex('game_scores', ['claim_id'], {
+            name: 'game_scores_claim_id_unique_idx',
+            unique: true,
         });
     }
-
-    await sequelize.query(`
-        ALTER TABLE scene_segments 
-        ADD COLUMN IF NOT EXISTS blocks JSONB DEFAULT '[]'::jsonb;
-    `);
 }
 
 module.exports = {
@@ -195,5 +197,4 @@ module.exports = {
     ensureSongSchema,
     ensureRhythmBeatmapSchema,
     ensureSongMediaSchema,
-    ensureSceneSegmentSchema,
 };

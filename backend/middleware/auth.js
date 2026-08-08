@@ -1,4 +1,4 @@
-const { verifyToken } = require('../services/authService');
+const { accountSuspensionMessage, creatorSuspensionMessage, verifyToken } = require('../services/authService');
 const User = require('../models/User');
 
 function readUser(req) {
@@ -12,46 +12,75 @@ function readUser(req) {
     return verifyToken(token);
 }
 
-function optionalAuth(req, res, next) {
+async function loadCurrentUser(req) {
     req.authUser = readUser(req);
-    return next();
+    if (!req.authUser?.id) return null;
+    const user = await User.findByPk(req.authUser.id, {
+        attributes: [
+            'id', 'role', 'accountStatus', 'accountSuspensionReason', 'creatorAccessStatus',
+            'creatorSuspensionReason', 'authVersion', 'emailVerificationRequired',
+        ],
+    });
+    if (user && Number(req.authUser.ver || 0) !== Number(user.authVersion || 0)) {
+        req.authUser = null;
+        req.authUserRecord = null;
+        return null;
+    }
+    req.authUserRecord = user || null;
+    return user;
 }
 
-function requireAuth(req, res, next) {
-    req.authUser = readUser(req);
-
-    if (!req.authUser?.id) {
-        return res.status(401).json({ message: 'Please log in to continue.' });
-    }
-
-    return next();
-}
-
-async function requireCreator(req, res, next) {
-    req.authUser = readUser(req);
-
-    if (!req.authUser?.id) {
-        return res.status(401).json({ message: 'Please log in to continue.' });
-    }
-
+async function optionalAuth(req, res, next) {
     try {
-        const user = await User.findByPk(req.authUser.id, {
-            attributes: ['id', 'role'],
-        });
-
-        if (!user) {
-            return res.status(401).json({ message: 'Your account could not be found.' });
+        const user = await loadCurrentUser(req);
+        if (user && user.accountStatus !== 'ACTIVE') {
+            return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
         }
-
-        if (user.role !== 'CREATOR') {
-            return res.status(403).json({ message: 'Creator access is required.' });
+        if (!user || user.emailVerificationRequired) {
+            req.authUser = null;
+            req.authUserRecord = null;
         }
-
-        req.authUserRecord = user;
         return next();
     } catch (error) {
         return next(error);
     }
 }
 
-module.exports = { optionalAuth, requireAuth, requireCreator };
+function requireRoles(...roles) {
+    return async function roleMiddleware(req, res, next) {
+        try {
+            const user = await loadCurrentUser(req);
+            if (!req.authUser?.id || !user) {
+                return res.status(401).json({ message: 'Please log in to continue.' });
+            }
+            if (user.accountStatus !== 'ACTIVE') {
+                return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
+            }
+            if (user.emailVerificationRequired) {
+                return res.status(403).json({ message: 'Verify your email before accessing this account.' });
+            }
+            if (roles.length && !roles.includes(user.role)) {
+                const label = roles.length === 1 ? roles[0].toLowerCase() : 'authorised';
+                return res.status(403).json({ message: `${label[0].toUpperCase()}${label.slice(1)} access is required.` });
+            }
+            const creatorRoleRequired = roles.includes('CREATOR') && user.role === 'CREATOR';
+            if (creatorRoleRequired && user.creatorAccessStatus !== 'ACTIVE') {
+                return res.status(403).json({
+                    code: 'CREATOR_ACCESS_SUSPENDED',
+                    message: creatorSuspensionMessage(user),
+                    reason: user.creatorSuspensionReason,
+                });
+            }
+            return next();
+        } catch (error) {
+            return next(error);
+        }
+    };
+}
+
+const requireAuth = requireRoles();
+const requireCreator = requireRoles('CREATOR');
+const requireAdmin = requireRoles('ADMIN');
+const requireCreatorOrAdmin = requireRoles('CREATOR', 'ADMIN');
+
+module.exports = { optionalAuth, requireAdmin, requireAuth, requireCreator, requireCreatorOrAdmin };

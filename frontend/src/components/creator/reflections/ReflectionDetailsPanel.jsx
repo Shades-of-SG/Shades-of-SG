@@ -37,6 +37,7 @@ export default function ReflectionDetailsPanel({ busy, isOpen, onAction, onClose
           {reflection.status !== 'APPROVED' ? <button className="is-approve" disabled={busy} onClick={() => onAction(reflection, 'approve')} type="button">Approve</button> : null}
           <button className="is-flag" disabled={busy} onClick={() => onAction(reflection, 'flag')} type="button">{reflection.status === 'FLAGGED' ? 'Keep Flagged' : 'Flag / Request Review'}</button>
           {reflection.status !== 'REJECTED' ? <button className="is-delete" disabled={busy} onClick={() => onAction(reflection, 'reject')} type="button">Reject</button> : null}
+          {!reflection.guestSubmission ? <button disabled={busy} onClick={() => onAction(reflection, 'warn')} type="button">Warn account</button> : null}
           <button className="is-delete" disabled={busy} onClick={() => onAction(reflection, 'delete')} type="button">Delete</button>
         </footer>
       </aside>

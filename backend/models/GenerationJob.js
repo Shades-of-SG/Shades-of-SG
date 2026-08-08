@@ -5,7 +5,7 @@ const GenerationJob = sequelize.define('GenerationJob', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     songId: { type: DataTypes.UUID, allowNull: false, field: 'song_id' },
     status: {
-        type: DataTypes.ENUM('QUEUED', 'PROCESSING', 'AWAITING_REVIEW', 'COMPLETED', 'FAILED'),
+        type: DataTypes.ENUM('QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED'),
         allowNull: false,
         defaultValue: 'QUEUED',
     },

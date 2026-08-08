@@ -2,3 +2,7 @@
 dist
 dist-ssr
 .vite/
+
+# Playwright artifacts
+test-results/
+playwright-report/

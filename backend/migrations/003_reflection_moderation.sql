@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Reflection Wall moderation
+-- Purpose: Adds moderation metadata, tags, and queue indexing
+
 alter table reflections
     add column if not exists tags jsonb not null default '[]'::jsonb;
 

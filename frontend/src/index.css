@@ -12,8 +12,10 @@
   --gold: #f59e0b;
   --green: #22c55e;
   --cyan: #38bdf8;
-  --violet: #8b5cf6;
+  --Rose: #8b5cf6;
   --error: #ef4444;
+  --shelf-brown: #c9a876;
+  --shelf-brown-dark: #a9835a;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   color: var(--text);
   background: var(--bg);
@@ -30,9 +32,17 @@
   box-sizing: border-box;
 }
 
-body {
+html, 
+body,
+#root {
   margin: 0;
+  min-height: 100%;
+  width: 100%;
+}
+
+body {
   min-width: 320px;
+  overflow-x: hidden;
 }
 
 button,
@@ -48,27 +58,18 @@ button {
   min-height: 100svh;
 }
 
-/* Sleek Custom Scrollbars (Horizontal & Vertical) */
-.custom-scrollbar {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--violet) rgba(30, 41, 59, 0.5); /* Firefox */
-}
-
+/* Custom Scrollbar for Filmstrip */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;  /* Vertical scrollbar width */
-  height: 6px; /* Horizontal scrollbar height */
+  height: 8px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(30, 41, 59, 0.5);
-  border-radius: 999px;
+  border-radius: 4px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--violet);
-  border-radius: 999px;
+  background: var(--Rose);
+  border-radius: 4px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a78bfa;
 }

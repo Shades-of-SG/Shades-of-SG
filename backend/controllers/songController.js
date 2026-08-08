@@ -1,11 +1,12 @@
 const fs = require('fs');
 const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, SongInstrument } = require('../models');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const audioExtractionService = require('../services/audioExtractionService');
 const cloudinaryService = require('../services/cloudinaryService');
-const aiCurationPlanner = require('../services/aiCurationPlanner');
-const { syncSongTranscriptionSegments } = require('../services/transcriptionService');
+const { writeAudit } = require('../services/auditService');
+const { getSongPublishMissing } = require('../services/songPublishingService');
+const { formatSongSectionsLyrics } = require('../services/songSectionService');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -52,20 +53,6 @@ function buildSongValues(body, { partial = false } = {}) {
     return { values };
 }
 
-function publishValidation(song) {
-    const missing = [];
-    if (!song.title?.trim()) missing.push('title');
-    if (!song.artist?.trim()) missing.push('artist');
-    if (!song.description?.trim()) missing.push('description');
-    if (!song.theme?.trim()) missing.push('theme');
-    if (!Array.isArray(song.languages) || song.languages.length === 0) missing.push('languages');
-    if (!song.rawLyrics?.trim()) missing.push('rawLyrics');
-    if (!song.coverImageUrl?.trim()) missing.push('coverImageUrl');
-    if (!song.audioUrl?.trim()) missing.push('audioUrl');
-    if (!song.videoUrl?.trim()) missing.push('videoUrl');
-    return missing;
-}
-
 function isUploadedVideoMedia(song) {
     const candidates = [song.audioFileName, song.audioUrl]
         .filter(Boolean)
@@ -101,28 +88,63 @@ async function findOwnedSong(req) {
     return Song.findOne({ where: { id: req.params.id, creatorId: req.authUserRecord.id } });
 }
 
+function auditSong(req, action, song, metadata = {}) {
+    return writeAudit({
+        action,
+        actorId: req.authUserRecord.id,
+        creatorId: song.creatorId,
+        entityId: song.id,
+        entityType: 'SONG',
+        metadata,
+        req,
+        songId: song.id,
+    });
+}
+
+function parseMultiValue(rawValue) {
+    return String(rawValue || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+}
+
 async function listPublicSongs(req, res, next) {
     try {
-        const where = { 
-            creatorId: { [Op.ne]: null }, 
+        const where = {
+            creatorId: { [Op.ne]: null },
             status: 'PUBLISHED',
             title: { [Op.ne]: 'Beatmap Song' }
         };
-        if (req.query.theme) where.theme = req.query.theme;
-        const songs = await Song.findAll({ where, order: [['publishedDate', 'DESC'], ['title', 'ASC']] });
-        const search = String(req.query.search || '').trim().toLowerCase();
-        const language = String(req.query.language || '').trim().toLowerCase();
-        const mood = String(req.query.mood || '').trim().toLowerCase();
-        const filtered = songs.filter((song) => {
-            const searchable = [song.title, song.artist, song.description, song.theme, ...(song.languages || [])]
-                .filter(Boolean).join(' ').toLowerCase();
-            const languages = (song.languages || []).map((value) => String(value).toLowerCase());
-            const moods = (song.moodTags || []).map((value) => String(value).toLowerCase());
-            return (!search || searchable.includes(search))
-                && (!language || languages.includes(language))
-                && (!mood || moods.includes(mood));
+        const themes = parseMultiValue(req.query.theme);
+        if (themes.length) where.theme = { [Op.in]: themes };
+        const songs = await Song.findAll({
+            where,
+            include: [{
+                model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+                include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
+            }],
+            order: [['publishedDate', 'DESC'], ['title', 'ASC']],
         });
-        return res.json({ songs: filtered });
+        const search = String(req.query.search || '').trim().toLowerCase();
+        const languages = parseMultiValue(req.query.language).map((value) => value.toLowerCase());
+        const moods = parseMultiValue(req.query.mood).map((value) => value.toLowerCase());
+        const filtered = songs.filter((song) => {
+            const searchable = [song.title, song.creator?.name].filter(Boolean).join(' ').toLowerCase(); //Removen song artits //Added song creator
+            const songLanguages = (song.languages || []).map((value) => String(value).toLowerCase());
+            const songMoods = (song.moodTags || []).map((value) => String(value).toLowerCase());
+            return (!search || searchable.includes(search))
+                && (!languages.length || languages.some((value) => songLanguages.includes(value)))
+                && (!moods.length || moods.some((value) => songMoods.includes(value)));
+        });
+        const bookmarkedIds = req.authUser?.id
+            ? new Set((await SongBookmark.findAll({ where: { userId: req.authUser.id }, attributes: ['songId'] }))
+                .map((row) => row.songId))
+            : new Set();
+        const reportedIds = req.authUser?.id
+            ? new Set((await SongReport.findAll({ where: { status: 'PENDING', userId: req.authUser.id }, attributes: ['songId'] }))
+                .map((row) => row.songId))
+            : new Set();
+        return res.json({ songs: filtered.map((song) => withPublicCreator(song, bookmarkedIds, reportedIds)) });
     } catch (error) { return next(error); }
 }
 
@@ -131,12 +153,75 @@ async function getPublicSong(req, res, next) {
         const song = await Song.findOne({
             where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' },
             include: [
-                { model: TriviaQuestion, as: 'triviaQuestions' },
-                { model: Instrument, as: 'instruments' },
+                { model: Instrument, as: 'instruments', required: false, through: { attributes: [] } },
+                { model: TriviaQuestion, as: 'triviaQuestions', required: false },
+                {
+                    model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+                    include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
+                },
             ],
         });
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        return res.json({ song });
+        return res.json({ song: withPublicCreator(song) });
+    } catch (error) { return next(error); }
+}
+
+function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Set()) {
+    const value = withSectionLyrics(song.get({ plain: true }));
+    const creator = value.creator;
+    value.creator = creator ? {
+        avatarUrl: creator.profile?.avatarUrl || null,
+        displayName: creator.profile?.displayName || creator.name,
+        id: creator.id,
+    } : null;
+    value.bookmarked = bookmarkedIds.has(value.id);
+    value.reported = reportedIds.has(value.id);
+    return value;
+}
+
+function withSectionLyrics(value) {
+    if (Array.isArray(value.sectionRecommendations) && value.sectionRecommendations.length) {
+        return { ...value, rawLyrics: formatSongSectionsLyrics(value.sectionRecommendations) };
+    }
+    return value;
+}
+
+async function toggleBookmark(req, res, next) {
+    try {
+        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+        const bookmarked = Boolean(req.body.bookmarked);
+        const userId = req.authUserRecord.id;
+        if (bookmarked) {
+            await SongBookmark.findOrCreate({ where: { userId, songId: song.id } });
+        } else {
+            await SongBookmark.destroy({ where: { userId, songId: song.id } });
+        }
+        return res.json({ bookmarked });
+    } catch (error) { return next(error); }
+}
+
+const REPORT_REASONS = new Set(['INAPPROPRIATE', 'COPYRIGHT', 'SPAM', 'METADATA', 'OTHER']);
+
+async function reportSong(req, res, next) {
+    try {
+        const song = await Song.findOne({ where: { id: req.params.id, status: 'PUBLISHED' } });
+        if (!song) return res.status(404).json({ message: 'Song not found.' });
+
+        const reason = String(req.body.reason || '').toUpperCase();
+        if (!REPORT_REASONS.has(reason)) {
+            return res.status(400).json({ message: 'Please choose a valid report reason.' });
+        }
+        const details = req.body.details ? String(req.body.details).trim().slice(0, 1000) : null;
+        const userId = req.authUserRecord.id;
+
+        const existingPending = await SongReport.findOne({ where: { userId, songId: song.id, status: 'PENDING' } });
+        if (existingPending) {
+            return res.status(409).json({ code: 'ALREADY_REPORTED', message: 'You already have a pending report for this song.' });
+        }
+
+        const report = await SongReport.create({ details, reason, songId: song.id, userId });
+        return res.status(201).json({ report: { id: report.id, reason: report.reason, status: report.status } });
     } catch (error) { return next(error); }
 }
 
@@ -158,11 +243,11 @@ async function listCreatorSongs(req, res, next) {
 }
 
 function serializeCreatorSong(song) {
-    const value = song.get({ plain: true });
+    const value = withSectionLyrics(song.get({ plain: true }));
     const jobs = [...(value.generationJobs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const latestGenerationJob = jobs[0] || null;
     delete value.generationJobs;
-    const missing = publishValidation(song);
+    const missing = getSongPublishMissing(song);
     return { ...value, latestGenerationJob, publishReady: missing.length === 0, publishMissing: missing };
 }
 
@@ -195,7 +280,7 @@ async function getCreatorSong(req, res, next) {
     try {
         const song = await findOwnedSong(req);
         if (!song) return res.status(404).json({ message: 'Song not found.' });
-        return res.json({ song });
+        return res.json({ song: withSectionLyrics(song.get({ plain: true })) });
     } catch (error) { return next(error); }
 }
 
@@ -222,6 +307,7 @@ async function createSong(req, res, next) {
             videoPublicId: uploadedMediaIsVideo ? audioPublicId : parsed.values.videoPublicId,
             videoUrl: uploadedMediaIsVideo ? audioUrl : parsed.values.videoUrl,
         });
+        await auditSong(req, 'SONG_CREATED', song);
         return res.status(201).json({ success: true, data: song, song });
     } catch (error) { return next(error); }
 }
@@ -233,6 +319,7 @@ async function updateSong(req, res, next) {
         const parsed = buildSongValues(req.body, { partial: true });
         if (parsed.error) return res.status(400).json({ message: parsed.error });
         await song.update(parsed.values);
+        await auditSong(req, 'SONG_METADATA_UPDATED', song, { fields: Object.keys(parsed.values) });
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -245,10 +332,10 @@ async function publishSong(req, res, next) {
         const usedUploadedMedia = await useUploadedMediaAsVideo(song);
         if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
-        const missing = publishValidation(song);
+        const missing = getSongPublishMissing(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
-        await syncSongTranscriptionSegments(song.id);
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
+        await auditSong(req, 'SONG_PUBLISHED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -261,7 +348,7 @@ async function getPublishReadiness(req, res, next) {
         const usedUploadedMedia = await useUploadedMediaAsVideo(song);
         if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
-        const missing = publishValidation(song);
+        const missing = getSongPublishMissing(song);
         return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });
     } catch (error) { return next(error); }
 }
@@ -274,6 +361,7 @@ async function uploadCoverImage(req, res, next) {
         const previousPublicId = song.coverImagePublicId;
         const uploaded = await cloudinaryService.uploadImageBuffer(req.file.buffer);
         await song.update({ coverImageUrl: uploaded.secure_url, coverImagePublicId: uploaded.public_id });
+        await auditSong(req, 'SONG_COVER_UPDATED', song);
         if (previousPublicId && previousPublicId !== uploaded.public_id) {
             await cloudinaryService.deleteImage(previousPublicId).catch((error) => {
                 console.error(`Unable to delete replaced cover ${previousPublicId}:`, error.message);
@@ -307,6 +395,7 @@ async function uploadSongAudio(req, res, next) {
                 videoUrl: uploaded.audioUrl,
             } : {}),
         });
+        await auditSong(req, 'SONG_AUDIO_UPDATED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -338,6 +427,7 @@ async function uploadSongVideo(req, res, next) {
                 audioUrl: uploaded.videoUrl,
             } : {}),
         });
+        await auditSong(req, 'SONG_VIDEO_UPDATED', song);
         if (previousPublicId && previousPublicId !== uploaded.videoPublicId && previousPublicId !== song.audioPublicId) {
             await cloudinaryService.deleteAsset(previousPublicId, 'video').catch((error) => {
                 console.error(`Unable to delete replaced video ${previousPublicId}:`, error.message);
@@ -353,6 +443,7 @@ async function unpublishSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status !== 'PUBLISHED') return res.status(409).json({ message: 'Only a published song can be unpublished.' });
         await song.update({ status: 'READY', publishedDate: null });
+        await auditSong(req, 'SONG_UNPUBLISHED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -363,6 +454,7 @@ async function archiveSong(req, res, next) {
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         if (song.status === 'GENERATING') return res.status(409).json({ message: 'A generating song cannot be archived.' });
         await song.update({ status: 'ARCHIVED', publishedDate: null });
+        await auditSong(req, 'SONG_ARCHIVED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -376,6 +468,7 @@ async function unarchiveSong(req, res, next) {
             status: song.videoUrl?.trim() ? 'READY' : 'DRAFT',
             publishedDate: null,
         });
+        await auditSong(req, 'SONG_UNARCHIVED', song);
         return res.json({ song });
     } catch (error) { return next(error); }
 }
@@ -396,6 +489,7 @@ async function deleteSong(req, res, next) {
             [song.videoPublicId, 'video'],
             ...segments.flatMap((segment) => segment.generatedFrames.map((frame) => [frame.cloudinaryId, 'image'])),
         ].filter(([publicId]) => publicId);
+        await auditSong(req, 'SONG_DELETED', song);
         await song.destroy();
         const cleanup = await Promise.allSettled(assets.map(([publicId, type]) => cloudinaryService.deleteAsset(publicId, type)));
         const cleanupFailures = cleanup.filter((result) => result.status === 'rejected').length;
@@ -404,184 +498,75 @@ async function deleteSong(req, res, next) {
 }
 
 async function extractAudio(req, res, next) {
+    let extracted;
+
     try {
-        if (!req.body.youtubeUrl) return res.status(400).json({ message: 'YouTube URL is required.' });
-        const extracted = await audioExtractionService.extractAudioFromYouTube(req.body.youtubeUrl);
-        try {
-            const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
-            return res.json({ success: true, ...uploaded });
-        } finally { await extracted.cleanup(); }
-    } catch (error) { return next(error); }
-}
+        const youtubeUrl = String(req.body.youtubeUrl || '').trim();
 
-async function getCurationDetails(req, res, next) {
-    try {
-        const { id } = req.params;
-        const song = await Song.findByPk(id, {
-            include: [{ model: Instrument, as: 'instruments' }],
-        });
-        if (!song) return res.status(404).json({ message: 'Song not found.' });
-
-        const triviaQuestions = await TriviaQuestion.findAll({
-            where: { songId: id },
-            order: [['createdAt', 'ASC']],
-        });
-        const allInstruments = await Instrument.findAll({
-            order: [['name', 'ASC']],
-        });
-
-        const latestJob = await GenerationJob.findOne({ where: { songId: id }, order: [['createdAt', 'DESC']] });
-
-        return res.json({
-            success: true,
-            data: {
-                song,
-                latestJobId: latestJob?.id || null,
-                aiSummary: song.aiSummary || song.description || '',
-                description: song.description || '',
-                triviaQuestions,
-                associatedInstruments: song.instruments || [],
-                allInstruments,
-            },
-        });
-    } catch (error) { return next(error); }
-}
-
-async function updateCurationDetails(req, res, next) {
-    try {
-        const { id } = req.params;
-        const song = await Song.findByPk(id);
-        if (!song) return res.status(404).json({ message: 'Song not found.' });
-
-        const { aiSummary, description, triviaQuestions, instrumentIds } = req.body;
-
-        const updatePayload = {};
-        if (aiSummary !== undefined) {
-            updatePayload.aiSummary = String(aiSummary || '');
-        }
-        if (description !== undefined) {
-            updatePayload.description = String(description || '');
-        }
-        if (Object.keys(updatePayload).length > 0) {
-            await song.update(updatePayload);
+        if (!youtubeUrl) {
+            return res.status(400).json({
+                message: 'YouTube URL is required.',
+            });
         }
 
-        if (Array.isArray(triviaQuestions)) {
-            await TriviaQuestion.destroy({ where: { songId: id } });
-            const triviaRecords = triviaQuestions.map((q) => ({
-                songId: id,
-                prompt: q.prompt,
-                type: q.type || 'MULTIPLE_CHOICE',
-                options: Array.isArray(q.options) ? q.options : [],
-                correctAnswer: q.correctAnswer,
-            }));
-            if (triviaRecords.length > 0) {
-                await TriviaQuestion.bulkCreate(triviaRecords);
-            }
-        }
-
-        if (Array.isArray(instrumentIds)) {
-            await SongInstrument.destroy({ where: { songId: id } });
-            const songInstRecords = instrumentIds.map((instrumentId) => ({
-                songId: id,
-                instrumentId,
-            }));
-            if (songInstRecords.length > 0) {
-                await SongInstrument.bulkCreate(songInstRecords);
-            }
-        }
-
-        const updatedSong = await Song.findByPk(id, {
-            include: [{ model: Instrument, as: 'instruments' }],
-        });
-        const updatedTrivia = await TriviaQuestion.findAll({
-            where: { songId: id },
-            order: [['createdAt', 'ASC']],
-        });
-
-        const latestJob = await GenerationJob.findOne({ where: { songId: id }, order: [['createdAt', 'DESC']] });
-
-        return res.json({
-            success: true,
-            data: {
-                song: updatedSong,
-                latestJobId: latestJob?.id || null,
-                aiSummary: updatedSong.aiSummary || updatedSong.description || '',
-                description: updatedSong.description,
-                triviaQuestions: updatedTrivia,
-                associatedInstruments: updatedSong.instruments || [],
-            },
-        });
-    } catch (error) { return next(error); }
-}
-
-async function generateArticle(req, res, next) {
-    try {
-        const { id } = req.params;
         const song = await findOwnedSong(req);
-        if (!song) return res.status(404).json({ message: 'Song not found.' });
-        const result = await aiCurationPlanner.generateSongArticle(id);
-        return res.json({ success: true, data: result });
-    } catch (error) { return next(error); }
-}
 
-async function generateTrivia(req, res, next) {
-    try {
-        const { id } = req.params;
-        const song = await findOwnedSong(req);
-        if (!song) return res.status(404).json({ message: 'Song not found.' });
-        const result = await aiCurationPlanner.generateSongTrivia(id);
-        return res.json({ success: true, data: result });
-    } catch (error) { return next(error); }
-}
-
-async function updateSegmentLyrics(req, res, next) {
-    try {
-        const { id: songId, segmentId } = req.params;
-        const { lyrics } = req.body;
-
-        const song = await Song.findOne({
-            where: { id: songId, creatorId: req.authUserRecord.id },
-        });
         if (!song) {
-            const err = new Error('Song not found or unauthorized.');
-            err.statusCode = 404;
-            throw err;
+            return res.status(404).json({
+                message: 'Song not found.',
+            });
         }
 
-        const segment = await SceneSegment.findOne({
-            where: { id: segmentId, songId },
+        extracted =
+            await audioExtractionService.extractAudioFromYouTube(
+                youtubeUrl
+            );
+
+        const uploaded =
+            await aiStorageService.uploadAudioStream(
+                fs.createReadStream(extracted.filePath)
+            );
+
+        const uploadedDuration = Number(uploaded.duration);
+        const extractedDuration = Number(extracted.durationSecs);
+
+        const durationSecs =
+            Number.isFinite(uploadedDuration) &&
+            uploadedDuration > 0
+                ? Math.round(uploadedDuration)
+                : Number.isFinite(extractedDuration) &&
+                    extractedDuration > 0
+                  ? Math.round(extractedDuration)
+                  : null;
+
+        await song.update({
+            audioFileName: extracted.fileName,
+            audioPublicId: uploaded.audioPublicId,
+            audioUrl: uploaded.audioUrl,
+            durationSecs,
+            sourceYoutubeUrl: youtubeUrl,
         });
-        if (!segment) {
-            const err = new Error('Scene segment not found.');
-            err.statusCode = 404;
-            throw err;
-        }
 
-        segment.lyrics = typeof lyrics === 'string' ? lyrics.trim() : segment.lyrics;
-        await segment.save();
-
-        // Re-compile rawLyrics on Song & sync transcriptionSegments
-        const allSegments = await SceneSegment.findAll({
-            where: { songId },
-            order: [['startTime', 'ASC']],
-        });
-        const compiledLyrics = allSegments.map(s => s.lyrics).filter(Boolean).join('\n');
-        if (compiledLyrics) {
-            song.rawLyrics = compiledLyrics;
-            await song.save();
-        }
-        await syncSongTranscriptionSegments(songId);
+        await auditSong(
+            req,
+            'SONG_YOUTUBE_AUDIO_IMPORTED',
+            song,
+            {
+                youtubeVideoId: extracted.videoId,
+                youtubeTitle: extracted.title,
+            }
+        );
 
         return res.json({
             success: true,
-            segment: {
-                id: segment.id,
-                lyrics: segment.lyrics,
-                visualPrompt: segment.visualPrompt,
-            },
+            message: 'YouTube audio imported successfully.',
+            song,
         });
-    } catch (error) { return next(error); }
+    } catch (error) {
+        return next(error);
+    } finally {
+        await extracted?.cleanup?.();
+    }
 }
 
-module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getCurationDetails, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, unarchiveSong, unpublishSong, updateCurationDetails, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo, generateArticle, generateTrivia, updateSegmentLyrics };
+module.exports = { archiveSong, createSong, deleteSong, extractAudio, getCreatorDashboardSummary, getCreatorSong, getPublicSong, getPublishReadiness, listCreatorSongs, listPublicSongs, publishSong, reportSong, toggleBookmark, unarchiveSong, unpublishSong, updateSong, uploadCoverImage, uploadSongAudio, uploadSongVideo };

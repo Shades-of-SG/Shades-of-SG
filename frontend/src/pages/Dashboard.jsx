@@ -68,10 +68,9 @@ export default function Dashboard() {
         <div className="dashboard-grid__aside">
           <SectionCard title="Generation jobs">
             {summary.generationJobs.length === 0 ? <EmptyState description="Generation attempts will appear here." title="No generation jobs" /> : <div className="dashboard-job-list">
-              {summary.generationJobs.map((job) => <article className="dashboard-job-item" key={job.id}><strong>{job.song?.title || 'Untitled song'}</strong><span>{job.status}</span>{job.errorMessage ? <small>{job.errorMessage}</small> : null}<Link className="inline-link" to={`/creator/generation/${job.id}`}>View status</Link></article>)}
+              {summary.generationJobs.map((job) => <article className="dashboard-job-item" key={job.id}><strong>{job.song?.title || 'Untitled song'}</strong><span>{job.status}</span>{job.errorMessage ? <small>{job.errorMessage}</small> : null}<Link className="inline-link" to={job.status === 'COMPLETED' ? `/creator/editor/${job.id}` : `/creator/generation/${job.id}`}>{job.status === 'COMPLETED' ? 'Open video editor' : 'View status'}</Link></article>)}
             </div>}
           </SectionCard>
-          <SectionCard title="Play analytics"><strong>Unavailable</strong><p>Reliable play tracking has not been implemented, so no estimated totals or weekly chart are shown.</p></SectionCard>
         </div>
       </section>
     </> : null}

@@ -1,30 +1,47 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import InstrumentCard from '../components/lab/InstrumentCard'
 import InstrumentPlayer from '../components/lab/InstrumentPlayer'
 import Reveal from '../components/Reveal'
-
-/*
-TODO - Shermaine
-
-Add real instrument recordings by giving an instrument a `samples` map
-(see hooks/useInstrumentAudio.js) — synthesized tones are a placeholder
-until authentic angklung/erhu/tabla/kompang recordings are available.
-*/
-
-import { LEARNING_HUB_INSTRUMENTS as instruments } from '../data/learningHubInstruments'
+import useInstrumentAudio, { preloadInstrument } from '../hooks/useInstrumentAudio'
+import useLabInstruments from '../hooks/useLabInstruments'
 
 export default function InstrumentDiscoveryLab() {
+  const instruments = useLabInstruments()
+  const { playNote } = useInstrumentAudio()
   const [selectedInstrumentId, setSelectedInstrumentId] = useState(null)
   const galleryRef = useRef(null)
 
   const selectedInstrument = instruments.find((instrument) => instrument.id === selectedInstrumentId)
 
+  // Idle-time preload: warm one representative note per instrument so the
+  // gallery's preview buttons feel instant, without competing with anything
+  // the page actually needs on first paint.
+  useEffect(() => {
+    const schedule = window.requestIdleCallback || ((fn) => window.setTimeout(fn, 200))
+    const cancel = window.cancelIdleCallback || window.clearTimeout
+    const handle = schedule(() => {
+      instruments.forEach((instrument) => {
+        preloadInstrument(instrument, { noteLabels: [instrument.notes[0].label] })
+      })
+    })
+    return () => cancel(handle)
+  }, [instruments])
+
   function handleStartExploring() {
     galleryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  function handlePreviewInstrument(instrument) {
+    playNote(instrument, instrument.notes[0])
+  }
+
   function handleSelectInstrument(id) {
+    const instrument = instruments.find((candidate) => candidate.id === id)
+    // Full preload so by the time InstrumentPlayer finishes mounting, every
+    // note is already warm — this is what keeps the very first key-tap
+    // responsive, especially on mobile.
+    if (instrument) preloadInstrument(instrument)
     setSelectedInstrumentId(id)
     window.scrollTo({ behavior: 'smooth', top: 0 })
   }
@@ -61,7 +78,12 @@ export default function InstrumentDiscoveryLab() {
           <div className="lab-gallery__grid">
             {instruments.map((instrument, index) => (
               <Reveal delay={index * 80} key={instrument.id}>
-                <InstrumentCard instrument={instrument} onSelect={handleSelectInstrument} />
+                <InstrumentCard
+                  instrument={instrument}
+                  onPreloadFull={() => preloadInstrument(instrument)}
+                  onPreview={handlePreviewInstrument}
+                  onSelect={handleSelectInstrument}
+                />
               </Reveal>
             ))}
           </div>

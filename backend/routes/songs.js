@@ -1,9 +1,12 @@
 const express = require('express');
 const multer = require('multer');
 const songController = require('../controllers/songController');
-const { requireCreator } = require('../middleware/auth');
+const songSectionsController = require('../controllers/songSectionsController');
+const { optionalAuth, requireAuth, requireCreator } = require('../middleware/auth');
+const { validateUuidParam } = require('../middleware/validateUuid');
 
 const router = express.Router();
+router.param('id', validateUuidParam('id', 'Song ID must be a valid UUID.'));
 const SUPPORTED_MEDIA_MIME_TYPES = new Set([
     'audio/mpeg',
     'audio/mp4',
@@ -48,22 +51,21 @@ const videoUpload = multer({
 router.get('/creator', requireCreator, songController.listCreatorSongs);
 router.get('/creator/dashboard/summary', requireCreator, songController.getCreatorDashboardSummary);
 router.get('/creator/:id', requireCreator, songController.getCreatorSong);
-router.post('/extract-audio', requireCreator, songController.extractAudio);
+router.post('/:id/extract-audio', requireCreator, songController.extractAudio);
+router.post('/:id/sections/recommend', requireCreator, songSectionsController.recommendSections);
+router.put('/:id/sections', requireCreator, songSectionsController.saveSections);
 router.post('/', requireCreator, upload.single('audioFile'), songController.createSong);
 router.put('/:id/metadata', requireCreator, songController.updateSong);
 router.post('/:id/audio', requireCreator, upload.single('audioFile'), songController.uploadSongAudio);
 router.post('/:id/video', requireCreator, videoUpload.single('videoFile'), songController.uploadSongVideo);
 router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), songController.uploadCoverImage);
 router.get('/:id/readiness', requireCreator, songController.getPublishReadiness);
-router.get('/:id/curation', requireCreator, songController.getCurationDetails);
-router.put('/:id/curation', requireCreator, songController.updateCurationDetails);
-router.post('/:id/curation/generate-article', requireCreator, songController.generateArticle);
-router.post('/:id/curation/generate-trivia', requireCreator, songController.generateTrivia);
 router.put('/:id/publish', requireCreator, songController.publishSong);
 router.put('/:id/unpublish', requireCreator, songController.unpublishSong);
 router.put('/:id/archive', requireCreator, songController.archiveSong);
 router.put('/:id/unarchive', requireCreator, songController.unarchiveSong);
-router.put('/:id/segment/:segmentId', requireCreator, songController.updateSegmentLyrics);
+router.put('/:id/bookmark', requireAuth, songController.toggleBookmark);
+router.post('/:id/report', requireAuth, songController.reportSong);
 router.delete('/:id', requireCreator, songController.deleteSong);
 router.get('/demo-song', (req, res) => res.json({
     song: {
@@ -71,10 +73,10 @@ router.get('/demo-song', (req, res) => res.json({
         theme: 'Heritage',
         title: 'Demo Rhythm Track',
         thumbnail_url: '',
-        video_url: '/videos/exploding-kittens-placeholder.mp4',
+        video_url: '/videos/placeholder-generation.mp4',
     },
 }));
-router.get('/', songController.listPublicSongs);
+router.get('/', optionalAuth, songController.listPublicSongs);
 router.get('/:id', songController.getPublicSong);
 
 module.exports = router;

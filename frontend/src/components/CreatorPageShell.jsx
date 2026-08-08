@@ -1,9 +1,10 @@
 import CreatorAccountWidget from './CreatorAccountWidget'
 import { useAuth } from '../context/AuthContext'
+import { hasActiveCreatorAccess } from '../utils/accessStatus'
 
 export default function CreatorPageShell({ actions, breadcrumbs = [], children, className = '', description, eyebrow = 'Creator Portal', title }) {
   const { user } = useAuth()
-  const showCreatorAccount = user?.role === 'CREATOR'
+  const showCreatorAccount = hasActiveCreatorAccess(user)
 
   return (
     <div className={`creator-page ${className}`.trim()}>

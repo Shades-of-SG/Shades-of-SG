@@ -348,7 +348,7 @@ export default function PreviewPublishPanel({
           </header>
 
           <div className="studio-publish-explore__grid">
-            <article className="studio-publish-feature studio-publish-feature--violet">
+            <article className="studio-publish-feature studio-publish-feature--Rose">
               <h3>Instruments</h3>
               <p>Discover the instruments in this song and their cultural significance.</p>
               <button className="studio-button studio-button--ghost" type="button">
