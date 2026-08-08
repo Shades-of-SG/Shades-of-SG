@@ -18,13 +18,26 @@ function extractFrames(songData) {
   segments.forEach(segment => {
     if (segment.generatedFrames && segment.generatedFrames.length > 0) {
       const sortedFrames = [...segment.generatedFrames].sort((a, b) => a.frameOrder - b.frameOrder)
+      
+      // Safely parse blocks if returned as a JSON string
+      let segBlocks = []
+      if (segment.blocks) {
+        segBlocks = typeof segment.blocks === 'string' ? JSON.parse(segment.blocks) : segment.blocks
+      }
+
       sortedFrames.forEach(frame => {
+        let frameBlocks = []
+        if (frame.blocks) {
+          frameBlocks = typeof frame.blocks === 'string' ? JSON.parse(frame.blocks) : frame.blocks
+        }
+
         allFrames.push({
           ...frame,
           startTime: segment.startTime,
           endTime: segment.endTime,
           lyrics: segment.lyrics,
           visualPrompt: segment.visualPrompt || frame.visualPrompt || '',
+          blocks: segBlocks.length > 0 ? segBlocks : frameBlocks,
         })
       })
     }
@@ -1146,7 +1159,10 @@ export default function VideoEditor() {
                 transcriptionSegments.find((seg) => {
                   const start = seg.start ?? seg.startTime ?? 0
                   const end = seg.end ?? seg.endTime ?? 0
-                  return currentTime >= start && currentTime <= end
+                  const isMatchingTime = currentTime >= start && currentTime <= end
+                  const text = seg.text || seg.lyrics || ''
+                  // If text has newlines, it is a concatenated parent scene segment; ignore during atomic gaps
+                  return isMatchingTime && !text.includes('\n')
                 })
 
               if (activeWhisperSeg) {
