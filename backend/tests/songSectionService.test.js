@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Song Section Services
+ */
 const { ensureSongSectionRecommendations, formatSongSectionsLyrics, recommendSongSections, validateSongSections } = require('../services/songSectionService')
 
 const transcriptSegments = [

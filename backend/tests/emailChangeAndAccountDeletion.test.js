@@ -1,3 +1,7 @@
+/**
+ * Owner: Lia
+ * Feature: Email Change & Account Deletion
+ */
 const fs = require('fs');
 const path = require('path');
 

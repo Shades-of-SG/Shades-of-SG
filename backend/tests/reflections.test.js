@@ -1,3 +1,8 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Reflection Wall & Moderation
+ */
+
 const path = require('path');
 const fs = require('fs');
 

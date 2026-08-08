@@ -564,6 +564,8 @@ Migration attribution already recorded in file headers is retained without furth
 ### Ferlyn Ng
 - Guest reflections and moderation (`002`, `003`)
 - Studio media, multi-creator roles, applications, folders, safety, analytics, authentication, OAuth, profiles, interests, score claims, discussions, and admin indexes (`010`–`020`, selected `021`–`024`)
+- Initial schema and early lifecycle/generation/score/beatmap alignment (`001`, `004`–`009`)
+- Song recommendations `028_song_section_recommendations.sql` ownership
 
 ### Lia Insyirah
 - Song bookmarks (`021_song_bookmarks.sql`)
@@ -574,10 +576,3 @@ Migration attribution already recorded in file headers is retained without furth
 - Login streaks, badges, and instrument challenges (`024_badges_streaks_and_challenges.sql`)
 - Instrument Lab samples (`025_instrument_lab_samples.sql`)
 - Badge definitions and song-exploration badges (`026_badge_definitions.sql`, `027_song_exploration_badges.sql`)
-
-### Shared — Ferlyn Ng and Htet Aung
-- Initial schema and early lifecycle/generation/score/beatmap alignment (`001`, `004`–`009`)
-
-### Needs Team Confirmation
-- Migration `028_song_section_recommendations.sql` ownership
-- Whether commits by `Solitice-debug <250466Q@mymail.nyp.edu.sg>` should be attributed to Ferlyn Ng

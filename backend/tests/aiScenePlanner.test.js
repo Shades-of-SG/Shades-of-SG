@@ -1,3 +1,7 @@
+/**
+ * Owner: Htet Aung
+ * Feature: AI Scene Generation
+ */
 const { generateScenePlan, buildDeterministicSceneBlocks, groupSegmentsByTargetDuration } = require('../services/aiScenePlanner')
 
 describe('buildDeterministicSceneBlocks', () => {

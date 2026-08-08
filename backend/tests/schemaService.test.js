@@ -1,3 +1,7 @@
+/**
+ * Owner: Shared across the whole team
+ * Feature: Database Schema Infrastructure
+ */
 const { Sequelize } = require('sequelize');
 const { ensureGameScoreSchema, ensureGenerationJobSchema } = require('../services/schemaService');
 

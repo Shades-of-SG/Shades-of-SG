@@ -1,3 +1,8 @@
+/**
+ * Owner: Htet Aung
+ * Feature: AI Provider Client Integration
+ */
+
 const mockOpenAI = jest.fn((options) => ({ options }));
 
 jest.mock('openai', () => ({ OpenAI: mockOpenAI }));

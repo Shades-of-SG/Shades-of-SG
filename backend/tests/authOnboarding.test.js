@@ -1,3 +1,7 @@
+/**
+ * Owners: Lia, Ferlyn
+ * Feature: Authentication & User Onboarding
+ */
 const fs = require('fs');
 const path = require('path');
 

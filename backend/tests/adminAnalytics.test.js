@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Administrator Analytics
+ */
 const fs = require('fs');
 const path = require('path');
 

@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Rhythm Game & Beatmaps
+ */
 const fs = require('fs')
 const path = require('path')
 process.env.DATABASE_URL = ''

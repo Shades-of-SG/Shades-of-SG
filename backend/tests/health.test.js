@@ -1,3 +1,7 @@
+/**
+ * Owner: Shared across the team
+ * Feature: Backend Health & Infrastructure
+ */
 const request = require('supertest');
 const app = require('../server');
 const sequelize = require('../config/database');

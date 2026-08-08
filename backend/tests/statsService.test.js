@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Statistics & Analytics Services
+ */
 const mockUser = { count: jest.fn() };
 const mockSong = { count: jest.fn() };
 const mockReflection = { count: jest.fn() };

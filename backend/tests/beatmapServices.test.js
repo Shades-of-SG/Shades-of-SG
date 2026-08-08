@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Rhythm Game Beatmap Services
+ */
 const { normalizeBeatmap, parseAndNormalizeBeatmap } = require('../services/beatmapValidator')
 const { generateFallbackBeatmap } = require('../services/fallbackBeatmapGenerator')
 const { generateBeatmap } = require('../services/beatmapGenerator')

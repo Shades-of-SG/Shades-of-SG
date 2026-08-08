@@ -1,3 +1,9 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Song Lifecycle & Publishing
+ * Shared Integration: Htet Aung
+ */
+
 const fs = require('fs');
 const path = require('path');
 

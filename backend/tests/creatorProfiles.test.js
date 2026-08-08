@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Creator Profiles
+ */
 const fs = require('fs');
 const path = require('path');
 

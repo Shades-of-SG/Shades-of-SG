@@ -1,3 +1,7 @@
+/**
+ * Owners: Ferlyn, Lia
+ * Feature: Administrator Community & Safety
+ */
 const fs = require('fs');
 const path = require('path');
 

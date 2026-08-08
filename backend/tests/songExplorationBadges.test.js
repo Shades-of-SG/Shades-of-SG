@@ -1,3 +1,7 @@
+/**
+ * Owner: Shermaine
+ * Feature: Song Exploration Badges
+ */
 const fs = require('fs');
 const path = require('path');
 

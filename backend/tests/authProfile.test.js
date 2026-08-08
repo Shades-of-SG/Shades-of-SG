@@ -1,3 +1,7 @@
+/**
+ * Owners: Lia, Ferlyn
+ * Feature: Authentication & Profile Integration
+ */
 const fs = require('fs');
 const path = require('path');
 

@@ -1,3 +1,8 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Song Sections Workflow
+ */
+
 const fs = require('fs')
 const path = require('path')
 

@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Multi-Creator Ownership Isolation
+ */
 const fs = require('fs');
 const path = require('path');
 

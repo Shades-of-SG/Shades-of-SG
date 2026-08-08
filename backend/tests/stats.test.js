@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Admin Platform Statistics & Analytics
+ */
 const request = require('supertest');
 
 const mockGetStats = jest.fn();

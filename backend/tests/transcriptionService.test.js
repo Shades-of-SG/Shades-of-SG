@@ -1,3 +1,8 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Studio Audio Transcription
+ */
+
 const mockWhisperCreate = jest.fn();
 
 jest.mock('../services/whisperClient', () => ({

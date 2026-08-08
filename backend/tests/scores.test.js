@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Rhythm Game Scores
+ */
 const fs = require('fs');
 const path = require('path');
 

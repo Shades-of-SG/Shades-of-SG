@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Creator Access & Mode Seperation
+ */
 const fs = require('fs');
 const path = require('path');
 

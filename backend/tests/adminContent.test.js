@@ -1,3 +1,7 @@
+/**
+ * Owner: Ferlyn
+ * Feature: Administrator Content Management
+ */
 const fs = require('fs');
 const path = require('path');
 
