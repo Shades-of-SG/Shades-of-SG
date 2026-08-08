@@ -129,7 +129,7 @@ async function listPublicSongs(req, res, next) {
         const languages = parseMultiValue(req.query.language).map((value) => value.toLowerCase());
         const moods = parseMultiValue(req.query.mood).map((value) => value.toLowerCase());
         const filtered = songs.filter((song) => {
-            const searchable = [song.title, song.artist].filter(Boolean).join(' ').toLowerCase();
+            const searchable = [song.title, song.creator?.name].filter(Boolean).join(' ').toLowerCase(); //Removen song artits //Added song creator
             const songLanguages = (song.languages || []).map((value) => String(value).toLowerCase());
             const songMoods = (song.moodTags || []).map((value) => String(value).toLowerCase());
             return (!search || searchable.includes(search))
