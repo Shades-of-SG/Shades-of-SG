@@ -376,7 +376,7 @@
   border-radius: 14px;
   display: grid;
   gap: 9px;
-  grid-template-columns: minmax(260px, 1.4fr) minmax(0, 2fr);
+  grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr);
   padding: 10px;
 }
 
@@ -413,7 +413,8 @@
   align-items: end;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, minmax(105px, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(310px, 1.35fr);
+  min-width: 0;
 }
 
 .songs-filter-controls select {
@@ -441,18 +442,10 @@
 
 .songs-clear-filters {
   background: transparent;
-  border: 0;
   color: #c4b5fd;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.74rem;
-  font-weight: 800;
-  min-height: 40px;
-  padding: 8px 5px;
-  white-space: nowrap;
 }
 
-.songs-clear-filters:disabled { color: #5f6c83; cursor: default; }
+.songs-clear-filters:disabled { color: #5f6c83; cursor: default; opacity: 0.72; }
 
 .songs-filter-dropdown {
   display: grid;
@@ -541,8 +534,8 @@
 .songs-filter-dropdown__sort-option:hover { background: rgba(139, 92, 246, 0.14); }
 .songs-filter-dropdown__sort-option[aria-selected='true'] { background: rgba(139, 92, 246, 0.22); color: #f5f3ff; }
 
-.songs-sort-control { align-items: center; display: flex; gap: 6px; }
-.songs-sort-control .songs-filter-dropdown { flex: 1; min-width: 130px; }
+.songs-sort-control { align-items: center; display: flex; gap: 6px; min-width: 0; }
+.songs-sort-control .songs-filter-dropdown { flex: 1 1 130px; min-width: 0; }
 
 .songs-sort-direction { display: flex; flex: 0 0 auto; gap: 4px; }
 .songs-sort-direction button {
@@ -783,7 +776,7 @@
   .songs-recommendations { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; }
   .songs-recommendation-card { min-height: 120px; }
   .songs-discovery-toolbar { grid-template-columns: minmax(0, 1fr); }
-  .songs-filter-controls { grid-template-columns: repeat(4, minmax(0, 1fr)) auto; }
+  .songs-filter-controls { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(290px, 1.25fr); }
   .songs-catalogue-layout { grid-template-columns: minmax(0, 1fr); }
   .song-preview-shell,
   .song-preview-shell.is-sticky { order: -1; position: static; }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react' //For X, its literally called 'X'
+import { ArrowDown, ArrowUp, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import FilterDropdown from './songs/FilterDropdown'
 
 const SORT_OPTIONS = [
@@ -9,7 +9,7 @@ const SORT_OPTIONS = [
   { label: 'Creator', value: 'creator' },
 ]
 
-function SortDropdown({ direction, onDirectionChange, onSortChange, sort }) {
+function SortDropdown({ direction, hasActiveFilters, onClear, onDirectionChange, onSortChange, sort }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
 
@@ -82,6 +82,16 @@ function SortDropdown({ direction, onDirectionChange, onSortChange, sort }) {
           >
             <ArrowDown aria-hidden="true" size={15} />
           </button>
+          <button
+            aria-label="Clear filters"
+            className="songs-clear-filters"
+            disabled={!hasActiveFilters}
+            onClick={onClear}
+            title="Clear filters"
+            type="button"
+          >
+            <X aria-hidden="true" size={17} />
+          </button>
         </span>
       </span>
     </label>
@@ -133,11 +143,14 @@ export default function FilterBar({
         <FilterDropdown allLabel="All languages" label="Language" onChange={(value) => onChange('language', value)} options={filters.languageOptions} selected={filters.language} />
         <FilterDropdown allLabel="All moods" label="Mood" onChange={(value) => onChange('mood', value)} options={filters.moodOptions} selected={filters.mood} />
 
-        <SortDropdown direction={direction} onDirectionChange={onDirectionChange} onSortChange={onSortChange} sort={sort} />
-
-        <button className="songs-clear-filters" disabled={!hasActiveFilters} onClick={onClear} type="button">
-          Clear {/*<X /> or "Clear"*/}
-        </button>
+        <SortDropdown
+          direction={direction}
+          hasActiveFilters={hasActiveFilters}
+          onClear={onClear}
+          onDirectionChange={onDirectionChange}
+          onSortChange={onSortChange}
+          sort={sort}
+        />
       </div>
     </form>
   )
