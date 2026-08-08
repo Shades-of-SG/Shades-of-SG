@@ -119,6 +119,35 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
+    if (!song.audioUrl && song.sourceYoutubeUrl) {
+      try {
+        console.log(`[StartGeneration] Auto-extracting YouTube audio for song ${songId}...`)
+        const extracted = await extractAudioFromYouTube(song.sourceYoutubeUrl)
+        try {
+          const syncFs = require('fs')
+          const uploaded = await aiStorageService.uploadAudioStream(syncFs.createReadStream(extracted.filePath))
+          const uploadedDuration = Number(uploaded.duration)
+          const extractedDuration = Number(extracted.durationSecs)
+          const durationSecs = Number.isFinite(uploadedDuration) && uploadedDuration > 0
+            ? Math.round(uploadedDuration)
+            : Number.isFinite(extractedDuration) && extractedDuration > 0
+            ? Math.round(extractedDuration)
+            : null
+
+          await song.update({
+            audioFileName: extracted.fileName,
+            audioPublicId: uploaded.audioPublicId,
+            audioUrl: uploaded.audioUrl,
+            durationSecs,
+          })
+        } finally {
+          await extracted?.cleanup?.()
+        }
+      } catch (e) {
+        console.error('[StartGeneration] Failed auto-extracting YouTube audio:', e)
+      }
+    }
+
     const missing = []
     if (!song.audioUrl) missing.push('audioUrl')
     if (!song.rawLyrics?.trim()) missing.push('rawLyrics')

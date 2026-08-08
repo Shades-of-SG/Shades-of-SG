@@ -300,6 +300,21 @@ async function createSong(req, res, next) {
             audioPublicId = uploaded.audioPublicId;
             durationSecs = uploaded.duration;
             uploadedMediaIsVideo = ['video/mp4', 'video/webm'].includes(req.file.mimetype);
+        } else if (parsed.values.sourceYoutubeUrl && !audioUrl) {
+            try {
+                const extracted = await audioExtractionService.extractAudioFromYouTube(parsed.values.sourceYoutubeUrl);
+                try {
+                    const uploaded = await aiStorageService.uploadAudioStream(fs.createReadStream(extracted.filePath));
+                    audioUrl = uploaded.audioUrl;
+                    audioFileName = extracted.fileName;
+                    audioPublicId = uploaded.audioPublicId;
+                    durationSecs = Math.round(uploaded.duration || extracted.durationSecs || 0) || null;
+                } finally {
+                    await extracted?.cleanup?.();
+                }
+            } catch (e) {
+                console.error('[createSong] Failed extracting YouTube audio during song creation:', e);
+            }
         }
         const song = await Song.create({
             ...parsed.values, audioFileName, audioUrl, audioPublicId, durationSecs,
