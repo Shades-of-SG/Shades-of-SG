@@ -4,6 +4,7 @@ import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, Boo
 import CreatorPageShell from '../components/CreatorPageShell'
 import { useAuth } from '../context/AuthContext'
 import { getSongCuration, updateSongCuration, generateSongArticle, generateSongTrivia } from '../services/songService'
+import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import { INSTRUMENTS } from '../data/instruments'
 
 function prepareDeduplicatedInstruments(apiInstruments = []) {
@@ -27,6 +28,10 @@ function prepareDeduplicatedInstruments(apiInstruments = []) {
       origin: inst.origin || matchingStatic?.origin || 'Heritage Instrument',
       description: inst.description || matchingStatic?.description || '',
       icon: inst.icon || matchingStatic?.icon || '🎵',
+      notes: inst.notes || matchingStatic?.notes,
+      melody: inst.melody || matchingStatic?.melody,
+      waveform: inst.waveform || matchingStatic?.waveform,
+      envelope: inst.envelope || matchingStatic?.envelope,
       audioUrl: inst.audioUrl || matchingStatic?.audioUrl || `/audio/instruments/${finalKey}.mp3`,
       audioSampleUrl: inst.audioSampleUrl || matchingStatic?.audioSampleUrl || `/audio/instruments/${finalKey}.mp3`,
     })
@@ -51,6 +56,7 @@ export default function CreatorCuration() {
   const { songId } = useParams()
   const navigate = useNavigate()
   const { token } = useAuth()
+  const { playMelody } = useInstrumentAudio()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -67,6 +73,24 @@ export default function CreatorCuration() {
   
   const [generatingArticle, setGeneratingArticle] = useState(false)
   const [generatingTrivia, setGeneratingTrivia] = useState(false)
+
+  const handlePreviewInstrument = (e, inst) => {
+    e.stopPropagation()
+    // Resolve full instrument with notes and melody definitions from static data if missing from API response
+    const fullInst =
+      inst.notes && inst.melody
+        ? inst
+        : INSTRUMENTS.find(
+            (i) => i.id === inst.id || i.name.toLowerCase() === inst.name.toLowerCase()
+          ) || inst
+
+    if (fullInst.melody && fullInst.notes) {
+      playMelody(fullInst, fullInst.melody)
+    } else if (inst.sampleUrl || inst.audioUrl || inst.previewUrl) {
+      const sound = new Audio(inst.sampleUrl || inst.audioUrl || inst.previewUrl)
+      sound.play().catch((err) => console.error('Audio preview playback error:', err))
+    }
+  }
 
   const [activePreviewId, setActivePreviewId] = useState(null)
   const currentAudioRef = useRef(null)
@@ -659,11 +683,34 @@ export default function CreatorCuration() {
                         style={{ accentColor: '#8b5cf6', width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
                       />
                       <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontSize: '1.25rem' }}>{inst.icon || '🎵'}</span>
-                          <h4 style={{ color: isSelected ? '#a78bfa' : '#f8fafc', fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
-                            {inst.name}
-                          </h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '1.25rem' }}>{inst.icon || '🎵'}</span>
+                            <h4 style={{ color: isSelected ? '#a78bfa' : '#f8fafc', fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
+                              {inst.name}
+                            </h4>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => handlePreviewInstrument(e, inst)}
+                            style={{
+                              background: 'rgba(139, 92, 246, 0.2)',
+                              border: '1px solid rgba(139, 92, 246, 0.4)',
+                              color: '#a78bfa',
+                              borderRadius: '6px',
+                              padding: '0.2rem 0.5rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              transition: 'background 0.2s ease'
+                            }}
+                            title={`Preview sound for ${inst.name}`}
+                          >
+                            🔊 Preview
+                          </button>
                         </div>
                         <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
                           {inst.origin || 'Heritage Instrument'}
@@ -672,36 +719,6 @@ export default function CreatorCuration() {
                           <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {inst.description}
                           </p>
-                        )}
-                        {audioPath && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              playAudioPreview(audioPath, inst.id)
-                            }}
-                            style={{
-                              marginTop: '0.75rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              backgroundColor: activePreviewId === inst.id ? 'rgba(168, 85, 247, 0.3)' : 'rgba(15, 23, 42, 0.6)',
-                              border: '1px solid rgba(139, 92, 246, 0.4)',
-                              color: '#c084fc',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            {activePreviewId === inst.id ? (
-                              <><Pause className="w-3 h-3 text-purple-300" /> Playing Sample</>
-                            ) : (
-                              <><Play className="w-3 h-3 text-purple-400" /> Preview Sample</>
-                            )}
-                          </button>
                         )}
                       </div>
                     </div>
