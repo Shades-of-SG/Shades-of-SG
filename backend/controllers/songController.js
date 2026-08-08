@@ -9,6 +9,7 @@ const { writeAudit } = require('../services/auditService');
 const { getSongPublishMissing } = require('../services/songPublishingService');
 const { formatSongSectionsLyrics } = require('../services/songSectionService');
 const { syncSongTranscriptionSegments } = require('../services/transcriptionService');
+const { assembleVideo } = require('../services/videoAssembler');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -88,8 +89,20 @@ async function useUploadedMediaAsVideo(song) {
 }
 
 async function reconcileCompletedGeneration(song, latestJob) {
-    if (latestJob?.status === 'COMPLETED' && ['DRAFT', 'GENERATING'].includes(song.status)) {
-        await song.update({ status: 'READY' });
+    if (latestJob?.status === 'COMPLETED') {
+        if (!song.videoUrl || song.videoUrl === song.audioUrl) {
+            try {
+                console.log(`[reconcileCompletedGeneration] Re-assembling video for completed job ${latestJob.id}...`);
+                const assembleResult = await assembleVideo(latestJob.id, song.id);
+                if (assembleResult?.videoUrl) {
+                    await song.update({ videoUrl: assembleResult.videoUrl, status: 'READY' });
+                }
+            } catch (err) {
+                console.error(`[reconcileCompletedGeneration Warning] Failed to assemble video for job ${latestJob.id}:`, err.message);
+            }
+        } else if (['DRAFT', 'GENERATING'].includes(song.status)) {
+            await song.update({ status: 'READY' });
+        }
     }
     return song;
 }
@@ -369,6 +382,7 @@ async function publishSong(req, res, next) {
         const usedUploadedMedia = await useUploadedMediaAsVideo(song);
         if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
+        await song.reload();
         const missing = getSongPublishMissing(song);
         if (missing.length) return res.status(400).json({ message: 'Song is not ready to publish.', missing });
         await song.update({ status: 'PUBLISHED', publishedDate: new Date() });
@@ -385,6 +399,7 @@ async function getPublishReadiness(req, res, next) {
         const usedUploadedMedia = await useUploadedMediaAsVideo(song);
         if (usedUploadedMedia && latestJob) await latestJob.reload();
         await reconcileCompletedGeneration(song, latestJob);
+        await song.reload();
         const missing = getSongPublishMissing(song);
         return res.json({ ready: missing.length === 0, missing, songStatus: song.status, generationStatus: latestJob?.status || null });
     } catch (error) { return next(error); }
