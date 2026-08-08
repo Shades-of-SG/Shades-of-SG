@@ -652,14 +652,27 @@ async function updateCurationDetails(req, res, next) {
             }
         }
 
-        if (Array.isArray(instrumentIds)) {
+        const selectedInstruments = instrumentIds || req.body.selectedInstruments;
+        if (selectedInstruments && Array.isArray(selectedInstruments)) {
             await SongInstrument.destroy({ where: { songId: id } });
-            const songInstRecords = instrumentIds.map((instrumentId) => ({
+            
+            const instrumentRecords = await Instrument.findAll({
+                where: {
+                    [Op.or]: [
+                        { id: selectedInstruments },
+                        { name: selectedInstruments },
+                        { slug: selectedInstruments }
+                    ]
+                }
+            });
+
+            const songInstEntries = instrumentRecords.map((inst) => ({
                 songId: id,
-                instrumentId,
+                instrumentId: inst.id
             }));
-            if (songInstRecords.length > 0) {
-                await SongInstrument.bulkCreate(songInstRecords);
+
+            if (songInstEntries.length > 0) {
+                await SongInstrument.bulkCreate(songInstEntries);
             }
         }
 

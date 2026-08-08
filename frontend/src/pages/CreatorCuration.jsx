@@ -159,6 +159,14 @@ export default function CreatorCuration() {
     if (e && e.preventDefault) e.preventDefault()
     try {
       setSaving(true)
+
+      const resolvedInstrumentIds = selectedInstrumentIds.map((id) => {
+        const match = allInstruments.find(
+          (db) => db.id === id || db.name?.toLowerCase() === String(id).toLowerCase() || (db.slug && db.slug.toLowerCase() === String(id).toLowerCase())
+        )
+        return match ? match.id : id
+      })
+
       const payload = {
         aiSummary,
         description,
@@ -168,7 +176,7 @@ export default function CreatorCuration() {
           options: q.options,
           correctAnswer: q.correctAnswer || q.options[0] || '',
         })),
-        instrumentIds: selectedInstrumentIds,
+        instrumentIds: resolvedInstrumentIds,
       }
 
       const res = await updateSongCuration(songId, payload, token)

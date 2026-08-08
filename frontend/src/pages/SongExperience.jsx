@@ -380,115 +380,124 @@ export default function SongExperience() {
               Featured Heritage Instruments
             </h3>
 
-            {Array.isArray(song.instruments) && song.instruments.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
-                {(song.instruments || []).slice(0, 5).map((inst) => {
-                  const isInstPlaying = playingInstrumentId === inst.id
-                  const hubMatch = LEARNING_HUB_INSTRUMENTS.find(
-                    (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
-                  )
-                  const iconImage = inst.imageUrl || inst.iconUrl
-                  const iconEmoji = hubMatch?.icon || '🎵'
-                  const displayOrigin = (inst.origin || inst.culture || '').split(',')[0].trim()
+            {(() => {
+              const dynamicInstruments =
+                Array.isArray(song?.instruments) && song.instruments.length > 0
+                  ? song.instruments
+                  : song?.SongInstruments?.map((si) => si.Instrument).filter(Boolean)
 
-                  return (
-                    <div
-                      key={inst.id}
-                      style={{
-                        display: 'flex',
-                        gap: '10px',
-                        alignItems: 'center',
-                        padding: '8px 12px',
-                        borderRadius: '10px',
-                        border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
-                        background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                        transition: 'all 150ms ease',
-                      }}
-                    >
-                      {iconImage ? (
-                        <img
-                          src={iconImage}
-                          alt={inst.name}
-                          style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '8px',
-                            backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '1.2rem',
-                            flexShrink: 0,
-                            border: '1px solid rgba(139, 92, 246, 0.2)'
-                          }}
-                        >
-                          {iconEmoji}
-                        </div>
-                      )}
+              const displayInstruments = dynamicInstruments && dynamicInstruments.length > 0 ? dynamicInstruments : []
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <h4
-                          style={{
-                            margin: 0,
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                            color: '#f8fafc',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                          title={inst.name}
-                        >
-                          {inst.name}
-                        </h4>
-                        {displayOrigin && (
-                          <span
+              return displayInstruments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
+                  {displayInstruments.slice(0, 5).map((inst) => {
+                    const isInstPlaying = playingInstrumentId === inst.id
+                    const hubMatch = LEARNING_HUB_INSTRUMENTS.find(
+                      (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
+                    )
+                    const iconImage = inst.imageUrl || inst.iconUrl
+                    const iconEmoji = hubMatch?.icon || '🎵'
+                    const displayOrigin = (inst.origin || inst.culture || '').split(',')[0].trim()
+
+                    return (
+                      <div
+                        key={inst.id}
+                        style={{
+                          display: 'flex',
+                          gap: '10px',
+                          alignItems: 'center',
+                          padding: '8px 12px',
+                          borderRadius: '10px',
+                          border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
+                          background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
+                          transition: 'all 150ms ease',
+                        }}
+                      >
+                        {iconImage ? (
+                          <img
+                            src={iconImage}
+                            alt={inst.name}
+                            style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
+                          />
+                        ) : (
+                          <div
                             style={{
-                              fontSize: '0.75rem',
-                              color: '#818cf8',
-                              fontWeight: 500,
-                              display: 'block',
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '8px',
+                              backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '1.2rem',
+                              flexShrink: 0,
+                              border: '1px solid rgba(139, 92, 246, 0.2)'
+                            }}
+                          >
+                            {iconEmoji}
+                          </div>
+                        )}
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h4
+                            style={{
+                              margin: 0,
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              color: '#f8fafc',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                             }}
+                            title={inst.name}
                           >
-                            {displayOrigin}
-                          </span>
-                        )}
-                      </div>
+                            {inst.name}
+                          </h4>
+                          {displayOrigin && (
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                color: '#818cf8',
+                                fontWeight: 500,
+                                display: 'block',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {displayOrigin}
+                            </span>
+                          )}
+                        </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handlePlayInstrument(inst)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: isInstPlaying ? 'var(--violet)' : 'var(--muted)',
-                          cursor: 'pointer',
-                          padding: '4px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                        title={isInstPlaying ? 'Stop Instrument' : 'Hear Instrument'}
-                      >
-                        {isInstPlaying ? <Square size={18} fill="currentColor" /> : <PlayCircle size={18} />}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: '0.75rem' }}>
-                No heritage instruments currently associated with this song.
-              </p>
-            )}
+                        <button
+                          type="button"
+                          onClick={() => handlePlayInstrument(inst)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: isInstPlaying ? 'var(--violet)' : 'var(--muted)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                          title={isInstPlaying ? 'Stop Instrument' : 'Hear Instrument'}
+                        >
+                          {isInstPlaying ? <Square size={18} fill="currentColor" /> : <PlayCircle size={18} />}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: '0.75rem' }}>
+                  No heritage instruments currently associated with this song.
+                </p>
+              )
+            })()}
           </div>
 
           {/* Knowledge Check */}
