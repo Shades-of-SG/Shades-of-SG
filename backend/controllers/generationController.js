@@ -186,12 +186,16 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    await song.update({ status: 'GENERATING' })
+    await song.update({
+      status: 'GENERATING',
+      ...(song.videoUrl === song.audioUrl ? { videoUrl: null, videoPublicId: null } : {})
+    })
     if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
 
     return res.status(202).json({
       success: true,
       data: job,
+      job,
     })
   } catch (error) {
     next(error)
@@ -500,7 +504,10 @@ const retryGeneration = async (req, res, next) => {
     // Ensure song is in GENERATING state
     const song = await Song.findByPk(job.songId)
     if (song && !['GENERATING'].includes(song.status)) {
-      await song.update({ status: 'GENERATING' })
+      await song.update({
+        status: 'GENERATING',
+        ...(song.videoUrl === song.audioUrl ? { videoUrl: null, videoPublicId: null } : {})
+      })
     }
 
     // Fire pipeline in background
