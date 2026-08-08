@@ -9,7 +9,7 @@ const { OpenAI } = require('openai')
 const cloudinary = require('../config/cloudinary')
 const aiStorageService = require('../services/aiStorageService')
 const { extractAudioFromYouTube, downloadMediaFromUrl } = require('../services/audioExtractionService')
-const { transcribeMediaBuffer, syncSongTranscriptionSegments } = require('../services/transcriptionService')
+const { transcribeMediaBuffer, syncSongTranscriptionSegments, generateFallbackSegmentsFromLyrics } = require('../services/transcriptionService')
 
 const activePipelineJobs = new Map()
 
@@ -186,12 +186,16 @@ const startGeneration = async (req, res, next) => {
       throw error
     }
 
-    await song.update({ status: 'GENERATING' })
+    await song.update({
+      status: 'GENERATING',
+      ...(song.videoUrl === song.audioUrl ? { videoUrl: null, videoPublicId: null } : {})
+    })
     if (process.env.NODE_ENV !== 'test') runGenerationPipeline(job.id).catch(console.error)
 
     return res.status(202).json({
       success: true,
       data: job,
+      job,
     })
   } catch (error) {
     next(error)
@@ -339,18 +343,34 @@ const runGenerationPipeline = async (jobId) => {
         console.log(`[Phase 1: Initialization] Saved audioUrl: ${uploaded.audioUrl}`)
 
         console.log(`[Phase 1: Initialization] Transcribing audio via Whisper API...`)
-        const transcription = await transcribeMediaBuffer({
-          fileName: extractedInfo.fileName,
-          mediaBuffer,
-          mimeType: extractedInfo.mimeType
-        })
+        let transcriptionSegments = []
+        let extractedLyrics = ''
 
-        const extractedLyrics = (transcription.segments || []).map(s => s.text || s.lyrics).filter(Boolean).join('\n')
+        try {
+          const transcription = await transcribeMediaBuffer({
+            fileName: extractedInfo.fileName,
+            mediaBuffer,
+            mimeType: extractedInfo.mimeType
+          })
+          transcriptionSegments = transcription.segments || []
+          extractedLyrics = (transcriptionSegments).map(s => s.text || s.lyrics).filter(Boolean).join('\n')
+          console.log(`[Phase 1: Initialization] Saved ${transcriptionSegments.length} segments via Whisper API.`)
+        } catch (whisperErr) {
+          console.warn(`[Phase 1 Warning] Whisper transcription warning: ${whisperErr.message}.`)
+          const existingLyrics = (song.rawLyrics || song.lyrics || '').trim()
+          if (existingLyrics) {
+            console.log(`[Phase 1 Fallback] Generating timed transcription segments from existing song lyrics...`)
+            transcriptionSegments = generateFallbackSegmentsFromLyrics(existingLyrics, song.durationSecs || 30)
+            extractedLyrics = existingLyrics
+          } else {
+            throw whisperErr
+          }
+        }
+
         await song.update({
-          transcriptionSegments: transcription.segments,
-          ...(extractedLyrics ? { lyrics: extractedLyrics, rawLyrics: extractedLyrics } : {})
+          transcriptionSegments,
+          ...(extractedLyrics ? { lyrics: extractedLyrics, rawLyrics: song.rawLyrics || extractedLyrics } : {})
         })
-        console.log(`[Phase 1: Initialization] Saved ${transcription.segments.length} segments and updated song lyrics.`)
       } finally {
         await extractedInfo.cleanup()
       }
@@ -500,7 +520,10 @@ const retryGeneration = async (req, res, next) => {
     // Ensure song is in GENERATING state
     const song = await Song.findByPk(job.songId)
     if (song && !['GENERATING'].includes(song.status)) {
-      await song.update({ status: 'GENERATING' })
+      await song.update({
+        status: 'GENERATING',
+        ...(song.videoUrl === song.audioUrl ? { videoUrl: null, videoPublicId: null } : {})
+      })
     }
 
     // Fire pipeline in background

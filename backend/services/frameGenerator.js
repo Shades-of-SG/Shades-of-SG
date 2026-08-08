@@ -44,7 +44,7 @@ async function generateSingleFrame(prompt) {
   const safePrompt = (prompt || 'Cinematic scene').substring(0, 4000)
   let openAiImageUrl
 
-  console.log(`[generateSingleFrame] Calling GPT Image 2...`)
+  console.log(`[generateSingleFrame] Calling OpenAI DALL-E 3...`)
 
   let attempts = 0
   const maxAttempts = 3
@@ -52,11 +52,12 @@ async function generateSingleFrame(prompt) {
   while (attempts < maxAttempts) {
     try {
       attempts++
-      console.log(`[OpenAI] Attempting GPT Image 2 (Attempt ${attempts}/${maxAttempts}) with key prefix: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`)
+      console.log(`[OpenAI] Attempting DALL-E 3 (Attempt ${attempts}/${maxAttempts}) with key prefix: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`)
       const response = await openai.images.generate({
-        model: 'gpt-image-2',
+        model: process.env.OPENAI_IMAGE_MODEL || 'dall-e-3',
         prompt: safePrompt,
         size: '1792x1024',
+        quality: 'standard',
         n: 1,
       })
 
@@ -74,13 +75,13 @@ async function generateSingleFrame(prompt) {
 
       if (isRateLimit && attempts < maxAttempts) {
         const backoffMs = attempts * 20000
-        console.warn(`[Rate Limit 429] GPT Image 2 rate limited. Pausing ${backoffMs / 1000}s before retry attempt ${attempts + 1}...`)
+        console.warn(`[Rate Limit 429] DALL-E 3 rate limited. Pausing ${backoffMs / 1000}s before retry attempt ${attempts + 1}...`)
         await delay(backoffMs)
         continue
       }
 
-      // Fallback to GPT Image 1 Mini on primary non-retriable failure
-      console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini.`)
+      // Fallback to DALL-E 2 on primary non-retriable failure
+      console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2.`)
 
       let fallbackPrompt = safePrompt.substring(0, 1000)
       if (openaiError.message?.toLowerCase().includes('safety') || openaiError.message?.toLowerCase().includes('rejected')) {
@@ -90,9 +91,9 @@ async function generateSingleFrame(prompt) {
 
       try {
         const fallbackResponse = await openai.images.generate({
-          model: 'gpt-image-1-mini',
+          model: 'dall-e-2',
           prompt: fallbackPrompt,
-          size: '1536x1024',
+          size: '1024x1024',
           n: 1,
         })
 

@@ -322,9 +322,35 @@ async function syncSongTranscriptionSegments(songId) {
     return newTranscriptionSegments;
 }
 
+function generateFallbackSegmentsFromLyrics(rawLyrics, totalDurationSecs = 30) {
+    const lines = String(rawLyrics || '')
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean);
+    if (!lines.length) return [];
+
+    const duration = Math.max(10, Number(totalDurationSecs) || 30);
+    const lineDuration = duration / lines.length;
+
+    return lines.map((line, idx) => {
+        const start = Number((idx * lineDuration).toFixed(2));
+        const end = idx === lines.length - 1 ? duration : Number(((idx + 1) * lineDuration).toFixed(2));
+        return {
+            id: `fallback_${idx}_${start}`,
+            start,
+            end,
+            startTime: start,
+            endTime: end,
+            text: line,
+            lyrics: line,
+        };
+    });
+}
+
 module.exports = {
     DEFAULT_TRANSCRIPTION_MODEL,
     formatLyricsDraft,
+    generateFallbackSegmentsFromLyrics,
     getTranscriptionConfigStatus,
     MAX_TRANSCRIPTION_BYTES,
     isPromptEcho,

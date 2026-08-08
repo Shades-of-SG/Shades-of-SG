@@ -237,9 +237,14 @@ export default function Studio() {
     setPublishPrompt(null)
     try {
       const saved = await saveDraft({ quiet: true })
-      await startGeneration(saved.id, token)
+      const res = await startGeneration(saved.id, token)
+      const jobId = res?.id || res?.data?.id
       setMessage({ type: 'success', text: 'Draft saved and video generation queued.' })
-      navigate(`/creator/generation`)
+      if (jobId) {
+        navigate(`/creator/generation/${jobId}`)
+      } else {
+        navigate(`/creator/generation`)
+      }
     } catch (error) {
       if (!error.userMessageShown) setMessage({ type: 'error', text: friendlyActionError(error, 'start video generation') })
     }
