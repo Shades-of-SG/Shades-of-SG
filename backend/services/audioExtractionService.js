@@ -136,22 +136,33 @@ async function extractAudioFromYouTube(youtubeUrl) {
 
 async function downloadMediaFromUrl(url, jobId) {
     await fs.mkdir(TEMP_DIR, { recursive: true });
-    
-    // Default to .mp3, but check URL for common extensions
-    let ext = 'mp3';
-    if (url.toLowerCase().includes('.mp4')) ext = 'mp4';
-    else if (url.toLowerCase().includes('.m4a')) ext = 'm4a';
-    else if (url.toLowerCase().includes('.webm')) ext = 'webm';
-    else if (url.toLowerCase().includes('.wav')) ext = 'wav';
 
-    const outputFileName = `${jobId}_audio.${ext}`;
-    const outputPath = path.join(TEMP_DIR, outputFileName);
+    let fetchUrl = String(url || '').trim();
+    if (fetchUrl.startsWith('/')) {
+        const port = process.env.PORT || 5000;
+        fetchUrl = `http://localhost:${port}${fetchUrl}`;
+    }
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
-            throw new Error(`Failed to fetch media from ${url}: ${response.status} ${response.statusText}`);
+            throw new Error(`Failed to fetch media from ${fetchUrl}: ${response.status} ${response.statusText}`);
         }
+
+        const contentType = (response.headers.get('content-type') || '').toLowerCase();
+        let ext = 'mp3';
+        if (contentType.includes('video/mp4') || contentType.includes('audio/mp4') || fetchUrl.toLowerCase().includes('.mp4')) {
+            ext = 'mp4';
+        } else if (contentType.includes('audio/m4a') || fetchUrl.toLowerCase().includes('.m4a')) {
+            ext = 'm4a';
+        } else if (contentType.includes('webm') || fetchUrl.toLowerCase().includes('.webm')) {
+            ext = 'webm';
+        } else if (contentType.includes('wav') || fetchUrl.toLowerCase().includes('.wav')) {
+            ext = 'wav';
+        }
+
+        const outputFileName = `${jobId}_audio.${ext}`;
+        const outputPath = path.join(TEMP_DIR, outputFileName);
 
         const arrayBuffer = await response.arrayBuffer();
         await fs.writeFile(outputPath, Buffer.from(arrayBuffer));
@@ -163,7 +174,6 @@ async function downloadMediaFromUrl(url, jobId) {
             mimeType: getMimeType(outputPath),
         };
     } catch (err) {
-        await removeFileQuietly(outputPath);
         const error = new Error(`Direct media download failed: ${err.message}`);
         error.status = 502;
         throw error;
