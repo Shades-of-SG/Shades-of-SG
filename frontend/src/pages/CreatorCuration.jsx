@@ -1,62 +1,19 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen, Play, Pause } from 'lucide-react'
+import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import { useAuth } from '../context/AuthContext'
 import { getSongCuration, updateSongCuration, generateSongArticle, generateSongTrivia } from '../services/songService'
+import useLabInstruments from '../hooks/useLabInstruments'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
-import { INSTRUMENTS } from '../data/instruments'
-
-function prepareDeduplicatedInstruments(apiInstruments = []) {
-  const seenMap = new Map()
-
-  // 1. Prioritize database-driven instruments
-  apiInstruments.forEach((inst) => {
-    const rawKey = inst.id || inst.name || ''
-    const canonicalKey = rawKey.toString().toLowerCase().trim()
-
-    const matchingStatic = INSTRUMENTS.find(
-      (s) => s.id === canonicalKey || s.name.toLowerCase() === (inst.name || '').toLowerCase()
-    )
-
-    const finalId = inst.id || matchingStatic?.id || canonicalKey
-    const finalKey = (matchingStatic?.id || canonicalKey).toLowerCase()
-
-    seenMap.set(finalKey, {
-      id: finalId,
-      name: inst.name || matchingStatic?.name || 'Instrument',
-      origin: inst.origin || matchingStatic?.origin || 'Heritage Instrument',
-      description: inst.description || matchingStatic?.description || '',
-      icon: inst.icon || matchingStatic?.icon || '🎵',
-      notes: inst.notes || matchingStatic?.notes,
-      melody: inst.melody || matchingStatic?.melody,
-      waveform: inst.waveform || matchingStatic?.waveform,
-      envelope: inst.envelope || matchingStatic?.envelope,
-      audioUrl: inst.audioUrl || matchingStatic?.audioUrl || `/audio/instruments/${finalKey}.mp3`,
-      audioSampleUrl: inst.audioSampleUrl || matchingStatic?.audioSampleUrl || `/audio/instruments/${finalKey}.mp3`,
-    })
-  })
-
-  // 2. Fallback: add remaining static instruments if not yet in map
-  INSTRUMENTS.forEach((inst) => {
-    const canonicalKey = (inst.id || inst.name).toString().toLowerCase().trim()
-    if (!seenMap.has(canonicalKey)) {
-      seenMap.set(canonicalKey, {
-        ...inst,
-        audioUrl: inst.audioUrl || `/audio/instruments/${canonicalKey}.mp3`,
-        audioSampleUrl: inst.audioSampleUrl || `/audio/instruments/${canonicalKey}.mp3`,
-      })
-    }
-  })
-
-  return Array.from(seenMap.values())
-}
 
 export default function CreatorCuration() {
   const { songId } = useParams()
   const navigate = useNavigate()
   const { token } = useAuth()
-  const { playMelody } = useInstrumentAudio()
+
+  const labInstruments = useLabInstruments()
+  const { playNote } = useInstrumentAudio()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -74,49 +31,25 @@ export default function CreatorCuration() {
   const [generatingArticle, setGeneratingArticle] = useState(false)
   const [generatingTrivia, setGeneratingTrivia] = useState(false)
 
+  // Merge DB instrument records (UUIDs) with lab instruments (notes & sample audio buffers)
+  const mergedInstruments = allInstruments.map((dbInst) => {
+    const labInst = labInstruments.find(
+      (l) => l.id === dbInst.id || l.id === dbInst.slug || l.name.toLowerCase() === dbInst.name.toLowerCase()
+    )
+    return {
+      ...dbInst,
+      ...(labInst || {}),
+      dbId: dbInst.id, // Preserve backend UUID for selection
+    }
+  })
+
+  // Fall back to labInstruments if database list is empty
+  const displayInstruments = mergedInstruments.length > 0 ? mergedInstruments : labInstruments
+
   const handlePreviewInstrument = (e, inst) => {
     e.stopPropagation()
-    // Resolve full instrument with notes and melody definitions from static data if missing from API response
-    const fullInst =
-      inst.notes && inst.melody
-        ? inst
-        : INSTRUMENTS.find(
-            (i) => i.id === inst.id || i.name.toLowerCase() === inst.name.toLowerCase()
-          ) || inst
-
-    if (fullInst.melody && fullInst.notes) {
-      playMelody(fullInst, fullInst.melody)
-    } else if (inst.sampleUrl || inst.audioUrl || inst.previewUrl) {
-      const sound = new Audio(inst.sampleUrl || inst.audioUrl || inst.previewUrl)
-      sound.play().catch((err) => console.error('Audio preview playback error:', err))
-    }
-  }
-
-  const [activePreviewId, setActivePreviewId] = useState(null)
-  const currentAudioRef = useRef(null)
-
-  const playAudioPreview = (audioUrl, instId) => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause()
-      currentAudioRef.current = null
-    }
-
-    if (activePreviewId === instId) {
-      setActivePreviewId(null)
-      return
-    }
-
-    const audio = new Audio(audioUrl)
-    currentAudioRef.current = audio
-    setActivePreviewId(instId)
-
-    audio.play().catch(() => {
-      setActivePreviewId(null)
-    })
-
-    audio.onended = () => {
-      setActivePreviewId(null)
-      currentAudioRef.current = null
+    if (inst.notes && inst.notes.length > 0) {
+      playNote(inst, inst.notes[0])
     }
   }
 
@@ -150,8 +83,7 @@ export default function CreatorCuration() {
               }))
             : []
         )
-        const loadedInsts = prepareDeduplicatedInstruments(data.allInstruments || [])
-        setAllInstruments(loadedInsts)
+        setAllInstruments(data.allInstruments || [])
         const associatedIds = (data.associatedInstruments || []).map((inst) => inst.id)
         setSelectedInstrumentIds(associatedIds)
         if (data.latestJobId) setLatestJobId(data.latestJobId)
@@ -652,18 +584,18 @@ export default function CreatorCuration() {
               Select the Singaporean/Regional heritage instruments associated with this song:
             </p>
 
-            {allInstruments.length === 0 ? (
+            {displayInstruments.length === 0 ? (
               <p style={{ color: '#64748b' }}>No instruments available in catalog.</p>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
-                {allInstruments.map((inst) => {
-                  const isSelected = selectedInstrumentIds.includes(inst.id)
-                  const audioPath = inst.audioUrl || inst.audioSampleUrl || inst.sampleUrl || `/audio/instruments/${inst.id || inst.name.toLowerCase()}.mp3`
+                {displayInstruments.map((inst) => {
+                  const instId = inst.dbId || inst.id
+                  const isSelected = selectedInstrumentIds.includes(instId)
 
                   return (
                     <div
-                      key={inst.id || inst.name}
-                      onClick={() => handleToggleInstrument(inst.id)}
+                      key={instId || inst.name}
+                      onClick={() => handleToggleInstrument(instId)}
                       style={{
                         backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(30, 41, 59, 0.4)',
                         border: `1.5px solid ${isSelected ? '#8b5cf6' : 'rgba(51, 65, 85, 0.5)'}`,
@@ -704,10 +636,8 @@ export default function CreatorCuration() {
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '0.25rem',
-                              transition: 'background 0.2s ease'
+                              gap: '0.25rem'
                             }}
-                            title={`Preview sound for ${inst.name}`}
                           >
                             🔊 Preview
                           </button>
