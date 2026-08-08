@@ -180,8 +180,6 @@ function PublishedSongCard({ song }) {
         <Link className="learning-song-card__action learning-song-card__action--primary" to={`/songs/${song.id}`}>
           Explore Song
         </Link>
-        <Link className="learning-song-card__action" to={`/songs/${song.id}/trivia`}>Trivia</Link>
-        <Link className="learning-song-card__action" to={`/songs/${song.id}/playground`}>Playground</Link>
       </div>
     </article>
   )
