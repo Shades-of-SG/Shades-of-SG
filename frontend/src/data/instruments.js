@@ -1,17 +1,13 @@
-// Single source of truth for the Instrument Discovery Lab's 5 instruments.
-// This used to be duplicated between InstrumentDiscoveryLab.jsx and
-// songExperienceInstrumentFallbacks.js — adding instrument #6 now means
-// appending one object here, nothing else needs to change structurally.
-//
-// No `samples` key is set here — real audio (where sourced) is hydrated onto
-// these objects at runtime by hooks/useLabInstruments.js, which merges in
-// whatever `GET /api/instruments/lab-samples` returns. Until that resolves
-// (or for any note it doesn't cover), every note plays its synthesized
-// oscillator tone via useInstrumentAudio.js — no loading state needed.
+// Single source of truth for the Instrument Discovery Lab & Heritage Instrument catalog.
 export const INSTRUMENTS = [
   {
+    id: 'piano',
+    name: 'Piano',
+    origin: 'Western / Global',
     description:
       'A versatile keyboard instrument capable of playing full harmonies and melodies — a familiar starting point for musical exploration.',
+    audioUrl: '/audio/instruments/piano.mp3',
+    audioSampleUrl: '/audio/instruments/piano.mp3',
     envelope: 'sustained',
     facts: {
       contribution: "A common thread across Singapore's diverse musical traditions and music education.",
@@ -21,9 +17,7 @@ export const INSTRUMENTS = [
       whenPlayed: 'Used across nearly every genre, from classical to contemporary Singaporean pop.',
     },
     icon: '🎹',
-    id: 'piano',
     melody: ['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4'],
-    name: 'Piano',
     notes: [
       { frequency: 261.63, key: 'a', label: 'C4' },
       { frequency: 293.66, key: 's', label: 'D4' },
@@ -34,12 +28,16 @@ export const INSTRUMENTS = [
       { frequency: 493.88, key: 'j', label: 'B4' },
       { frequency: 523.25, key: 'k', label: 'C5' },
     ],
-    origin: 'Western / Global',
     waveform: 'triangle',
   },
   {
+    id: 'angklung',
+    name: 'Angklung',
+    origin: 'Malay heritage, Southeast Asia',
     description:
       'A bamboo instrument shaken to produce a note, traditionally played together in ensembles where each person holds just one pitch.',
+    audioUrl: '/audio/instruments/angklung.mp3',
+    audioSampleUrl: '/audio/instruments/angklung.mp3',
     envelope: 'sustained',
     facts: {
       contribution: "A symbol of teamwork and harmony within Singapore's Malay community.",
@@ -49,9 +47,7 @@ export const INSTRUMENTS = [
       whenPlayed: 'Featured in school performances, cultural festivals, and community events.',
     },
     icon: '🎋',
-    id: 'angklung',
     melody: ['C4', 'D4', 'F4', 'G4', 'A4', 'G4', 'F4'],
-    name: 'Angklung',
     notes: [
       { frequency: 261.63, key: 'a', label: 'C4' },
       { frequency: 293.66, key: 's', label: 'D4' },
@@ -59,11 +55,15 @@ export const INSTRUMENTS = [
       { frequency: 392, key: 'f', label: 'G4' },
       { frequency: 440, key: 'g', label: 'A4' },
     ],
-    origin: 'Malay heritage, Southeast Asia',
     waveform: 'triangle',
   },
   {
+    id: 'kompang',
+    name: 'Kompang',
+    origin: 'Malay heritage, Southeast Asia',
     description: 'A handheld frame drum played in lively ensembles at Malay weddings and festive processions.',
+    audioUrl: '/audio/instruments/kompang.mp3',
+    audioSampleUrl: '/audio/instruments/kompang.mp3',
     envelope: 'percussive',
     facts: {
       contribution: "Brings energetic, communal rhythm to Singapore's multicultural celebrations.",
@@ -73,20 +73,22 @@ export const INSTRUMENTS = [
       whenPlayed: 'Weddings, National Day performances, and community celebrations.',
     },
     icon: '🥁',
-    id: 'kompang',
     melody: ['Low', 'Mid', 'High', 'Slap', 'Mid', 'Low'],
-    name: 'Kompang',
     notes: [
       { frequency: 110, key: 'a', label: 'Low' },
       { frequency: 146.83, key: 's', label: 'Mid' },
       { frequency: 196, key: 'd', label: 'High' },
       { frequency: 246.94, key: 'f', label: 'Slap' },
     ],
-    origin: 'Malay heritage, Southeast Asia',
     waveform: 'square',
   },
   {
+    id: 'erhu',
+    name: 'Erhu',
+    origin: 'Chinese heritage',
     description: 'A two-stringed bowed instrument known for its expressive, voice-like tone in Chinese music.',
+    audioUrl: '/audio/instruments/erhu.mp3',
+    audioSampleUrl: '/audio/instruments/erhu.mp3',
     envelope: 'sustained',
     facts: {
       contribution: "Represents the Chinese community's musical heritage within Singapore's soundscape.",
@@ -96,9 +98,7 @@ export const INSTRUMENTS = [
       whenPlayed: 'Chinese orchestras, festivals, and Chinese New Year performances.',
     },
     icon: '🎻',
-    id: 'erhu',
     melody: ['G4', 'B4', 'D5', 'E5', 'D5', 'B4', 'G4'],
-    name: 'Erhu',
     notes: [
       { frequency: 392, key: 'a', label: 'G4' },
       { frequency: 440, key: 's', label: 'A4' },
@@ -107,11 +107,15 @@ export const INSTRUMENTS = [
       { frequency: 587.33, key: 'g', label: 'D5' },
       { frequency: 659.25, key: 'h', label: 'E5' },
     ],
-    origin: 'Chinese heritage',
     waveform: 'sawtooth',
   },
   {
+    id: 'tabla',
+    name: 'Tabla',
+    origin: 'Indian heritage, South Asia',
     description: 'A pair of hand drums central to Indian classical and devotional music, played with intricate finger and palm strokes.',
+    audioUrl: '/audio/instruments/tabla.mp3',
+    audioSampleUrl: '/audio/instruments/tabla.mp3',
     envelope: 'percussive',
     facts: {
       contribution: "Adds the rhythmic heartbeat of Singapore's Indian community to its musical identity.",
@@ -121,20 +125,93 @@ export const INSTRUMENTS = [
       whenPlayed: 'Indian classical concerts, Deepavali celebrations, and devotional music.',
     },
     icon: '🪘',
-    id: 'tabla',
     melody: ['Dha', 'Ge', 'Na', 'Tin', 'Na', 'Dha'],
-    name: 'Tabla',
     notes: [
       { frequency: 130.81, key: 'a', label: 'Dha' },
       { frequency: 164.81, key: 's', label: 'Ge' },
       { frequency: 196, key: 'd', label: 'Na' },
       { frequency: 261.63, key: 'f', label: 'Tin' },
     ],
-    origin: 'Indian heritage, South Asia',
     waveform: 'sine',
+  },
+  {
+    id: 'dizi',
+    name: 'Dizi',
+    origin: 'Chinese heritage',
+    description: 'A Chinese bamboo flute with a special membrane called dimo that produces a bright, buzzing timbre.',
+    audioUrl: '/audio/instruments/dizi.mp3',
+    audioSampleUrl: '/audio/instruments/dizi.mp3',
+    envelope: 'sustained',
+    facts: {
+      contribution: 'Adds crisp, soaring melodies to Singaporean Chinese orchestra compositions.',
+      historicalFact: 'The dimo membrane made from reed tissue gives the Dizi its signature buzzing acoustic texture.',
+      origin: 'Traditional Chinese woodwind instrument.',
+      role: 'Main melodic woodwind in ensembles.',
+      whenPlayed: 'Festive celebrations, orchestral works, and solo performances.',
+    },
+    icon: '🪈',
+    melody: ['A4', 'C5', 'D5', 'E5', 'D5', 'C5', 'A4'],
+    notes: [
+      { frequency: 440, key: 'a', label: 'A4' },
+      { frequency: 523.25, key: 's', label: 'C5' },
+      { frequency: 587.33, key: 'd', label: 'D5' },
+      { frequency: 659.25, key: 'f', label: 'E5' },
+    ],
+    waveform: 'triangle',
+  },
+  {
+    id: 'veena',
+    name: 'Veena',
+    origin: 'Indian heritage, South Asia',
+    description: 'A large plucked string instrument with frets and resonator gourds, central to Carnatic classical music.',
+    audioUrl: '/audio/instruments/veena.mp3',
+    audioSampleUrl: '/audio/instruments/veena.mp3',
+    envelope: 'sustained',
+    facts: {
+      contribution: 'Enriches Carnatic classical recitals and Indian cultural programs in Singapore.',
+      historicalFact: 'Associated with Saraswati, the goddess of music, arts, and knowledge.',
+      origin: 'Ancient South Indian stringed instrument.',
+      role: 'Primary melodic soloist in Carnatic music.',
+      whenPlayed: 'Temple recitals, classical concerts, and cultural festivals.',
+    },
+    icon: '🪕',
+    melody: ['Sa', 'Re', 'Ga', 'Ma', 'Pa', 'Dha', 'Ni'],
+    notes: [
+      { frequency: 261.63, key: 'a', label: 'Sa' },
+      { frequency: 293.66, key: 's', label: 'Re' },
+      { frequency: 329.63, key: 'd', label: 'Ga' },
+      { frequency: 349.23, key: 'f', label: 'Ma' },
+    ],
+    waveform: 'sawtooth',
+  },
+  {
+    id: 'gambus',
+    name: 'Gambus',
+    origin: 'Malay heritage, Middle Eastern origin',
+    description: 'A short-necked lute used in Malay Ghazal and Zapin musical genres across Southeast Asia.',
+    audioUrl: '/audio/instruments/gambus.mp3',
+    audioSampleUrl: '/audio/instruments/gambus.mp3',
+    envelope: 'sustained',
+    facts: {
+      contribution: 'Integral to traditional Malay Zapin dance music and Ghazal performances in Singapore.',
+      historicalFact: 'Derived from the Middle Eastern Oud and adapted into Malay folk music centuries ago.',
+      origin: 'Malay / Middle Eastern heritage.',
+      role: 'Leads melodic accompaniment for traditional dances.',
+      whenPlayed: 'Cultural galas, Malay heritage festivals, and wedding Zapin performances.',
+    },
+    icon: '🪕',
+    melody: ['C3', 'F3', 'G3', 'C4', 'G3', 'F3'],
+    notes: [
+      { frequency: 130.81, key: 'a', label: 'C3' },
+      { frequency: 174.61, key: 's', label: 'F3' },
+      { frequency: 196, key: 'd', label: 'G3' },
+      { frequency: 261.63, key: 'f', label: 'C4' },
+    ],
+    waveform: 'triangle',
   },
 ]
 
 export function getInstrumentById(id) {
   return INSTRUMENTS.find((instrument) => instrument.id === id)
 }
+

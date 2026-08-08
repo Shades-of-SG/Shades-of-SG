@@ -1,9 +1,51 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen } from 'lucide-react'
+import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen, Play, Pause } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import { useAuth } from '../context/AuthContext'
 import { getSongCuration, updateSongCuration, generateSongArticle, generateSongTrivia } from '../services/songService'
+import { INSTRUMENTS } from '../data/instruments'
+
+function prepareDeduplicatedInstruments(apiInstruments = []) {
+  const seenMap = new Map()
+
+  // 1. Prioritize database-driven instruments
+  apiInstruments.forEach((inst) => {
+    const rawKey = inst.id || inst.name || ''
+    const canonicalKey = rawKey.toString().toLowerCase().trim()
+
+    const matchingStatic = INSTRUMENTS.find(
+      (s) => s.id === canonicalKey || s.name.toLowerCase() === (inst.name || '').toLowerCase()
+    )
+
+    const finalId = inst.id || matchingStatic?.id || canonicalKey
+    const finalKey = (matchingStatic?.id || canonicalKey).toLowerCase()
+
+    seenMap.set(finalKey, {
+      id: finalId,
+      name: inst.name || matchingStatic?.name || 'Instrument',
+      origin: inst.origin || matchingStatic?.origin || 'Heritage Instrument',
+      description: inst.description || matchingStatic?.description || '',
+      icon: inst.icon || matchingStatic?.icon || '🎵',
+      audioUrl: inst.audioUrl || matchingStatic?.audioUrl || `/audio/instruments/${finalKey}.mp3`,
+      audioSampleUrl: inst.audioSampleUrl || matchingStatic?.audioSampleUrl || `/audio/instruments/${finalKey}.mp3`,
+    })
+  })
+
+  // 2. Fallback: add remaining static instruments if not yet in map
+  INSTRUMENTS.forEach((inst) => {
+    const canonicalKey = (inst.id || inst.name).toString().toLowerCase().trim()
+    if (!seenMap.has(canonicalKey)) {
+      seenMap.set(canonicalKey, {
+        ...inst,
+        audioUrl: inst.audioUrl || `/audio/instruments/${canonicalKey}.mp3`,
+        audioSampleUrl: inst.audioSampleUrl || `/audio/instruments/${canonicalKey}.mp3`,
+      })
+    }
+  })
+
+  return Array.from(seenMap.values())
+}
 
 export default function CreatorCuration() {
   const { songId } = useParams()
@@ -25,6 +67,34 @@ export default function CreatorCuration() {
   
   const [generatingArticle, setGeneratingArticle] = useState(false)
   const [generatingTrivia, setGeneratingTrivia] = useState(false)
+
+  const [activePreviewId, setActivePreviewId] = useState(null)
+  const currentAudioRef = useRef(null)
+
+  const playAudioPreview = (audioUrl, instId) => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current = null
+    }
+
+    if (activePreviewId === instId) {
+      setActivePreviewId(null)
+      return
+    }
+
+    const audio = new Audio(audioUrl)
+    currentAudioRef.current = audio
+    setActivePreviewId(instId)
+
+    audio.play().catch(() => {
+      setActivePreviewId(null)
+    })
+
+    audio.onended = () => {
+      setActivePreviewId(null)
+      currentAudioRef.current = null
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -56,7 +126,8 @@ export default function CreatorCuration() {
               }))
             : []
         )
-        setAllInstruments(data.allInstruments || [])
+        const loadedInsts = prepareDeduplicatedInstruments(data.allInstruments || [])
+        setAllInstruments(loadedInsts)
         const associatedIds = (data.associatedInstruments || []).map((inst) => inst.id)
         setSelectedInstrumentIds(associatedIds)
         if (data.latestJobId) setLatestJobId(data.latestJobId)
@@ -560,12 +631,14 @@ export default function CreatorCuration() {
             {allInstruments.length === 0 ? (
               <p style={{ color: '#64748b' }}>No instruments available in catalog.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
                 {allInstruments.map((inst) => {
                   const isSelected = selectedInstrumentIds.includes(inst.id)
+                  const audioPath = inst.audioUrl || inst.audioSampleUrl || inst.sampleUrl || `/audio/instruments/${inst.id || inst.name.toLowerCase()}.mp3`
+
                   return (
                     <div
-                      key={inst.id}
+                      key={inst.id || inst.name}
                       onClick={() => handleToggleInstrument(inst.id)}
                       style={{
                         backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(30, 41, 59, 0.4)',
@@ -576,7 +649,7 @@ export default function CreatorCuration() {
                         transition: 'all 0.2s ease',
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '0.75rem'
+                        gap: '0.75rem',
                       }}
                     >
                       <input
@@ -586,16 +659,49 @@ export default function CreatorCuration() {
                         style={{ accentColor: '#8b5cf6', width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
                       />
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ color: isSelected ? '#a78bfa' : '#f8fafc', fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
-                          {inst.name}
-                        </h4>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '1.25rem' }}>{inst.icon || '🎵'}</span>
+                          <h4 style={{ color: isSelected ? '#a78bfa' : '#f8fafc', fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
+                            {inst.name}
+                          </h4>
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
                           {inst.origin || 'Heritage Instrument'}
                         </span>
                         {inst.description && (
                           <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                             {inst.description}
                           </p>
+                        )}
+                        {audioPath && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              playAudioPreview(audioPath, inst.id)
+                            }}
+                            style={{
+                              marginTop: '0.75rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              backgroundColor: activePreviewId === inst.id ? 'rgba(168, 85, 247, 0.3)' : 'rgba(15, 23, 42, 0.6)',
+                              border: '1px solid rgba(139, 92, 246, 0.4)',
+                              color: '#c084fc',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {activePreviewId === inst.id ? (
+                              <><Pause className="w-3 h-3 text-purple-300" /> Playing Sample</>
+                            ) : (
+                              <><Play className="w-3 h-3 text-purple-400" /> Preview Sample</>
+                            )}
+                          </button>
                         )}
                       </div>
                     </div>
