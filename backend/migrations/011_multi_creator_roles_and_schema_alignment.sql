@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Multi-creator roles and isolation
+-- Purpose: Adds administrator/account states and ownership-supporting indexes
+
 -- Forward-only multi-creator role and schema alignment.
 -- This migration preserves every existing row.
 

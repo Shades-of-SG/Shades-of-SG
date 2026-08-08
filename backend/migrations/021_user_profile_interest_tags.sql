@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Profile interests
+-- Purpose: Adds validated canonical cultural-interest tags
+
 -- Optional, canonical cultural interests for shared user profiles.
 -- Existing profiles remain valid and receive an empty selection.
 alter table user_profiles

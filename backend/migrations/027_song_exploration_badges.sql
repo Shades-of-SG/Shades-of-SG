@@ -1,3 +1,7 @@
+-- Owner: Shermaine
+-- Feature area: Song exploration badges
+-- Purpose: Tracks distinct explored songs and seeds exploration awards
+
 -- Tracks the distinct songs a user has explored (visited the song detail page for), so we can
 -- award "explore N songs" badges without double-counting repeat visits to the same song.
 

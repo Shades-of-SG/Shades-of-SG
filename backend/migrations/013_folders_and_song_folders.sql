@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Song collections
+-- Purpose: Creates folders and approved song-folder placements
+
 create table if not exists folders (
     id uuid primary key default gen_random_uuid(),
     name varchar(255) not null,

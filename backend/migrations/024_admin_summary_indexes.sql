@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Admin dashboard and safety summaries
+-- Purpose: Adds indexes for user, reflection, warning, and moderation summaries
+
 begin;
 
 create index if not exists users_role_account_status_idx

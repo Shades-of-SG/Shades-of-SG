@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Authentication and creator onboarding
+-- Purpose: Adds email verification, OTP security, and application fields
+
 -- Forward-only authentication and onboarding hardening. Preserves existing users.
 
 begin;

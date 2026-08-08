@@ -1,3 +1,7 @@
+-- Owner: Shermaine
+-- Feature area: Badges, login streaks, and instrument challenges
+-- Purpose: Adds streak fields, unique badge awards, and challenge progress
+
 -- Login-streak tracking, race-safe badge awarding, and instrument-challenge progress.
 
 alter table users add column if not exists last_active_date date;

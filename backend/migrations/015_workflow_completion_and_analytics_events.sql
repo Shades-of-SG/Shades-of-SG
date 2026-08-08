@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Creator/admin workflow completion and analytics
+-- Purpose: Completes applications and folders and adds analytics events
+
 -- Forward-only workflow completion. Preserves every existing row.
 
 begin;

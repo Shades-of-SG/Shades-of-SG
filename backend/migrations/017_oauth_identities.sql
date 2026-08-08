@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: OAuth authentication
+-- Purpose: Stores stable Google and Apple identity links without provider tokens
+
 -- Store stable provider subject identifiers without exposing provider tokens.
 
 begin;

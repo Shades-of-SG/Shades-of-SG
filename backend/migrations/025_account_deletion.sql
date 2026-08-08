@@ -1,3 +1,7 @@
+-- Owner: Lia Insyirah
+-- Feature area: Account settings and deletion
+-- Purpose: Adds the legacy soft-delete state later superseded by hard deletion
+
 -- Adds a soft-delete account status. Deleting an account never removes rows;
 -- it marks the user row as deleted, which blocks login/API access the same
 -- way a suspension does, and stops the profile resolving publicly.

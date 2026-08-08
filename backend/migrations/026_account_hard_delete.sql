@@ -1,3 +1,7 @@
+-- Owner: Lia Insyirah
+-- Feature area: Account deletion and retained audit history
+-- Purpose: Makes historical actor references compatible with hard deletion
+
 -- Account deletion is now a hard delete (see backend/services/accountDeletionService.js).
 -- Every row that references the deleted user is either destroyed explicitly by
 -- that service, or -- for audit/history rows that should survive the person

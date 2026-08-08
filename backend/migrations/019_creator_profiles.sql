@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Public creator profiles
+-- Purpose: Adds creator biography, visibility, and social profile data
+
 -- Public creator biography data is intentionally separated from account/security data.
 -- The API remains the only browser-facing data-access layer; this project does not use
 -- Supabase client queries, so ownership and public-field filtering are enforced in Express.

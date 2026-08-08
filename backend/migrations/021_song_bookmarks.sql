@@ -1,3 +1,7 @@
+-- Owner: Lia Insyirah
+-- Feature area: Song discovery and bookmarks
+-- Purpose: Adds per-user saved songs
+
 create table if not exists song_bookmarks (
     user_id uuid not null references users(id) on delete cascade,
     song_id uuid not null references songs(id) on delete cascade,

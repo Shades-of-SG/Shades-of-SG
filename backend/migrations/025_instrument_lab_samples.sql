@@ -1,3 +1,7 @@
+-- Owner: Shermaine
+-- Feature area: Instrument Discovery Lab
+-- Purpose: Adds playable sample maps and source attribution metadata
+
 -- Real audio samples for the Instrument Discovery Lab.
 -- Reuses the existing (until now unused-for-this-purpose) instruments table:
 -- `slug` gives lab instruments (piano, angklung, kompang, erhu, tabla) a stable

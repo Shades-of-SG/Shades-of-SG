@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Creator applications
+-- Purpose: Creates the initial creator application workflow
+
 create table if not exists creator_applications (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references users(id) on delete restrict,

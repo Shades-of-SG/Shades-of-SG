@@ -1,3 +1,7 @@
+-- Owner: Shermaine
+-- Feature area: Badge catalog
+-- Purpose: Creates and seeds canonical badge display metadata
+
 -- Single source of truth for badge catalog metadata (name, description, category, sticker art),
 -- so display metadata no longer lives duplicated in frontend/backend JS.
 -- Earning conditions (login streak thresholds etc.) remain in backend/services/badgeCatalog.js

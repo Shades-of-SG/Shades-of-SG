@@ -1,3 +1,7 @@
+-- Owner: Shared - Ferlyn Ng and Htet Aung
+-- Feature area: Creator-managed rhythm beatmaps
+-- Purpose: Creates versioned draft, published, and failed beatmaps
+
 CREATE TABLE IF NOT EXISTS rhythm_beatmaps (
   beatmap_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,

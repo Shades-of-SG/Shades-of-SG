@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Reflection Wall guest posting
+-- Purpose: Adds anonymous/profile display mode and guest-submission tracking
+
 alter table reflections
     add column if not exists display_mode varchar(32) not null default 'ANONYMOUS'
         check (display_mode in ('PROFILE', 'ANONYMOUS'));

@@ -1,3 +1,7 @@
+-- Owner: Lia Insyirah
+-- Feature area: Song reporting and admin content review
+-- Purpose: Creates authenticated song reports and their review state
+
 create table if not exists song_reports (
     id uuid primary key default gen_random_uuid(),
     user_id uuid not null references users(id) on delete cascade,

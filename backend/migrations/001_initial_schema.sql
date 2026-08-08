@@ -1,3 +1,7 @@
+-- Owner: Shared - Ferlyn Ng and Htet Aung
+-- Feature area: Core platform schema
+-- Purpose: Creates the initial users, songs, learning, community, score, and generation tables
+
 create extension if not exists "pgcrypto";
 
 create table if not exists users (

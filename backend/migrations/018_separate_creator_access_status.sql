@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Account and creator-mode access
+-- Purpose: Separates creator-tool suspension from whole-account suspension
+
 -- Separate creator-tool access from whole-account access without deleting or
 -- rewriting creator-owned content. Existing users default to active creator
 -- access, and legacy creator-only suspensions are migrated when audit history

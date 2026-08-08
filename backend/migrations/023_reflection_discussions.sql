@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Reflection Wall discussions
+-- Purpose: Adds authenticated comments and likes to reflections
+
 -- Padlet-style discussion support for approved reflections.
 -- Additive only: existing reflection and user data is preserved.
 create table if not exists reflection_comments (

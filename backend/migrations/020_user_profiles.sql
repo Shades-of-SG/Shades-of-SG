@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: User profiles and privacy
+-- Purpose: Adds shared identity, preferences, accessibility, and visibility data
+
 -- Shared identity, privacy, and display preferences for registered users and creators.
 -- Account credentials and role/access state remain in users; creator biography fields
 -- remain in creator_public_profiles.

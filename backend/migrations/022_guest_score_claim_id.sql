@@ -1,3 +1,7 @@
+-- Owner: Ferlyn Ng
+-- Feature area: Rhythm guest-score claiming
+-- Purpose: Adds an idempotency key for authenticated guest-result claims
+
 -- Idempotency key for authenticated claims of temporary guest rhythm results.
 -- Existing attempts remain unchanged because the column is nullable.
 alter table game_scores
