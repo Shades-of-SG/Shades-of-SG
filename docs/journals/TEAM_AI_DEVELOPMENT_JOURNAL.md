@@ -671,7 +671,7 @@ No direct user code modifications were made in this step.
 
 ### Final Outcome
 
-Rose can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
+Creator can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
 
 After successful login:
 

@@ -398,8 +398,12 @@ export default function CreatorGenerationJobs() {
                   >
                     <Trash2 aria-hidden="true" size={18} />
                   </button>
-                  <button className="studio-button studio-button--secondary" onClick={() => navigate(`/creator/generation/${job.id}`)} type="button">
-                    View Status
+                  <button
+                    className="studio-button studio-button--secondary"
+                    onClick={() => navigate(job.status.toLowerCase() === 'completed' ? `/creator/editor/${job.id}` : `/creator/generation/${job.id}`)}
+                    type="button"
+                  >
+                    {job.status.toLowerCase() === 'completed' ? 'Open Video Editor' : 'View Status'}
                   </button>
                 </div>
               </div>
