@@ -148,11 +148,35 @@ export default function CreatorCuration() {
     )
   }
 
+  const getInstrumentKeys = (inst) => {
+    if (!inst) return []
+    const keys = new Set()
+    if (inst.dbId) keys.add(String(inst.dbId))
+    if (inst.id) keys.add(String(inst.id))
+    if (inst.slug) keys.add(String(inst.slug))
+    if (inst.name) keys.add(inst.name.toLowerCase())
+    return Array.from(keys)
+  }
+
+  const isInstSelected = (inst, selectedIds) => {
+    const keys = getInstrumentKeys(inst)
+    return selectedIds.some((selectedId) => keys.includes(String(selectedId).toLowerCase()))
+  }
+
   const handleToggleInstrument = (inst) => {
-    const targetId = typeof inst === 'object' && inst ? (inst.dbId || inst.id) : inst
-    setSelectedInstrumentIds((prev) =>
-      prev.includes(targetId) ? prev.filter((id) => id !== targetId) : [...prev, targetId]
-    )
+    if (!inst) return
+    const keys = getInstrumentKeys(typeof inst === 'object' ? inst : { id: inst })
+    setSelectedInstrumentIds((prev) => {
+      const isCurrentlySelected = prev.some((selectedId) =>
+        keys.includes(String(selectedId).toLowerCase())
+      )
+      if (isCurrentlySelected) {
+        return prev.filter((selectedId) => !keys.includes(String(selectedId).toLowerCase()))
+      } else {
+        const canonicalId = inst.dbId || inst.id || inst
+        return [...prev, canonicalId]
+      }
+    })
   }
 
   const handleSave = async (e) => {
@@ -160,12 +184,16 @@ export default function CreatorCuration() {
     try {
       setSaving(true)
 
-      const resolvedInstrumentIds = selectedInstrumentIds.map((id) => {
-        const match = allInstruments.find(
-          (db) => db.id === id || db.name?.toLowerCase() === String(id).toLowerCase() || (db.slug && db.slug.toLowerCase() === String(id).toLowerCase())
-        )
-        return match ? match.id : id
-      })
+      const resolvedInstrumentIds = selectedInstrumentIds
+        .map((id) => {
+          const match = allInstruments.find(
+            (db) => db.id === id || db.name?.toLowerCase() === String(id).toLowerCase() || (db.slug && db.slug.toLowerCase() === String(id).toLowerCase())
+          )
+          return match ? match.id : id
+        })
+        .filter(Boolean)
+
+      const uniqueResolvedIds = Array.from(new Set(resolvedInstrumentIds))
 
       const payload = {
         aiSummary,
@@ -176,7 +204,7 @@ export default function CreatorCuration() {
           options: q.options,
           correctAnswer: q.correctAnswer || q.options[0] || '',
         })),
-        instrumentIds: resolvedInstrumentIds,
+        instrumentIds: uniqueResolvedIds,
       }
 
       const res = await updateSongCuration(songId, payload, token)
@@ -581,7 +609,7 @@ export default function CreatorCuration() {
           <header className="studio-card__header">
             <div className="studio-card__title">
               <Music2 className="w-5 h-5 text-violet-400" />
-              <h2>Featured Heritage Instruments ({selectedInstrumentIds.length} Selected)</h2>
+              <h2>Featured Heritage Instruments ({curatedInstruments.filter((inst) => isInstSelected(inst, selectedInstrumentIds)).length} Selected)</h2>
             </div>
           </header>
 
@@ -595,7 +623,7 @@ export default function CreatorCuration() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
                 {curatedInstruments.map((inst) => {
-                  const isSelected = selectedInstrumentIds.includes(inst.dbId) || selectedInstrumentIds.includes(inst.id)
+                  const isSelected = isInstSelected(inst, selectedInstrumentIds)
 
                   return (
                     <div
