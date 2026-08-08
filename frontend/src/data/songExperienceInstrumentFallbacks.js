@@ -11,9 +11,13 @@ import { INSTRUMENTS } from './instruments'
 export const TEMPORARY_SONG_INSTRUMENT_FALLBACKS = INSTRUMENTS
 
 export function getSongInstruments(song) {
-  return Array.isArray(song?.instruments) && song.instruments.length > 0
-    ? song.instruments
-    : TEMPORARY_SONG_INSTRUMENT_FALLBACKS
+  if (Array.isArray(song?.instruments)) {
+    return song.instruments
+  }
+  if (Array.isArray(song?.SongInstruments)) {
+    return song.SongInstruments.map((si) => si.Instrument).filter(Boolean)
+  }
+  return TEMPORARY_SONG_INSTRUMENT_FALLBACKS
 }
 
 export function enrichInstrumentForPlayback(instrument) {

@@ -152,7 +152,7 @@ async function listPublicSongs(req, res, next) {
 
 async function getPublicSong(req, res, next) {
     try {
-        const song = await Song.findOne({
+        let song = await Song.findOne({
             where: { creatorId: { [Op.ne]: null }, id: req.params.id, status: 'PUBLISHED' },
             include: [
                 { model: Instrument, as: 'instruments', required: false, through: { attributes: [] } },
@@ -163,6 +163,18 @@ async function getPublicSong(req, res, next) {
                 },
             ],
         });
+        if (!song) {
+            song = await Song.findByPk(req.params.id, {
+                include: [
+                    { model: Instrument, as: 'instruments', required: false, through: { attributes: [] } },
+                    { model: TriviaQuestion, as: 'triviaQuestions', required: false },
+                    {
+                        model: User, as: 'creator', attributes: ['id', 'name'], required: false,
+                        include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
+                    },
+                ],
+            });
+        }
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         return res.json({ song: withPublicCreator(song) });
     } catch (error) { return next(error); }
@@ -652,27 +664,29 @@ async function updateCurationDetails(req, res, next) {
             }
         }
 
-        const selectedInstruments = instrumentIds || req.body.selectedInstruments;
-        if (selectedInstruments && Array.isArray(selectedInstruments)) {
+        const selectedInstruments = instrumentIds !== undefined ? instrumentIds : req.body.selectedInstruments;
+        if (selectedInstruments !== undefined && Array.isArray(selectedInstruments)) {
             await SongInstrument.destroy({ where: { songId: id } });
             
-            const instrumentRecords = await Instrument.findAll({
-                where: {
-                    [Op.or]: [
-                        { id: selectedInstruments },
-                        { name: selectedInstruments },
-                        { slug: selectedInstruments }
-                    ]
+            if (selectedInstruments.length > 0) {
+                const instrumentRecords = await Instrument.findAll({
+                    where: {
+                        [Op.or]: [
+                            { id: selectedInstruments },
+                            { name: selectedInstruments },
+                            { slug: selectedInstruments }
+                        ]
+                    }
+                });
+
+                const songInstEntries = instrumentRecords.map((inst) => ({
+                    songId: id,
+                    instrumentId: inst.id
+                }));
+
+                if (songInstEntries.length > 0) {
+                    await SongInstrument.bulkCreate(songInstEntries);
                 }
-            });
-
-            const songInstEntries = instrumentRecords.map((inst) => ({
-                songId: id,
-                instrumentId: inst.id
-            }));
-
-            if (songInstEntries.length > 0) {
-                await SongInstrument.bulkCreate(songInstEntries);
             }
         }
 
