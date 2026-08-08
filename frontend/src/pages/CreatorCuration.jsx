@@ -31,20 +31,17 @@ export default function CreatorCuration() {
   const [generatingArticle, setGeneratingArticle] = useState(false)
   const [generatingTrivia, setGeneratingTrivia] = useState(false)
 
-  // Merge DB instrument records (UUIDs) with lab instruments (notes & sample audio buffers)
-  const mergedInstruments = allInstruments.map((dbInst) => {
-    const labInst = labInstruments.find(
-      (l) => l.id === dbInst.id || l.id === dbInst.slug || l.name.toLowerCase() === dbInst.name.toLowerCase()
+  // Derive display instruments strictly from labInstruments (the exact set on /learning/instrument-lab)
+  const curatedInstruments = labInstruments.map((labInst) => {
+    // Find matching backend DB record if available to get the proper UUID for form submission
+    const dbMatch = allInstruments.find(
+      (db) => db.id === labInst.id || db.name?.toLowerCase() === labInst.name?.toLowerCase()
     )
     return {
-      ...dbInst,
-      ...(labInst || {}),
-      dbId: dbInst.id, // Preserve backend UUID for selection
+      ...labInst,
+      dbId: dbMatch ? dbMatch.id : labInst.id,
     }
   })
-
-  // Fall back to labInstruments if database list is empty
-  const displayInstruments = mergedInstruments.length > 0 ? mergedInstruments : labInstruments
 
   const handlePreviewInstrument = (e, inst) => {
     e.stopPropagation()
@@ -151,9 +148,10 @@ export default function CreatorCuration() {
     )
   }
 
-  const handleToggleInstrument = (instId) => {
+  const handleToggleInstrument = (inst) => {
+    const targetId = typeof inst === 'object' && inst ? (inst.dbId || inst.id) : inst
     setSelectedInstrumentIds((prev) =>
-      prev.includes(instId) ? prev.filter((id) => id !== instId) : [...prev, instId]
+      prev.includes(targetId) ? prev.filter((id) => id !== targetId) : [...prev, targetId]
     )
   }
 
@@ -584,18 +582,17 @@ export default function CreatorCuration() {
               Select the Singaporean/Regional heritage instruments associated with this song:
             </p>
 
-            {displayInstruments.length === 0 ? (
+            {curatedInstruments.length === 0 ? (
               <p style={{ color: '#64748b' }}>No instruments available in catalog.</p>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
-                {displayInstruments.map((inst) => {
-                  const instId = inst.dbId || inst.id
-                  const isSelected = selectedInstrumentIds.includes(instId)
+                {curatedInstruments.map((inst) => {
+                  const isSelected = selectedInstrumentIds.includes(inst.dbId) || selectedInstrumentIds.includes(inst.id)
 
                   return (
                     <div
-                      key={instId || inst.name}
-                      onClick={() => handleToggleInstrument(instId)}
+                      key={inst.dbId || inst.id}
+                      onClick={() => handleToggleInstrument(inst)}
                       style={{
                         backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(30, 41, 59, 0.4)',
                         border: `1.5px solid ${isSelected ? '#8b5cf6' : 'rgba(51, 65, 85, 0.5)'}`,
@@ -624,7 +621,12 @@ export default function CreatorCuration() {
                           </div>
                           <button
                             type="button"
-                            onClick={(e) => handlePreviewInstrument(e, inst)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (inst.notes && inst.notes.length > 0) {
+                                playNote(inst, inst.notes[0])
+                              }
+                            }}
                             style={{
                               background: 'rgba(139, 92, 246, 0.2)',
                               border: '1px solid rgba(139, 92, 246, 0.4)',
@@ -633,10 +635,7 @@ export default function CreatorCuration() {
                               padding: '0.2rem 0.5rem',
                               fontSize: '0.75rem',
                               fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.25rem'
+                              cursor: 'pointer'
                             }}
                           >
                             🔊 Preview
