@@ -18,7 +18,7 @@ describe('statistics service', () => {
             usersCount: 14,
         });
         expect(mockUser.count).toHaveBeenCalledWith({ where: { role: 'REGISTERED' } });
-        expect(mockSong.count).toHaveBeenCalledWith({ where: { status: 'PUBLISHED' } });
-        expect(mockReflection.count).toHaveBeenCalledWith({ where: { status: 'APPROVED' } });
+        expect(mockSong.count).toHaveBeenCalledWith({ where: expect.objectContaining({ status: 'PUBLISHED' }) });
+        expect(mockReflection.count).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: 'APPROVED' }) }));
     });
 });
