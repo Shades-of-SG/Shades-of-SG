@@ -78,7 +78,13 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
 
   const normalizeKey = (str) => {
     if (!str || typeof str !== 'string') return ''
-    return str.toLowerCase().replace(/\[.*?\]/g, '').replace(/[^a-z0-9]/g, '').trim()
+    return str
+      .toLowerCase()
+      .replace(/\[.*?\]/g, '')       // Remove bracketed headers like [Chorus] or [Music]
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[^a-z0-9\s]/g, '')   // Strip all punctuation and unicode symbols/emojis
+      .replace(/\s+/g, ' ')          // Collapse whitespace
+      .trim()
   }
 
   const syncChorusPrompts = useCallback((scenes) => {
@@ -86,7 +92,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
     scenes.forEach(s => {
       const lyrics = (s.pills.map(p => p.text).join(' ') || s.lyrics || '').trim()
       const key = normalizeKey(lyrics)
-      if (key && key.length > 5 && s.visualPrompt && s.visualPrompt.trim() && !chorusMap.has(key)) {
+      if (key && key.length > 0 && s.visualPrompt && s.visualPrompt.trim() && !chorusMap.has(key)) {
         chorusMap.set(key, s.visualPrompt.trim())
       }
     })
@@ -199,7 +205,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
       return prev.map((s, i) => {
         if (i === sceneIdx) return { ...s, visualPrompt: newPrompt }
         const sLyrics = (s.pills.map(p => p.text).join(' ') || s.lyrics || '').trim()
-        if (targetKey && targetKey.length > 5 && normalizeKey(sLyrics) === targetKey) {
+        if (targetKey && targetKey.length > 0 && normalizeKey(sLyrics) === targetKey) {
           return { ...s, visualPrompt: newPrompt }
         }
         return s
@@ -376,7 +382,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
               {(() => {
                 const currentLyrics = (scene.pills.map(p => p.text).join(' ') || scene.lyrics || '').trim()
                 const currentKey = normalizeKey(currentLyrics)
-                const isChorusRepeat = currentKey.length > 5 && editingScenes.some((s, idx) => {
+                const isChorusRepeat = currentKey.length > 0 && editingScenes.some((s, idx) => {
                   if (idx === sceneIdx) return false
                   const otherLyrics = (s.pills.map(p => p.text).join(' ') || s.lyrics || '').trim()
                   return normalizeKey(otherLyrics) === currentKey
