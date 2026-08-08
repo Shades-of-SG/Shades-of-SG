@@ -66,6 +66,14 @@ async function useUploadedMediaAsVideo(song) {
     if (!song.audioUrl?.trim() || !isUploadedVideoMedia(song)) return false;
     if (song.videoUrl?.trim() && song.videoUrl !== song.audioUrl) return false;
 
+    const existingJob = await GenerationJob.findOne({
+        where: {
+            songId: song.id,
+            status: ['QUEUED', 'PROCESSING', 'AWAITING_REVIEW', 'COMPLETED']
+        }
+    });
+    if (existingJob) return false;
+
     await GenerationJob.update({
         status: 'FAILED',
         errorMessage: 'AI generation stopped because the creator chose the uploaded video.',
@@ -80,7 +88,7 @@ async function useUploadedMediaAsVideo(song) {
 }
 
 async function reconcileCompletedGeneration(song, latestJob) {
-    if (latestJob?.status === 'COMPLETED' && song.videoUrl && ['DRAFT', 'GENERATING'].includes(song.status)) {
+    if (latestJob?.status === 'COMPLETED' && ['DRAFT', 'GENERATING'].includes(song.status)) {
         await song.update({ status: 'READY' });
     }
     return song;

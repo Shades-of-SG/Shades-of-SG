@@ -400,11 +400,20 @@ export default function CreatorGenerationJobs() {
                   </button>
                   <button
                     className="studio-button studio-button--secondary"
-                    onClick={() => navigate(job.status.toLowerCase() === 'completed' ? `/creator/editor/${job.id}` : `/creator/generation/${job.id}`)}
+                    onClick={() => navigate(`/creator/generation/${job.id}`)}
                     type="button"
                   >
-                    {job.status.toLowerCase() === 'completed' ? 'Open Video Editor' : 'View Status'}
+                    View Status
                   </button>
+                  {job.status.toLowerCase() === 'completed' && (
+                    <button
+                      className="studio-button studio-button--primary"
+                      onClick={() => navigate(`/creator/editor/${job.id}`)}
+                      type="button"
+                    >
+                      Open Video Editor
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
