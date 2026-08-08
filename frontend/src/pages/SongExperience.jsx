@@ -373,16 +373,18 @@ export default function SongExperience() {
             </h3>
 
             {(() => {
-              // 1. Get raw instruments attached to the song from backend
+              // Extract raw instrument list from song database model
               const rawSongInstruments =
-                song?.instruments && song.instruments.length > 0
+                song?.instruments && Array.isArray(song.instruments)
                   ? song.instruments
-                  : song?.SongInstruments?.map((si) => si.Instrument).filter(Boolean) || []
+                  : song?.SongInstruments && Array.isArray(song.SongInstruments)
+                  ? song.SongInstruments.map((si) => si.Instrument).filter(Boolean)
+                  : null
 
-              // 2. Hydrate raw instruments with working Web Audio notes & samples from useLabInstruments()
-              const hydratedSongInstruments = rawSongInstruments.map((rawInst) => {
+              // Hydrate DB instruments with active Web Audio notes and samples from useLabInstruments()
+              const hydratedSongInstruments = (rawSongInstruments || []).map((rawInst) => {
                 const labMatch = labInstruments.find(
-                  (lab) => lab.id === rawInst.id || lab.name.toLowerCase() === rawInst.name?.toLowerCase()
+                  (lab) => lab.id === rawInst.id || lab.name?.toLowerCase() === rawInst.name?.toLowerCase()
                 )
                 return {
                   ...rawInst,
@@ -390,10 +392,13 @@ export default function SongExperience() {
                 }
               })
 
-              // 3. Determine final display list
-              const finalInstruments = hydratedSongInstruments
+              // Check if DB explicitly returned an instrument array (even if empty [])
+              const hasDbRecord = rawSongInstruments !== null
 
-              // 4. Deduplicate by name/id to prevent any duplicate cards
+              // Use hydrated DB instruments if record exists; ONLY use fallback if song has no DB relation
+              const finalInstruments = hasDbRecord ? hydratedSongInstruments : []
+
+              // Deduplicate by name/id to prevent any duplicate cards
               const displayInstruments = Array.from(
                 new Map(finalInstruments.map((inst) => [inst.name?.toLowerCase() || inst.id, inst])).values()
               )
