@@ -68,3 +68,25 @@ Audited against `frontend/src/App.jsx` on the `ferlyn-continued` branch. “Back
 - All current Studio navigation points to `/creator/studio/new`; `/creator/studio` remains only for old bookmarks.
 - Admin legacy redirects set the destination tab explicitly, and each destination validates `tab` with `useTab`, falling back safely for unsupported values.
 - Page-level wrappers (`site-main`, `creator-main`, `.creator-page`, `.profile-page`, `.creator-profile`, and `.studio-page`) use the available width. Remaining `max-width` rules are confined to readable text, forms, modals, navigation bars, and the 1440px admin data canvas; none constrains the public or creator page root. `/users/:userId` now receives `site-main--wide`, matching public creator profiles.
+
+---
+
+## Backend API routes — AI Generation Pipeline
+
+All routes require `requireCreator` middleware (active creator JWT).
+
+| Method | Route | Controller | Purpose |
+|---|---|---|---|
+| GET | `/api/generation` | `getAllJobs` | List all generation jobs owned by the authenticated creator |
+| GET | `/api/generation/:id/status` | `getGenerationStatus` | Poll job status including nested song, scene segments, and generated frames |
+| POST | `/api/generation/start` | `startGeneration` | Create a QUEUED generation job for an owned DRAFT/READY song and begin the async pipeline |
+| POST | `/api/generation/retry/:jobId` | `retryGeneration` | Reset a FAILED job to PROCESSING and re-enter the pipeline |
+| POST | `/api/generation/:jobId/export` | `exportVideo` | Re-assemble video (with optional caption burn) and upload to Cloudinary |
+| POST | `/api/generation/frame/:frameId/regenerate` | `regenerateFrame` | Regenerate a single frame image using GPT Image 2 with optional user feedback prompt |
+| POST | `/api/generation/:id/edit-advanced` | `editFrameAdvanced` | Update scene visual prompt and lyrics, regenerate frame, optionally propagate to chorus siblings via normalizeCacheKey matching |
+| POST | `/api/generation/job/:jobId/assistant-command` | `handleAssistantCommand` | Send natural language command to DeepSeek AI Copilot; returns a read-only JSON patch preview |
+| POST | `/api/generation/scene/regenerate-prompt` | `regenerateSingleScenePrompt` | Generate a new visual prompt for given lyrics using DeepSeek/GPT-4o-mini |
+| POST | `/api/generation/:id/confirm-scenes` | `confirmScenes` | Accept creator-edited scenes, save SceneSegments, update transcription, and resume pipeline from Phase 3 |
+| DELETE | `/api/generation/:id` | `deleteJob` | Delete a non-processing job and its associated song, segments, and frames |
+
+Route file: [`backend/routes/aiGeneration.js`](file:///c:/Users/oxy/WebstormProjects/Shades-of-SG/backend/routes/aiGeneration.js). Controller: [`backend/controllers/generationController.js`](file:///c:/Users/oxy/WebstormProjects/Shades-of-SG/backend/controllers/generationController.js).

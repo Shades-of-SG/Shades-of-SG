@@ -239,7 +239,7 @@ Partial unique active job per song; song/date index. Introduced by 001; changed 
 
 Purpose: timestamped scene/lyric plan for a song.
 
-`id UUID` PK; `song_id UUID` required FK songs cascade; `start_time`, `end_time DOUBLE PRECISION` required; `lyrics TEXT` optional; `emotion VARCHAR(255)` optional; `visual_prompt TEXT` required; timestamps. Index `(song_id,start_time)`. Introduced by 001; indexed by 011.
+`id UUID` PK; `song_id UUID` required FK songs cascade; `start_time`, `end_time DOUBLE PRECISION` required; `lyrics TEXT` optional; `emotion VARCHAR(255)` optional; `visual_prompt TEXT` required; `blocks JSON` required default `[]`; timestamps. Index `(song_id,start_time)`. Introduced by 001; indexed by 011.
 
 ### `generated_frames`
 
