@@ -4777,3 +4777,175 @@ Public Task 1 was recovered on a safe integration branch without deleting `main`
 ### Lesson
 
 A conflict-free merge can still be destructive when the incoming commit intentionally deletes files. Tree and ancestry audits, dry merges, baseline comparisons, and focused integration branches provide stronger evidence of safety than Git's conflict count alone.
+
+---
+
+## 2026-08-07 — DeepSeek Song Sections and Formatted Studio Lyrics
+
+### AI Tool Used
+
+Codex.
+
+### Objective
+
+Evaluate whether DeepSeek could replace the existing OpenAI models, then use it specifically for Creator Studio lyric-section recommendations and rhythm beatmap generation while retaining a suitable transcription provider.
+
+### Context
+
+The project used separate AI paths for beatmap generation, audio transcription, and video scene planning. I wanted to reduce the relevant GPT usage but later narrowed the task to lyrics and section labels in Creator Studio rather than changing the video planner.
+
+### Prompt Summary
+
+I first asked Codex how to replace the OpenAI model used for beatmap and song extraction with DeepSeek V4 Pro. After the provider audit, I instructed it to ignore video-planner and lyric-stanza scene work, focus on section extraction for the Creator Studio lyrics page, update the displayed lyrics after labels were extracted or edited, and propagate the formatted lyrics anywhere song details are shown.
+
+### AI Output
+
+Codex found that beatmaps and scene planning used text-generation models, while transcription used OpenAI Whisper's audio endpoint. It advised that DeepSeek could replace text generation but not the timestamped audio transcription path. The implementation therefore separated the providers: Whisper remains responsible for transcription, and DeepSeek produces editable song-section recommendations and rhythm beatmaps. Strict JSON parsing, validation, and one controlled retry were added for structured DeepSeek responses.
+
+The backend gained owner-only song-section APIs and persistence through migration 028. The Studio gained an editable section card, protected confirmed edits from accidental regeneration, and passed confirmed sections into beatmap generation. After my follow-up, section extraction and editing also rebuild `rawLyrics` with labels such as `[Verse 1]` and `[Chorus 1]`. The formatted lyrics update immediately in Studio and are returned consistently by Studio, My Songs, public song-detail, and game-detail APIs. Video-planner GPT-4o usage was left unchanged as requested.
+
+The session's direct push attempt stopped because the GitHub CLI authentication had expired and local `main` was behind the remote. Git history later records the feature in commit `2f2cb68`, created shortly after midnight on 8 August.
+
+### My Review and Decisions
+
+I narrowed the scope after the initial model audit and explicitly excluded the video scene planner. I accepted a mixed-provider design because DeepSeek did not provide the timestamped audio-transcription endpoint needed by the current workflow. I also required saved section edits to become the visible lyrics everywhere rather than remaining isolated recommendation metadata.
+
+### Files Created
+
+- `backend/controllers/songSectionsController.js`
+- `backend/migrations/028_song_section_recommendations.sql`
+- `backend/services/deepseekClient.js`
+- `backend/services/deepseekJsonService.js`
+- `backend/services/songSectionService.js`
+- `backend/services/whisperClient.js`
+- `backend/tests/providerClients.test.js`
+- `backend/tests/songSectionService.test.js`
+- `backend/tests/songSections.test.js`
+- `frontend/src/components/studio/SongSectionsCard.jsx`
+- `frontend/src/components/studio/SongSectionsCard.test.jsx`
+
+### Files Modified
+
+- `README.md`
+- `backend/.env.example`
+- `backend/controllers/songController.js`
+- `backend/models/Song.js`
+- `backend/routes/songs.js`
+- `backend/routes/transcriptions.js`
+- `backend/services/beatmapGenerator.js`
+- `backend/services/schemaService.js`
+- `backend/services/transcriptionService.js`
+- `backend/tests/beatmaps.test.js`
+- `backend/tests/transcriptionService.test.js`
+- `frontend/src/App.css`
+- `frontend/src/components/studio/LyricsCard.jsx`
+- `frontend/src/pages/Studio.jsx`
+- `frontend/src/services/songService.js`
+
+### Verification Performed
+
+- The provider and section implementation recorded forty-three focused backend tests and eight frontend section/beatmap tests passing.
+- Frontend lint and the production build passed.
+- No paid provider requests were made because the AI providers were mocked in tests.
+- The formatted-lyrics follow-up recorded thirty-seven relevant backend tests and three frontend component tests passing, together with frontend lint and the production build.
+- The full backend run still had two unrelated stale badge-count assertions, and four existing frontend App tests failed during authentication/profile refresh.
+- The unrelated image file identified during the session was not modified by Codex.
+
+### Final Outcome
+
+Creator Studio gained persisted, editable DeepSeek song-section recommendations and consistently formatted lyrics, while Whisper remained responsible for timestamped transcription and the unrelated video-planner path stayed unchanged.
+
+### Remaining Work
+
+- Configure the separate OpenAI transcription and DeepSeek environment variables in deployment.
+- Apply migration 028 through the project's managed migration process.
+- Restart or redeploy the backend and verify the workflow with a real uploaded song.
+- Resolve the unrelated baseline test failures separately.
+
+### Lesson
+
+Replacing an AI model requires tracing each task to its actual modality and API contract. A text-generation provider can improve structured lyric analysis without being a valid substitute for timestamped speech-to-text.
+
+---
+
+## 2026-08-08 — Song Library Filter Repair and Documentation Audit
+
+### AI Tool Used
+
+Codex.
+
+### Objective
+
+Fix the Song Library filter control overlap, then reorganise and update the project documentation while preserving original document structures, implementation accuracy, and evidence-based team attribution.
+
+### Context
+
+One Codex session addressed a visible filter-bar layering problem. A separate documentation session inspected the current repository, moved related documents into a clearer hierarchy, updated major project records, and added migration ownership headers. The first documentation revision changed some original formats too heavily, so I directed Codex to retrieve the pre-edit versions from Git and correct the work in place.
+
+### Prompt Summary
+
+I asked Codex to place the filter menu beside the sort arrows and confirm that its functions still worked. For documentation, I requested a repository-wide audit based on current frontend, backend, migrations, and Git history; safe file moves; updates to design, implementation, use-case, and ownership records; a database schema overview; and evidence-based migration headers without changing executable SQL.
+
+After reviewing the first result, I told Codex that I needed the Markdown files actually corrected to their original heading hierarchy, sequence, tables, templates, terminology, diagrams, and writing style rather than replaced by new summary reports. I then required use cases to be grouped by actor or functional domain, separated legacy allocation from actual cross-feature contributions, and corrected the final draft again so old use-case identifiers were not reused for replacement scopes. I also returned the `Solitice-debug` identity mapping and migration 028 ownership to `Needs team confirmation` because the evidence was not sufficient.
+
+### AI Output
+
+Codex fixed the filter bar so the sort selector, direction arrows, and functional clear button sit together without layering, while preserving responsive menu behaviour.
+
+For documentation, Codex moved tracked files with Git history preserved, added central documentation, journal, and archive indexes, created a schema overview and current use-case specification, and added concise ownership headers to thirty-three migrations without changing their SQL bodies. It identified model/migration differences, duplicate migration prefixes, legacy fields, and other schema risks rather than modifying the database to hide them.
+
+In response to my correction, Codex retrieved the original High-Level Design, implementation plan, ownership document, use-case documents, authentication guide, and frontend README from their historical paths. It restored their original structures while placing current facts inside the appropriate sections. The use-case allocation was then changed from exclusive member groups to functional domains and an evidence-based contribution matrix. The final correction restored or deprecated the original UC-05, UC-08, and UC-10 through UC-16 meanings, introduced separate current-scope IDs, shortened clipped tables, removed low-contrast inline code from table cells, and linked detailed architecture and schema information to their dedicated documents.
+
+### My Review and Decisions
+
+I rejected the first documentation result as too much of a generated replacement and required the lecturer-facing original formats to remain authoritative. I also rejected an artificially exclusive ownership model because Git and journal evidence showed cross-feature contributions. When interim attribution assigned migration 028 to Lia and treated `Solitice-debug` as Ferlyn, I reviewed the uncertainty and directed both back to `Needs team confirmation`. I prohibited further moves, commits, pushes, deletion, resets, or migration behaviour changes during the corrective pass.
+
+### Files Created
+
+- `docs/README.md`
+- `docs/journals/README.md`
+- `docs/archive/README.md`
+- `docs/project/DATABASE_SCHEMA_OVERVIEW.md`
+- `docs/project/USE_CASE_SPECIFICATION.md`
+
+### Files Modified
+
+- `frontend/src/components/FilterBar.jsx`
+- `frontend/src/SongsLibrary.css`
+- `README.md`
+- `frontend/README.md`
+- `docs/project/HIGH_LEVEL_DESIGN.md`
+- `docs/project/PROJECT_IMPLEMENTATION_PHASE.md`
+- `docs/project/OWNERSHIP_SPECIFICATION.md`
+- `docs/guides/AUTHENTICATION_SETUP.md`
+- `docs/reference/ROUTE_INVENTORY.md`
+- documentation and journal paths moved under the current `docs/` hierarchy
+- all thirty-three migration files received attribution headers only
+- `backend/migrations/028_song_section_recommendations.sql` ownership header was returned to `Needs team confirmation`
+
+### Verification Performed
+
+- Song Library tests recorded fourteen of fourteen passing; frontend lint and the production build passed.
+- Local Markdown links and the old active-path scan passed.
+- Executable SQL comparison confirmed that the bodies of all thirty-three migrations were unchanged.
+- The schema overview covered all thirty-five Sequelize model tables.
+- The frontend production build passed. Playwright reported sixteen tests passing but timed out during shutdown after 180 seconds.
+- Backend tests recorded 254 passing with four existing badge/profile/stat expectation failures. Frontend tests recorded 283 passing with eight existing authentication-refresh failures.
+- Lint reported one existing unused variable in `emailChangeAndAccountDeletion.test.js`.
+- The final use-case validation recorded thirty-nine unique use cases, thirty-nine matching allocation rows, complete templates, no broken links or trailing whitespace, and a maximum table-line length of 132 characters.
+- Diff validation passed, and no documentation-session commit or push was performed.
+
+### Final Outcome
+
+The Song Library filter controls no longer overlap. Project documentation is now organised under a clearer hierarchy, but its principal documents again follow their original approved structures while reflecting current implementation facts, schema risks, cross-feature contributions, and unresolved attribution honestly.
+
+### Remaining Work
+
+- Obtain team confirmation for the `Solitice-debug` identity, migration 028, creator applications, administrator features, folders, and deployment ownership.
+- Decide whether ignored backup patch artefacts are required as submission evidence.
+- Complete production-dependent smoke testing and address the recorded baseline test failures separately.
+- Review and commit the documentation work in focused groups only after the team approves the unresolved ownership decisions.
+
+### Lesson
+
+Accurate documentation is not only about current facts; its established structure is part of the assessment evidence. AI can accelerate repository comparison, but human review must correct over-redesign, reused identifiers, overconfident attribution, and ownership models that erase shared contributions.

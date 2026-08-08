@@ -1,5 +1,9 @@
 # Frontend route and navigation inventory
 
+Last updated: 8 August 2026
+
+Purpose: record the current React routes, access boundaries, entry points and page states. The inventory was rechecked against `frontend/src/App.jsx`; the branch name in the original audit note below is historical.
+
 Audited against `frontend/src/App.jsx` on the `ferlyn-continued` branch. “Back” means the rendered page has a persistent shell navigation or an explicit back/exit action. State columns are `loading / empty / unauthorised / invalid ID`; `n/a` means the state does not apply to that route.
 
 | Route | Required role/account state | Component | UI entry points | Back | States |

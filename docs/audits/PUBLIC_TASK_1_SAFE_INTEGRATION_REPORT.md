@@ -1,5 +1,7 @@
 # Public Task 1 Safe Integration Report
 
+> Historical integration evidence from 6 August 2026. Paths listed below reflect their locations at that time; use `docs/README.md` for the current documentation structure.
+
 Date: 2026-08-06 (Asia/Singapore)
 
 ## Result

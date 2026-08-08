@@ -1,5 +1,7 @@
 # Multi-creator data-isolation audit
 
+> Historical audit evidence: this file records the pre-implementation baseline and proposed work as of 29 July 2026. For the current architecture and schema through migration 028, use `docs/project/HIGH_LEVEL_DESIGN.md` and `docs/project/DATABASE_SCHEMA_OVERVIEW.md`.
+
 Date: 2026-07-29  
 Baseline: repository state before the multi-creator implementation  
 Database safety rule: no existing database was reset, dropped, truncated, reseeded, or recreated during this work. Production changes are forward-only numbered PostgreSQL migrations.

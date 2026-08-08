@@ -1,5 +1,9 @@
 # Playwright end-to-end testing
 
+Last updated: 8 August 2026
+
+Purpose: explain the isolated mocked-browser suite and safe local commands.
+
 The browser suite is isolated from the application database. It intercepts `/api/**` in the browser and supplies deterministic registered-user, creator, suspended-creator, and administrator fixtures from `frontend/e2e/support/testHarness.js`. It never starts the Express backend, runs migrations, resets data, or seeds the local/production database.
 
 ## Local commands
