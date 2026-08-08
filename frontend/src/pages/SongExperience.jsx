@@ -4,6 +4,7 @@ import { PlayCircle, Square, Loader2, AlertCircle, Sparkles, BookOpen, Music2 } 
 import CustomVideoPlayer from '../components/shared/CustomVideoPlayer'
 import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
+import useLabInstruments from '../hooks/useLabInstruments'
 import { getPublishedSong } from '../services/publicSongService'
 import { getBeatmapSummary } from '../services/beatmapService'
 import { LEARNING_HUB_INSTRUMENTS } from '../data/learningHubInstruments'
@@ -11,6 +12,9 @@ import './SongExperience.css'
 
 export default function SongExperience() {
   const { id } = useParams()
+
+  const labInstruments = useLabInstruments()
+  const { playNote } = useInstrumentAudio()
 
   const [song, setSong] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -28,7 +32,6 @@ export default function SongExperience() {
   const [score, setScore] = useState(0)
 
   // Instrument audio state
-  const { playNote } = useInstrumentAudio()
   const [playingInstrumentId, setPlayingInstrumentId] = useState(null)
   const activeAudioRef = useRef(null)
   const melodyTimeouts = useRef([])
@@ -92,53 +95,42 @@ export default function SongExperience() {
   }, [])
 
   function handlePlayInstrument(inst) {
-    if (playingInstrumentId === inst.id) {
+    const instKey = inst.id || inst.name
+    if (playingInstrumentId === instKey) {
       stopAudioPlayback()
       return
     }
 
     stopAudioPlayback()
     setIsPlaying(false)
-    setPlayingInstrumentId(inst.id)
+    setPlayingInstrumentId(instKey)
 
-    // Match with Learning Hub instrument catalog to retrieve notes, melody, envelope, waveform, and samples
-    const hubMatch = LEARNING_HUB_INSTRUMENTS.find(
-      (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
+    // Hydrate target instrument with notes & melody definitions from labInstruments
+    const labMatch = labInstruments.find(
+      (l) => l.name.toLowerCase() === (inst.name || '').toLowerCase() || l.id === inst.id
     )
-    const targetInst = { ...hubMatch, ...inst }
+    const targetInst = { ...(labMatch || {}), ...inst }
 
-    if (targetInst.audioUrl) {
-      const audio = new Audio(targetInst.audioUrl)
+    if (targetInst.notes && targetInst.notes.length > 0) {
+      playNote(targetInst, targetInst.notes[0])
+      const resetTimeout = setTimeout(() => {
+        setPlayingInstrumentId((currentId) => (currentId === instKey ? null : currentId))
+      }, 1200)
+      melodyTimeouts.current.push(resetTimeout)
+    } else if (targetInst.sampleUrl || targetInst.audioUrl) {
+      const audio = new Audio(targetInst.sampleUrl || targetInst.audioUrl)
       activeAudioRef.current = audio
-      audio.play().catch(() => {})
+      audio.play().catch((err) => console.error('Instrument playback failed:', err))
       audio.onended = () => {
         setPlayingInstrumentId(null)
         activeAudioRef.current = null
       }
-    } else if (Array.isArray(targetInst.notes) && targetInst.notes.length > 0) {
-      const melodySequence = targetInst.melody || targetInst.notes.map((n) => n.label)
-      melodySequence.forEach((noteLabel, index) => {
-        const note = targetInst.notes.find((candidate) => candidate.label === noteLabel) || targetInst.notes[0]
-        if (!note) return
-
-        const timeoutId = setTimeout(() => {
-          playNote(targetInst, note)
-          if (index === melodySequence.length - 1) {
-            const resetTimeout = setTimeout(() => {
-              setPlayingInstrumentId((currentId) => (currentId === inst.id ? null : currentId))
-            }, 600)
-            melodyTimeouts.current.push(resetTimeout)
-          }
-        }, index * 260)
-
-        melodyTimeouts.current.push(timeoutId)
-      })
     } else {
-      // Fallback synthetic tone
       playNote(targetInst || {}, { frequency: 440, key: 'a', label: 'A4' })
-      setTimeout(() => {
-        setPlayingInstrumentId(null)
+      const resetTimeout = setTimeout(() => {
+        setPlayingInstrumentId((currentId) => (currentId === instKey ? null : currentId))
       }, 1000)
+      melodyTimeouts.current.push(resetTimeout)
     }
   }
 
@@ -381,27 +373,46 @@ export default function SongExperience() {
             </h3>
 
             {(() => {
-              const dynamicInstruments =
-                Array.isArray(song?.instruments) && song.instruments.length > 0
+              // 1. Get raw instruments attached to the song from backend
+              const rawSongInstruments =
+                song?.instruments && song.instruments.length > 0
                   ? song.instruments
-                  : song?.SongInstruments?.map((si) => si.Instrument).filter(Boolean)
+                  : song?.SongInstruments?.map((si) => si.Instrument).filter(Boolean) || []
 
-              const displayInstruments = dynamicInstruments && dynamicInstruments.length > 0 ? dynamicInstruments : []
+              // 2. Hydrate raw instruments with working Web Audio notes & samples from useLabInstruments()
+              const hydratedSongInstruments = rawSongInstruments.map((rawInst) => {
+                const labMatch = labInstruments.find(
+                  (lab) => lab.id === rawInst.id || lab.name.toLowerCase() === rawInst.name?.toLowerCase()
+                )
+                return {
+                  ...rawInst,
+                  ...(labMatch || {}),
+                }
+              })
+
+              // 3. Determine final display list
+              const finalInstruments = hydratedSongInstruments
+
+              // 4. Deduplicate by name/id to prevent any duplicate cards
+              const displayInstruments = Array.from(
+                new Map(finalInstruments.map((inst) => [inst.name?.toLowerCase() || inst.id, inst])).values()
+              )
 
               return displayInstruments.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
                   {displayInstruments.slice(0, 5).map((inst) => {
-                    const isInstPlaying = playingInstrumentId === inst.id
-                    const hubMatch = LEARNING_HUB_INSTRUMENTS.find(
+                    const instKey = inst.id || inst.name
+                    const isInstPlaying = playingInstrumentId === instKey
+                    const hubMatch = labInstruments.find(
                       (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
                     )
                     const iconImage = inst.imageUrl || inst.iconUrl
-                    const iconEmoji = hubMatch?.icon || '🎵'
+                    const iconEmoji = hubMatch?.icon || inst.icon || '🎵'
                     const displayOrigin = (inst.origin || inst.culture || '').split(',')[0].trim()
 
                     return (
                       <div
-                        key={inst.id}
+                        key={instKey}
                         style={{
                           display: 'flex',
                           gap: '10px',
@@ -484,7 +495,7 @@ export default function SongExperience() {
                             justifyContent: 'center',
                             flexShrink: 0,
                           }}
-                          title={isInstPlaying ? 'Stop Instrument' : 'Hear Instrument'}
+                          title={isInstPlaying ? 'Stop Instrument' : 'Play Sample'}
                         >
                           {isInstPlaying ? <Square size={18} fill="currentColor" /> : <PlayCircle size={18} />}
                         </button>
