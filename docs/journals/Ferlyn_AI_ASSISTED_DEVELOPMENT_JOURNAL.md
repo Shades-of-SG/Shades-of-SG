@@ -61,7 +61,7 @@ The shared team journal contains project-wide records. This personal journal ext
 
 The implementation plan assigned me two main feature areas.
 
-### Rose Task 3 — Song Metadata and Publishing
+### Creator Task 3 — Song Metadata and Publishing
 
 My formal creator-side responsibilities included:
 
@@ -241,13 +241,13 @@ ChatGPT and image-generation support during wireframe discussions.
 I decided that:
 
 - the site should use a coherent dark theme instead of mixing unrelated light sections;
-- Rose should have a distinct creator segment rather than being placed awkwardly beside unrelated content;
+- Creator should have a distinct creator segment rather than being placed awkwardly beside unrelated content;
 - public, registered, and creator users needed different navigation behaviour;
 - the Reflection Wall should feel personal and memory-led rather than like a statistics dashboard;
 - profile reflections should resemble a scrapbook or digital journal;
 - badges should feel like keepsakes rather than generic achievement icons;
 - the song-experience flow should lead naturally into play, learning, and reflection;
-- the creator portal should stay within creator routes rather than sending Rose into public pages.
+- the creator portal should stay within creator routes rather than sending Creator into public pages.
 
 ### Human oversight
 
@@ -849,7 +849,7 @@ Codex
 
 ### Objective
 
-Connect the local seeded creator credential flow to the creator-side pages without exposing Rose's password in frontend code or tracked documentation.
+Connect the local seeded creator credential flow to the creator-side pages without exposing Creator's password in frontend code or tracked documentation.
 
 ### Prompt Summary
 
@@ -896,7 +896,7 @@ No direct user code modifications were made in this step.
 
 ### Final Outcome
 
-Rose can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
+Creator can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
 
 After successful login:
 
@@ -2482,7 +2482,7 @@ The work also aimed to establish a consistent legal-page design language: a comp
 
 ### Context
 
-Before this task, the public footer displayed a Privacy Statement link that returned users to the homepage and a Terms label that did not lead to a completed legal page. The project already had a dark navy visual foundation, lavender and Rose accents, rounded components, shared public navigation, and a full footer, but it did not have a legal-page pattern.
+Before this task, the public footer displayed a Privacy Statement link that returned users to the homepage and a Terms label that did not lead to a completed legal page. The project already had a dark navy visual foundation, lavender and Creator accents, rounded components, shared public navigation, and a full footer, but it did not have a legal-page pattern.
 
 The first Terms implementation established the correct information architecture but initially felt too much like a documentation page. Its hero and typography were also too large for the amount of legal content, and the original quick-navigation pills competed visually with the section cards. The page therefore went through several screenshot-led refinements before becoming the reference design for the Privacy Policy.
 
@@ -2495,7 +2495,7 @@ I asked Codex to:
 - add sticky quick navigation for Acceptance of Terms, Community Guidelines, User Accounts, Reflections & User Content, Intellectual Property, Privacy, Limitation of Liability, and Contact;
 - write content specifically for an educational, community-driven Singapore music platform rather than generic placeholder legal copy;
 - present every major section in its own rounded card with purple headings, subtle borders, and generous spacing;
-- preserve the Shades of SG dark navy, lavender, Rose, rounded-component, and typography system;
+- preserve the Shades of SG dark navy, lavender, Creator, rounded-component, and typography system;
 - enable smooth anchor scrolling and end with a continued-use acceptance note;
 - connect the page to the footer;
 - polish the page so it felt warmer, brighter, more editorial, and less like technical documentation;
@@ -2525,7 +2525,7 @@ Codex then refined the Terms design through several visual iterations:
 - added `aria-current="location"` to the active section link;
 - tracked the visible section with `IntersectionObserver` so the underline follows reading position;
 - alternated slate and indigo card backgrounds to avoid a wall of identical navy panels;
-- increased section-heading hierarchy and added narrow Rose dividers beneath headings;
+- increased section-heading hierarchy and added narrow Creator dividers beneath headings;
 - used two-digit lavender section numbers to create a clear reading sequence;
 - limited paragraph width, increased line height, and separated paragraphs for a calmer legal-reading experience;
 - retained responsive one-column cards and horizontal navigation on mobile;
@@ -2577,7 +2577,7 @@ I asked for brighter layering rather than replacing the dark theme. The final di
 
 I reviewed the hero through a screenshot and found it disproportionately tall and typographically dominant. I requested that the component itself be compacted, then clarified that typography throughout the page also needed to be smaller. I selected 14 pixels for navigation and legal copy and 15 pixels for section numbers. I later removed the document icon because the title and decorative background already communicated the page purpose without it.
 
-For the Privacy Policy, I chose visual continuity over a separate redesign. The page copies the Terms structure and uses only subtle privacy-specific accents. I accepted shield and lock decoration at low opacity, but kept the palette within lavender, indigo, muted blue, and Rose rather than introducing unrelated greens.
+For the Privacy Policy, I chose visual continuity over a separate redesign. The page copies the Terms structure and uses only subtle privacy-specific accents. I accepted shield and lock decoration at low opacity, but kept the palette within lavender, indigo, muted blue, and Creator rather than introducing unrelated greens.
 
 I also reviewed the first scroll animation interaction and identified that quick-navigation clicks caused too many cards to reveal while the browser moved past them. I requested a less abrupt behaviour. The final solution distinguishes manual exploration from programmatic anchor navigation, allowing ordinary scroll reveals while preventing intermediate animation cascades during a quick jump.
 
@@ -2641,7 +2641,7 @@ I also reviewed the first scroll animation interaction and identified that quick
 
 Shades of SG now has a complete, coherent public legal experience. Terms & Conditions and Privacy Policy are real footer destinations rather than placeholders. Both pages share a compact branded hero, lightweight sticky navigation, active-section feedback, premium rounded cards, consistent numbering, readable 14-pixel body copy, responsive layouts, accurate platform-specific wording, and accessible contact actions.
 
-The two pages feel like companions: Terms uses a warmer Rose music-and-community treatment, while Privacy uses cooler indigo and trust-oriented shield/lock details. Their interaction design supports both deliberate manual reading and fast section navigation. Manual scrolling produces calm per-card entrance motion, while quick-navigation clicks avoid revealing every intermediate section and instead focus attention on the selected destination.
+The two pages feel like companions: Terms uses a warmer Creator music-and-community treatment, while Privacy uses cooler indigo and trust-oriented shield/lock details. Their interaction design supports both deliberate manual reading and fast section navigation. Manual scrolling produces calm per-card entrance motion, while quick-navigation clicks avoid revealing every intermediate section and instead focus attention on the selected destination.
 
 ### Remaining Work
 

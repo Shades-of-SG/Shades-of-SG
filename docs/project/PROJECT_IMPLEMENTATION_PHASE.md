@@ -87,7 +87,7 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 
 ---
 
-### 🟪 Rose Task 1 — AI Music Video Generation *(Htet)*
+### 🟪 Creator Task 1 — AI Music Video Generation *(Htet)*
 
 **Original Objective:** Deliver an AI-assisted pipeline from song media and lyrics to scene plans, generated frames, subtitles, and exported video.
 
@@ -114,7 +114,7 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 
 ---
 
-### 🟪 Rose Task 2 — Creator Dashboard & Song Management *(Shermaine)*
+### 🟪 Creator Task 2 — Creator Dashboard & Song Management *(Shermaine)*
 
 **Original Objective:** Deliver the creator portal, song overview, status presentation, creator navigation, and management actions.
 
@@ -135,7 +135,7 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 
 ---
 
-### 🟪 Rose Task 3 — Song Metadata & Publishing *(Ferlyn)*
+### 🟪 Creator Task 3 — Song Metadata & Publishing *(Ferlyn)*
 
 **Original Objective:** Give creators control over song metadata and an explicit, validated publishing workflow.
 
@@ -157,7 +157,7 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 
 ---
 
-### 🟪 Rose Task 4 — Global Error Handling & Guest Architecture *(Lia)*
+### 🟪 Creator Task 4 — Global Error Handling & Guest Architecture *(Lia)*
 
 **Original Objective:** Make the application resilient and support guest access without granting protected persistence or creator permissions.
 
@@ -320,13 +320,13 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 
 | Feature | Owner | Phase 1 Branch |
 |---------|-------|----------------|
-| AI Video Generation Pipeline | Htet | `feat/Rose-task-1` |
+| AI Video Generation Pipeline | Htet | `feat/Creator-task-1` |
 | Song Experience & Consumption | Htet | `feat/public-task-2` |
-| Creator Dashboard & Song Management | Shermaine | `feat/Rose-task-2` |
+| Creator Dashboard & Song Management | Shermaine | `feat/Creator-task-2` |
 | Interactive Learning Playground | Shermaine | `feat/public-task-3` |
-| Song Metadata & Publishing | Ferlyn | `feat/Rose-task-3` |
+| Song Metadata & Publishing | Ferlyn | `feat/Creator-task-3` |
 | Rhythm Game & Reflection Wall | Ferlyn | `feat/public-task-4` |
-| Error Handling & Guest Architecture | Lia | `feat/Rose-task-4` |
+| Error Handling & Guest Architecture | Lia | `feat/Creator-task-4` |
 | Song Discovery & Exploration | Lia | `feat/public-task-1` |
 
 Current contribution notes:
