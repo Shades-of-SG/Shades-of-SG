@@ -635,10 +635,12 @@ function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEd
   if (isEditing) {
     return (
       <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: '4px',
-        padding: '3px 6px', borderRadius: '6px',
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        padding: '4px 8px', borderRadius: '6px',
         backgroundColor: 'rgba(99, 102, 241, 0.25)',
         border: '1px solid rgba(129, 140, 248, 0.5)',
+        maxWidth: '100%',
+        flexWrap: 'wrap',
       }}>
         <input
           ref={inputRef}
@@ -650,15 +652,17 @@ function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEd
           }}
           style={{
             backgroundColor: 'transparent', border: 'none', color: '#e2e8f0',
-            fontSize: '0.75rem', outline: 'none', width: `${Math.max(editText.length * 7, 60)}px`,
-            minWidth: '60px',
+            fontSize: '0.75rem', outline: 'none',
+            minWidth: '120px',
+            width: `${Math.max(editText.length * 8, 120)}px`,
+            maxWidth: '100%',
           }}
         />
         <button onClick={onSaveEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-          <Check className="w-3 h-3" style={{ color: '#34d399' }} />
+          <Check className="w-3.5 h-3.5" style={{ color: '#34d399' }} />
         </button>
         <button onClick={onCancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-          <X className="w-3 h-3" style={{ color: '#f87171' }} />
+          <X className="w-3.5 h-3.5" style={{ color: '#f87171' }} />
         </button>
       </span>
     )
@@ -670,18 +674,20 @@ function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEd
       onDragStart={(e) => onDragStart(e, pill._key, sceneIdx)}
       onDoubleClick={() => onStartEdit(pill)}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: '4px',
-        padding: '4px 8px', borderRadius: '6px',
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        padding: '4px 10px', borderRadius: '6px',
         backgroundColor: 'rgba(99, 102, 241, 0.12)',
         border: '1px solid rgba(99, 102, 241, 0.25)',
         color: '#cbd5e1', fontSize: '0.75rem',
         cursor: 'grab', userSelect: 'none',
         transition: 'all 0.15s',
+        maxWidth: '100%',
+        lineHeight: 1.4,
       }}
       title="Drag to move • Double-click to edit"
     >
-      <GripVertical className="w-3 h-3" style={{ color: '#475569', flexShrink: 0 }} />
-      <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <GripVertical className="w-3.5 h-3.5" style={{ color: '#475569', flexShrink: 0 }} />
+      <span style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
         {pill.text}
       </span>
       <button
