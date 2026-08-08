@@ -2,6 +2,8 @@
 
 Shades of SG is a multi-creator React/Vite platform for Singapore National Day songs, with an authenticated creator Studio, an admin console, and an Express/Sequelize API. PostgreSQL (Supabase) is the production database and Cloudinary stores uploaded media.
 
+Current design, use-case, ownership, schema, audit, and journal documents are indexed in [`docs/README.md`](docs/README.md).
+
 ## Authoritative workflows
 
 Song lifecycle: `DRAFT -> GENERATING -> READY -> PUBLISHED -> ARCHIVED`.
