@@ -19,7 +19,7 @@ function noteStyle(id = '') {
   }
 }
 
-export default function ReflectionCard({ reflection, onEdit, onDelete, onOpen }) {
+export default function ReflectionCard({ likeBusy, reflection, onEdit, onDelete, onLike, onOpen }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const style = noteStyle(reflection.id)
@@ -66,15 +66,16 @@ export default function ReflectionCard({ reflection, onEdit, onDelete, onOpen })
               <strong>{reflection.author.displayName}</strong>
             </Link>
           )}
-          {reflection.isAnonymous && <span className="rw-anonymous-badge">Anonymous</span>}
         </div>
         <time dateTime={reflection.createdAt}>{reflection.isPending ? 'Saving...' : formatter.format(new Date(reflection.createdAt))}</time>
       </div>
       {!reflection.isPending ? (
         <div className="rw-card-discussion-summary">
-          <span className={reflection.isLiked ? 'is-liked' : ''}><Heart aria-hidden="true" fill={reflection.isLiked ? 'currentColor' : 'none'} /> {reflection.likeCount}</span>
-          <span><MessageCircle aria-hidden="true" /> {reflection.commentCount}</span>
-          <button onClick={() => onOpen(reflection)} type="button">View discussion</button>
+          <div className="rw-card-engagement">
+            <button aria-label={`${reflection.isLiked ? 'Unlike' : 'Like'} reflection by ${reflection.displayName}`} aria-pressed={reflection.isLiked} className={`rw-card-like${reflection.isLiked ? ' is-liked' : ''}`} disabled={likeBusy} onClick={() => onLike(reflection)} type="button"><Heart aria-hidden="true" fill={reflection.isLiked ? 'currentColor' : 'none'} /> {reflection.likeCount}</button>
+            <span className="rw-card-comment-count"><MessageCircle aria-hidden="true" /> {reflection.commentCount}</span>
+          </div>
+          <button className="rw-card-discussion-link" onClick={() => onOpen(reflection)} type="button">View discussion</button>
         </div>
       ) : null}
     </article>

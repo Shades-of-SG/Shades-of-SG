@@ -3,7 +3,7 @@ const { Op, QueryTypes } = require('sequelize');
 const {
     AnalyticsEvent, AuditLog, Badge, CreatorApplication, CreatorApplicationHistory,
     Folder, FolderSongProposal, GameScore, GenerationJob, InstrumentChallengeProgress, ModerationAction,
-    Reflection, ReflectionComment, Song, SongBookmark, SongFolder, SongReport, TriviaAttempt, TriviaQuestion,
+    Reflection, ReflectionComment, ReflectionCommentReport, Song, SongBookmark, SongFolder, SongReport, TriviaAttempt, TriviaQuestion,
     User, UserWarning, sequelize,
 } = require('../models');
 const { requireAdmin } = require('../middleware/auth');
@@ -62,11 +62,12 @@ const PLACEMENT_TRANSITIONS = {
 };
 const SAFETY_ACTION_TYPES = [
     'CREATOR_RESTORED', 'CREATOR_SUSPENDED', 'REFLECTION_COMMENT_REMOVED',
-    'REFLECTION_COMMENT_RESTORED', 'REFLECTION_FLAGGED',
+    'REFLECTION_COMMENT_REPORT_DISMISSED', 'REFLECTION_COMMENT_RESTORED', 'REFLECTION_FLAGGED',
     'REFLECTION_REMOVED_BY_ADMIN', 'SAFETY_REPORT_DISMISSED',
     'SAFETY_REPORT_RETURNED_TO_CREATOR', 'SONG_REMOVED_BY_ADMIN',
     'SONG_REPORT_DISMISSED', 'SONG_REPORT_REVIEWED', 'USER_ACTIVE', 'USER_SUSPENDED',
-    'USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNED_FROM_SONG', 'USER_WARNING_RESOLVED',
+    'USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNED_FROM_REFLECTION_COMMENT',
+    'USER_WARNED_FROM_SONG', 'USER_WARNING_RESOLVED',
 ];
 const SAFETY_ACTION_TYPE_SET = new Set(SAFETY_ACTION_TYPES);
 const SAFETY_REPORT_OUTCOMES = {
@@ -1104,7 +1105,7 @@ router.get('/safety-reports', async (req, res, next) => {
                 { '$user.email$': { [operator]: pattern } },
             ];
         }
-        const { count, rows } = await Reflection.findAndCountAll({
+        const { rows } = await Reflection.findAndCountAll({
             distinct: true,
             include: [
                 {
@@ -1123,7 +1124,7 @@ router.get('/safety-reports', async (req, res, next) => {
                     order: [['createdAt', 'ASC']],
                 },
             ],
-            limit, offset, order: [['moderatedAt', 'DESC'], ['updatedAt', 'DESC']], subQuery: false, where,
+            order: [['moderatedAt', 'DESC'], ['updatedAt', 'DESC']], subQuery: false, where,
         });
         const reflectionIds = rows.map((reflection) => reflection.id);
         const actions = reflectionIds.length ? await ModerationAction.findAll({
@@ -1140,7 +1141,7 @@ router.get('/safety-reports', async (req, res, next) => {
             list.push(action.get({ plain: true }));
             actionsByReflection.set(action.targetId, list);
         });
-        const reports = rows.map((reflection) => {
+        const reflectionReports = rows.map((reflection) => {
             const value = reflection.get({ plain: true });
             const history = actionsByReflection.get(value.id) || [];
             const signals = history.filter((action) => action.actionType === 'REFLECTION_FLAGGED');
@@ -1181,7 +1182,85 @@ router.get('/safety-reports', async (req, res, next) => {
                 userId: value.userId,
             };
         });
-        return res.json({ pagination: pageResult([], count, page, limit).pagination, reports });
+        const commentReportRows = await ReflectionCommentReport.findAll({
+            include: [
+                {
+                    model: ReflectionComment, as: 'comment', required: true,
+                    include: [
+                        { model: User, as: 'user', attributes: ['accountStatus', 'creatorAccessStatus', 'email', 'id', 'name', 'role'], required: true },
+                        {
+                            model: Reflection, as: 'reflection', required: true,
+                            include: [
+                                {
+                                    model: Song, as: 'song', attributes: ['creatorId', 'id', 'status', 'title'], required: true,
+                                    include: [{ model: User, as: 'creator', attributes: ['id', 'name'], required: false }],
+                                },
+                            ],
+                        },
+                    ],
+                },
+                { model: User, as: 'reporter', attributes: ['id', 'name'], required: true },
+            ],
+            order: [['createdAt', 'DESC'], ['id', 'ASC']],
+            where: { status: 'PENDING' },
+        });
+        const visibleCommentReports = commentReportRows.filter((report) => {
+            const value = report.get({ plain: true });
+            if (dateFrom && new Date(value.createdAt) < dateFrom) return false;
+            if (!search) return true;
+            const haystack = [
+                value.comment?.content, value.comment?.user?.name, value.comment?.user?.email,
+                value.comment?.reflection?.song?.title, value.reason,
+            ].join(' ').toLowerCase();
+            return haystack.includes(search.toLowerCase());
+        });
+        const commentIds = visibleCommentReports.map((report) => report.commentId);
+        const commentActions = commentIds.length ? await ModerationAction.findAll({
+            include: [{ model: User, as: 'actor', attributes: ['id', 'name', 'role'], required: false }],
+            order: [['createdAt', 'ASC']],
+            where: { actionType: { [Op.in]: SAFETY_ACTION_TYPES }, targetId: { [Op.in]: commentIds }, targetType: 'REFLECTION_COMMENT' },
+        }) : [];
+        const commentHistory = new Map();
+        commentActions.forEach((action) => {
+            const items = commentHistory.get(action.targetId) || [];
+            items.push(action.get({ plain: true }));
+            commentHistory.set(action.targetId, items);
+        });
+        const commentReports = visibleCommentReports.map((report) => {
+            const value = report.get({ plain: true });
+            const comment = value.comment;
+            const reflection = comment.reflection;
+            return {
+                account: comment.user,
+                caseTypes: ['USER_REPORT'],
+                comments: [{ content: comment.content, contributor: { name: comment.user.name, role: comment.user.role }, createdAt: comment.createdAt, id: comment.id, status: comment.status }],
+                content: comment.content,
+                displayName: comment.user.name,
+                firstReportedAt: value.createdAt,
+                id: value.id,
+                latestReportedAt: value.createdAt,
+                moderationHistory: (commentHistory.get(comment.id) || []).map((action) => ({
+                    actionType: action.actionType,
+                    actor: action.actor ? { name: action.actor.name, role: action.actor.role } : null,
+                    createdAt: action.createdAt, reason: action.reason,
+                })),
+                reasons: [value.reason],
+                reflectionId: reflection.id,
+                reportCount: 1,
+                reporter: value.reporter,
+                requiredAction: 'ADMIN_REVIEW',
+                reviewState: 'OPEN',
+                song: reflection.song,
+                targetId: comment.id,
+                targetType: 'REFLECTION_COMMENT',
+                userId: comment.userId,
+            };
+        });
+        const allReports = [...reflectionReports, ...commentReports].sort((left, right) => (
+            new Date(right.latestReportedAt) - new Date(left.latestReportedAt) || left.id.localeCompare(right.id)
+        ));
+        const reports = allReports.slice(offset, offset + limit);
+        return res.json({ pagination: pageResult([], allReports.length, page, limit).pagination, reports });
     } catch (error) { return next(error); }
 });
 
@@ -1189,9 +1268,66 @@ router.post('/safety-reports/:id/resolve', validateUuidParam('id', 'Report targe
     try {
         const outcome = String(req.body.outcome || '').toUpperCase();
         const transition = SAFETY_REPORT_OUTCOMES[outcome];
-        if (!transition) return res.status(400).json({ message: 'Unsupported safety report outcome.' });
+        if (!transition && outcome !== 'REMOVE_COMMENT') return res.status(400).json({ message: 'Unsupported safety report outcome.' });
         const reason = requiredReason(req.body.reason);
         if (!reason) return res.status(400).json({ message: 'A resolution reason between 5 and 2000 characters is required.' });
+        const commentReport = await ReflectionCommentReport.findByPk(req.params.id, {
+            include: [{
+                model: ReflectionComment, as: 'comment', required: true,
+                include: [{
+                    model: Reflection, as: 'reflection', required: true,
+                    include: [{ model: Song, as: 'song', attributes: ['creatorId', 'id'] }],
+                }],
+            }],
+        });
+        if (commentReport) {
+            if (!['DISMISS_REPORT', 'REMOVE_COMMENT'].includes(outcome)) {
+                return res.status(400).json({ message: 'Comment reports can be dismissed or resolved by removing the comment.' });
+            }
+            if (commentReport.status !== 'PENDING') return res.status(409).json({ message: 'This safety case is no longer open.' });
+            const comment = commentReport.comment;
+            const reflection = comment.reflection;
+            const actionType = outcome === 'REMOVE_COMMENT' ? 'REFLECTION_COMMENT_REMOVED' : 'REFLECTION_COMMENT_REPORT_DISMISSED';
+            await sequelize.transaction(async (transaction) => {
+                const [reportChanged] = await ReflectionCommentReport.update({
+                    resolutionReason: reason, resolvedAt: new Date(), resolvedBy: req.authUserRecord.id,
+                    status: outcome === 'REMOVE_COMMENT' ? 'ACTIONED' : 'DISMISSED',
+                }, { transaction, where: { id: commentReport.id, status: 'PENDING' } });
+                if (!reportChanged) {
+                    const conflict = new Error('This safety case is no longer open.');
+                    conflict.status = 409;
+                    throw conflict;
+                }
+                if (outcome === 'REMOVE_COMMENT') {
+                    const [commentChanged] = await ReflectionComment.update({ status: 'REMOVED' }, {
+                        transaction, where: { id: comment.id, status: 'VISIBLE' },
+                    });
+                    if (!commentChanged) {
+                        const conflict = new Error('This comment has already been removed.');
+                        conflict.status = 409;
+                        throw conflict;
+                    }
+                }
+                await ModerationAction.create({
+                    actionType, actorId: req.authUserRecord.id,
+                    metadata: { evidencePreserved: true, outcome, reflectionId: reflection.id, reportId: commentReport.id },
+                    reason, songId: reflection.songId, targetId: comment.id,
+                    targetType: 'REFLECTION_COMMENT', targetUserId: comment.userId,
+                }, { transaction });
+                await writeAudit({
+                    action: actionType, actorId: req.authUserRecord.id,
+                    creatorId: reflection.song?.creatorId || null, entityId: comment.id,
+                    entityType: 'REFLECTION_COMMENT', metadata: { outcome, reflectionId: reflection.id, reportId: commentReport.id },
+                    req, songId: reflection.songId, transaction,
+                });
+            });
+            return res.json({
+                outcome,
+                report: { id: commentReport.id, status: outcome === 'REMOVE_COMMENT' ? 'ACTIONED' : 'DISMISSED' },
+                userNotificationSent: false,
+            });
+        }
+        if (!transition) return res.status(400).json({ message: 'Unsupported safety report outcome.' });
         const reflection = await Reflection.findByPk(req.params.id, {
             include: [{ model: Song, as: 'song', attributes: ['creatorId', 'id', 'status'] }],
         });
@@ -1344,7 +1480,7 @@ router.get('/warnings', async (req, res, next) => {
             include: [{ model: Song, as: 'song', attributes: ['id', 'title'], required: false }],
             order: [['createdAt', 'ASC']],
             where: {
-                actionType: { [Op.in]: ['USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNED_FROM_SONG'] },
+                actionType: { [Op.in]: ['USER_WARNED', 'USER_WARNED_FROM_REFLECTION', 'USER_WARNED_FROM_REFLECTION_COMMENT', 'USER_WARNED_FROM_SONG'] },
                 targetUserId: { [Op.in]: warnedUserIds },
             },
         }) : [];
@@ -1354,6 +1490,12 @@ router.get('/warnings', async (req, res, next) => {
             if (!warningIds.includes(warningId) || sourceByWarning.has(warningId)) return;
             if (action.targetType === 'REFLECTION') {
                 sourceByWarning.set(warningId, { id: action.targetId, song: action.song, type: 'REFLECTION' });
+            } else if (action.targetType === 'REFLECTION_COMMENT') {
+                sourceByWarning.set(warningId, {
+                    id: action.metadata?.reflectionId || action.targetId,
+                    song: action.song,
+                    type: 'REFLECTION_COMMENT',
+                });
             } else if (action.targetType === 'SONG') {
                 sourceByWarning.set(warningId, { id: action.targetId, song: action.song, type: 'SONG' });
             } else {
@@ -1382,24 +1524,34 @@ router.post('/warnings', async (req, res, next) => {
         const sourceId = req.body.sourceId || null;
         let source = null;
         if (sourceType || sourceId) {
-            if (!['REFLECTION', 'SONG'].includes(sourceType)) return res.status(400).json({ message: 'Unsupported warning source type.' });
+            if (!['REFLECTION', 'REFLECTION_COMMENT', 'SONG'].includes(sourceType)) return res.status(400).json({ message: 'Unsupported warning source type.' });
             if (!isUuid(sourceId)) return res.status(400).json({ message: 'sourceId must be a valid UUID.' });
             if (sourceType === 'SONG') {
                 const song = await Song.findByPk(sourceId, { attributes: ['creatorId', 'id', 'title'] });
                 if (!song) return res.status(404).json({ message: 'Warning source song not found.' });
                 if (song.creatorId !== target.id) return res.status(409).json({ message: 'The warning source does not belong to this user.' });
                 source = { id: song.id, song: { id: song.id, title: song.title }, type: 'SONG' };
-            } else {
+            } else if (sourceType === 'REFLECTION') {
                 const reflection = await Reflection.findByPk(sourceId, {
                     include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
                 });
                 if (!reflection) return res.status(404).json({ message: 'Warning source reflection not found.' });
                 if (reflection.userId !== target.id) return res.status(409).json({ message: 'The warning source does not belong to this user.' });
                 source = { id: reflection.id, song: reflection.song, type: 'REFLECTION' };
+            } else {
+                const comment = await ReflectionComment.findByPk(sourceId, {
+                    include: [{
+                        model: Reflection, as: 'reflection', required: true,
+                        include: [{ model: Song, as: 'song', attributes: ['id', 'title'] }],
+                    }],
+                });
+                if (!comment) return res.status(404).json({ message: 'Warning source comment not found.' });
+                if (comment.userId !== target.id) return res.status(409).json({ message: 'The warning source does not belong to this user.' });
+                source = { id: comment.id, reflectionId: comment.reflectionId, song: comment.reflection.song, type: 'REFLECTION_COMMENT' };
             }
         }
         const warningActionType = source
-            ? (source.type === 'SONG' ? 'USER_WARNED_FROM_SONG' : 'USER_WARNED_FROM_REFLECTION')
+            ? (source.type === 'SONG' ? 'USER_WARNED_FROM_SONG' : source.type === 'REFLECTION_COMMENT' ? 'USER_WARNED_FROM_REFLECTION_COMMENT' : 'USER_WARNED_FROM_REFLECTION')
             : 'USER_WARNED';
         const warning = await sequelize.transaction(async (transaction) => {
             const created = await UserWarning.create({ issuedBy: req.authUserRecord.id, reason, userId: target.id }, { transaction });

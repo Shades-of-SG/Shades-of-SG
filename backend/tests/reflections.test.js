@@ -5,18 +5,22 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 process.env.DATABASE_URL = '';
 const testDatabasePath = path.join(__dirname, 'reflections.test.sqlite');
 process.env.DB_STORAGE = testDatabasePath;
 
 const request = require('supertest');
+const { Op } = require('sequelize');
 const app = require('../server');
 const {
-    sequelize, Reflection, ReflectionComment, ReflectionLike, Song, User, UserProfile,
+    sequelize, GuestLikeSession, GuestReflectionLike, ModerationAction, Reflection, ReflectionComment, ReflectionCommentLike, ReflectionCommentReport,
+    ReflectionLike, Song, User, UserProfile, UserWarning,
 } = require('../models');
 const { createToken, hashPassword } = require('../services/authService');
 const { resetRateLimitsForTests } = require('../middleware/rateLimit');
+const { GUEST_LIKE_COOKIE } = require('../services/guestLikeService');
 
 const SINGAPORE_OFFSET_MS = 8 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -29,7 +33,10 @@ let otherOwner;
 let otherOwnerToken;
 let admin;
 let adminToken;
+let otherCreator;
+let otherCreatorToken;
 let song;
+let otherCreatorSong;
 let secondSong;
 let draftSong;
 
@@ -80,6 +87,10 @@ beforeAll(async () => {
         email: 'reflection-admin@example.com', name: 'Wall Admin',
         passwordHash: hashPassword('password123'), role: 'ADMIN',
     });
+    otherCreator = await User.create({
+        email: 'other-creator@example.com', name: 'Other Creator',
+        passwordHash: hashPassword('password123'), role: 'CREATOR',
+    });
     await UserProfile.bulkCreate([
         { avatarUrl: 'https://images.example/owner.jpg', displayName: 'Memory Keeper', userId: owner.id },
         { avatarUrl: 'https://images.example/other.jpg', displayName: 'Other Keeper', userId: otherOwner.id },
@@ -87,15 +98,18 @@ beforeAll(async () => {
     song = await Song.create({ creatorId: creator.id, title: 'Test Song', status: 'PUBLISHED' });
     secondSong = await Song.create({ creatorId: creator.id, title: 'Second Song', status: 'PUBLISHED' });
     draftSong = await Song.create({ creatorId: creator.id, title: 'Draft Song', status: 'DRAFT' });
+    otherCreatorSong = await Song.create({ creatorId: otherCreator.id, title: 'Other Creator Song', status: 'PUBLISHED' });
     ownerToken = createToken(owner);
     creatorToken = createToken(creator);
     otherOwnerToken = createToken(otherOwner);
     adminToken = createToken(admin);
+    otherCreatorToken = createToken(otherCreator);
 });
 
 beforeEach(async () => {
     resetRateLimitsForTests();
     await Reflection.destroy({ where: {} });
+    await GuestLikeSession.destroy({ where: {} });
 });
 
 afterAll(async () => {
@@ -432,7 +446,7 @@ test('creator can reject while non-creator moderation remains forbidden', async 
     expect((await request(app).get('/api/reflections')).body.reflections).toHaveLength(0);
 });
 
-test('authenticated users can comment while guests and invalid content are rejected by the backend', async () => {
+test('authenticated users can comment while guest comments, reports, moderation, and invalid content are rejected', async () => {
     const reflection = await createStoredReflection({ status: 'APPROVED', userId: owner.id });
 
     const guest = await request(app).post(`/api/reflections/${reflection.id}/comments`).send({ content: 'Hello' });
@@ -460,10 +474,50 @@ test('authenticated users can comment while guests and invalid content are rejec
     });
     expect(created.body.comment.author).not.toHaveProperty('email');
 
+    const guestReport = await request(app)
+        .post(`/api/reflections/${reflection.id}/comments/${created.body.comment.id}/reports`)
+        .send({ reason: 'Guests must sign in before reporting.' });
+    const guestModeration = await request(app)
+        .post(`/api/reflections/${reflection.id}/comments/${created.body.comment.id}/moderation`)
+        .send({ action: 'REMOVE_COMMENT', reason: 'Guests cannot moderate.' });
+    expect([guestReport.status, guestModeration.status]).toEqual([401, 401]);
+
     const listed = await request(app).get(`/api/reflections/${reflection.id}/comments`);
     expect(listed.status).toBe(200);
     expect(listed.body.comments).toHaveLength(1);
     expect(listed.body.comments[0].canDelete).toBe(false);
+});
+
+test('authenticated users can like and unlike individual comments without duplicates', async () => {
+    const reflection = await createStoredReflection({ status: 'APPROVED', userId: owner.id });
+    const comment = await ReflectionComment.create({
+        content: 'A comment worth appreciating.', reflectionId: reflection.id,
+        status: 'VISIBLE', userId: otherOwner.id,
+    });
+
+    const guestLike = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/like`);
+    expect(guestLike.status).toBe(401);
+
+    const first = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/like`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+    const duplicate = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/like`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+    expect(first.body).toEqual({ likeCount: 1, liked: true });
+    expect(duplicate.body).toEqual({ likeCount: 1, liked: true });
+    expect(await ReflectionCommentLike.count({ where: { commentId: comment.id, userId: owner.id } })).toBe(1);
+
+    const refreshed = await request(app).get(`/api/reflections/${reflection.id}/comments`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+    expect(refreshed.body.comments[0]).toMatchObject({ id: comment.id, isLiked: true, likeCount: 1 });
+    const publicView = await request(app).get(`/api/reflections/${reflection.id}/comments`);
+    expect(publicView.body.comments[0]).toMatchObject({ id: comment.id, isLiked: false, likeCount: 1 });
+
+    const removed = await request(app).delete(`/api/reflections/${reflection.id}/comments/${comment.id}/like`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+    const duplicateRemoval = await request(app).delete(`/api/reflections/${reflection.id}/comments/${comment.id}/like`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+    expect(removed.body).toEqual({ likeCount: 0, liked: false });
+    expect(duplicateRemoval.body).toEqual({ likeCount: 0, liked: false });
 });
 
 test('comment authors, reflection owners, and admins can delete comments but unrelated users cannot', async () => {
@@ -486,8 +540,12 @@ test('comment authors, reflection owners, and admins can delete comments but unr
     const adminModerated = await makeComment();
     expect((await request(app).delete(`/api/reflections/${reflection.id}/comments/${adminModerated.id}`)
         .set('Authorization', `Bearer ${adminToken}`)).status).toBe(204);
-    expect(await ReflectionComment.count({ where: { reflectionId: reflection.id } })).toBe(2);
+    expect(await ReflectionComment.count({ where: { reflectionId: reflection.id } })).toBe(3);
+    expect((await ReflectionComment.findByPk(ownerModerated.id)).status).toBe('REMOVED');
     expect((await ReflectionComment.findByPk(adminModerated.id)).status).toBe('REMOVED');
+    expect(await ModerationAction.count({
+        where: { actionType: 'REFLECTION_COMMENT_REMOVED', targetId: { [Op.in]: [ownerModerated.id, adminModerated.id] } },
+    })).toBe(2);
     const restored = await request(app).post(`/api/reflections/${reflection.id}/comments/${adminModerated.id}/restore`)
         .set('Authorization', `Bearer ${adminToken}`).send({ reason: 'The safety review found no policy violation.' });
     expect(restored.status).toBe(200);
@@ -513,10 +571,8 @@ test('public reflection identities link safely while anonymous reflections never
     expect(JSON.stringify(anonymousBody)).not.toContain(owner.id);
 });
 
-test('like and unlike are idempotent, require authentication, and keep one active like per user', async () => {
+test('account like and unlike are idempotent and keep one active like per user', async () => {
     const reflection = await createStoredReflection({ status: 'APPROVED' });
-    expect((await request(app).post(`/api/reflections/${reflection.id}/like`)).status).toBe(401);
-
     const first = await request(app).post(`/api/reflections/${reflection.id}/like`)
         .set('Authorization', `Bearer ${ownerToken}`);
     const duplicate = await request(app).post(`/api/reflections/${reflection.id}/like`)
@@ -533,6 +589,86 @@ test('like and unlike are idempotent, require authentication, and keep one activ
     expect(duplicateUnlike.body).toEqual({ likeCount: 0, liked: false });
 });
 
+test('guest like cookie persists refresh state and guest like/unlike stays idempotent', async () => {
+    const reflection = await createStoredReflection({ status: 'APPROVED' });
+    const guest = request.agent(app);
+    const initial = await guest.get('/api/reflections');
+    expect(initial.status).toBe(200);
+    expect(initial.headers['set-cookie'][0]).toMatch(new RegExp(`^${GUEST_LIKE_COOKIE}=[0-9a-f-]+;`));
+    expect(initial.headers['set-cookie'][0]).toContain('Max-Age=15552000');
+    expect(initial.headers['set-cookie'][0]).toContain('Path=/');
+    expect(initial.headers['set-cookie'][0]).toContain('HttpOnly');
+    expect(initial.headers['set-cookie'][0]).toContain('SameSite=Lax');
+    const guestId = initial.headers['set-cookie'][0].match(new RegExp(`${GUEST_LIKE_COOKIE}=([^;]+)`))[1];
+    expect(JSON.stringify(initial.body)).not.toContain(guestId);
+    expect(initial.body.reflections.find((item) => item.id === reflection.id).isLiked).toBe(false);
+
+    const first = await guest.post(`/api/reflections/${reflection.id}/like`);
+    const duplicate = await guest.post(`/api/reflections/${reflection.id}/like`);
+    expect(first.body).toEqual({ likeCount: 1, liked: true });
+    expect(duplicate.body).toEqual({ likeCount: 1, liked: true });
+    expect(await GuestReflectionLike.count({ where: { reflectionId: reflection.id } })).toBe(1);
+
+    const refreshed = await guest.get('/api/reflections');
+    expect(refreshed.body.reflections.find((item) => item.id === reflection.id)).toMatchObject({ isLiked: true, likeCount: 1 });
+    expect((await guest.delete(`/api/reflections/${reflection.id}/like`)).body).toEqual({ likeCount: 0, liked: false });
+    expect((await guest.delete(`/api/reflections/${reflection.id}/like`)).body).toEqual({ likeCount: 0, liked: false });
+    expect((await guest.get('/api/reflections')).body.reflections.find((item) => item.id === reflection.id)).toMatchObject({ isLiked: false, likeCount: 0 });
+});
+
+test('production guest identity cookies require secure cross-site transport', async () => {
+    const previousEnvironment = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+        await createStoredReflection({ status: 'APPROVED' });
+        const response = await request(app).get('/api/reflections');
+        expect(response.headers['set-cookie'][0]).toContain('HttpOnly');
+        expect(response.headers['set-cookie'][0]).toContain('Secure');
+        expect(response.headers['set-cookie'][0]).toContain('SameSite=None');
+    } finally {
+        process.env.NODE_ENV = previousEnvironment;
+    }
+});
+
+test('missing and expired guest identifiers are replaced without reviving old likes', async () => {
+    const reflection = await createStoredReflection({ status: 'APPROVED' });
+    const missing = await request(app).post(`/api/reflections/${reflection.id}/like`);
+    expect(missing.status).toBe(200);
+    expect(missing.headers['set-cookie'][0]).toContain(`${GUEST_LIKE_COOKIE}=`);
+
+    const expiredId = crypto.randomUUID();
+    await GuestLikeSession.create({ expiresAt: new Date(Date.now() - 1000), id: expiredId });
+    await GuestReflectionLike.create({ guestSessionId: expiredId, reflectionId: reflection.id });
+    const expired = await request(app).get('/api/reflections').set('Cookie', `${GUEST_LIKE_COOKIE}=${expiredId}`);
+    expect(expired.status).toBe(200);
+    expect(expired.body.reflections.find((item) => item.id === reflection.id).isLiked).toBe(false);
+    expect(expired.headers['set-cookie'].some((value) => value.startsWith(`${GUEST_LIKE_COOKIE}=`) && !value.includes(expiredId))).toBe(true);
+    expect(await GuestLikeSession.findByPk(expiredId)).toBeNull();
+    expect(await GuestReflectionLike.count({ where: { guestSessionId: expiredId } })).toBe(0);
+});
+
+test('login merges guest likes into account likes without double-counting existing account likes', async () => {
+    const duplicateReflection = await createStoredReflection({ status: 'APPROVED' });
+    const guestOnlyReflection = await createStoredReflection({ content: 'A second liked reflection.', status: 'APPROVED' });
+    await ReflectionLike.create({ reflectionId: duplicateReflection.id, userId: owner.id });
+    const guest = request.agent(app);
+    await guest.get('/api/reflections');
+    await guest.post(`/api/reflections/${duplicateReflection.id}/like`);
+    await guest.post(`/api/reflections/${guestOnlyReflection.id}/like`);
+    expect(await GuestReflectionLike.count()).toBe(2);
+
+    const login = await guest.post('/api/auth/login').send({ email: owner.email, password: 'password123' });
+    expect(login.status).toBe(200);
+    expect(login.headers['set-cookie'].some((value) => value.startsWith(`${GUEST_LIKE_COOKIE}=`) && value.includes('Expires=Thu, 01 Jan 1970'))).toBe(true);
+    expect(await GuestReflectionLike.count()).toBe(0);
+    expect(await GuestLikeSession.count()).toBe(0);
+    expect(await ReflectionLike.count({ where: { userId: owner.id } })).toBe(2);
+
+    const refreshed = await request(app).get('/api/reflections').set('Authorization', `Bearer ${login.body.token}`);
+    expect(refreshed.body.reflections.find((item) => item.id === duplicateReflection.id)).toMatchObject({ isLiked: true, likeCount: 1 });
+    expect(refreshed.body.reflections.find((item) => item.id === guestOnlyReflection.id)).toMatchObject({ isLiked: true, likeCount: 1 });
+});
+
 test('public counts and most-liked and most-discussed sorting use visible discussion activity', async () => {
     const newest = await createStoredReflection({ content: 'Newest', createdAt: new Date('2026-01-03T00:00:00Z'), status: 'APPROVED' });
     const liked = await createStoredReflection({ content: 'Liked', createdAt: new Date('2026-01-02T00:00:00Z'), status: 'APPROVED' });
@@ -542,6 +678,8 @@ test('public counts and most-liked and most-discussed sorting use visible discus
         { reflectionId: liked.id, userId: otherOwner.id },
         { reflectionId: newest.id, userId: owner.id },
     ]);
+    const guestSession = await GuestLikeSession.create({ expiresAt: new Date(Date.now() + 60_000) });
+    await GuestReflectionLike.create({ guestSessionId: guestSession.id, reflectionId: liked.id });
     await ReflectionComment.bulkCreate([
         { content: 'One', reflectionId: discussed.id, userId: owner.id },
         { content: 'Two', reflectionId: discussed.id, userId: otherOwner.id },
@@ -551,6 +689,7 @@ test('public counts and most-liked and most-discussed sorting use visible discus
 
     const byLikes = await request(app).get('/api/reflections?sort=most_liked').set('Authorization', `Bearer ${ownerToken}`);
     expect(byLikes.body.reflections.map((item) => item.id)).toEqual([liked.id, newest.id, discussed.id]);
+    expect(byLikes.body.reflections.find((item) => item.id === liked.id).likeCount).toBe(3);
     expect(byLikes.body.reflections.find((item) => item.id === newest.id)).toMatchObject({ commentCount: 1, isLiked: true, likeCount: 1 });
 
     const byComments = await request(app).get('/api/reflections?sort=most_discussed');
@@ -568,4 +707,100 @@ test('rapid repeated comment submission is rate limited per authenticated accoun
     expect(responses.slice(0, 6).every((response) => response.status === 201)).toBe(true);
     expect(responses[6].status).toBe(429);
     expect(responses[6].headers['retry-after']).toBeTruthy();
+});
+
+test('server-side community filtering accepts normal text and rejects vulgar reflection and comment bypass attempts', async () => {
+    const normal = await request(app).post('/api/reflections').set('Authorization', `Bearer ${ownerToken}`).send({
+        content: 'Singapore memories bring our neighbours together.', songId: song.id,
+    });
+    expect(normal.status).toBe(201);
+
+    for (const content of ['F.U.C.K this memory', 'f u c k this', 'SH!!!T', 'fuuuck this']) {
+        const rejected = await request(app).post('/api/reflections').set('Authorization', `Bearer ${ownerToken}`).send({ content, songId: song.id });
+        expect(rejected.status).toBe(400);
+        expect(rejected.body.message).toMatch(/community guidelines/i);
+    }
+
+    const reflection = await createStoredReflection({ status: 'APPROVED' });
+    for (const content of ['F.U.C.K this comment', 'sh!t']) {
+        const rejected = await request(app).post(`/api/reflections/${reflection.id}/comments`)
+            .set('Authorization', `Bearer ${ownerToken}`).send({ content });
+        expect(rejected.status).toBe(400);
+        expect(rejected.body.message).toMatch(/community guidelines/i);
+    }
+});
+
+test('likes persist in refreshed public state and duplicate database rows remain impossible', async () => {
+    const reflection = await createStoredReflection({ status: 'APPROVED' });
+    await request(app).post(`/api/reflections/${reflection.id}/like`).set('Authorization', `Bearer ${ownerToken}`);
+    await request(app).post(`/api/reflections/${reflection.id}/like`).set('Authorization', `Bearer ${ownerToken}`);
+    const refreshed = await request(app).get('/api/reflections').set('Authorization', `Bearer ${ownerToken}`);
+    expect(refreshed.body.reflections.find((item) => item.id === reflection.id)).toMatchObject({ isLiked: true, likeCount: 1 });
+    await expect(ReflectionLike.create({ reflectionId: reflection.id, userId: owner.id })).rejects.toBeTruthy();
+});
+
+test('comment reports are unique and song creators can inspect, dismiss, remove, and warn with audit history', async () => {
+    const reflection = await createStoredReflection({ guestSubmission: false, status: 'APPROVED', userId: owner.id });
+    const comment = await ReflectionComment.create({ content: 'A reportable comment.', reflectionId: reflection.id, userId: otherOwner.id });
+    const reportResponse = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/reports`)
+        .set('Authorization', `Bearer ${ownerToken}`).send({ reason: 'This needs a closer safety review.' });
+    expect(reportResponse.status).toBe(201);
+    const reportId = reportResponse.body.report.id;
+    const duplicate = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/reports`)
+        .set('Authorization', `Bearer ${ownerToken}`).send({ reason: 'Trying the same report again.' });
+    expect(duplicate.status).toBe(409);
+    expect(await ReflectionCommentReport.count({ where: { commentId: comment.id, reporterId: owner.id } })).toBe(1);
+
+    const foreignCreator = await request(app).get(`/api/reflections/${reflection.id}/moderation-discussion`)
+        .set('Authorization', `Bearer ${otherCreatorToken}`);
+    expect(foreignCreator.status).toBe(404);
+    const evidence = await request(app).get(`/api/reflections/${reflection.id}/moderation-discussion`)
+        .set('Authorization', `Bearer ${creatorToken}`);
+    expect(evidence.status).toBe(200);
+    expect(evidence.body.comments[0]).toMatchObject({
+        author: { id: otherOwner.id, name: 'Other Keeper' }, content: 'A reportable comment.',
+        reports: [{ id: reportId, status: 'PENDING' }], status: 'VISIBLE',
+    });
+    expect(evidence.body.comments[0].createdAt).toBeTruthy();
+
+    const dismissed = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/moderation`)
+        .set('Authorization', `Bearer ${creatorToken}`)
+        .send({ action: 'KEEP_COMMENT', reason: 'Reviewed in context and the comment may remain.', reportId });
+    expect(dismissed.status).toBe(200);
+    expect((await ReflectionCommentReport.findByPk(reportId)).status).toBe('DISMISSED');
+
+    const secondComment = await ReflectionComment.create({ content: 'Remove this evidence.', reflectionId: reflection.id, userId: otherOwner.id });
+    const secondReport = await ReflectionCommentReport.create({ commentId: secondComment.id, reason: 'It violates discussion expectations.', reporterId: owner.id });
+    const removed = await request(app).post(`/api/reflections/${reflection.id}/comments/${secondComment.id}/moderation`)
+        .set('Authorization', `Bearer ${creatorToken}`)
+        .send({ action: 'REMOVE_COMMENT', reason: 'Confirmed inappropriate after creator review.', reportId: secondReport.id });
+    expect(removed.status).toBe(200);
+    expect((await ReflectionComment.findByPk(secondComment.id)).status).toBe('REMOVED');
+    expect((await ReflectionCommentReport.findByPk(secondReport.id)).status).toBe('ACTIONED');
+
+    const warned = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/moderation`)
+        .set('Authorization', `Bearer ${creatorToken}`)
+        .send({ action: 'WARN_USER', reason: 'Please keep future discussion constructive.' });
+    expect(warned.status).toBe(200);
+    expect(await UserWarning.count({ where: { issuedBy: creator.id, userId: otherOwner.id } })).toBe(1);
+    const actions = await ModerationAction.findAll({ where: { targetType: 'REFLECTION_COMMENT' } });
+    expect(actions.map((action) => action.actionType)).toEqual(expect.arrayContaining([
+        'REFLECTION_COMMENT_REPORT_DISMISSED', 'REFLECTION_COMMENT_REMOVED', 'USER_WARNED_FROM_REFLECTION_COMMENT',
+    ]));
+});
+
+test('creator cannot moderate a comment on another creator song while admin retains platform authority', async () => {
+    const reflection = await createStoredReflection({ songId: otherCreatorSong.id, status: 'APPROVED' });
+    const comment = await ReflectionComment.create({ content: 'Cross-owner moderation target.', reflectionId: reflection.id, userId: owner.id });
+    const denied = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/moderation`)
+        .set('Authorization', `Bearer ${creatorToken}`)
+        .send({ action: 'REMOVE_COMMENT', reason: 'Creator should not reach this discussion.' });
+    expect(denied.status).toBe(404);
+    expect((await ReflectionComment.findByPk(comment.id)).status).toBe('VISIBLE');
+
+    const allowed = await request(app).post(`/api/reflections/${reflection.id}/comments/${comment.id}/moderation`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ action: 'REMOVE_COMMENT', reason: 'Administrator platform-wide moderation review.' });
+    expect(allowed.status).toBe(200);
+    expect((await ReflectionComment.findByPk(comment.id)).status).toBe('REMOVED');
 });

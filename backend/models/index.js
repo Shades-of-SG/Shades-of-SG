@@ -32,7 +32,11 @@ const SongBookmark = require('./SongBookmark');
 const SongReport = require('./SongReport');
 const InstrumentChallengeProgress = require('./InstrumentChallengeProgress');
 const ReflectionComment = require('./ReflectionComment');
+const ReflectionCommentLike = require('./ReflectionCommentLike');
+const ReflectionCommentReport = require('./ReflectionCommentReport');
 const ReflectionLike = require('./ReflectionLike');
+const GuestLikeSession = require('./GuestLikeSession');
+const GuestReflectionLike = require('./GuestReflectionLike');
 const SongExploration = require('./SongExploration');
 
 User.hasMany(Session, { foreignKey: 'userId', as: 'sessions' });
@@ -70,10 +74,23 @@ Reflection.hasMany(ReflectionComment, { foreignKey: 'reflectionId', as: 'comment
 ReflectionComment.belongsTo(Reflection, { foreignKey: 'reflectionId', as: 'reflection' });
 User.hasMany(ReflectionComment, { foreignKey: 'userId', as: 'reflectionComments', onDelete: 'CASCADE' });
 ReflectionComment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+ReflectionComment.hasMany(ReflectionCommentLike, { foreignKey: 'commentId', as: 'likes', onDelete: 'CASCADE' });
+ReflectionCommentLike.belongsTo(ReflectionComment, { foreignKey: 'commentId', as: 'comment' });
+User.hasMany(ReflectionCommentLike, { foreignKey: 'userId', as: 'reflectionCommentLikes', onDelete: 'CASCADE' });
+ReflectionCommentLike.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+ReflectionComment.hasMany(ReflectionCommentReport, { foreignKey: 'commentId', as: 'reports', onDelete: 'CASCADE' });
+ReflectionCommentReport.belongsTo(ReflectionComment, { foreignKey: 'commentId', as: 'comment' });
+User.hasMany(ReflectionCommentReport, { foreignKey: 'reporterId', as: 'reflectionCommentReports', onDelete: 'CASCADE' });
+ReflectionCommentReport.belongsTo(User, { foreignKey: 'reporterId', as: 'reporter' });
+ReflectionCommentReport.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolver' });
 Reflection.hasMany(ReflectionLike, { foreignKey: 'reflectionId', as: 'likes', onDelete: 'CASCADE' });
 ReflectionLike.belongsTo(Reflection, { foreignKey: 'reflectionId', as: 'reflection' });
 User.hasMany(ReflectionLike, { foreignKey: 'userId', as: 'reflectionLikes', onDelete: 'CASCADE' });
 ReflectionLike.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+Reflection.hasMany(GuestReflectionLike, { foreignKey: 'reflectionId', as: 'guestLikes', onDelete: 'CASCADE' });
+GuestReflectionLike.belongsTo(Reflection, { foreignKey: 'reflectionId', as: 'reflection' });
+GuestLikeSession.hasMany(GuestReflectionLike, { foreignKey: 'guestSessionId', as: 'likes', onDelete: 'CASCADE' });
+GuestReflectionLike.belongsTo(GuestLikeSession, { foreignKey: 'guestSessionId', as: 'session' });
 
 User.hasMany(Badge, { foreignKey: 'userId', as: 'badges' });
 Badge.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -214,6 +231,10 @@ module.exports = {
     SongReport,
     InstrumentChallengeProgress,
     ReflectionComment,
+    ReflectionCommentLike,
+    ReflectionCommentReport,
     ReflectionLike,
+    GuestLikeSession,
+    GuestReflectionLike,
     SongExploration,
 };

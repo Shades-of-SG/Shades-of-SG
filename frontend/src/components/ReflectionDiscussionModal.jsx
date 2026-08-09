@@ -1,13 +1,14 @@
-import { Heart, MessageCircle, Trash2, X } from 'lucide-react'
+import { Flag, Heart, MessageCircle, Trash2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   createReflectionComment, deleteReflectionComment, getReflectionComments,
-  likeReflection, unlikeReflection,
+  likeReflection, likeReflectionComment, reportReflectionComment, unlikeReflection,
+  unlikeReflectionComment,
 } from '../services/reflectionService'
 import { MAX_COMMENT_LENGTH, validateCommentContent } from '../utils/commentValidation'
 
-const formatter = new Intl.DateTimeFormat('en-SG', { dateStyle: 'medium', timeStyle: 'short' })
+const formatter = new Intl.DateTimeFormat('en-SG', { dateStyle: 'medium', timeStyle: 'medium' })
 
 function Avatar({ author, anonymous = false }) {
   const name = anonymous ? 'Anonymous' : author?.displayName || 'Community member'
@@ -31,6 +32,10 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [likeBusy, setLikeBusy] = useState(false)
+  const commentLikeRequests = useRef(new Set())
+  const [commentLikeBusyIds, setCommentLikeBusyIds] = useState(new Set())
+  const [removingId, setRemovingId] = useState('')
+  const [reportingId, setReportingId] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -62,14 +67,21 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
   }, [onClose])
 
   async function toggleLike() {
-    if (!token || !user) { onLogin(); return }
+    if (likeBusy) return
     setLikeBusy(true); setError('')
+    const previous = reflection
+    const optimistic = {
+      ...reflection,
+      isLiked: !reflection.isLiked,
+      likeCount: Math.max(0, reflection.likeCount + (reflection.isLiked ? -1 : 1)),
+    }
+    onReflectionChange(optimistic)
     try {
       const result = reflection.isLiked
         ? await unlikeReflection(reflection.id, token)
         : await likeReflection(reflection.id, token)
-      onReflectionChange({ ...reflection, isLiked: result.liked, likeCount: result.likeCount })
-    } catch (nextError) { setError(nextError.message) }
+      onReflectionChange({ ...optimistic, isLiked: result.liked, likeCount: result.likeCount })
+    } catch (nextError) { onReflectionChange(previous); setError(nextError.message) }
     finally { setLikeBusy(false) }
   }
 
@@ -90,6 +102,8 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
   }
 
   async function removeComment(item) {
+    if (!window.confirm('Remove this comment from the discussion?')) return
+    setRemovingId(item.id)
     setError(''); setSuccess('')
     try {
       await deleteReflectionComment(reflection.id, item.id, token)
@@ -98,6 +112,50 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
       onReflectionChange({ ...reflection, commentCount })
       setSuccess('Comment removed.')
     } catch (nextError) { setError(nextError.message) }
+    finally { setRemovingId('') }
+  }
+
+  async function toggleCommentLike(item) {
+    if (!token || !user) { onLogin(); return }
+    if (commentLikeRequests.current.has(item.id)) return
+    commentLikeRequests.current.add(item.id)
+    setCommentLikeBusyIds((ids) => new Set(ids).add(item.id))
+    setError(''); setSuccess('')
+    const optimistic = {
+      ...item,
+      isLiked: !item.isLiked,
+      likeCount: Math.max(0, (item.likeCount || 0) + (item.isLiked ? -1 : 1)),
+    }
+    setComments((items) => items.map((entry) => entry.id === item.id ? optimistic : entry))
+    try {
+      const result = item.isLiked
+        ? await unlikeReflectionComment(reflection.id, item.id, token)
+        : await likeReflectionComment(reflection.id, item.id, token)
+      setComments((items) => items.map((entry) => entry.id === item.id
+        ? { ...entry, isLiked: result.liked, likeCount: result.likeCount }
+        : entry))
+    } catch (nextError) {
+      setComments((items) => items.map((entry) => entry.id === item.id ? item : entry))
+      setError(nextError.message)
+    } finally {
+      commentLikeRequests.current.delete(item.id)
+      setCommentLikeBusyIds((ids) => { const next = new Set(ids); next.delete(item.id); return next })
+    }
+  }
+
+  async function reportComment(item) {
+    if (!token || !user) { onLogin(); return }
+    if (reportingId) return
+    const reason = window.prompt('Why are you reporting this comment?')?.trim() || ''
+    if (!reason) return
+    if (reason.length < 5 || reason.length > 500) { setError('Please provide a report reason between 5 and 500 characters.'); return }
+    setReportingId(item.id); setError(''); setSuccess('')
+    try {
+      await reportReflectionComment(reflection.id, item.id, reason, token)
+      setComments((items) => items.map((entry) => entry.id === item.id ? { ...entry, canReport: false } : entry))
+      setSuccess('Comment reported for review.')
+    } catch (nextError) { setError(nextError.message) }
+    finally { setReportingId('') }
   }
 
   const remaining = MAX_COMMENT_LENGTH - [...comment].length
@@ -118,7 +176,7 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
             </div>
             <p>{reflection.content}</p>
             <div className="rw-discussion__actions">
-              <button aria-pressed={reflection.isLiked} className={reflection.isLiked ? 'is-liked' : ''} disabled={likeBusy} onClick={toggleLike} type="button">
+              <button aria-label={`${reflection.isLiked ? 'Unlike' : 'Like'} reflection, ${reflection.likeCount} likes`} aria-pressed={reflection.isLiked} className={reflection.isLiked ? 'is-liked' : ''} disabled={likeBusy} onClick={toggleLike} type="button">
                 <Heart aria-hidden="true" fill={reflection.isLiked ? 'currentColor' : 'none'} /> {reflection.isLiked ? 'Liked' : 'Like'} <span>{reflection.likeCount}</span>
               </button>
               <span><MessageCircle aria-hidden="true" /> {reflection.commentCount} {reflection.commentCount === 1 ? 'comment' : 'comments'}</span>
@@ -130,7 +188,7 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
             {error ? <div className="rw-comment-message is-error" role="alert">{error}</div> : null}
             {success ? <div className="rw-comment-message is-success" role="status">{success}</div> : null}
             {loading ? <p className="rw-comments-state" role="status">Loading comments…</p> : null}
-            {!loading && comments.length === 0 ? <p className="rw-comments-state">No comments yet. Start the conversation.</p> : null}
+            {!loading && !error && comments.length === 0 ? <p className="rw-comments-state">No comments yet. Start the conversation.</p> : null}
             {!loading && comments.length > 0 ? (
               <ol className="rw-comment-list">
                 {comments.map((item) => (
@@ -138,9 +196,23 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
                     <div className="rw-comment-heading">
                       <Author author={item.author} />
                       <time dateTime={item.createdAt}>{formatter.format(new Date(item.createdAt))}</time>
-                      {item.canDelete ? <button aria-label={`Delete comment by ${item.author?.displayName || 'community member'}`} onClick={() => removeComment(item)} type="button"><Trash2 aria-hidden="true" /></button> : null}
+                      {item.canReport ? <button aria-label={`Report comment by ${item.author?.displayName || 'community member'}`} disabled={reportingId === item.id} onClick={() => reportComment(item)} type="button"><Flag aria-hidden="true" /></button> : null}
+                      {item.canDelete ? <button aria-label={`Delete comment by ${item.author?.displayName || 'community member'}`} disabled={removingId === item.id} onClick={() => removeComment(item)} type="button"><Trash2 aria-hidden="true" /></button> : null}
                     </div>
                     <p>{item.content}</p>
+                    <div className="rw-comment-actions">
+                      <button
+                        aria-label={`${item.isLiked ? 'Unlike' : 'Like'} comment by ${item.author?.displayName || 'community member'}, ${item.likeCount || 0} likes`}
+                        aria-pressed={Boolean(item.isLiked)}
+                        className={item.isLiked ? 'is-liked' : ''}
+                        disabled={commentLikeBusyIds.has(item.id)}
+                        onClick={() => toggleCommentLike(item)}
+                        type="button"
+                      >
+                        <Heart aria-hidden="true" fill={item.isLiked ? 'currentColor' : 'none'} />
+                        <span>{item.likeCount || 0}</span>
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -156,7 +228,7 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
               <div><output aria-live="polite">{remaining} characters remaining</output><button className="rw-primary-button" disabled={submitting || !comment.trim()} type="submit">{submitting ? 'Posting…' : 'Post comment'}</button></div>
             </form>
           ) : (
-            <div className="rw-discussion__login"><span>Log in to like or join the discussion.</span><button className="rw-primary-button" onClick={onLogin} type="button">Log in</button></div>
+            <div className="rw-discussion__login"><span>Log in to join the discussion.</span><button className="rw-primary-button" onClick={onLogin} type="button">Log in</button></div>
           )}
         </footer>
       </section>

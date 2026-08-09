@@ -12,7 +12,8 @@ process.env.DB_STORAGE = databasePath;
 const request = require('supertest');
 const app = require('../server');
 const {
-    AuditLog, ModerationAction, Reflection, ReflectionComment, Song, User, UserWarning, sequelize,
+    AuditLog, ModerationAction, Reflection, ReflectionComment, ReflectionCommentReport,
+    Song, User, UserWarning, sequelize,
 } = require('../models');
 const { createToken, hashPassword } = require('../services/authService');
 
@@ -160,4 +161,44 @@ test('creator and member states stay distinct in safety users and focused action
     expect(history.body.actions[0]).toMatchObject({ actionType: 'CREATOR_SUSPENDED', targetUserId: creator.id });
     expect((await request(app).patch(`/api/admin/creators/${creator.id}/status`).set(auth(admin))
         .send({ creatorAccessStatus: 'ACTIVE', reason: 'Creator safety review is complete.' })).status).toBe(200);
+});
+
+test('admin safety uses stored comment reports and includes creator comment actions in platform history', async () => {
+    const reflection = await Reflection.create({ content: 'Comment report context.', songId: song.id, status: 'APPROVED', userId: creator.id });
+    const comment = await ReflectionComment.create({ content: 'Reported comment evidence.', reflectionId: reflection.id, userId: member.id });
+    const report = await ReflectionCommentReport.create({ commentId: comment.id, reason: 'Member submitted a specific safety concern.', reporterId: creator.id });
+    await ModerationAction.create({
+        actionType: 'USER_WARNED_FROM_REFLECTION_COMMENT', actorId: creator.id,
+        metadata: { reflectionId: reflection.id }, reason: 'Creator recorded an earlier warning.',
+        songId: song.id, targetId: comment.id, targetType: 'REFLECTION_COMMENT', targetUserId: member.id,
+    });
+
+    const queue = await request(app).get('/api/admin/safety-reports').set(auth(admin));
+    expect(queue.status).toBe(200);
+    expect(queue.body.reports.find((item) => item.id === report.id)).toMatchObject({
+        caseTypes: ['USER_REPORT'], content: comment.content, reflectionId: reflection.id,
+        targetId: comment.id, targetType: 'REFLECTION_COMMENT', userId: member.id,
+    });
+
+    const history = await request(app).get('/api/admin/moderation-actions?scope=safety&targetType=REFLECTION_COMMENT').set(auth(admin));
+    expect(history.status).toBe(200);
+    expect(history.body.actions.some((action) => action.actionType === 'USER_WARNED_FROM_REFLECTION_COMMENT' && action.actor.id === creator.id)).toBe(true);
+
+    const resolved = await request(app).post(`/api/admin/safety-reports/${report.id}/resolve`).set(auth(admin))
+        .send({ outcome: 'REMOVE_COMMENT', reason: 'Administrator confirmed the reported comment should be hidden.' });
+    expect(resolved.status).toBe(200);
+    expect((await ReflectionComment.findByPk(comment.id)).status).toBe('REMOVED');
+    expect((await ReflectionCommentReport.findByPk(report.id)).status).toBe('ACTIONED');
+    expect(await AuditLog.findOne({ where: { action: 'REFLECTION_COMMENT_REMOVED', entityId: comment.id } })).not.toBeNull();
+    const repeated = await request(app).post(`/api/admin/safety-reports/${report.id}/resolve`).set(auth(admin))
+        .send({ outcome: 'REMOVE_COMMENT', reason: 'A duplicate administrator outcome must not be recorded.' });
+    expect(repeated.status).toBe(409);
+    expect(await ModerationAction.count({ where: { actionType: 'REFLECTION_COMMENT_REMOVED', targetId: comment.id } })).toBe(1);
+
+    const warning = await request(app).post('/api/admin/warnings').set(auth(admin)).send({
+        reason: 'Administrator warning linked to the reported comment.', sourceId: comment.id,
+        sourceType: 'REFLECTION_COMMENT', userId: member.id,
+    });
+    expect(warning.status).toBe(201);
+    expect(warning.body.source).toMatchObject({ id: comment.id, reflectionId: reflection.id, type: 'REFLECTION_COMMENT' });
 });

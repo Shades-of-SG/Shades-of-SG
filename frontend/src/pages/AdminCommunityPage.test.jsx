@@ -65,13 +65,13 @@ describe('Safety & Reports administration', () => {
   it('requires a clear report outcome, prevents repeated submission, and restores row focus on close', async () => {
     renderPage()
     const row = await screen.findByRole('button', { name: /Original reported reflection evidence/ })
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss flag' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss report' }))
     const dialog = screen.getByRole('dialog')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Dismiss flag' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dismiss report' }))
     expect(service.resolveSafetyReport).not.toHaveBeenCalled()
 
     fireEvent.change(within(dialog).getByLabelText('Administrator reason (required)'), { target: { value: 'The evidence does not breach platform policy.' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Dismiss flag' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Dismiss report' }))
     expect(await within(dialog).findByRole('button', { name: 'Working…' })).toBeDisabled()
     fireEvent.click(within(dialog).getByRole('button', { name: 'Working…' }))
     expect(service.resolveSafetyReport).toHaveBeenCalledTimes(1)
@@ -96,6 +96,43 @@ describe('Safety & Reports administration', () => {
       reason: 'Do not submit abusive public reflections.', sourceId: 'report-1', sourceType: 'REFLECTION', userId: 'user-1',
     }, 'admin-token'))
     expect(await screen.findByRole('status')).toHaveTextContent('No delivery notification was sent')
+  })
+
+  it('renders stored user comment reports and sends comment-specific removal and warning context', async () => {
+    const commentReport = {
+      ...report,
+      account: { accountStatus: 'ACTIVE', email: 'member@example.com', id: 'member-1', name: 'Comment Member', role: 'REGISTERED' },
+      caseTypes: ['USER_REPORT'],
+      content: 'Reported discussion comment.',
+      id: 'comment-report-1',
+      reflectionId: 'reflection-1',
+      reasons: ['A member submitted this report.'],
+      reportCount: 1,
+      targetId: 'comment-1',
+      targetType: 'REFLECTION_COMMENT',
+      userId: 'member-1',
+    }
+    service.getSafetyReports.mockResolvedValue({ pagination: { page: 1, total: 1, totalPages: 1 }, reports: [commentReport] })
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Original reported comment' })).toBeInTheDocument()
+    expect(screen.getAllByText('User report').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Return to creator' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove comment' }))
+    const removeDialog = screen.getByRole('dialog')
+    fireEvent.change(within(removeDialog).getByLabelText('Administrator reason (required)'), { target: { value: 'The report confirms a comment policy violation.' } })
+    fireEvent.click(within(removeDialog).getByRole('button', { name: 'Remove comment' }))
+    await waitFor(() => expect(service.resolveSafetyReport).toHaveBeenCalledWith('comment-report-1', {
+      outcome: 'REMOVE_COMMENT', reason: 'The report confirms a comment policy violation.',
+    }, 'admin-token'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Issue warning' }))
+    const warningDialog = screen.getByRole('dialog')
+    fireEvent.change(within(warningDialog).getByLabelText('Specific reason (required)'), { target: { value: 'Keep future comments constructive.' } })
+    fireEvent.click(within(warningDialog).getByRole('button', { name: 'Record warning' }))
+    await waitFor(() => expect(service.issueWarning).toHaveBeenCalledWith({
+      reason: 'Keep future comments constructive.', sourceId: 'comment-1', sourceType: 'REFLECTION_COMMENT', userId: 'member-1',
+    }, 'admin-token'))
   })
 
   it('labels creator and member access separately for safety-linked users and routes creator controls correctly', async () => {
@@ -138,9 +175,9 @@ describe('Safety & Reports administration', () => {
     service.getSafetyReports.mockRejectedValueOnce(new Error('Safety service unavailable.')).mockResolvedValueOnce({ pagination: {}, reports: [] })
     renderPage()
     expect(await screen.findByRole('heading', { name: 'Safety cases unavailable' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'No open reflection cases' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No open community safety cases' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry loading cases' }))
-    expect(await screen.findByRole('heading', { name: 'No open reflection cases' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No open community safety cases' })).toBeInTheDocument()
     expect(service.getSafetyReports).toHaveBeenCalledTimes(2)
   })
 })

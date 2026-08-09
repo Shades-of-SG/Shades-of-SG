@@ -475,6 +475,25 @@
 .crm-details h3,
 .crm-note-field > label { color: #b9a2ef; display: block; font-size: 0.69rem; font-weight: 850; letter-spacing: 0.055em; margin: 0 0 8px; text-transform: uppercase; }
 .crm-details__memory p { color: #e4e2e9; font-family: Georgia, 'Times New Roman', serif; font-size: 0.9rem; line-height: 1.7; margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.crm-details__discussion > p { color: #929bb0; font-size: .76rem; }
+.crm-details__discussion > ol { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.crm-details__discussion > ol > li { background: rgba(255,255,255,.035); border: 1px solid rgba(196,181,253,.14); border-radius: 12px; padding: 11px; }
+.crm-details__discussion li > header { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.crm-details__discussion li > p { color: #e4e2e9; font-size: .8rem; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.crm-details__discussion time, .crm-details__discussion small { color: #8993aa; font-size: .68rem; }
+.crm-comment-reports { border-left: 3px solid #f59e0b; display: grid; gap: 7px; margin-top: 10px; padding-left: 9px; }
+.crm-comment-reports > div { background: rgba(245,158,11,.06); border-radius: 8px; padding: 8px; }
+.crm-comment-reports p { color: #f1e7ce; font-size: .75rem; margin: 0 0 4px; }
+.crm-comment-reports button, .crm-comment-actions button { background: rgba(139,92,246,.15); border: 1px solid rgba(167,139,250,.25); border-radius: 8px; color: #e9e3f8; cursor: pointer; font: inherit; font-size: .68rem; font-weight: 800; margin-top: 7px; min-height: 34px; padding: 6px 9px; }
+.crm-comment-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.crm-comment-actions button.is-delete { background: rgba(190,24,93,.12); border-color: rgba(251,113,133,.28); color: #fecdd3; }
+.crm-comment-actions button:disabled, .crm-comment-reports button:disabled { cursor: wait; opacity: .55; }
+.crm-details__discussion details { border-top: 1px solid rgba(196,181,253,.12); margin-top: 9px; padding-top: 8px; }
+.crm-details__discussion details summary { color: #c4b5fd; cursor: pointer; font-size: .7rem; font-weight: 800; }
+.crm-details__discussion details ol { display: grid; gap: 7px; list-style: none; margin: 8px 0 0; padding: 0; }
+.crm-details__discussion details li { border-left: 2px solid rgba(196,181,253,.2); padding-left: 8px; }
+.crm-details__discussion details p { color: #aeb6ca; font-size: .7rem; margin: 3px 0; }
+.crm-details__discussion-error { color: #fda4af !important; }
 .crm-details__tags > p { color: #79849d; font-size: 0.74rem; margin: 0; }
 .crm-details__tags > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .crm-details__tags > div span { background: rgba(139, 92, 246, 0.13); border: 1px solid rgba(167, 139, 250, 0.18); border-radius: 999px; color: #d8ccf5; font-size: 0.65rem; padding: 5px 8px; }

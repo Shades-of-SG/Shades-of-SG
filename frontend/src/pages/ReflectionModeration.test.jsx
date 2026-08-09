@@ -5,16 +5,28 @@ import { AuthProvider } from '../context/AuthContext'
 import {
   deleteReflection,
   getModerationReflections,
+  getReflectionModerationDiscussion,
   getReflectionSongs,
   moderateReflection,
+  moderateReflectionComment,
 } from '../services/reflectionService'
 import ReflectionModeration from './ReflectionModeration'
+
+const authMocks = vi.hoisted(() => ({ signOut: vi.fn() }))
+
+vi.mock('../context/AuthContext', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ signOut: authMocks.signOut, token: 'creator-token' }),
+}))
 
 vi.mock('../services/reflectionService', () => ({
   deleteReflection: vi.fn(),
   getModerationReflections: vi.fn(),
+  getReflectionModerationDiscussion: vi.fn(),
   getReflectionSongs: vi.fn(),
   moderateReflection: vi.fn(),
+  moderateReflectionComment: vi.fn(),
+  warnReflectionAuthor: vi.fn(),
 }))
 
 const pendingReflection = {
@@ -61,7 +73,7 @@ function renderPage() {
 }
 
 describe('ReflectionModeration', () => {
-  afterEach(() => cleanup())
+  afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -78,6 +90,10 @@ describe('ReflectionModeration', () => {
       status: values.status,
     }))
     deleteReflection.mockResolvedValue(null)
+    getReflectionModerationDiscussion.mockResolvedValue({ comments: [] })
+    moderateReflectionComment.mockResolvedValue({ action: 'REFLECTION_COMMENT_REMOVED' })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.spyOn(window, 'prompt').mockReturnValue('Stored moderation reason.')
   })
 
   it('shows loading skeletons before rendering pending reflections from the API', async () => {
@@ -130,7 +146,7 @@ describe('ReflectionModeration', () => {
       expect.objectContaining({ status: 'APPROVED' }),
       'creator-token',
     ))
-    expect(await screen.findByText('All caught up')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('All caught up')).toBeInTheDocument())
     expect(screen.getByRole('status')).toHaveTextContent('approved and published')
   })
 
@@ -147,7 +163,7 @@ describe('ReflectionModeration', () => {
       expect.objectContaining({ status: 'FLAGGED' }),
       'creator-token',
     ))
-    expect(await screen.findByText('No approved memories yet')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('No approved memories yet')).toBeInTheDocument())
   })
 
   it('deletes only after confirmation', async () => {
@@ -160,7 +176,7 @@ describe('ReflectionModeration', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete permanently' }))
 
     await waitFor(() => expect(deleteReflection).toHaveBeenCalledWith(pendingReflection.id, 'creator-token'))
-    expect(await screen.findByText('All caught up')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('All caught up')).toBeInTheDocument())
   })
 
   it('keeps the previous reflection and counts when a moderation request fails', async () => {
@@ -173,5 +189,38 @@ describe('ReflectionModeration', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Moderation service unavailable.')
     expect(screen.getAllByText(/Rain at the National Day parade/)[0]).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Pending.*1/ })).toBeInTheDocument()
+  })
+
+  it('shows song-scoped comment evidence and performs keep, warn, and removal actions', async () => {
+    const comment = {
+      author: { email: 'member@example.com', id: 'member-1', name: 'Member', role: 'REGISTERED' },
+      content: 'A reported discussion reply.', createdAt: '2026-08-01T04:05:06Z', id: 'comment-1',
+      moderationHistory: [], reports: [{ createdAt: '2026-08-01T05:00:00Z', id: 'report-1', reason: 'Needs review.', reporter: { name: 'Reporter' }, status: 'PENDING' }], status: 'VISIBLE',
+    }
+    getReflectionModerationDiscussion.mockResolvedValue({ comments: [comment] })
+    renderPage()
+    expect(await screen.findByText('A reported discussion reply.')).toBeInTheDocument()
+    expect(screen.getByText('Needs review.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep comment / dismiss report' }))
+    await waitFor(() => expect(moderateReflectionComment).toHaveBeenCalledWith(
+      pendingReflection.id, comment.id,
+      { action: 'KEEP_COMMENT', reason: 'Stored moderation reason.', reportId: 'report-1' },
+      'creator-token',
+    ))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Warn user' }))
+    await waitFor(() => expect(moderateReflectionComment).toHaveBeenCalledWith(
+      pendingReflection.id, comment.id,
+      { action: 'WARN_USER', reason: 'Stored moderation reason.', reportId: null },
+      'creator-token',
+    ))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove comment' }))
+    await waitFor(() => expect(moderateReflectionComment).toHaveBeenCalledWith(
+      pendingReflection.id, comment.id,
+      { action: 'REMOVE_COMMENT', reason: 'Stored moderation reason.', reportId: 'report-1' },
+      'creator-token',
+    ))
   })
 })

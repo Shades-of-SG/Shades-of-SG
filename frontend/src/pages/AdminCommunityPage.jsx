@@ -39,21 +39,28 @@ const songReportOutcomeDetails = {
 const caseTypeLabels = {
   ADMIN_FLAG: 'Administrator flag',
   CREATOR_ESCALATION: 'Creator escalation',
+  USER_REPORT: 'User report',
   UNATTRIBUTED_FLAG: 'Legacy unattributed flag',
 }
 
 const outcomeDetails = {
   DISMISS_REPORT: {
-    confirm: 'Dismiss flag',
-    message: 'Flag dismissed. The reflection is approved again; no notification was sent.',
-    title: 'Dismiss this flag?',
-    description: 'The reflection becomes approved and can appear publicly when its song is published. The evidence and action history remain stored. A moderator can review it again later.',
+    confirm: 'Dismiss report',
+    message: 'Report dismissed. The content remains visible; no notification was sent.',
+    title: 'Dismiss this report?',
+    description: 'The content remains or becomes publicly eligible. The report evidence and action history remain stored for authorised review.',
   },
   REMOVE_REFLECTION: {
     confirm: 'Hide reflection',
     message: 'Reflection hidden. Its evidence and history remain stored; no notification was sent.',
     title: 'Hide this reflection?',
     description: 'The reflection becomes rejected and leaves public display. The contributor’s profile, scores, badges and other content are unchanged. The stored reflection can be restored through moderation.',
+  },
+  REMOVE_COMMENT: {
+    confirm: 'Remove comment',
+    message: 'Comment hidden. Its evidence and moderation history remain stored.',
+    title: 'Remove this comment?',
+    description: 'The comment leaves the public discussion. Its original text, report, actor, reason, and outcome remain available to authorised moderators.',
   },
   RETURN_TO_CREATOR: {
     confirm: 'Return to creator',
@@ -135,7 +142,12 @@ function ReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
     if (modal.reason.trim().length < 5) { onFeedback({ message: 'Enter a specific warning reason.', type: 'error' }); return }
     setBusy(true)
     try {
-      await issueWarning({ reason: modal.reason, sourceId: selected.id, sourceType: 'REFLECTION', userId: selected.userId }, token)
+      await issueWarning({
+        reason: modal.reason,
+        sourceId: selected.targetType === 'REFLECTION_COMMENT' ? selected.targetId : selected.id,
+        sourceType: selected.targetType,
+        userId: selected.userId,
+      }, token)
       onFeedback({ message: 'Warning recorded in product history. No delivery notification was sent.', type: 'status' })
       setModal(null)
       const data = await getWarnings(token, { limit: 20, userId: selected.userId })
@@ -174,7 +186,7 @@ function ReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
     </FilterBar>
     {error ? <div className="admin-inline-error" role="alert"><span>{reports.length ? 'The queue could not be refreshed. Previously loaded cases remain visible.' : error}</span><button className="admin-button admin-button--ghost" onClick={() => refresh(pagination.page)} type="button">Retry</button></div> : null}
     {loading && !reports.length ? <LoadingRows /> : reports.length ? <div className={`admin-report-layout ${selected ? '' : 'has-no-selection'}`}>
-      <Panel title="Open reflection safety cases" subtitle={`${pagination.total} flagged reflections awaiting a recorded outcome`}>
+      <Panel title="Open community safety cases" subtitle={`${pagination.total} reports or flags awaiting a recorded outcome`}>
         <div className="admin-report-list">{reports.map((report) => <button
           aria-pressed={selected?.id === report.id}
           className={`admin-report-row ${selected?.id === report.id ? 'is-selected' : ''}`}
@@ -183,7 +195,7 @@ function ReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
           ref={(node) => { if (node) rowRefs.current.set(report.id, node); else rowRefs.current.delete(report.id) }}
           type="button"
         >
-          <span className="admin-report-row__top"><strong>Reflection · {report.song?.title || 'Unknown song'}</strong><StatusBadge status="OPEN">Open</StatusBadge></span>
+          <span className="admin-report-row__top"><strong>{report.targetType === 'REFLECTION_COMMENT' ? 'Comment' : 'Reflection'} · {report.song?.title || 'Unknown song'}</strong><StatusBadge status="OPEN">Open</StatusBadge></span>
           <span className="admin-report-row__types">{report.caseTypes.map((type) => <StatusBadge key={type} status={type}>{caseTypeLabels[type]}</StatusBadge>)}</span>
           <p>{report.content.length > 170 ? `${report.content.slice(0, 170)}…` : report.content}</p>
           <dl className="admin-report-row__facts"><div><dt>Contributor</dt><dd>{contributorName(report)}</dd></div><div><dt>Reason</dt><dd>{report.reasons?.[0] || 'Not recorded'}</dd></div><div><dt>Flag events</dt><dd>{report.reportCount}</dd></div><div><dt>Latest</dt><dd>{relativeTime(report.latestReportedAt)}</dd></div></dl>
@@ -192,10 +204,10 @@ function ReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
         <Pagination onNext={() => refresh(pagination.page + 1)} onPrevious={() => refresh(pagination.page - 1)} page={pagination.page} totalPages={pagination.totalPages} />
       </Panel>
       {selected ? <aside aria-label="Safety case review" className="admin-report-detail">
-        <header><div><h2>Safety case review</h2><p>Open · Reflection</p></div><button aria-label="Close report details" onClick={closeDetails} type="button"><X /></button></header>
+        <header><div><h2>Safety case review</h2><p>Open · {selected.targetType === 'REFLECTION_COMMENT' ? 'Comment' : 'Reflection'}</p></div><button aria-label="Close report details" onClick={closeDetails} type="button"><X /></button></header>
         <div className="admin-report-detail__body">
           <section><h3>Case source</h3><div className="admin-report-row__types">{selected.caseTypes.map((type) => <StatusBadge key={type} status={type}>{caseTypeLabels[type]}</StatusBadge>)}</div><p>{selected.reportCount} recorded flag {selected.reportCount === 1 ? 'event' : 'events'} · first {formatDate(selected.firstReportedAt)} · latest {formatDate(selected.latestReportedAt)}</p></section>
-          <section className="admin-report-evidence"><h3>Original reported reflection</h3><blockquote>{selected.content}</blockquote><p><strong>Contributor:</strong> {contributorName(selected)}{selected.account ? ` · ${labelFor(selected.account.role)}` : ' · Guest submission'}</p></section>
+          <section className="admin-report-evidence"><h3>Original reported {selected.targetType === 'REFLECTION_COMMENT' ? 'comment' : 'reflection'}</h3><blockquote>{selected.content}</blockquote><p><strong>Contributor:</strong> {contributorName(selected)}{selected.account ? ` · ${labelFor(selected.account.role)}` : ' · Guest submission'}</p></section>
           <section><h3>Recorded flag reason</h3><p>{primaryReason}</p>{selected.reasons?.slice(1).map((reason) => <p key={reason}>{reason}</p>)}</section>
           <section><h3>Song and creator context</h3><p><strong>Song:</strong> {selected.song?.title || 'Unknown song'} · {labelFor(selected.song?.status || 'unknown')}<br /><strong>Creator:</strong> {selected.song?.creator?.name || 'Unknown creator'}</p>{selected.song?.id ? <Link className="admin-button admin-button--ghost admin-inline-link" to={`/admin/content?tab=songs&songId=${encodeURIComponent(selected.song.id)}`}><ExternalLink />Open full song review</Link> : null}</section>
           <section><h3>Surrounding discussion</h3>{selected.comments?.length ? <ol className="admin-case-timeline">{selected.comments.map((comment) => <li key={comment.id}><div><strong>{comment.contributor?.name || 'Unknown member'} · {labelFor(comment.status)}</strong><p>{comment.content}</p><time dateTime={comment.createdAt}>{formatDate(comment.createdAt)}</time></div></li>)}</ol> : <p>No discussion comments are attached to this reflection.</p>}</section>
@@ -203,12 +215,12 @@ function ReportWorkspace({ onFeedback, onSummaryRefresh, token }) {
           <section><h3>Moderation timeline</h3>{selected.moderationHistory?.length ? <ol className="admin-case-timeline">{selected.moderationHistory.map((action, index) => <li key={`${action.actionType}-${action.createdAt}-${index}`}><div><strong>{labelFor(action.actionType)}</strong><p>{action.reason || 'No reason recorded'}</p><time dateTime={action.createdAt}>{formatDate(action.createdAt)} · {labelFor(action.actor?.role || 'system')}</time></div></li>)}</ol> : <p>No prior moderation actions were recorded.</p>}</section>
           <ContextAuditHistory entityId={selected.id} token={token} />
         </div>
-        <div className="admin-report-detail__actions"><button className="admin-button admin-button--primary" disabled={busy} onClick={() => setModal({ outcome: 'DISMISS_REPORT', reason: '', type: 'outcome' })} type="button">Dismiss flag</button><button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ outcome: 'RETURN_TO_CREATOR', reason: '', type: 'outcome' })} type="button">Return to creator</button>{selected.userId ? <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ reason: '', type: 'warning' })} type="button"><AlertTriangle />Issue warning</button> : null}</div>
-        <div className="admin-report-detail__danger"><button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ outcome: 'REMOVE_REFLECTION', reason: '', type: 'outcome' })} type="button">Hide reflection</button>{selected.account ? <button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ reason: '', type: 'account' })} type="button">{selected.account.accountStatus === 'SUSPENDED' ? 'Restore member account' : 'Suspend member account'}</button> : null}</div>
+        <div className="admin-report-detail__actions"><button className="admin-button admin-button--primary" disabled={busy} onClick={() => setModal({ outcome: 'DISMISS_REPORT', reason: '', type: 'outcome' })} type="button">Dismiss report</button>{selected.targetType !== 'REFLECTION_COMMENT' ? <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ outcome: 'RETURN_TO_CREATOR', reason: '', type: 'outcome' })} type="button">Return to creator</button> : null}{selected.userId ? <button className="admin-button admin-button--ghost" disabled={busy} onClick={() => setModal({ reason: '', type: 'warning' })} type="button"><AlertTriangle />Issue warning</button> : null}</div>
+        <div className="admin-report-detail__danger"><button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ outcome: selected.targetType === 'REFLECTION_COMMENT' ? 'REMOVE_COMMENT' : 'REMOVE_REFLECTION', reason: '', type: 'outcome' })} type="button">{selected.targetType === 'REFLECTION_COMMENT' ? 'Remove comment' : 'Hide reflection'}</button>{selected.account ? <button className="admin-button admin-button--danger" disabled={busy} onClick={() => setModal({ reason: '', type: 'account' })} type="button">{selected.account.accountStatus === 'SUSPENDED' ? 'Restore member account' : 'Suspend member account'}</button> : null}</div>
       </aside> : null}
-    </div> : <EmptyState action={error ? <button className="admin-button admin-button--ghost" onClick={() => refresh(1)} type="button">Retry loading cases</button> : null} description={hasFilters ? 'Try clearing the case filters.' : 'Creator and administrator reflection flags will appear here. User reports, automated flags and appeals are not implemented.'} icon={Flag} title={error ? 'Safety cases unavailable' : 'No open reflection cases'} />}
-    {modal?.type === 'outcome' ? <ConfirmationModal busy={busy} confirmLabel={outcomeDetails[modal.outcome].confirm} danger={modal.outcome === 'REMOVE_REFLECTION'} onCancel={() => setModal(null)} onConfirm={submitOutcome} title={outcomeDetails[modal.outcome].title}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>{outcomeDetails[modal.outcome].description}</p><label>Administrator reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label><p className="admin-field-note">The in-product decision and audit record are authoritative; this action does not claim to send a notification.</p></form></ConfirmationModal> : null}
-    {modal?.type === 'warning' ? <ConfirmationModal busy={busy} confirmLabel="Record warning" danger onCancel={() => setModal(null)} onConfirm={submitWarning} title={`Warn ${contributorName(selected)}?`}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>This warning will link to the reported reflection and remain in history after resolution. It does not suspend access or claim notification delivery.</p><label>Specific reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
+    </div> : <EmptyState action={error ? <button className="admin-button admin-button--ghost" onClick={() => refresh(1)} type="button">Retry loading cases</button> : null} description={hasFilters ? 'Try clearing the case filters.' : 'Creator and administrator flags and user-submitted comment reports will appear here. Automated flagging and appeals are not implemented.'} icon={Flag} title={error ? 'Safety cases unavailable' : 'No open community safety cases'} />}
+    {modal?.type === 'outcome' ? <ConfirmationModal busy={busy} confirmLabel={outcomeDetails[modal.outcome].confirm} danger={['REMOVE_COMMENT', 'REMOVE_REFLECTION'].includes(modal.outcome)} onCancel={() => setModal(null)} onConfirm={submitOutcome} title={outcomeDetails[modal.outcome].title}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>{outcomeDetails[modal.outcome].description}</p><label>Administrator reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label><p className="admin-field-note">The in-product decision and audit record are authoritative; this action does not claim to send a notification.</p></form></ConfirmationModal> : null}
+    {modal?.type === 'warning' ? <ConfirmationModal busy={busy} confirmLabel="Record warning" danger onCancel={() => setModal(null)} onConfirm={submitWarning} title={`Warn ${contributorName(selected)}?`}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><p>This warning will link to the reported {selected?.targetType === 'REFLECTION_COMMENT' ? 'comment' : 'reflection'} and remain in history after resolution. It does not suspend access or claim notification delivery.</p><label>Specific reason (required)<textarea maxLength="2000" minLength="5" onChange={(event) => setModal((value) => ({ ...value, reason: event.target.value }))} required value={modal.reason} /></label></form></ConfirmationModal> : null}
     {modal?.type === 'account' ? <AccountModal busy={busy} onCancel={() => setModal(null)} onConfirm={submitAccountChange} onReason={(reason) => setModal((value) => ({ ...value, reason }))} reason={modal.reason} user={selected.account} /> : null}
   </>
 }

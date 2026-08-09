@@ -4,7 +4,7 @@ import { notifyAuthExpired } from '../utils/authEvents'
 async function request(path, options = {}) {
   const response = await fetch(
     `${API_URL}${path}`,
-    options
+    { credentials: 'include', ...options }
   )
 
   const data =
@@ -63,6 +63,40 @@ export async function createReflectionComment(reflectionId, content, token) {
 export function deleteReflectionComment(reflectionId, commentId, token) {
   return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}`, {
     headers: authHeaders(token), method: 'DELETE',
+  })
+}
+
+export function likeReflectionComment(reflectionId, commentId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}/like`, {
+    headers: authHeaders(token), method: 'POST',
+  })
+}
+
+export function unlikeReflectionComment(reflectionId, commentId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}/like`, {
+    headers: authHeaders(token), method: 'DELETE',
+  })
+}
+
+export function reportReflectionComment(reflectionId, commentId, reason, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}/reports`, {
+    body: JSON.stringify({ reason }),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'POST',
+  })
+}
+
+export function getReflectionModerationDiscussion(reflectionId, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/moderation-discussion`, {
+    headers: authHeaders(token),
+  })
+}
+
+export function moderateReflectionComment(reflectionId, commentId, values, token) {
+  return request(`/reflections/${encodeURIComponent(reflectionId)}/comments/${encodeURIComponent(commentId)}/moderation`, {
+    body: JSON.stringify(values),
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    method: 'POST',
   })
 }
 

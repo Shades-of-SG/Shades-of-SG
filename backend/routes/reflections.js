@@ -1,14 +1,15 @@
 const express = require('express');
 const { Op, Sequelize } = require('sequelize');
 const {
-    AnalyticsEvent, sequelize, ModerationAction, Reflection, ReflectionComment,
-    ReflectionLike, Song, User, UserProfile, UserWarning,
+    AnalyticsEvent, GuestLikeSession, GuestReflectionLike, sequelize, ModerationAction, Reflection, ReflectionComment,
+    ReflectionCommentLike, ReflectionCommentReport, ReflectionLike, Song, User, UserProfile, UserWarning,
 } = require('../models');
 const { optionalAuth, requireAdmin, requireAuth, requireCreatorOrAdmin } = require('../middleware/auth');
 const { createRateLimit } = require('../middleware/rateLimit');
-const { validateCommentContent } = require('../services/commentContentService');
+const { validateCommentContent, validateReflectionContent } = require('../services/commentContentService');
 const { writeAudit } = require('../services/auditService');
 const { evaluateAndAward } = require('../services/badgeAwardService');
+const { countReflectionLikes, getGuestLikeSession } = require('../services/guestLikeService');
 
 const router = express.Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -27,6 +28,11 @@ const PUBLIC_SORTS = new Set(['latest', 'oldest', 'most_liked', 'most_discussed'
 const commentRateLimit = createRateLimit({
     key: (req) => `reflection-comments:user:${req.authUserRecord.id}`,
     max: 6,
+    windowMs: 60 * 1000,
+});
+const reportRateLimit = createRateLimit({
+    key: (req) => `reflection-comment-reports:user:${req.authUserRecord.id}`,
+    max: 10,
     windowMs: 60 * 1000,
 });
 
@@ -186,24 +192,48 @@ async function findPublicReflection(id) {
     return reflection;
 }
 
-function serializeComment(comment, currentUser, reflectionOwnerId) {
+function serializeComment(comment, currentUser, reflection, likeState = {}) {
     const value = comment.get({ plain: true });
     return {
         author: publicAuthor(value.user),
         canDelete: Boolean(currentUser && (
             currentUser.id === value.userId
-            || currentUser.id === reflectionOwnerId
+            || currentUser.id === reflection.userId
             || currentUser.role === 'ADMIN'
         )),
+        canReport: Boolean(currentUser && currentUser.id !== value.userId),
         content: value.content,
         createdAt: value.createdAt,
         id: value.id,
+        isLiked: Boolean(likeState.isLiked),
+        likeCount: Number(likeState.likeCount || 0),
     };
 }
 
-async function discussionState(reflectionIds, currentUserId) {
+async function commentLikeState(commentIds, currentUserId) {
+    if (!commentIds.length) return { liked: new Set(), likeCounts: new Map() };
+    const [countRows, userLikes] = await Promise.all([
+        ReflectionCommentLike.findAll({
+            attributes: ['commentId', [Sequelize.fn('COUNT', Sequelize.col('user_id')), 'count']],
+            group: ['commentId'], raw: true,
+            where: { commentId: { [Op.in]: commentIds } },
+        }),
+        currentUserId
+            ? ReflectionCommentLike.findAll({
+                attributes: ['commentId'], raw: true,
+                where: { commentId: { [Op.in]: commentIds }, userId: currentUserId },
+            })
+            : Promise.resolve([]),
+    ]);
+    return {
+        liked: new Set(userLikes.map((like) => like.commentId)),
+        likeCounts: new Map(countRows.map((row) => [row.commentId, Number(row.count)])),
+    };
+}
+
+async function discussionState(reflectionIds, currentUserId, guestSessionId) {
     if (!reflectionIds.length) return { commentCounts: new Map(), liked: new Set(), likeCounts: new Map() };
-    const [commentRows, likeRows, userLikes] = await Promise.all([
+    const [commentRows, likeRows, guestLikeRows, identityLikes] = await Promise.all([
         ReflectionComment.findAll({
             attributes: ['reflectionId', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
             group: ['reflectionId'], raw: true,
@@ -214,29 +244,34 @@ async function discussionState(reflectionIds, currentUserId) {
             group: ['reflectionId'], raw: true,
             where: { reflectionId: { [Op.in]: reflectionIds } },
         }),
-        currentUserId ? ReflectionLike.findAll({
-            attributes: ['reflectionId'], raw: true,
-            where: { reflectionId: { [Op.in]: reflectionIds }, userId: currentUserId },
-        }) : Promise.resolve([]),
+        GuestReflectionLike.findAll({
+            attributes: ['reflectionId'],
+            include: [{ as: 'session', attributes: [], model: GuestLikeSession, required: true, where: { expiresAt: { [Op.gt]: new Date() } } }],
+            where: { reflectionId: { [Op.in]: reflectionIds } },
+        }),
+        currentUserId
+            ? ReflectionLike.findAll({ attributes: ['reflectionId'], raw: true, where: { reflectionId: { [Op.in]: reflectionIds }, userId: currentUserId } })
+            : guestSessionId
+                ? GuestReflectionLike.findAll({ attributes: ['reflectionId'], raw: true, where: { guestSessionId, reflectionId: { [Op.in]: reflectionIds } } })
+                : Promise.resolve([]),
     ]);
+    const likeCounts = new Map(likeRows.map((row) => [row.reflectionId, Number(row.count)]));
+    guestLikeRows.forEach((row) => likeCounts.set(row.reflectionId, (likeCounts.get(row.reflectionId) || 0) + 1));
     return {
         commentCounts: new Map(commentRows.map((row) => [row.reflectionId, Number(row.count)])),
-        liked: new Set(userLikes.map((row) => row.reflectionId)),
-        likeCounts: new Map(likeRows.map((row) => [row.reflectionId, Number(row.count)])),
+        liked: new Set(identityLikes.map((row) => row.reflectionId)),
+        likeCounts,
     };
 }
 
 async function validateInput(body) {
-    const content = body.content?.trim();
+    const parsedContent = validateReflectionContent(body.content);
     const songId = body.songId;
 
-    if (!content || !songId) {
+    if (!songId) {
         return { error: 'Song and reflection are required.' };
     }
-
-    if (content.length > 1000) {
-        return { error: 'Reflection must be 1000 characters or fewer.' };
-    }
+    if (parsedContent.error) return parsedContent;
 
     if (!UUID_PATTERN.test(songId)) return { error: 'Please choose a valid published song.' };
     if (!(await Song.findOne({ where: { creatorId: { [Op.ne]: null }, id: songId, status: 'PUBLISHED' }, attributes: ['id'] }))) return { error: 'Please choose a valid published song.' };
@@ -245,7 +280,7 @@ async function validateInput(body) {
     const submittedTags = getSubmittedTags(body);
     if (submittedTags !== undefined && !Array.isArray(submittedTags)) return { error: 'tags must be an array.' };
 
-    return { content, songId };
+    return { content: parsedContent.content, songId };
 }
 
 function singaporeDayBoundaries(now = new Date()) {
@@ -409,7 +444,8 @@ router.get('/', optionalAuth, async (req, res, next) => {
             order: [['createdAt', sort === 'oldest' ? 'ASC' : 'DESC'], ['id', 'ASC']],
         });
 
-        const state = await discussionState(reflections.map((item) => item.id), req.authUser?.id);
+        const guestSession = req.authUser?.id ? null : await getGuestLikeSession(req, res, { create: true });
+        const state = await discussionState(reflections.map((item) => item.id), req.authUser?.id, guestSession?.id);
         const serialized = reflections.map((item) => serializeReflection(item, req.authUser?.id, {
             commentCount: state.commentCounts.get(item.id) || 0,
             isLiked: state.liked.has(item.id),
@@ -491,8 +527,12 @@ router.get('/:reflectionId/comments', optionalAuth, async (req, res, next) => {
             order: [['createdAt', 'ASC'], ['id', 'ASC']],
             where: { reflectionId: reflection.id, status: 'VISIBLE' },
         });
+        const likeState = await commentLikeState(comments.map((comment) => comment.id), req.authUserRecord?.id);
         return res.json({
-            comments: comments.map((comment) => serializeComment(comment, req.authUserRecord, reflection.userId)),
+            comments: comments.map((comment) => serializeComment(comment, req.authUserRecord, reflection, {
+                isLiked: likeState.liked.has(comment.id),
+                likeCount: likeState.likeCounts.get(comment.id) || 0,
+            })),
         });
     } catch (error) { return next(error); }
 });
@@ -518,7 +558,7 @@ router.post('/:reflectionId/comments', requireAuth, commentRateLimit, async (req
             }],
         });
         return res.status(201).json({
-            comment: serializeComment(comment, req.authUserRecord, reflection.userId),
+            comment: serializeComment(comment, req.authUserRecord, reflection),
             commentCount: await ReflectionComment.count({ where: { reflectionId: reflection.id, status: 'VISIBLE' } }),
         });
     } catch (error) { return next(error); }
@@ -543,19 +583,30 @@ router.delete('/:reflectionId/comments/:commentId', requireAuth, async (req, res
             || currentUser.id === reflection.userId
             || currentUser.role === 'ADMIN';
         if (!canDelete) return res.status(403).json({ message: 'You do not have permission to remove this comment.' });
-        if (currentUser.role === 'ADMIN') {
+        const moderationRemoval = currentUser.role === 'ADMIN' || currentUser.id === reflection.userId;
+        if (moderationRemoval) {
+            const reason = currentUser.role === 'ADMIN'
+                ? 'Removed by an administrator from the public discussion.'
+                : 'Removed by the reflection owner from their discussion.';
             await sequelize.transaction(async (transaction) => {
-                await comment.update({ status: 'REMOVED' }, { transaction });
+                const [changed] = await ReflectionComment.update({ status: 'REMOVED' }, {
+                    transaction, where: { id: comment.id, status: 'VISIBLE' },
+                });
+                if (!changed) {
+                    const conflict = new Error('Comment is already removed.');
+                    conflict.status = 409;
+                    throw conflict;
+                }
                 await ModerationAction.create({
                     actionType: 'REFLECTION_COMMENT_REMOVED', actorId: currentUser.id,
-                    metadata: { evidencePreserved: true, reflectionId: reflection.id },
+                    metadata: { evidencePreserved: true, reflectionId: reflection.id }, reason,
                     songId: reflection.songId, targetId: comment.id, targetType: 'REFLECTION_COMMENT',
                     targetUserId: comment.userId,
                 }, { transaction });
                 await writeAudit({
                     action: 'REFLECTION_COMMENT_REMOVED', actorId: currentUser.id,
                     creatorId: reflection.song?.creatorId || null, entityId: comment.id,
-                    entityType: 'REFLECTION_COMMENT', metadata: { evidencePreserved: true, reflectionId: reflection.id },
+                    entityType: 'REFLECTION_COMMENT', metadata: { evidencePreserved: true, reflectionId: reflection.id, reason },
                     req, songId: reflection.songId, transaction,
                 });
             });
@@ -563,6 +614,223 @@ router.delete('/:reflectionId/comments/:commentId', requireAuth, async (req, res
             await comment.destroy();
         }
         return res.status(204).end();
+    } catch (error) { return next(error); }
+});
+
+router.post('/:reflectionId/comments/:commentId/like', requireAuth, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
+            return res.status(400).json({ message: 'Reflection and comment IDs must be valid UUIDs.' });
+        }
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const comment = await ReflectionComment.findOne({
+            attributes: ['id'],
+            where: { id: req.params.commentId, reflectionId: reflection.id, status: 'VISIBLE' },
+        });
+        if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        await ReflectionCommentLike.findOrCreate({
+            defaults: { commentId: comment.id, userId: req.authUserRecord.id },
+            where: { commentId: comment.id, userId: req.authUserRecord.id },
+        });
+        return res.json({
+            likeCount: await ReflectionCommentLike.count({ where: { commentId: comment.id } }),
+            liked: true,
+        });
+    } catch (error) { return next(error); }
+});
+
+router.delete('/:reflectionId/comments/:commentId/like', requireAuth, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
+            return res.status(400).json({ message: 'Reflection and comment IDs must be valid UUIDs.' });
+        }
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const comment = await ReflectionComment.findOne({
+            attributes: ['id'],
+            where: { id: req.params.commentId, reflectionId: reflection.id, status: 'VISIBLE' },
+        });
+        if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        await ReflectionCommentLike.destroy({
+            where: { commentId: comment.id, userId: req.authUserRecord.id },
+        });
+        return res.json({
+            likeCount: await ReflectionCommentLike.count({ where: { commentId: comment.id } }),
+            liked: false,
+        });
+    } catch (error) { return next(error); }
+});
+
+router.post('/:reflectionId/comments/:commentId/reports', requireAuth, reportRateLimit, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
+            return res.status(400).json({ message: 'Reflection and comment IDs must be valid UUIDs.' });
+        }
+        const reflection = await findPublicReflection(req.params.reflectionId);
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const comment = await ReflectionComment.findOne({
+            where: { id: req.params.commentId, reflectionId: reflection.id, status: 'VISIBLE' },
+        });
+        if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        if (comment.userId === req.authUserRecord.id) {
+            return res.status(400).json({ message: 'You cannot report your own comment.' });
+        }
+        const reason = String(req.body.reason || '').trim();
+        if (reason.length < 5 || reason.length > 500) {
+            return res.status(400).json({ message: 'Please provide a report reason between 5 and 500 characters.' });
+        }
+        const [report, created] = await ReflectionCommentReport.findOrCreate({
+            defaults: { commentId: comment.id, reason, reporterId: req.authUserRecord.id },
+            where: { commentId: comment.id, reporterId: req.authUserRecord.id },
+        });
+        if (!created) return res.status(409).json({ message: 'You have already reported this comment.' });
+        await writeAudit({
+            action: 'REFLECTION_COMMENT_REPORTED', actorId: req.authUserRecord.id,
+            creatorId: reflection.song?.creatorId || null, entityId: report.id,
+            entityType: 'REFLECTION_COMMENT_REPORT', metadata: { commentId: comment.id, reflectionId: reflection.id },
+            req, songId: reflection.songId,
+        });
+        return res.status(201).json({ report: { id: report.id, status: report.status } });
+    } catch (error) { return next(error); }
+});
+
+router.get('/:id/moderation-discussion', requireCreatorOrAdmin, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.id)) return res.status(400).json({ message: 'Reflection ID must be a valid UUID.' });
+        const creatorId = req.authUserRecord.role === 'CREATOR' ? req.authUserRecord.id : null;
+        const reflection = await findReflection(req.params.id, { creatorId, includeModerator: true });
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const comments = await ReflectionComment.findAll({
+            include: [
+                { model: User, as: 'user', attributes: ['email', 'id', 'name', 'role'], required: true },
+                {
+                    model: ReflectionCommentReport, as: 'reports', required: false,
+                    include: [
+                        { model: User, as: 'reporter', attributes: ['id', 'name'], required: false },
+                        { model: User, as: 'resolver', attributes: ['id', 'name', 'role'], required: false },
+                    ],
+                },
+            ],
+            order: [['createdAt', 'ASC'], ['id', 'ASC']],
+            where: { reflectionId: reflection.id },
+        });
+        const commentIds = comments.map((comment) => comment.id);
+        const actions = commentIds.length ? await ModerationAction.findAll({
+            include: [{ model: User, as: 'actor', attributes: ['id', 'name', 'role'], required: false }],
+            order: [['createdAt', 'ASC'], ['id', 'ASC']],
+            where: { targetId: { [Op.in]: commentIds }, targetType: 'REFLECTION_COMMENT' },
+        }) : [];
+        const historyByComment = new Map();
+        actions.forEach((action) => {
+            const items = historyByComment.get(action.targetId) || [];
+            items.push({
+                actionType: action.actionType,
+                actor: action.actor ? { id: action.actor.id, name: action.actor.name, role: action.actor.role } : null,
+                createdAt: action.createdAt,
+                reason: action.reason,
+            });
+            historyByComment.set(action.targetId, items);
+        });
+        return res.json({
+            comments: comments.map((comment) => {
+                const value = comment.get({ plain: true });
+                return {
+                    author: value.user ? { email: value.user.email, id: value.user.id, name: value.user.name, role: value.user.role } : null,
+                    content: value.content, createdAt: value.createdAt, id: value.id,
+                    moderationHistory: historyByComment.get(value.id) || [], status: value.status,
+                    reports: (value.reports || []).map((report) => ({
+                        createdAt: report.createdAt, id: report.id, reason: report.reason,
+                        reporter: report.reporter ? { id: report.reporter.id, name: report.reporter.name } : null,
+                        resolutionReason: report.resolutionReason,
+                        resolver: report.resolver ? { id: report.resolver.id, name: report.resolver.name, role: report.resolver.role } : null,
+                        resolvedAt: report.resolvedAt, status: report.status,
+                    })),
+                };
+            }),
+            reflection: serializeModerationReflection(reflection, req.authUserRecord.id),
+        });
+    } catch (error) { return next(error); }
+});
+
+router.post('/:reflectionId/comments/:commentId/moderation', requireCreatorOrAdmin, async (req, res, next) => {
+    try {
+        if (!UUID_PATTERN.test(req.params.reflectionId) || !UUID_PATTERN.test(req.params.commentId)) {
+            return res.status(400).json({ message: 'Reflection and comment IDs must be valid UUIDs.' });
+        }
+        const creatorId = req.authUserRecord.role === 'CREATOR' ? req.authUserRecord.id : null;
+        const reflection = await findReflection(req.params.reflectionId, { creatorId });
+        if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
+        const comment = await ReflectionComment.findOne({
+            where: { id: req.params.commentId, reflectionId: reflection.id },
+        });
+        if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+        const requestedAction = String(req.body.action || '').toUpperCase();
+        const action = requestedAction === 'KEEP_COMMENT' ? 'DISMISS_REPORT' : requestedAction;
+        if (!['DISMISS_REPORT', 'REMOVE_COMMENT', 'WARN_USER'].includes(action)) {
+            return res.status(400).json({ message: 'Action must be KEEP_COMMENT, DISMISS_REPORT, REMOVE_COMMENT, or WARN_USER.' });
+        }
+        const reason = String(req.body.reason || '').trim();
+        if (reason.length < 5 || reason.length > 2000) {
+            return res.status(400).json({ message: 'A moderation reason between 5 and 2000 characters is required.' });
+        }
+        const reportId = req.body.reportId ? String(req.body.reportId) : null;
+        if (reportId && !UUID_PATTERN.test(reportId)) return res.status(400).json({ message: 'Report ID must be a valid UUID.' });
+        if (action === 'DISMISS_REPORT' && !reportId) return res.status(400).json({ message: 'A report is required to keep this comment.' });
+
+        const result = await sequelize.transaction(async (transaction) => {
+            let report = null;
+            if (reportId) {
+                report = await ReflectionCommentReport.findOne({
+                    transaction, where: { commentId: comment.id, id: reportId },
+                });
+                if (!report) return { error: { message: 'Comment report not found.', status: 404 } };
+            }
+
+            if (action === 'DISMISS_REPORT') {
+                const [changed] = await ReflectionCommentReport.update({
+                    resolutionReason: reason, resolvedAt: new Date(), resolvedBy: req.authUserRecord.id, status: 'DISMISSED',
+                }, { transaction, where: { id: report.id, status: 'PENDING' } });
+                if (!changed) return { error: { message: 'This report has already been resolved.', status: 409 } };
+            } else if (action === 'REMOVE_COMMENT') {
+                const [changed] = await ReflectionComment.update({ status: 'REMOVED' }, {
+                    transaction, where: { id: comment.id, status: 'VISIBLE' },
+                });
+                if (!changed) return { error: { message: 'This comment has already been removed.', status: 409 } };
+                await ReflectionCommentReport.update({
+                    resolutionReason: reason, resolvedAt: new Date(), resolvedBy: req.authUserRecord.id, status: 'ACTIONED',
+                }, { transaction, where: { commentId: comment.id, status: 'PENDING' } });
+            } else {
+                const duplicate = await UserWarning.findOne({
+                    transaction, where: { reason, status: 'ACTIVE', userId: comment.userId },
+                });
+                if (duplicate) return { error: { message: 'An active warning with this reason already exists for the user.', status: 409 } };
+                const warning = await UserWarning.create({ issuedBy: req.authUserRecord.id, reason, userId: comment.userId }, { transaction });
+                report = { warningId: warning.id };
+            }
+
+            const actionType = action === 'DISMISS_REPORT'
+                ? 'REFLECTION_COMMENT_REPORT_DISMISSED'
+                : action === 'REMOVE_COMMENT' ? 'REFLECTION_COMMENT_REMOVED' : 'USER_WARNED_FROM_REFLECTION_COMMENT';
+            await ModerationAction.create({
+                actionType, actorId: req.authUserRecord.id,
+                metadata: {
+                    evidencePreserved: action !== 'WARN_USER', reflectionId: reflection.id, reportId,
+                    warningId: action === 'WARN_USER' ? report.warningId : undefined,
+                },
+                reason, songId: reflection.songId, targetId: comment.id,
+                targetType: 'REFLECTION_COMMENT', targetUserId: comment.userId,
+            }, { transaction });
+            await writeAudit({
+                action: actionType, actorId: req.authUserRecord.id,
+                creatorId: reflection.song.creatorId, entityId: comment.id,
+                entityType: 'REFLECTION_COMMENT', metadata: { reflectionId: reflection.id, reportId },
+                req, songId: reflection.songId, transaction,
+            });
+            return { actionType };
+        });
+        if (result.error) return res.status(result.error.status).json({ message: result.error.message });
+        return res.json({ action: result.actionType, comment: { id: comment.id, status: action === 'REMOVE_COMMENT' ? 'REMOVED' : comment.status } });
     } catch (error) { return next(error); }
 });
 
@@ -601,30 +869,41 @@ router.post('/:reflectionId/comments/:commentId/restore', requireAdmin, async (r
     } catch (error) { return next(error); }
 });
 
-router.post('/:reflectionId/like', requireAuth, async (req, res, next) => {
+router.post('/:reflectionId/like', optionalAuth, async (req, res, next) => {
     try {
         const reflection = await findPublicReflection(req.params.reflectionId);
         if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
-        await ReflectionLike.findOrCreate({
-            defaults: { reflectionId: reflection.id, userId: req.authUserRecord.id },
-            where: { reflectionId: reflection.id, userId: req.authUserRecord.id },
-        });
+        if (req.authUserRecord) {
+            await ReflectionLike.findOrCreate({
+                defaults: { reflectionId: reflection.id, userId: req.authUserRecord.id },
+                where: { reflectionId: reflection.id, userId: req.authUserRecord.id },
+            });
+        } else {
+            const guestSession = await getGuestLikeSession(req, res, { create: true });
+            await GuestReflectionLike.findOrCreate({
+                defaults: { guestSessionId: guestSession.id, reflectionId: reflection.id },
+                where: { guestSessionId: guestSession.id, reflectionId: reflection.id },
+            });
+        }
         return res.json({
-            likeCount: await ReflectionLike.count({ where: { reflectionId: reflection.id } }),
+            likeCount: await countReflectionLikes(reflection.id),
             liked: true,
         });
     } catch (error) { return next(error); }
 });
 
-router.delete('/:reflectionId/like', requireAuth, async (req, res, next) => {
+router.delete('/:reflectionId/like', optionalAuth, async (req, res, next) => {
     try {
         const reflection = await findPublicReflection(req.params.reflectionId);
         if (!reflection) return res.status(404).json({ message: 'Reflection not found.' });
-        await ReflectionLike.destroy({
-            where: { reflectionId: reflection.id, userId: req.authUserRecord.id },
-        });
+        if (req.authUserRecord) {
+            await ReflectionLike.destroy({ where: { reflectionId: reflection.id, userId: req.authUserRecord.id } });
+        } else {
+            const guestSession = await getGuestLikeSession(req, res);
+            if (guestSession) await GuestReflectionLike.destroy({ where: { guestSessionId: guestSession.id, reflectionId: reflection.id } });
+        }
         return res.json({
-            likeCount: await ReflectionLike.count({ where: { reflectionId: reflection.id } }),
+            likeCount: await countReflectionLikes(reflection.id),
             liked: false,
         });
     } catch (error) { return next(error); }
