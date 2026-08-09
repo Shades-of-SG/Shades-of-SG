@@ -1701,7 +1701,7 @@ Store valid user scores, show results/personal best/leaderboard, and safely clai
 **Main Flow:**
 1. Registered client submits score payload; server derives User from JWT.
 2. Server validates result and stores GameScore.
-3. User views results, personal best, profile summary, and leaderboard.
+3. User views results, personal best, profile summary, and leaderboard. The leaderboard offers bounded searchable Song choices plus Difficulty and Time Period filters; all four filter groups share one row on desktop and reflow responsively on smaller screens.
 4. Guest result remains local through registration/login/verification.
 5. `/rhythm-game/claim` submits it with unique `claim_id` and clears local state.
 
@@ -1722,6 +1722,8 @@ Store valid user scores, show results/personal best/leaderboard, and safely clai
 **Key Acceptance Criteria:**
 - ✓ Identity is JWT-derived, never accepted from client `user_id`.
 - ✓ Claim flow is idempotent.
+- ✓ Leaderboard Song options are paginated and PostgreSQL rhythm/played filters correlate through the correctly quoted Song alias.
+- ✓ Search Songs, Song, Difficulty, and Time Period remain in one desktop filter row without compromising tablet/mobile reflow.
 
 **Implementation Status:** **Implemented**.
 

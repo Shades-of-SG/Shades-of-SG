@@ -19,7 +19,7 @@ Prevent song collection screens from downloading an unbounded catalogue, while p
 | Admin Content | Already database-paginated | Kept 25-row Previous/Next table; normalized metadata, maximum size, and stable ID ordering |
 | Admin collection song chooser | Requested as many as 100 published songs | Searchable 20-song pages with Load more |
 | Reflection song selectors | Reused the formerly unbounded public endpoint | Reflection Wall keeps one compact bottom-row dropdown backed by a bounded 50-song request; composer and moderation views use searchable 20-song pages with stale-result protection, deduplication, retry, and Load more |
-| Rhythm leaderboard selector | Enumerated every playable song | Searchable 20-song database pages with Load more and selected-song recovery |
+| Rhythm leaderboard selector | Enumerated every playable song | Searchable 20-song database pages with Load more and selected-song recovery; desktop Search Songs, Song, Difficulty, and Time Period controls share one row, then collapse responsively on smaller screens |
 | Public folders and folder detail | Embedded every published member song | All-folders response uses six-song database previews; folder detail uses server pages of 12 with stable collection order |
 | Guided lesson songs | Static application data, not database catalogue records | No change |
 
@@ -65,3 +65,7 @@ Migration `032_song_pagination_indexes.sql` adds public status/date/ID and creat
 ## Remaining Follow-up
 
 - Add browser-level back-position restoration for Load more galleries; browser history currently retains normal scroll position but loaded React state is not persisted across a full remount.
+
+## PostgreSQL Rhythm Query Follow-up
+
+The correlated rhythm-beatmap and played-status subqueries quote Sequelize's case-sensitive `"Song"."id"` alias. This prevents PostgreSQL error `42P01` while retaining the same filtering behaviour under SQLite. A regression test covers rhythm eligibility, beatmap summaries, and authenticated played-song filtering; the live configured PostgreSQL endpoint was verified with a `200` response.

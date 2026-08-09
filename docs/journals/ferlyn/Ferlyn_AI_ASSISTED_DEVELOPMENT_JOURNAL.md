@@ -5194,6 +5194,12 @@ Backend: song controller, admin/creator/score routes, rhythm ranking service, sh
 
 The principal public, rhythm, creator, profile, administrator, folder, selector, and leaderboard song collections now issue bounded database queries with stable ordering and usable metadata. High-traffic galleries append pages, management pages navigate pages, folder indexes and small modules request fixed previews, and affected artwork loads lazily.
 
+### PostgreSQL Rhythm Loading Correction
+
+A localhost smoke test found that `GET /api/songs?rhythm=true` returned `500` even though the general song endpoint remained healthy. PostgreSQL reported `42P01: missing FROM-clause entry for table "song"` because two correlated subqueries referred to Sequelize's mixed-case alias as `Song.id`. Both rhythm eligibility and played/unplayed score filters now use the correctly quoted `"Song"."id"` identifier. The regression fixture includes a published beatmap and score; 29/29 focused pagination and score tests passed, targeted ESLint and `git diff --check` passed, and the running PostgreSQL-backed endpoint returned `200` with two eligible games.
+
+The leaderboard filter panel was subsequently tightened to a four-column desktop grid so Search Songs, Song, Difficulty, and Time Period remain on one line at full width. It retains a two-column tablet layout and one-column mobile layout, with matching input/select styling and focus treatment.
+
 ### Recommended Commit Grouping
 
 1. `feat(api): add consistent song pagination and indexes`

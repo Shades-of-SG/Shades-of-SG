@@ -185,14 +185,14 @@ async function listPublicSongs(req, res, next) {
         if (difficulty && !['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) return res.status(400).json({ message: 'Invalid rhythm difficulty.' });
         if (req.query.rhythm === 'true' || difficulty) {
             const rhythmCondition = difficulty ? ` AND difficulty = ${sequelize.escape(difficulty)}` : '';
-            extraConditions.push(sequelize.literal(`EXISTS (SELECT 1 FROM rhythm_beatmaps WHERE rhythm_beatmaps.song_id = Song.id AND status = 'PUBLISHED'${rhythmCondition})`));
+            extraConditions.push(sequelize.literal(`EXISTS (SELECT 1 FROM rhythm_beatmaps WHERE rhythm_beatmaps.song_id = "Song"."id" AND status = 'PUBLISHED'${rhythmCondition})`));
             where.audioUrl = { [Op.ne]: null };
             where.durationSecs = { [Op.gte]: 5 };
         }
         const playStatus = String(req.query.playStatus || '').toLowerCase();
         if (playStatus) {
             if (!req.authUser?.id || !['played', 'unplayed'].includes(playStatus)) return res.status(400).json({ message: 'Invalid played status.' });
-            const exists = `EXISTS (SELECT 1 FROM game_scores WHERE game_scores.song_id = Song.id AND game_scores.user_id = ${sequelize.escape(req.authUser.id)})`;
+            const exists = `EXISTS (SELECT 1 FROM game_scores WHERE game_scores.song_id = "Song"."id" AND game_scores.user_id = ${sequelize.escape(req.authUser.id)})`;
             extraConditions.push(sequelize.literal(playStatus === 'played' ? exists : `NOT ${exists}`));
         }
         if (extraConditions.length) where[Op.and] = extraConditions;

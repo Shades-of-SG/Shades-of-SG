@@ -248,6 +248,8 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
   - AI/fallback generation, preview, timing offset, publish/unpublish, and draft deletion
 - [x] **Score Persistence and Results**
   - JWT-derived registered identity, personal results/bests, leaderboard, profile summary, and idempotent guest claim
+  - Leaderboard song discovery uses bounded searchable pages; its Search Songs, Song, Difficulty, and Time Period controls stay on one desktop row and collapse to two/one columns for tablet/mobile
+  - Rhythm eligibility and played-status database filters use the quoted Sequelize Song alias required by PostgreSQL
 - [x] **Reflection Wall** (`/reflections`)
   - Guest/registered submission, anonymous/profile display, tags, pending moderation, and owner edit/delete
 - [x] **Discussion and Likes**
