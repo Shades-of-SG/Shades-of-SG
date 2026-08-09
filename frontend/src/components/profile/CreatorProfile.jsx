@@ -165,7 +165,7 @@ function CreatorProfileHero({ onOpenUserProfile, profile, publicProfileTo }) {
         <Link className="creator-profile-button creator-profile-button--secondary" to={publicProfileTo}>
           <Eye aria-hidden="true" /> Public Preview
         </Link>
-        <Link className="creator-profile-button creator-profile-button--secondary" onClick={onOpenUserProfile} to="/profile">
+        <Link className="creator-profile-button creator-profile-button--secondary" to="/profile">
           <UserRound aria-hidden="true" /> User Profile
         </Link>
       </div>
