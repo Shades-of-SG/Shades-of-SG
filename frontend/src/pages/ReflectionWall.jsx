@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthRequiredModal from '../components/AuthRequiredModal'
 import GuestThankYouModal from '../components/GuestThankYouModal'
@@ -19,6 +19,8 @@ import {
   deleteReflection,
   getReflections,
   getReflectionSongs,
+  likeReflection,
+  unlikeReflection,
   updateReflection,
 } from '../services/reflectionService'
 
@@ -43,6 +45,8 @@ export default function ReflectionWall() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [likeBusyIds, setLikeBusyIds] = useState(new Set())
+  const likeRequests = useRef(new Set())
 
   useEffect(() => {
     let active = true
@@ -222,12 +226,36 @@ export default function ReflectionWall() {
   const closeDiscussion = useCallback(() => setDiscussionReflection(null), [])
 
   function updateDiscussionReflection(nextReflection) {
-    setDiscussionReflection(nextReflection)
+    setDiscussionReflection((current) => current?.id === nextReflection.id ? nextReflection : current)
     setReflections((items) => items.map((item) => item.id === nextReflection.id ? nextReflection : item))
   }
 
   function loginForDiscussion() {
     navigate('/login', { state: { from: { pathname: '/reflections' } } })
+  }
+
+  async function toggleReflectionLike(reflection) {
+    if (likeRequests.current.has(reflection.id)) return
+    likeRequests.current.add(reflection.id)
+    setLikeBusyIds((current) => new Set(current).add(reflection.id))
+    const optimistic = {
+      ...reflection,
+      isLiked: !reflection.isLiked,
+      likeCount: Math.max(0, reflection.likeCount + (reflection.isLiked ? -1 : 1)),
+    }
+    updateDiscussionReflection(optimistic)
+    try {
+      const result = reflection.isLiked
+        ? await unlikeReflection(reflection.id, token)
+        : await likeReflection(reflection.id, token)
+      updateDiscussionReflection({ ...optimistic, isLiked: result.liked, likeCount: result.likeCount })
+    } catch (nextError) {
+      updateDiscussionReflection(reflection)
+      setError(nextError.message)
+    } finally {
+      likeRequests.current.delete(reflection.id)
+      setLikeBusyIds((current) => { const next = new Set(current); next.delete(reflection.id); return next })
+    }
   }
 
   return (
@@ -241,7 +269,7 @@ export default function ReflectionWall() {
 
       {error && <div className="rw-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} type="button">Dismiss</button></div>}
       {isLoading ? <div className="rw-loading" role="status">Loading community memories…</div> : null}
-      {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} onOpen={setDiscussionReflection} reflections={visibleReflections} /> : null}
+      {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid likeBusyIds={likeBusyIds} onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} onLike={toggleReflectionLike} onOpen={setDiscussionReflection} reflections={visibleReflections} /> : null}
       {!isLoading && visibleReflections.length === 0 ? <ReflectionEmptyState filtered={Boolean(query || songId)} onAdd={openCreate} /> : null}
 
       {isModalOpen && <ReflectionModal draft={reflectionDraft} isGuest={isGuestMode} onClose={closeReflectionModal} onDraftChange={updateReflectionDraft} onSave={saveReflection} reflection={modalReflection} songs={songs} user={user} />}

@@ -15,7 +15,7 @@ const sections = [
   {
     id: 'cookies',
     title: 'Cookies',
-    content: <><p>Shades of SG may use cookies and similar browser storage to keep you signed in, remember preferences, preserve your session, and understand platform performance.</p><p>You can manage cookies through your browser settings. Disabling essential cookies or storage may prevent account, progress, or preference features from working correctly.</p></>,
+    content: <><p>Shades of SG may use cookies and similar browser storage to keep you signed in, remember preferences, preserve your session, and understand platform performance. Guest reflection likes use a random anonymous identifier in an HTTP-only cookie so the like can persist without collecting or publicly exposing account information.</p><p>You can manage cookies through your browser settings. Disabling essential cookies or storage may prevent account, progress, preference, or guest-like features from working correctly.</p></>,
   },
   {
     id: 'third-party-services',

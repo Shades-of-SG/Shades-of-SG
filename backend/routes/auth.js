@@ -12,6 +12,7 @@ const {
 } = require('../services/authService');
 const { consumeOtp, invalidateOtps, issueOtp, normalizeEmail } = require('../services/otpService');
 const { recordDailyActivity } = require('../services/streakService');
+const { mergeGuestLikesIntoUser } = require('../services/guestLikeService');
 const {
     createOauthChallenge, finishOauthSignIn, publicOauthConfig,
     verifyAppleCredential, verifyGoogleCredential,
@@ -97,14 +98,18 @@ router.post('/oauth/challenge', oauthLimit, (req, res, next) => {
 router.post('/oauth/google', oauthLimit, async (req, res, next) => {
     try {
         const identity = await verifyGoogleCredential(req.body);
-        return res.json(await finishOauthSignIn(identity));
+        const result = await finishOauthSignIn(identity);
+        await mergeGuestLikesIntoUser(req, res, result.user.id);
+        return res.json(result);
     } catch (error) { return next(error); }
 });
 
 router.post('/oauth/apple', oauthLimit, async (req, res, next) => {
     try {
         const identity = await verifyAppleCredential(req.body);
-        return res.json(await finishOauthSignIn(identity));
+        const result = await finishOauthSignIn(identity);
+        await mergeGuestLikesIntoUser(req, res, result.user.id);
+        return res.json(result);
     } catch (error) { return next(error); }
 });
 
@@ -182,6 +187,7 @@ router.post('/verify-email', verifyLimit, async (req, res, next) => {
             }
             await pendingUser.update({ emailVerificationRequired: false, emailVerifiedAt: new Date() }, { transaction });
         });
+        await mergeGuestLikesIntoUser(req, res, user.id);
         return res.json({
             message: 'Email verified successfully. You are now signed in.',
             token: createToken(user),
@@ -211,6 +217,7 @@ router.post('/login', loginLimit, async (req, res, next) => {
         if (user.accountStatus !== 'ACTIVE') return res.status(403).json({ code: 'ACCOUNT_SUSPENDED', message: accountSuspensionMessage(user), reason: user.accountSuspensionReason });
         if (user.emailVerificationRequired) return res.status(403).json({ code: 'EMAIL_UNVERIFIED', message: 'Verify your email before signing in.' });
         await recordDailyActivity(user);
+        await mergeGuestLikesIntoUser(req, res, user.id);
         return res.json({ token: createToken(user), user: serializeUser(user) });
     } catch (error) { return next(error); }
 });
@@ -219,6 +226,7 @@ router.get('/me', requireAuth, async (req, res, next) => {
     try {
         const user = await User.findByPk(req.authUserRecord.id, { include: [{ model: UserProfile, as: 'profile', required: false }] });
         if (!user) return res.status(401).json({ message: 'Your account could not be found.' });
+        await mergeGuestLikesIntoUser(req, res, user.id);
         return res.json({ user: serializeUser(user) });
     } catch (error) { return next(error); }
 });

@@ -1,7 +1,7 @@
 import { API_URL } from './apiConfig'
 
 async function authRequest(path, options = {}) {
-  const response = await fetch(`${API_URL}/auth${path}`, options)
+  const response = await fetch(`${API_URL}/auth${path}`, { credentials: 'include', ...options })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     const error = new Error(data.message || 'Unable to complete this request.')
