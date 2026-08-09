@@ -5,6 +5,8 @@ export async function getLeaderboard({
   songId = '',
   period = 'all-time',
   token = '',
+  songPage = 1,
+  songSearch = '',
 }) {
   const params = new URLSearchParams()
 
@@ -12,6 +14,9 @@ export async function getLeaderboard({
   if (difficulty) params.set('difficulty', difficulty)
 
   params.set('period', period)
+  params.set('songPage', songPage)
+  params.set('songLimit', 20)
+  if (songSearch.trim()) params.set('songSearch', songSearch.trim())
 
   return platformRequest(`/scores/leaderboard?${params.toString()}`, { token })
 }

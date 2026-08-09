@@ -5155,3 +5155,50 @@ No commits or pushes were performed during this task.
 ### Lesson
 
 Finishing a community feature means treating the visible interaction, persistence constraint, authorization boundary, moderation evidence, administrator outcome, and documentation as one lifecycle. Optimistic UI is only trustworthy when the server remains authoritative and repeated outcomes are prevented at the state-transition boundary. Anonymous participation also needs an explicit lifecycle: private identifier issuance, expiry, uniqueness, reconciliation at login, and deletion after reconciliation.
+
+## 9 August 2026 — Scalable Song Pagination and Lazy Loading
+
+### Initial Objective
+
+Audit every frontend and backend surface that displays multiple songs, then replace unbounded reads and client-only pagination with database pagination and context-appropriate loading controls without changing existing song data.
+
+### Audit and Design Decisions
+
+The audit found that the public catalogue and creator list were the shared unbounded sources. The Songs Library filtered and paged in React; Rhythm Hub added an N+1 beatmap request; Landing sliced after downloading the catalogue; creator profiles, Reflection selectors, the Learning Hub, and leaderboard selectors inherited the same growth problem. Admin Content already had database pagination but allowed a 100-row picker request and lacked a stable ID tie-breaker. Dashboard summary queries were already deliberately limited to five.
+
+Public visual lists use Load more, creator/admin management uses Previous/Next, and dashboard/landing/learning summaries use fixed previews with navigation onward. A shared parser establishes positive pages, context defaults, and a maximum of 50. Offset pagination was retained because the existing architecture, tests, and UI already use page numbers.
+
+### Backend Pagination Implementation
+
+`GET /api/songs` now applies publication, creator, search, theme, language, mood, rhythm difficulty, and played/unplayed rules before `findAndCountAll`. It uses deterministic sort mappings and returns consistent metadata. Published rhythm beatmaps are eager-loaded when requested and reduced to difficulty/note-count summaries. Bookmark and pending-report lookups are restricted to page IDs.
+
+`GET /api/songs/creator` now scopes by authenticated creator before status/search and pagination, returns database-derived status totals, and loads only each page's latest generation job. Public creator-profile songs and leaderboard song options are paged. Administrator pagination metadata is normalized, limited to 50, and ordered by update time plus ID. Migration 032 adds additive indexes for public and creator access paths; no records were modified or reseeded.
+
+### Frontend Lazy Loading and Pagination
+
+The Songs Library resets and cancels the active request when filters/sort change, clears accumulated results, deduplicates appended IDs, preserves earlier items after later-page failure, exposes retry, and hides Load more at the end. Rhythm Hub uses the same bounded pattern without per-card beatmap calls. My Songs uses numbered Previous/Next controls and backend lifecycle filters. Public creator profiles and leaderboard song selection load subsequent pages. Landing, Learning Hub, the creator dashboard, and private creator profile use explicit preview sizes. Song artwork in the affected catalogue, rhythm, creator, learning, profile, and admin contexts uses native lazy decoding/loading.
+
+### Human Review Decisions
+
+No major breaking architecture change was required. Compatibility `songs` aliases remain on changed endpoints while internal services adopt `items`. Offset pagination and the existing visual language were retained. Existing data and publication/ownership transitions were not changed. A visual review of the Reflection Wall found that the reusable selector added a redundant song-search field above the existing filters. The wall now keeps only the original bottom-row Song dropdown, populated by a bounded 50-song request; searchable pagination remains enabled in the reflection composer and creator moderation contexts where browsing a larger option set is useful.
+
+### Testing and Debugging
+
+Added `songPagination.test.js` for defaults, custom page/limit, invalid/excessive values, totals, final pages, combined search/sort/JSON filters, unpublished creator access, ownership isolation, and status totals. The final focused backend run passed 38/38 across pagination, scores, admin content, and creator profiles. The final focused frontend run passed 46/46 across Songs Library, Rhythm Hub, private creator profile, Admin Content, Rhythm Leaderboard, and the shared paginated selector. After the Reflection Wall toolbar correction, its focused selector/wall run passed 4/4, targeted ESLint passed, and the production build passed. Repository-wide lint remains blocked by six unrelated existing backend errors in generation, frame/instrument services, and older tests.
+
+### Files Modified
+
+Backend: song controller, admin/creator/score routes, rhythm ranking service, shared pagination utility, migration 032, and pagination integration tests. Frontend: public/creator/profile/leaderboard/reflection services; Songs Library, Rhythm Hub, My Songs, Landing, Learning Hub, public/private creator profiles, dashboard, leaderboard, Admin Content, Reflection Wall filters and modal/moderation song selectors; and song catalogue/preview images. Documentation: this journal, README, and the song pagination audit.
+
+### Final Outcome
+
+The principal public, rhythm, creator, profile, administrator, folder, selector, and leaderboard song collections now issue bounded database queries with stable ordering and usable metadata. High-traffic galleries append pages, management pages navigate pages, folder indexes and small modules request fixed previews, and affected artwork loads lazily.
+
+### Recommended Commit Grouping
+
+1. `feat(api): add consistent song pagination and indexes`
+2. `feat(songs): add lazy loading to public song galleries`
+3. `feat(creator): paginate song management and profiles`
+4. `feat(rhythm): page playable songs and leaderboard options`
+5. `test(songs): cover pagination filters limits and ownership`
+6. `docs(songs): record pagination audit and rollout`

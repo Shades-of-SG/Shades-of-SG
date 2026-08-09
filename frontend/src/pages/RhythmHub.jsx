@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../context/AuthContext'
-import { getBeatmapSummary } from '../services/beatmapService'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getMyRhythmProgress } from '../services/scoreService'
 
@@ -40,36 +39,16 @@ function sortSongs(songs, sortBy) {
   })
 }
 
-function groupPublishedBeatmapsBySong(entries) {
-  const songsById = new Map()
-
-  entries.forEach(({ beatmaps, song }) => {
-    beatmaps
-      .filter((beatmap) => beatmap.status === 'PUBLISHED')
-      .forEach((beatmap) => {
-        const groupedSong = songsById.get(song.id) || { ...song, difficulties: [] }
-        if (!groupedSong.difficulties.some((item) => item.difficulty === beatmap.difficulty)) {
-          groupedSong.difficulties.push(beatmap)
-        }
-        songsById.set(song.id, groupedSong)
-      })
-  })
-
-  return [...songsById.values()].map((song) => ({
-    ...song,
-    difficulties: song.difficulties.sort(
-      (left, right) => DIFFICULTY_ORDER.indexOf(left.difficulty) - DIFFICULTY_ORDER.indexOf(right.difficulty),
-    ),
-  }))
-}
-
 export default function RhythmHub() {
   const { token, user, userProfile } = useAuth()
   const isAuthenticated = Boolean(token && user)
   const [songs, setSongs] = useState([])
+  const [facets, setFacets] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [loadVersion, setLoadVersion] = useState(0)
+  const [pagination, setPagination] = useState({ page: 1, hasNextPage: false })
+  const [loadingMore, setLoadingMore] = useState(false)
   const [progress, setProgress] = useState(EMPTY_PROGRESS)
   const [progressLoading, setProgressLoading] = useState(isAuthenticated)
   const [progressError, setProgressError] = useState(false)
@@ -82,18 +61,32 @@ export default function RhythmHub() {
   const [playStatus, setPlayStatus] = useState('')
 
   useEffect(() => {
-    let active = true
-    getPublishedSongs()
-      .then(async (data) => Promise.all(
-        data
-          .filter((song) => song.audioUrl && Number(song.durationSecs) >= 5)
-          .map(async (song) => ({ beatmaps: await getBeatmapSummary(song.id), song })),
-      ))
-      .then((entries) => active && setSongs(groupPublishedBeatmapsBySong(entries)))
-      .catch(() => active && setError('Rhythm games could not be loaded right now. Please try again.'))
-      .finally(() => active && setLoading(false))
-    return () => { active = false }
-  }, [loadVersion])
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setLoading(true); setError('')
+      getPublishedSongs({ difficulty, language, limit: 10, page: 1, playStatus, rhythm: true, search, sort: sortBy, theme: category }, token, { signal: controller.signal })
+        .then((page) => {
+          const items = page.items || page
+          const normalized = items.map((song) => ({ ...song, difficulties: song.rhythmDifficulties || song.difficulties || [] }))
+          setSongs(normalized); setPagination(page.pagination || { page: 1, hasNextPage: false }); if (page.facets) setFacets(page.facets)
+        })
+        .catch((nextError) => { if (nextError.name !== 'AbortError') setError('Rhythm games could not be loaded right now. Please try again.') })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    }, search.trim() ? 250 : 0)
+    return () => { controller.abort(); window.clearTimeout(timer) }
+  }, [category, difficulty, language, loadVersion, playStatus, search, sortBy, token])
+
+  async function loadMoreSongs() {
+    if (loadingMore || !pagination.hasNextPage) return
+    setLoadingMore(true)
+    try {
+      const page = await getPublishedSongs({ difficulty, language, limit: 10, page: pagination.page + 1, playStatus, rhythm: true, search, sort: sortBy, theme: category }, token)
+      const known = new Set(songs.map((song) => song.id))
+      const fresh = page.items.filter((song) => !known.has(song.id)).map((song) => ({ ...song, difficulties: song.rhythmDifficulties || [] }))
+      setSongs((current) => [...current, ...fresh]); setPagination(page.pagination)
+    } catch { setError('More rhythm games could not be loaded. Your current results are still available.') }
+    finally { setLoadingMore(false) }
+  }
 
   useEffect(() => {
     let active = true
@@ -115,8 +108,8 @@ export default function RhythmHub() {
     progress.bestScores.map((score) => [`${score.songId}:${score.difficulty}`, score]),
   ), [progress.bestScores])
   const playedSongIds = useMemo(() => new Set(progress.bestScores.map((score) => score.songId)), [progress.bestScores])
-  const categories = useMemo(() => [...new Set(songs.map((song) => song.theme).filter(Boolean))].sort(), [songs])
-  const languages = useMemo(() => [...new Set(songs.flatMap((song) => song.languages || []).filter(Boolean))].sort(), [songs])
+  const categories = useMemo(() => facets?.themes || [...new Set(songs.map((song) => song.theme).filter(Boolean))].sort(), [facets, songs])
+  const languages = useMemo(() => facets?.languages || [...new Set(songs.flatMap((song) => song.languages || []).filter(Boolean))].sort(), [facets, songs])
   const progressReady = isAuthenticated && !progressLoading && !progressError
   const visibleSongs = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -234,7 +227,7 @@ export default function RhythmHub() {
         return <article aria-labelledby={titleId} className="rhythm-song-row" key={song.id}>
           <div className="rhythm-song-cover">
             {song.coverImageUrl
-              ? <img alt={`${song.title} cover artwork`} src={song.coverImageUrl} />
+              ? <img alt={`${song.title} cover artwork`} decoding="async" loading="lazy" src={song.coverImageUrl} />
               : <div aria-label={`No cover artwork available for ${song.title}`} className="rhythm-song-cover__fallback" role="img">No cover</div>}
           </div>
           <div className="rhythm-song-info">
@@ -275,5 +268,6 @@ export default function RhythmHub() {
         </article>
       })}
     </section> : null}
+    {!loading && !error && pagination.hasNextPage ? <button aria-label="Load more rhythm games" className="rhythm-clear-filters" disabled={loadingMore} onClick={loadMoreSongs} type="button">{loadingMore ? 'Loading more gamesâ€¦' : 'Load more games'}</button> : null}
   </div>
 }

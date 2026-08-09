@@ -85,6 +85,8 @@ A file in `frontend/public/videos` is served after Vercel deployment. Configure 
 
 ## Current limitations and legacy policy
 
+The song catalogue pagination contract, audited surfaces, page sizes, and rollout notes are documented in [Song Pagination and Lazy-Loading Audit](docs/audits/SONG_PAGINATION_AND_LAZY_LOADING.md).
+
 - Final AI MP4 generation is incomplete; configured placeholder video is explicitly labeled temporary.
 - Rhythm charts use duration and difficulty, not beat-aligned authored data.
 - Real per-Song trivia, instrument, and lesson content may be absent; pages show honest unavailable states.

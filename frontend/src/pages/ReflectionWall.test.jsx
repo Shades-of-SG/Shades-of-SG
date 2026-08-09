@@ -31,6 +31,15 @@ describe('ReflectionWall guest likes', () => {
 
   afterEach(cleanup)
 
+  it('keeps the filter toolbar to one row without a second song search field', async () => {
+    render(<MemoryRouter><ReflectionWall /></MemoryRouter>)
+
+    await screen.findByRole('option', { name: 'Home' })
+    expect(screen.getByRole('searchbox', { name: 'Search reflections' })).toBeInTheDocument()
+    expect(screen.queryByRole('searchbox', { name: 'Search song' })).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Song' })).toBeInTheDocument()
+  })
+
   it('lets a guest toggle the card heart and keeps an open modal synchronized', async () => {
     render(<MemoryRouter><ReflectionWall /></MemoryRouter>)
     fireEvent.click(await screen.findByRole('button', { name: 'Like reflection by Anonymous' }))

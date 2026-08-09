@@ -1,9 +1,10 @@
 const express = require('express');
-const { Op } = require('sequelize');
-const { Folder, FolderSongProposal, Song, SongFolder } = require('../models');
+const { Op, QueryTypes } = require('sequelize');
+const { Folder, FolderSongProposal, Song, SongFolder, sequelize } = require('../models');
 const { optionalAuth, requireCreator } = require('../middleware/auth');
 const { isUuid, validateUuidParam } = require('../middleware/validateUuid');
 const { writeAudit } = require('../services/auditService');
+const { paginated, parsePagination } = require('../utils/pagination');
 
 const router = express.Router();
 router.param('songId', validateUuidParam('songId', 'Song ID must be a valid UUID.'));
@@ -12,40 +13,39 @@ function slugify(name) {
     return String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 180);
 }
 
-function serializePublicFolder(folder) {
-    const value = folder.get({ plain: true });
-    return {
-        id: value.id,
-        name: value.name,
-        slug: value.slug,
-        description: value.description,
-        displayOrder: value.displayOrder,
-        songs: (value.songs || []).map((song) => ({
-            id: song.id,
-            title: song.title,
-            artist: song.artist,
-            coverImageUrl: song.coverImageUrl,
-            description: song.description,
-            songOrder: song.SongFolder?.songOrder || 0,
-        })),
-    };
-}
-
 router.get('/', async (req, res, next) => {
     try {
         const folders = await Folder.findAll({
             where: { status: 'APPROVED' },
-            include: [{
-                model: Song,
-                as: 'songs',
-                attributes: ['id', 'title', 'artist', 'coverImageUrl', 'description'],
-                through: { attributes: ['songOrder'] },
-                required: true,
-                where: { status: 'PUBLISHED' },
-            }],
-            order: [['displayOrder', 'ASC'], ['name', 'ASC'], [{ model: Song, as: 'songs' }, SongFolder, 'songOrder', 'ASC']],
+            order: [['displayOrder', 'ASC'], ['name', 'ASC'], ['id', 'ASC']],
         });
-        return res.json({ folders: folders.map(serializePublicFolder) });
+        if (!folders.length) return res.json({ folders: [] });
+        const previews = await sequelize.query(`
+            SELECT * FROM (
+                SELECT sf.folder_id, sf.song_order, s.id, s.title, s.artist, s.cover_image_url, s.description,
+                    COUNT(*) OVER (PARTITION BY sf.folder_id) AS total_count,
+                    ROW_NUMBER() OVER (PARTITION BY sf.folder_id ORDER BY sf.song_order ASC, s.id ASC) AS row_number
+                FROM song_folders sf
+                JOIN songs s ON s.id = sf.song_id
+                WHERE s.status = 'PUBLISHED' AND sf.folder_id IN (:folderIds)
+            ) ranked WHERE row_number <= 6
+            ORDER BY folder_id, song_order, id
+        `, { replacements: { folderIds: folders.map((folder) => folder.id) }, type: QueryTypes.SELECT });
+        const byFolder = new Map();
+        previews.forEach((song) => {
+            const values = byFolder.get(song.folder_id) || [];
+            values.push({
+                artist: song.artist, coverImageUrl: song.cover_image_url, description: song.description,
+                id: song.id, songOrder: song.song_order, title: song.title,
+            });
+            byFolder.set(song.folder_id, values);
+        });
+        return res.json({ folders: folders.flatMap((folder) => {
+            const songs = byFolder.get(folder.id) || [];
+            if (!songs.length) return [];
+            const totalItems = Number(previews.find((song) => song.folder_id === folder.id)?.total_count || songs.length);
+            return [{ ...folder.get({ plain: true }), songs, songPagination: { limit: 6, totalItems, hasNextPage: totalItems > 6 } }];
+        }) });
     } catch (error) { return next(error); }
 });
 
@@ -170,17 +170,17 @@ router.delete('/song/:songId/:folderId', requireCreator, (req, res) => res.statu
 
 router.get('/:slug', async (req, res, next) => {
     try {
+        const { limit, offset, page } = parsePagination(req.query, { defaultLimit: 12 });
         const folder = await Folder.findOne({
             where: { slug: req.params.slug, status: 'APPROVED' },
-            include: [{
-                model: Song, as: 'songs', required: true,
-                attributes: ['id', 'title', 'artist', 'coverImageUrl', 'description'],
-                through: { attributes: ['songOrder'] }, where: { status: 'PUBLISHED' },
-            }],
-            order: [[{ model: Song, as: 'songs' }, SongFolder, 'songOrder', 'ASC']],
         });
         if (!folder) return res.status(404).json({ message: 'Published folder not found.' });
-        return res.json({ folder: serializePublicFolder(folder) });
+        const [count, songs] = await Promise.all([
+            Song.count({ distinct: true, include: [{ model: Folder, as: 'folders', required: true, through: { attributes: [] }, where: { id: folder.id } }], where: { status: 'PUBLISHED' } }),
+            folder.getSongs({ attributes: ['id', 'title', 'artist', 'coverImageUrl', 'description'], joinTableAttributes: ['songOrder'], limit, offset, order: [[SongFolder, 'songOrder', 'ASC'], ['id', 'ASC']], where: { status: 'PUBLISHED' } }),
+        ]);
+        const items = songs.map((song) => ({ ...song.get({ plain: true }), songOrder: song.SongFolder?.songOrder || 0 }));
+        return res.json({ folder: { ...folder.get({ plain: true }), songs: items }, ...paginated(items, count, page, limit) });
     } catch (error) { return next(error); }
 });
 

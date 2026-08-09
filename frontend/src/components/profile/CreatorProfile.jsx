@@ -80,7 +80,7 @@ function sortCollection(songs) {
     })
 }
 
-function CreatorProfileHero({ onOpenUserProfile, profile, publicProfileTo }) {
+function CreatorProfileHero({ profile, publicProfileTo }) {
   const initial =
     profile.displayName.trim().charAt(0).toUpperCase() || 'V'
 
@@ -805,7 +805,6 @@ function isAuthenticationError(
 
 export default function CreatorProfile() {
   const {
-    setActiveMode,
     signOut,
     token,
     user,
@@ -813,10 +812,6 @@ export default function CreatorProfile() {
 
   const location = useLocation()
   const navigate = useNavigate()
-
-  function openUserProfile() {
-    setActiveMode('user')
-  }
 
   const [summary, setSummary] =
     useState(EMPTY_SUMMARY)
@@ -997,7 +992,7 @@ export default function CreatorProfile() {
         'fulfilled'
       ) {
         const nextSongs =
-          songResult.value || []
+          songResult.value?.items || songResult.value || []
 
         setSongs(nextSongs)
 
@@ -1182,7 +1177,6 @@ export default function CreatorProfile() {
       ) : null}
 
       <CreatorProfileHero
-        onOpenUserProfile={openUserProfile}
         profile={profile}
         publicProfileTo={`/creators/${encodeURIComponent(user.id)}`}
       />

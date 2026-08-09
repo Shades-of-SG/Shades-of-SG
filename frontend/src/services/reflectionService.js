@@ -156,9 +156,13 @@ export async function warnReflectionAuthor(id, reason, token) {
   return data.warning
 }
 
-export async function getReflectionSongs() {
-  const data = await request('/songs')
-  return data.songs
+export async function getReflectionSongs({ limit = 20, page = 1, search = '' } = {}) {
+  const params = new URLSearchParams({ limit: String(limit), page: String(page) })
+  if (search.trim()) params.set('search', search.trim())
+  const data = await request(`/songs?${params}`)
+  const items = data.items || data.songs || []
+  items.pagination = data.pagination || { page: 1, hasNextPage: false }
+  return items
 }
 
 export async function createReflection(values, token) {

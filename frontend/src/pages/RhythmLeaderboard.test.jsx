@@ -75,9 +75,9 @@ describe('RhythmLeaderboard', () => {
     renderLeaderboard()
 
     expect(await screen.findByText("Your Rank for You'll Be Okay · Medium")).toBeInTheDocument()
-    expect(getLeaderboard).toHaveBeenCalledWith({
+    expect(getLeaderboard).toHaveBeenCalledWith(expect.objectContaining({
       difficulty: 'MEDIUM', period: 'weekly', songId: 'song-1', token: 'player-token',
-    })
+    }))
     expect(screen.getAllByText('#2').length).toBeGreaterThan(0)
     expect(screen.getAllByText('73,385 points')).toHaveLength(2)
     expect(screen.getByText('94.25% accuracy')).toBeInTheDocument()

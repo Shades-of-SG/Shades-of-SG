@@ -38,7 +38,7 @@ function SongActions({ onAction, onView, song }) {
 function MediaPreview({ song }) {
   if (!song.audioUrl && !song.videoUrl) return <p>No audio or video is available for preview.</p>
   return <div className="admin-content__media">
-    {song.coverImageUrl ? <img alt={`Artwork for ${song.title}`} src={song.coverImageUrl} /> : <div className="admin-content__artwork-empty">No artwork</div>}
+    {song.coverImageUrl ? <img alt={`Artwork for ${song.title}`} decoding="async" loading="lazy" src={song.coverImageUrl} /> : <div className="admin-content__artwork-empty">No artwork</div>}
     <div>
       {song.videoUrl ? <video aria-label={`Video preview for ${song.title}`} controls preload="metadata" src={song.videoUrl} /> : null}
       {song.audioUrl ? <audio aria-label={`Audio preview for ${song.title}`} controls preload="metadata" src={song.audioUrl} /> : null}
@@ -64,14 +64,14 @@ function SongDetail({ onAction, song, token }) {
   </>
 }
 
-function CollectionDetail({ eligibleSongs, membershipSongId, onAdd, onEdit, onMembershipChoice, onRemove, onTransition, folder, token }) {
+function CollectionDetail({ eligiblePagination, eligibleSearch, eligibleSongs, membershipSongId, onAdd, onEdit, onEligibleSearch, onLoadMoreEligible, onMembershipChoice, onRemove, onTransition, folder, token }) {
   const assignedIds = new Set((folder.songs || []).map((song) => song.id))
   const availableSongs = eligibleSongs.filter((song) => !assignedIds.has(song.id))
   return <>
     <section className="admin-detail-drawer__section"><h3>Collection</h3><p><strong>{folder.name}</strong><br />{folder.description || 'No description provided.'}</p><div className="admin-content__badges"><StatusBadge status={folder.status} /> <StatusBadge status={folder.publiclyVisible ? 'PUBLIC' : 'NOT_PUBLIC'}>{folder.publiclyVisible ? 'Public' : 'Not public'}</StatusBadge></div></section>
     <section className="admin-detail-drawer__section"><h3>Ownership model</h3><p>{folder.origin === 'PLATFORM' ? 'Platform-owned collection created by an administrator.' : `Creator-proposed collection${folder.proposer?.name ? ` from ${folder.proposer.name}` : ''}.`}</p></section>
     <section className="admin-detail-drawer__section"><h3>Included songs ({folder.membershipCount ?? folder.songs?.length ?? 0})</h3><p>Collection membership does not publish or transfer ownership of a song.</p>{folder.songs?.length ? <ul className="admin-content__members">{folder.songs.map((song) => <li key={song.id}><span><strong>{song.title}</strong><small>{song.artist || 'Artist not set'} · {song.creator?.name || 'Unknown creator'}</small></span><button aria-label={`Remove ${song.title} from ${folder.name}`} className="admin-button admin-button--ghost" onClick={() => onRemove(song)} type="button">Remove</button></li>)}</ul> : <p>No songs assigned.</p>}
-      {folder.status === 'APPROVED' ? <div className="admin-content__membership"><label>Add a published song<select onChange={(event) => onMembershipChoice(event.target.value)} value={membershipSongId}><option value="">Choose a song</option>{availableSongs.map((song) => <option key={song.id} value={song.id}>{song.title} — {song.creator?.name || song.artist || 'Unknown creator'}</option>)}</select></label><button className="admin-button admin-button--primary" disabled={!membershipSongId} onClick={onAdd} type="button">Add song</button></div> : <p>Only approved collections can receive songs.</p>}
+      {folder.status === 'APPROVED' ? <div className="admin-content__membership"><label>Search published songs<input aria-label="Search published songs to add" onChange={(event) => onEligibleSearch(event.target.value)} placeholder="Title, artist, or creator" type="search" value={eligibleSearch} /></label><label>Add a published song<select onChange={(event) => onMembershipChoice(event.target.value)} value={membershipSongId}><option value="">Choose a song</option>{availableSongs.map((song) => <option key={song.id} value={song.id}>{song.title} — {song.creator?.name || song.artist || 'Unknown creator'}</option>)}</select></label>{eligiblePagination.hasNextPage ? <button className="admin-button admin-button--ghost" onClick={onLoadMoreEligible} type="button">Load more songs</button> : null}<button className="admin-button admin-button--primary" disabled={!membershipSongId} onClick={onAdd} type="button">Add song</button></div> : <p>Only approved collections can receive songs.</p>}
     </section>
     <section className="admin-detail-drawer__section"><h3>Collection actions</h3><div className="admin-content__drawer-actions">{folder.origin === 'PLATFORM' ? <button className="admin-button admin-button--ghost" onClick={onEdit} type="button"><Pencil />Edit metadata</button> : null}{(folder.allowedTransitions || []).map((status) => <button className={`admin-button ${['ARCHIVED', 'REJECTED'].includes(status) ? 'admin-button--danger' : 'admin-button--primary'}`} key={status} onClick={() => onTransition(status)} type="button">{status === 'APPROVED' && folder.status === 'ARCHIVED' ? 'Restore collection' : decisionLabel(status)}</button>)}</div></section>
     <ContextAuditHistory entityId={folder.id} key={`${folder.id}-${folder.updatedAt}`} token={token} />
@@ -100,6 +100,8 @@ export default function AdminContentPage() {
   const [folders, setFolders] = useState([])
   const [placements, setPlacements] = useState([])
   const [eligibleSongs, setEligibleSongs] = useState([])
+  const [eligibleSearch, setEligibleSearch] = useState('')
+  const [eligiblePagination, setEligiblePagination] = useState({ page: 1, hasNextPage: false })
   const [statusOptions, setStatusOptions] = useState([])
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 })
@@ -122,10 +124,10 @@ export default function AdminContentPage() {
       } else if (tab === 'collections') {
         const [data, published] = await Promise.all([
           getAdminFolders(token, { limit: 25, page, search: filters.search, status: filters.status }),
-          getAdminSongs(token, { limit: 100, status: 'PUBLISHED' }),
+          getAdminSongs(token, { limit: 20, page: 1, search: eligibleSearch, status: 'PUBLISHED' }),
         ])
         const rows = data.folders || []
-        setFolders(rows); setEligibleSongs(published.songs || []); setPagination(data.pagination || { page: 1, totalPages: 1 }); setStatusOptions(data.folderStatuses || [])
+        setFolders(rows); setEligibleSongs(published.items || published.songs || []); setEligiblePagination(published.pagination || { page: 1, hasNextPage: false }); setPagination(data.pagination || { page: 1, totalPages: 1 }); setStatusOptions(data.folderStatuses || [])
         setSelected((current) => current ? rows.find((item) => item.id === current.id) || null : null)
       } else {
         const data = await getFolderSongProposals(token, { limit: 25, page, status: filters.status })
@@ -136,7 +138,7 @@ export default function AdminContentPage() {
     } catch (error) {
       setFeedback({ message: `Content could not be refreshed. Existing rows may be stale. ${error.message}`, type: 'error' })
     } finally { setLoading(false) }
-  }, [filters.search, filters.status, filters.visibility, page, requestedSongId, tab, token])
+  }, [eligibleSearch, filters.search, filters.status, filters.visibility, page, requestedSongId, tab, token])
 
   useEffect(() => {
     const timer = window.setTimeout(refresh, filters.search ? 220 : 0)
@@ -144,6 +146,15 @@ export default function AdminContentPage() {
   }, [filters.search, refresh])
 
   const currentRows = tab === 'songs' ? songs : tab === 'collections' ? folders : placements
+  async function loadMoreEligibleSongs() {
+    if (!eligiblePagination.hasNextPage) return
+    try {
+      const data = await getAdminSongs(token, { limit: 20, page: eligiblePagination.page + 1, search: eligibleSearch, status: 'PUBLISHED' })
+      const known = new Set(eligibleSongs.map((song) => song.id))
+      setEligibleSongs((current) => [...current, ...(data.items || data.songs || []).filter((song) => !known.has(song.id))])
+      setEligiblePagination(data.pagination)
+    } catch (error) { setFeedback({ message: error.message, type: 'error' }) }
+  }
   const hasFilters = Boolean(filters.search || filters.status || filters.visibility)
   const selectedSongForMembership = useMemo(() => eligibleSongs.find((song) => song.id === membershipSongId), [eligibleSongs, membershipSongId])
 
@@ -248,7 +259,7 @@ export default function AdminContentPage() {
     </AdminTabPanel>
     <DetailDrawer onClose={() => { setSelected(null); setMembershipSongId(''); if (requestedSongId) { const next = new URLSearchParams(params); next.delete('songId'); setParams(next) } }} open={Boolean(selected)} title={tab === 'songs' ? 'Song review' : tab === 'collections' ? 'Collection details' : 'Placement request'}>
       {selected && tab === 'songs' ? <SongDetail onAction={openSongAction} song={selected} token={token} /> : null}
-      {selected && tab === 'collections' ? <CollectionDetail eligibleSongs={eligibleSongs} folder={selected} membershipSongId={membershipSongId} onAdd={addMembership} onEdit={() => setModal({ ...selected, entity: 'collection' })} onMembershipChoice={setMembershipSongId} onRemove={removeMembership} onTransition={(status) => setModal({ entity: 'folder-transition', folder: selected, reviewNote: '', status })} token={token} /> : null}
+      {selected && tab === 'collections' ? <CollectionDetail eligiblePagination={eligiblePagination} eligibleSearch={eligibleSearch} eligibleSongs={eligibleSongs} folder={selected} membershipSongId={membershipSongId} onAdd={addMembership} onEdit={() => setModal({ ...selected, entity: 'collection' })} onEligibleSearch={(value) => { setEligibleSearch(value); setMembershipSongId('') }} onLoadMoreEligible={loadMoreEligibleSongs} onMembershipChoice={setMembershipSongId} onRemove={removeMembership} onTransition={(status) => setModal({ entity: 'folder-transition', folder: selected, reviewNote: '', status })} token={token} /> : null}
       {selected && tab === 'placements' ? <PlacementDetail onDecision={(status) => setModal({ entity: 'placement-review', placement: selected, reviewNote: '', songOrder: 0, status })} placement={selected} token={token} /> : null}
     </DetailDrawer>
     {modal?.entity === 'collection' ? <ConfirmationModal busy={busy} confirmLabel={modal.id ? 'Save changes' : 'Create collection'} onCancel={() => setModal(null)} onConfirm={submitCollection} title={modal.id ? 'Edit collection' : 'Create collection'}><form className="admin-form" onSubmit={(event) => event.preventDefault()}><label>Name<input autoFocus maxLength="255" onChange={(event) => setModal((value) => ({ ...value, name: event.target.value }))} required value={modal.name} /></label><label>Description<textarea maxLength="2000" onChange={(event) => setModal((value) => ({ ...value, description: event.target.value }))} value={modal.description || ''} /></label><label>Display order<input min="0" onChange={(event) => setModal((value) => ({ ...value, displayOrder: event.target.value }))} required type="number" value={modal.displayOrder ?? 0} /></label></form></ConfirmationModal> : null}

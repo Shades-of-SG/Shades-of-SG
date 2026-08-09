@@ -24,6 +24,7 @@ const songs = [
     languages: ['English'],
     moodTags: ['Reflective'],
     publishedDate: '2026-07-20T00:00:00.000Z',
+    rhythmDifficulties: [{ difficulty: 'EASY', status: 'PUBLISHED' }],
     theme: 'Identity',
     title: 'Home',
     videoUrl: '/home.mp4',
@@ -143,14 +144,14 @@ describe('Songs Library', () => {
     fireEvent.click(screen.getByRole('button', { name: 'All themes' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Community' }))
 
-    await waitFor(() => expect(mocks.getPublishedSongs).toHaveBeenLastCalledWith({
+    await waitFor(() => expect(mocks.getPublishedSongs).toHaveBeenLastCalledWith(expect.objectContaining({
       language: [], mood: [], search: '', theme: ['Community'],
-    }, null))
-    expect(await screen.findByText('Showing 1–1 of 1 songs')).toBeInTheDocument()
+    }), null, expect.objectContaining({ signal: expect.any(AbortSignal) })))
+    expect(await screen.findByText('Showing 1 of 1 songs')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Theme: Community filter' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    expect(await screen.findByText('Showing 1–3 of 3 songs')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 3 of 3 songs')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeDisabled()
   })
 
@@ -174,14 +175,16 @@ describe('Songs Library', () => {
     expect(screen.getByRole('complementary', { name: 'Preview for City Lights' })).toBeInTheDocument()
   })
 
-  it('resets selection safely when pagination changes', async () => {
+  it('appends later pages without resetting the selected preview', async () => {
     const paginatedSongs = Array.from({ length: 10 }, (_, index) => ({
       ...songs[index % songs.length],
       id: `song-${index + 1}`,
       title: `Song ${index + 1}`,
       videoUrl: '',
     }))
-    mocks.getPublishedSongs.mockResolvedValue(paginatedSongs)
+    mocks.getPublishedSongs.mockImplementation((filters) => Promise.resolve(filters.page === 2
+      ? { items: [paginatedSongs[9]], pagination: { page: 2, totalItems: 10, totalPages: 2, hasNextPage: false } }
+      : { items: paginatedSongs.slice(0, 9), pagination: { page: 1, totalItems: 10, totalPages: 2, hasNextPage: true } }))
     mocks.getBeatmapSummary.mockResolvedValue([])
     renderPage()
     await screen.findByText('10 songs available')
@@ -189,9 +192,9 @@ describe('Songs Library', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select Song 2 preview' }))
     expect(screen.getByRole('complementary', { name: 'Preview for Song 2' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '2' }))
-    expect(await screen.findByRole('complementary', { name: 'Preview for Song 10' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Load more published songs' }))
+    expect(await screen.findByRole('button', { name: 'Select Song 10 preview' })).toBeInTheDocument()
+    expect(screen.getByRole('complementary', { name: 'Preview for Song 2' })).toBeInTheDocument()
   })
 
   it('exposes a retry state when a video fails', async () => {

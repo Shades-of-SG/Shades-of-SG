@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PaginatedSongSelect from '../../PaginatedSongSelect'
 
 export default function ModerationFilters({ filters, hasActiveFilters, onChange, onClear, songs }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -21,13 +22,7 @@ export default function ModerationFilters({ filters, hasActiveFilters, onChange,
           value={filters.search}
         />
       </label>
-      <label>
-        <span>Song</span>
-        <select onChange={(event) => onChange('songId', event.target.value)} value={filters.songId}>
-          <option value="">All songs</option>
-          {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-        </select>
-      </label>
+      <PaginatedSongSelect allLabel="All songs" initialSongs={songs} label="Song" onChange={(value) => onChange('songId', value)} value={filters.songId} />
       <label>
         <span>Submitted since</span>
         <input onChange={(event) => onChange('dateFrom', event.target.value)} type="date" value={filters.dateFrom} />

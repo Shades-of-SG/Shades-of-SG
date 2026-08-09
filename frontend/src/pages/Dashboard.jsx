@@ -14,7 +14,7 @@ const countCards = [
 
 function Artwork({ song }) {
   return song.coverImageUrl
-    ? <img alt={`${song.title} cover`} className="creator-song-cover" src={song.coverImageUrl} />
+    ? <img alt={`${song.title} cover`} className="creator-song-cover" decoding="async" loading="lazy" src={song.coverImageUrl} />
     : <div aria-label="No cover image" className="creator-song-cover creator-song-cover--fallback">No cover</div>
 }
 

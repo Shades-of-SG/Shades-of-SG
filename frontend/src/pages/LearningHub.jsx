@@ -158,7 +158,7 @@ function PublishedSongCard({ song }) {
     <article className="learning-module-card learning-song-card">
       <div className="learning-song-card__cover">
         {song.coverImageUrl ? (
-          <img alt={`${song.title} cover`} src={song.coverImageUrl} />
+          <img alt={`${song.title} cover`} decoding="async" loading="lazy" src={song.coverImageUrl} />
         ) : (
           <div aria-label="No cover image" className="learning-song-card__cover-fallback">
             <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -198,7 +198,7 @@ export default function LearningHub() {
 
   useEffect(() => {
     let active = true
-    getPublishedSongs().then((songs) => active && setPublishedSongs(songs)).catch((error) => active && setSongError(error.message)).finally(() => active && setSongsLoading(false))
+    getPublishedSongs({ limit: 6, page: 1 }).then((page) => active && setPublishedSongs(page.items || page)).catch((error) => active && setSongError(error.message)).finally(() => active && setSongsLoading(false))
     return () => { active = false }
   }, [])
 

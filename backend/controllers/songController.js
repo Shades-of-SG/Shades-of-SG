@@ -1,6 +1,6 @@
 const fs = require('fs');
-const { Op } = require('sequelize');
-const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport, SongInstrument } = require('../models');
+const { Op, QueryTypes } = require('sequelize');
+const { Song, GenerationJob, SceneSegment, GeneratedFrame, Instrument, TriviaQuestion, User, UserProfile, SongBookmark, SongReport, SongInstrument, RhythmBeatmap, sequelize } = require('../models');
 const aiStorageService = require('../services/aiStorageService');
 const aiCurationPlanner = require('../services/aiCurationPlanner');
 const audioExtractionService = require('../services/audioExtractionService');
@@ -10,6 +10,7 @@ const { getSongPublishMissing } = require('../services/songPublishingService');
 const { formatSongSectionsLyrics } = require('../services/songSectionService');
 const { syncSongTranscriptionSegments } = require('../services/transcriptionService');
 const { assembleVideo } = require('../services/videoAssembler');
+const { paginated, parsePagination } = require('../utils/pagination');
 
 const SONG_STATUSES = new Set(['DRAFT', 'GENERATING', 'READY', 'PUBLISHED', 'ARCHIVED']);
 const ACTIVE_GENERATION_STATUSES = ['QUEUED', 'PROCESSING'];
@@ -131,8 +132,27 @@ function parseMultiValue(rawValue) {
         .filter(Boolean);
 }
 
+async function publicSongFacets() {
+    const base = "status = 'PUBLISHED' AND creator_id IS NOT NULL AND title <> 'Beatmap Song'";
+    const themesQuery = `SELECT DISTINCT theme AS value FROM songs WHERE ${base} AND theme IS NOT NULL AND theme <> '' ORDER BY value`;
+    const jsonQuery = (column) => sequelize.getDialect() === 'postgres'
+        ? `SELECT DISTINCT entries.value FROM songs, jsonb_array_elements_text(${column}::jsonb) AS entries(value) WHERE ${base} ORDER BY entries.value`
+        : `SELECT DISTINCT json_each.value AS value FROM songs, json_each(songs.${column}) WHERE ${base} ORDER BY value`;
+    const [themes, languages, moods] = await Promise.all([
+        sequelize.query(themesQuery, { type: QueryTypes.SELECT }),
+        sequelize.query(jsonQuery('languages'), { type: QueryTypes.SELECT }),
+        sequelize.query(jsonQuery('mood_tags'), { type: QueryTypes.SELECT }),
+    ]);
+    return {
+        themes: themes.map((row) => row.value).filter(Boolean),
+        languages: languages.map((row) => row.value).filter(Boolean),
+        moods: moods.map((row) => row.value).filter(Boolean),
+    };
+}
+
 async function listPublicSongs(req, res, next) {
     try {
+        const { limit, offset, page } = parsePagination(req.query, { defaultLimit: 12 });
         const where = {
             creatorId: { [Op.ne]: null },
             status: 'PUBLISHED',
@@ -140,34 +160,80 @@ async function listPublicSongs(req, res, next) {
         };
         const themes = parseMultiValue(req.query.theme);
         if (themes.length) where.theme = { [Op.in]: themes };
-        const songs = await Song.findAll({
+        const search = String(req.query.search || '').trim();
+        if (search) {
+            const operator = sequelize.getDialect() === 'postgres' ? Op.iLike : Op.like;
+            where[Op.or] = [
+                { title: { [operator]: `%${search}%` } },
+                { artist: { [operator]: `%${search}%` } },
+                { '$creator.name$': { [operator]: `%${search}%` } },
+                { '$creator.profile.display_name$': { [operator]: `%${search}%` } },
+            ];
+        }
+        const jsonContainsAny = (column, values) => {
+            if (!values.length) return null;
+            const escaped = values.map((value) => sequelize.escape(String(value).toLowerCase()));
+            if (sequelize.getDialect() === 'postgres') {
+                return sequelize.literal(`EXISTS (SELECT 1 FROM jsonb_array_elements_text("Song"."${column}") value WHERE lower(value) IN (${escaped.join(',')}))`);
+            }
+            return sequelize.literal(`EXISTS (SELECT 1 FROM json_each(Song.${column}) WHERE lower(json_each.value) IN (${escaped.join(',')}))`);
+        };
+        const languages = parseMultiValue(req.query.language);
+        const moods = parseMultiValue(req.query.mood);
+        const extraConditions = [jsonContainsAny('languages', languages), jsonContainsAny('mood_tags', moods)].filter(Boolean);
+        const difficulty = String(req.query.difficulty || '').toUpperCase();
+        if (difficulty && !['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) return res.status(400).json({ message: 'Invalid rhythm difficulty.' });
+        if (req.query.rhythm === 'true' || difficulty) {
+            const rhythmCondition = difficulty ? ` AND difficulty = ${sequelize.escape(difficulty)}` : '';
+            extraConditions.push(sequelize.literal(`EXISTS (SELECT 1 FROM rhythm_beatmaps WHERE rhythm_beatmaps.song_id = Song.id AND status = 'PUBLISHED'${rhythmCondition})`));
+            where.audioUrl = { [Op.ne]: null };
+            where.durationSecs = { [Op.gte]: 5 };
+        }
+        const playStatus = String(req.query.playStatus || '').toLowerCase();
+        if (playStatus) {
+            if (!req.authUser?.id || !['played', 'unplayed'].includes(playStatus)) return res.status(400).json({ message: 'Invalid played status.' });
+            const exists = `EXISTS (SELECT 1 FROM game_scores WHERE game_scores.song_id = Song.id AND game_scores.user_id = ${sequelize.escape(req.authUser.id)})`;
+            extraConditions.push(sequelize.literal(playStatus === 'played' ? exists : `NOT ${exists}`));
+        }
+        if (extraConditions.length) where[Op.and] = extraConditions;
+        const sort = String(req.query.sort || 'newest');
+        const direction = String(req.query.direction || 'desc').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+        const orders = {
+            artist: [['artist', direction], ['title', 'ASC'], ['id', 'ASC']],
+            creator: [[{ model: User, as: 'creator' }, 'name', direction], ['title', 'ASC'], ['id', 'ASC']],
+            newest: [['publishedDate', direction], ['id', direction]],
+            title: [['title', direction], ['id', direction]],
+        };
+        if (!orders[sort]) return res.status(400).json({ message: 'Invalid song sort.' });
+        const include = [{
+            model: User, as: 'creator', attributes: ['id', 'name'], required: true,
+            include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
+        }];
+        if (req.query.includeRhythm === 'true' || req.query.rhythm === 'true' || difficulty) include.push({
+            model: RhythmBeatmap, as: 'rhythmBeatmaps', attributes: ['difficulty', 'status', 'notes'],
+            required: false, separate: true, where: { status: 'PUBLISHED' },
+        });
+        const { count, rows } = await Song.findAndCountAll({
             where,
-            include: [{
-                model: User, as: 'creator', attributes: ['id', 'name'], required: true,
-                include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
-            }],
-            order: [['publishedDate', 'DESC'], ['title', 'ASC']],
+            include,
+            distinct: true,
+            limit,
+            offset,
+            order: orders[sort],
+            subQuery: false,
         });
-        const search = String(req.query.search || '').trim().toLowerCase();
-        const languages = parseMultiValue(req.query.language).map((value) => value.toLowerCase());
-        const moods = parseMultiValue(req.query.mood).map((value) => value.toLowerCase());
-        const filtered = songs.filter((song) => {
-            const searchable = [song.title, song.creator?.name].filter(Boolean).join(' ').toLowerCase(); //Removen song artits //Added song creator
-            const songLanguages = (song.languages || []).map((value) => String(value).toLowerCase());
-            const songMoods = (song.moodTags || []).map((value) => String(value).toLowerCase());
-            return (!search || searchable.includes(search))
-                && (!languages.length || languages.some((value) => songLanguages.includes(value)))
-                && (!moods.length || moods.some((value) => songMoods.includes(value)));
-        });
+        const songIds = rows.map((song) => song.id);
         const bookmarkedIds = req.authUser?.id
-            ? new Set((await SongBookmark.findAll({ where: { userId: req.authUser.id }, attributes: ['songId'] }))
+            ? new Set((await SongBookmark.findAll({ where: { userId: req.authUser.id, songId: songIds }, attributes: ['songId'] }))
                 .map((row) => row.songId))
             : new Set();
         const reportedIds = req.authUser?.id
-            ? new Set((await SongReport.findAll({ where: { status: 'PENDING', userId: req.authUser.id }, attributes: ['songId'] }))
+            ? new Set((await SongReport.findAll({ where: { status: 'PENDING', userId: req.authUser.id, songId: songIds }, attributes: ['songId'] }))
                 .map((row) => row.songId))
             : new Set();
-        return res.json({ songs: filtered.map((song) => withPublicCreator(song, bookmarkedIds, reportedIds)) });
+        const items = rows.map((song) => withPublicCreator(song, bookmarkedIds, reportedIds));
+        const facets = page === 1 ? await publicSongFacets() : undefined;
+        return res.json({ ...paginated(items, count, page, limit), facets, songs: items });
     } catch (error) { return next(error); }
 }
 
@@ -184,18 +250,6 @@ async function getPublicSong(req, res, next) {
                 },
             ],
         });
-        if (!song) {
-            song = await Song.findByPk(req.params.id, {
-                include: [
-                    { model: Instrument, as: 'instruments', required: false, through: { attributes: [] } },
-                    { model: TriviaQuestion, as: 'triviaQuestions', required: false },
-                    {
-                        model: User, as: 'creator', attributes: ['id', 'name'], required: false,
-                        include: [{ model: UserProfile, as: 'profile', attributes: ['avatarUrl', 'displayName'], required: false }],
-                    },
-                ],
-            });
-        }
         if (!song) return res.status(404).json({ message: 'Song not found.' });
         return res.json({ song: withPublicCreator(song) });
     } catch (error) { return next(error); }
@@ -211,6 +265,14 @@ function withPublicCreator(song, bookmarkedIds = new Set(), reportedIds = new Se
     } : null;
     value.bookmarked = bookmarkedIds.has(value.id);
     value.reported = reportedIds.has(value.id);
+    if (value.rhythmBeatmaps) {
+        value.rhythmDifficulties = value.rhythmBeatmaps.map((beatmap) => ({
+            difficulty: beatmap.difficulty,
+            noteCount: Array.isArray(beatmap.notes) ? beatmap.notes.length : 0,
+            status: beatmap.status,
+        }));
+        delete value.rhythmBeatmaps;
+    }
     return value;
 }
 
@@ -262,18 +324,25 @@ async function reportSong(req, res, next) {
 
 async function listCreatorSongs(req, res, next) {
     try {
+        const { limit, offset, page } = parsePagination(req.query, { defaultLimit: 10 });
         const where = { creatorId: req.authUserRecord.id };
         if (req.query.status) {
             const status = String(req.query.status).toUpperCase();
             if (!SONG_STATUSES.has(status)) return res.status(400).json({ message: 'Invalid song status.' });
             where.status = status;
         }
-        const songs = await Song.findAll({
+        const search = String(req.query.search || '').trim();
+        if (search) where.title = { [sequelize.getDialect() === 'postgres' ? Op.iLike : Op.like]: `%${search}%` };
+        const { count, rows } = await Song.findAndCountAll({
             where,
-            include: [{ model: GenerationJob, as: 'generationJobs', required: false }],
-            order: [['updatedAt', 'DESC']],
+            distinct: true, limit, offset,
+            include: [{ model: GenerationJob, as: 'generationJobs', required: false, separate: true, limit: 1, order: [['createdAt', 'DESC'], ['id', 'DESC']] }],
+            order: [['updatedAt', 'DESC'], ['id', 'DESC']],
         });
-        return res.json({ songs: songs.map(serializeCreatorSong) });
+        const items = rows.map(serializeCreatorSong);
+        const groupedCounts = await Song.findAll({ attributes: ['status', [sequelize.fn('COUNT', sequelize.col('id')), 'count']], group: ['status'], raw: true, where: { creatorId: req.authUserRecord.id } });
+        const counts = Object.fromEntries(groupedCounts.map((row) => [row.status, Number(row.count)]));
+        return res.json({ ...paginated(items, count, page, limit), counts: { ...counts, total: groupedCounts.reduce((sum, row) => sum + Number(row.count), 0) }, songs: items });
     } catch (error) { return next(error); }
 }
 

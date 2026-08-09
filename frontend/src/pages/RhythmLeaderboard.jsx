@@ -34,16 +34,24 @@ export default function RhythmLeaderboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [songSearch, setSongSearch] = useState('')
+  const [songPage, setSongPage] = useState(1)
+  const [songOptions, setSongOptions] = useState([])
 
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {
       setLoading(true)
       setError('')
-      getLeaderboard({ difficulty, period, songId, token })
+      getLeaderboard({ difficulty, period, songId, songPage, songSearch, token })
         .then((value) => {
           if (!active) return
           setData(value)
+          setSongOptions((current) => {
+            if (songPage === 1) return value.songs || []
+            const known = new Set(current.map((song) => song.id))
+            return [...current, ...(value.songs || []).filter((song) => !known.has(song.id))]
+          })
           const canonical = new URLSearchParams()
           if (value.selectedSong?.id) canonical.set('songId', value.selectedSong.id)
           if (value.selectedDifficulty) canonical.set('difficulty', value.selectedDifficulty)
@@ -61,7 +69,7 @@ export default function RhythmLeaderboard() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [difficulty, period, queryString, setSearchParams, songId, token])
+  }, [difficulty, period, queryString, setSearchParams, songId, songPage, songSearch, token])
 
   function setFilters(values) {
     const next = new URLSearchParams(searchParams)
@@ -73,7 +81,7 @@ export default function RhythmLeaderboard() {
   }
 
   function changeSong(nextSongId) {
-    const song = data?.songs?.find((item) => item.id === nextSongId)
+    const song = songOptions.find((item) => item.id === nextSongId)
     setFilters({ difficulty: song?.difficulties?.[0] || '', songId: nextSongId })
   }
 
@@ -94,13 +102,18 @@ export default function RhythmLeaderboard() {
         <p>Compare each player&apos;s best result on the same song, difficulty, and time period.</p>
       </header>
 
-      {data?.songs?.length ? (
+      {data ? (
         <section aria-label="Leaderboard filters" className="rhythm-leaderboard-filters">
           <label>
+            <span>Search songs</span>
+            <input aria-label="Search leaderboard songs" onChange={(event) => { setSongSearch(event.target.value); setSongPage(1) }} placeholder="Search songs" type="search" value={songSearch} />
+          </label>
+          <label>
             <span>Song</span>
-            <select onChange={(event) => changeSong(event.target.value)} value={selectedSong?.id || ''}>
-              {data.songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
+            <select disabled={!songOptions.length} onChange={(event) => changeSong(event.target.value)} value={selectedSong?.id || ''}>
+              {songOptions.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
             </select>
+            {data.songPagination?.hasNextPage ? <button onClick={() => setSongPage((value) => value + 1)} type="button">Load more songs</button> : null}
           </label>
           <label>
             <span>Difficulty</span>

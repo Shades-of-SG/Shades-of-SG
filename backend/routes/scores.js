@@ -8,6 +8,7 @@ const {
     leaderboard,
     userRhythmSummary,
 } = require('../services/rhythmRankingService');
+const { parsePagination } = require('../utils/pagination');
 
 const router = express.Router();
 const DIFFICULTIES = new Set(['EASY', 'MEDIUM', 'HARD']);
@@ -135,11 +136,15 @@ router.get('/leaderboard', optionalAuth, async (req, res, next) => {
         if (typeof period !== 'string' || !PERIODS.includes(period)) {
             return res.status(400).json({ message: 'period must be all-time, weekly, or monthly' });
         }
+        const songPaging = parsePagination({ page: req.query.songPage, limit: req.query.songLimit }, { defaultLimit: 20 });
         return res.json(await leaderboard({
             currentUserId: req.authUser?.id || null,
             difficulty: normalizedDifficulty,
             period,
             songId,
+            songLimit: songPaging.limit,
+            songPage: songPaging.page,
+            songSearch: String(req.query.songSearch || '').trim(),
         }));
     } catch (error) {
         return next(error);

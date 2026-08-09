@@ -18,14 +18,14 @@ const songs = [
       avatarUrl: '/creator.jpg', displayName: 'Heritage Studio', id: 'creator-1',
     },
     durationSecs: 125, id: 'song-1', languages: ['English'], publishedDate: '2026-06-01',
-    theme: 'Heritage', title: 'Home Again',
+    rhythmDifficulties: [{ difficulty: 'EASY', noteCount: 40, status: 'PUBLISHED' }, { difficulty: 'MEDIUM', noteCount: 70, status: 'PUBLISHED' }], theme: 'Heritage', title: 'Home Again',
   },
   {
     artist: 'City Voices', audioUrl: '/city.mp3', coverImageUrl: '/city.jpg', creator: {
       avatarUrl: '', displayName: 'Community Lab', id: 'creator-2',
     },
     durationSecs: 90, id: 'song-2', languages: ['Malay'], publishedDate: '2026-05-01',
-    theme: 'Community', title: 'City Lights',
+    rhythmDifficulties: [{ difficulty: 'HARD', noteCount: 100, status: 'PUBLISHED' }], theme: 'Community', title: 'City Lights',
   },
 ]
 
@@ -105,6 +105,7 @@ describe('RhythmHub', () => {
     getPublishedSongs.mockReturnValueOnce(pending)
     const view = renderHub()
     expect(screen.getByRole('status')).toHaveTextContent('Loading rhythm games')
+    await waitFor(() => expect(getPublishedSongs).toHaveBeenCalled())
     view.unmount()
 
     getPublishedSongs.mockRejectedValueOnce(new Error('database details should stay private'))

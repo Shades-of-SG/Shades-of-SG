@@ -1,3 +1,5 @@
+import PaginatedSongSelect from './PaginatedSongSelect'
+
 export default function ReflectionFilters({ query, setQuery, showAdd, songId, setSongId, songs, sort, setSort, onAdd }) {
   return (
     <section className={`rw-filters${showAdd ? '' : ' rw-filters--without-action'}`} aria-label="Reflection filters">
@@ -5,13 +7,7 @@ export default function ReflectionFilters({ query, setQuery, showAdd, songId, se
         <span>Search reflections</span>
         <input onChange={(event) => setQuery(event.target.value)} placeholder="Search memories..." type="search" value={query} />
       </label>
-      <label>
-        <span>Song</span>
-        <select onChange={(event) => setSongId(event.target.value)} value={songId}>
-          <option value="">All songs</option>
-          {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-        </select>
-      </label>
+      <PaginatedSongSelect allLabel="All songs" initialSongs={songs} label="Song" onChange={setSongId} showLoadMore={false} showSearch={false} value={songId} />
       <label>
         <span>Sort</span>
         <select onChange={(event) => setSort(event.target.value)} value={sort}>

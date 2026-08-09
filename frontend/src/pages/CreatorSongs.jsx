@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Archive, ArchiveRestore, Pencil, Trash2, Video } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import CreatorPageShell from '../components/CreatorPageShell'
@@ -24,7 +24,7 @@ const emptyStates = {
 
 function SongArtwork({ song }) {
   return song.coverImageUrl
-    ? <img alt={`${song.title} cover`} className="creator-song-cover" src={song.coverImageUrl} />
+    ? <img alt={`${song.title} cover`} className="creator-song-cover" decoding="async" loading="lazy" src={song.coverImageUrl} />
     : <div aria-label="No cover image" className="creator-song-cover creator-song-cover--fallback">No cover</div>
 }
 
@@ -33,6 +33,9 @@ export default function CreatorSongs() {
   const { token } = useAuth()
   const [songs, setSongs] = useState([])
   const [filter, setFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 })
+  const [counts, setCounts] = useState({})
   const [selectedId, setSelectedId] = useState('')
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState('')
@@ -42,13 +45,16 @@ export default function CreatorSongs() {
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoading(true)
     try {
-      const next = await getCreatorSongs(token)
+      const result = await getCreatorSongs(token, { limit: 10, page, status: filter === 'ALL' ? '' : filter })
+      const next = result.items || result
       setSongs(next)
+      setCounts(result.counts || {})
+      setPagination(result.pagination || { page: 1, totalPages: 1 })
       setSelectedId((current) => next.some((song) => song.id === current) ? current : next[0]?.id || '')
       setError('')
     } catch (nextError) { setError(nextError.message) }
     finally { if (!quiet) setLoading(false) }
-  }, [token])
+  }, [filter, page, token])
 
   useEffect(() => {
     const timer = window.setTimeout(() => load(), 0)
@@ -70,8 +76,7 @@ export default function CreatorSongs() {
     return () => window.clearTimeout(timer)
   }, [error, success])
 
-  const counts = useMemo(() => Object.fromEntries(statuses.map((status) => [status, songs.filter((song) => song.status === status).length])), [songs])
-  const visibleSongs = filter === 'ALL' ? songs : songs.filter((song) => song.status === filter)
+  const visibleSongs = songs
   const selected = songs.find((song) => song.id === selectedId) || null
 
   async function mutate(song, operation, successText) {
@@ -113,12 +118,12 @@ export default function CreatorSongs() {
     actions={<Link className="studio-button studio-button--primary" to="/creator/studio/new">Add Song</Link>}
   >
     <section className="stats-grid">
-      {statuses.map((status) => <SectionCard key={status} title={status === 'GENERATING' ? 'Generating' : status[0] + status.slice(1).toLowerCase()}><strong>{counts[status]}</strong><p>{status.toLowerCase()} songs</p></SectionCard>)}
+      {statuses.map((status) => <SectionCard key={status} title={status === 'GENERATING' ? 'Generating' : status[0] + status.slice(1).toLowerCase()}><strong>{counts[status] || 0}</strong><p>{status.toLowerCase()} songs</p></SectionCard>)}
     </section>
     {error && <div className="studio-workflow-message is-error" role="alert">{error}</div>}
     {success && <div className="studio-workflow-message is-success" role="status">{success}</div>}
     <div className="dashboard-filter-bar" aria-label="Song filters">
-      {filters.map(([label, value]) => <button className={`dashboard-filter-pill ${filter === value ? 'is-selected' : ''}`} key={value} onClick={() => setFilter(value)} type="button">{label}</button>)}
+      {filters.map(([label, value]) => <button className={`dashboard-filter-pill ${filter === value ? 'is-selected' : ''}`} key={value} onClick={() => { setFilter(value); setPage(1) }} type="button">{label}</button>)}
     </div>
     {loading ? <p role="status">Loading your songs…</p> : null}
     {!loading && visibleSongs.length === 0 ? <EmptyState {...emptyStates[filter]} /> : null}
@@ -148,6 +153,11 @@ export default function CreatorSongs() {
         </div>
         <div className="creator-song-detail__lyrics"><h4>Lyrics</h4>{selected.rawLyrics ? <pre>{selected.rawLyrics}</pre> : <p>No lyrics saved.</p>}</div>
       </SectionCard> : null}
+      <nav aria-label="My Songs pages" className="songs-pagination">
+        <button aria-label="Previous My Songs page" disabled={!pagination.hasPreviousPage && page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} type="button">Previous</button>
+        <span aria-live="polite">Page {pagination.page || page} of {Math.max(1, pagination.totalPages || 1)}</span>
+        <button aria-label="Next My Songs page" disabled={!pagination.hasNextPage && page >= (pagination.totalPages || 1)} onClick={() => setPage((value) => value + 1)} type="button">Next</button>
+      </nav>
     </div> : null}
   </CreatorPageShell>
 }

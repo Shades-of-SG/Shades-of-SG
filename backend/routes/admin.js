@@ -81,14 +81,15 @@ const SONG_REPORT_OUTCOMES = {
     REMOVE_SONG: { action: 'SONG_REMOVED_BY_ADMIN', status: 'REVIEWED' },
 };
 
-function paging(query, maximum = 100) {
+function paging(query, maximum = 50) {
     const page = Math.max(Number.parseInt(query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(Number.parseInt(query.limit, 10) || 25, 1), maximum);
     return { limit, offset: (page - 1) * limit, page };
 }
 
 function pageResult(rows, count, page, limit) {
-    return { pagination: { limit, page, total: count, totalPages: Math.ceil(count / limit) }, rows };
+    const totalPages = Math.ceil(count / limit);
+    return { pagination: { limit, page, total: count, totalItems: count, totalPages, hasNextPage: page < totalPages, hasPreviousPage: page > 1 && totalPages > 0 }, rows };
 }
 
 function serializeApplication(application) {
@@ -450,6 +451,7 @@ router.get('/users', async (req, res, next) => {
             if (!latestActionByUser.has(action.targetUserId)) latestActionByUser.set(action.targetUserId, action);
         });
         return res.json({
+            items: rows.map(serializeAdminSong),
             pagination: pageResult([], count, page, limit).pagination,
             users: rows.map((user) => {
                 const value = user.get({ plain: true });
@@ -694,7 +696,7 @@ router.get('/songs', async (req, res, next) => {
         const { count, rows } = await Song.findAndCountAll({
             where, limit, offset,
             include: adminSongIncludes(),
-            distinct: true, order: [['updatedAt', 'DESC']], subQuery: false,
+            distinct: true, order: [['updatedAt', 'DESC'], ['id', 'DESC']], subQuery: false,
         });
         return res.json({
             pagination: pageResult([], count, page, limit).pagination,

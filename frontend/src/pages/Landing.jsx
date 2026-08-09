@@ -35,10 +35,10 @@ export default function Landing() {
   useEffect(() => {
     let active = true
 
-    Promise.all([getPublishedSongs(), getReflections()])
-      .then(([nextSongs, nextReflections]) => {
+    Promise.all([getPublishedSongs({ limit: 5, page: 1 }), getReflections()])
+      .then(([songPage, nextReflections]) => {
         if (!active) return
-        setSongs(nextSongs.slice(0, 5))
+        setSongs((songPage.items || songPage).slice(0, 5))
         setReflections(nextReflections.slice(0, 5))
       })
       .catch((nextError) => active && setError(nextError.message))

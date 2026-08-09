@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import PaginatedSongSelect from './PaginatedSongSelect'
 
 const MEMORY_TYPES = ['Nostalgia', 'Family', 'National Day', 'Friendship', 'School', 'Home']
 
@@ -20,8 +21,8 @@ export default function ReflectionModal({ draft, isGuest = false, reflection, so
     if (!reflection) onDraftChange?.({ content, isAnonymous, songId, tags: memoryTypes })
   }, [content, isAnonymous, memoryTypes, onDraftChange, reflection, songId])
 
-  function selectSong(event) {
-    setSongId(event.target.value)
+  function selectSong(value) {
+    setSongId(value)
     window.requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
@@ -50,11 +51,7 @@ export default function ReflectionModal({ draft, isGuest = false, reflection, so
 
         <div className="rw-reflection-modal__body">
           <section className="rw-journal-section">
-            <label className="rw-field-label" htmlFor="reflection-song">Song</label>
-            <select id="reflection-song" onChange={selectSong} required value={songId}>
-              <option disabled value="">Select a song</option>
-              {songs.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-            </select>
+            <PaginatedSongSelect id="reflection-song" initialSongs={songs} label="Song" onChange={selectSong} required value={songId} />
           </section>
 
           <section className="rw-journal-section">

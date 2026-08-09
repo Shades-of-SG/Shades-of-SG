@@ -6,6 +6,7 @@ const {
 const { optionalAuth, requireCreator } = require('../middleware/auth');
 const { deleteAsset, uploadImageBuffer } = require('../services/cloudinaryService');
 const { findOrCreateProfile, profileValues } = require('../services/userProfileService');
+const { paginated, parsePagination } = require('../utils/pagination');
 
 const router = express.Router();
 const SOCIAL_KEYS = new Set(['instagram', 'tiktok', 'website', 'youtube']);
@@ -234,9 +235,11 @@ router.get('/:creatorId/profile', optionalAuth, async (req, res, next) => {
         const visibility = user.creatorProfile?.visibility || PROFILE_DEFAULTS.visibility;
         if (visibility === 'PRIVATE' && !isOwner) return res.status(404).json({ message: 'Creator profile not found.' });
 
-        const songs = await Song.findAll({
+        const { limit, offset, page } = parsePagination(req.query, { defaultLimit: 8 });
+        const { count: publishedSongCount, rows: songs } = await Song.findAndCountAll({
             where: { creatorId: user.id, status: 'PUBLISHED' },
-            order: [['publishedDate', 'DESC'], ['title', 'ASC']],
+            limit, offset,
+            order: [['publishedDate', 'DESC'], ['id', 'DESC']],
         });
         const folders = await Folder.findAll({
             where: { status: 'APPROVED' },
@@ -280,10 +283,11 @@ router.get('/:creatorId/profile', optionalAuth, async (req, res, next) => {
                 songId: reflection.songId,
             })),
             songs: songs.map(serializeSong),
+            songPage: paginated(songs.map(serializeSong), publishedSongCount, page, limit),
             stats: {
                 communityReflections: reflectionResult.count,
                 publishedCollections: folders.length,
-                publishedSongs: songs.length,
+                publishedSongs: publishedSongCount,
             },
         });
     } catch (error) { return next(error); }

@@ -18,6 +18,6 @@ export function removeCreatorAvatar(token) {
   return platformRequest('/creators/me/profile/avatar', { method: 'DELETE', token }).then((data) => data.profile)
 }
 
-export function getPublicCreatorProfile(creatorId, token = '') {
-  return platformRequest(`/creators/${encodeURIComponent(creatorId)}/profile`, { token })
+export function getPublicCreatorProfile(creatorId, token = '', page = 1) {
+  return platformRequest(`/creators/${encodeURIComponent(creatorId)}/profile?page=${page}&limit=8`, { token })
 }

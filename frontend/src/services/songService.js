@@ -80,9 +80,18 @@ export function startGeneration(songId, token) {
   }).then((data) => data.data)
 }
 
-export function getCreatorSongs(token, status) {
-  const query = status ? `?status=${encodeURIComponent(status)}` : ''
-  return request(`/songs/creator${query}`, { token }).then((data) => data.songs)
+export function getCreatorSongs(token, filters = {}) {
+  if (typeof filters === 'string') filters = { status: filters }
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== '' && value !== undefined && value !== null) params.set(key, value)
+  })
+  const query = params.toString()
+  return request(`/songs/creator${query ? `?${query}` : ''}`, { token }).then((data) => ({
+    counts: data.counts || {},
+    items: data.items || data.songs || [],
+    pagination: data.pagination || { page: 1, totalPages: 1 },
+  }))
 }
 
 export function getGenerationJobs(token) {

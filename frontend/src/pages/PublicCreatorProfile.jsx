@@ -41,11 +41,11 @@ function PublicStats({ stats }) {
   return <section aria-label="Public creator statistics" className="creator-profile-stats">{items.map(({ icon: Icon, label, value }) => <article key={label}><Icon aria-hidden="true" /><div><strong>{value}</strong><span>{label}</span></div><small>Publicly available</small></article>)}</section>
 }
 
-function PublishedSongs({ profile, songs }) {
+function PublishedSongs({ loadingMore, onLoadMore, pagination, profile, songs }) {
   return (
     <section className="creator-profile-section creator-profile-collection">
       <ProfileSectionHeader subtitle={`Published music by ${profile.displayName}`} title="Published Songs" />
-      {songs.length ? <div className="creator-profile-song-grid">{songs.map((song) => <article className="creator-profile-song-card" key={song.id}><div className="creator-profile-song-card__art">{song.coverImageUrl ? <img alt={`${song.title} cover`} src={song.coverImageUrl} /> : <span aria-hidden="true"><Music2 /></span>}<span className="creator-profile-status is-published">PUBLISHED</span></div><div className="creator-profile-song-card__body"><h3>{song.title}</h3><div className="creator-profile-song-card__details"><span>{song.languages?.join(', ') || 'Language not set'}</span><span>{song.theme || 'Theme not set'}</span></div><p>Published {formatProfileDate(song.publishedDate, 'recently')}</p></div><div className="creator-profile-song-card__actions"><Link to={`/songs/${song.id}`}>Explore Song <ArrowRight aria-hidden="true" /></Link></div></article>)}</div> : <div className="creator-profile-empty"><Music2 aria-hidden="true" /><h3>No published songs yet</h3><p>When {profile.displayName} publishes music, it will appear here.</p></div>}
+      {songs.length ? <><div className="creator-profile-song-grid">{songs.map((song) => <article className="creator-profile-song-card" key={song.id}><div className="creator-profile-song-card__art">{song.coverImageUrl ? <img alt={`${song.title} cover`} decoding="async" loading="lazy" src={song.coverImageUrl} /> : <span aria-hidden="true"><Music2 /></span>}<span className="creator-profile-status is-published">PUBLISHED</span></div><div className="creator-profile-song-card__body"><h3>{song.title}</h3><div className="creator-profile-song-card__details"><span>{song.languages?.join(', ') || 'Language not set'}</span><span>{song.theme || 'Theme not set'}</span></div><p>Published {formatProfileDate(song.publishedDate, 'recently')}</p></div><div className="creator-profile-song-card__actions"><Link to={`/songs/${song.id}`}>Explore Song <ArrowRight aria-hidden="true" /></Link></div></article>)}</div>{pagination?.hasNextPage ? <button className="creator-profile-button" disabled={loadingMore} onClick={onLoadMore} type="button">{loadingMore ? 'Loading more songsâ€¦' : 'Load more songs'}</button> : null}</> : <div className="creator-profile-empty"><Music2 aria-hidden="true" /><h3>No published songs yet</h3><p>When {profile.displayName} publishes music, it will appear here.</p></div>}
     </section>
   )
 }
@@ -68,6 +68,7 @@ export default function PublicCreatorProfile() {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -81,6 +82,18 @@ export default function PublicCreatorProfile() {
   if (loading) return <div className="creator-profile"><div className="creator-profile-settings__loading" role="status">Loading creator profile…</div></div>
   if (error) return <div className="creator-profile"><div className="creator-profile-empty creator-profile-public-error" role="alert"><UserRound aria-hidden="true" /><h1>Creator profile unavailable</h1><p>{error}</p><Link className="creator-profile-button" to="/songs">Explore published songs</Link></div></div>
 
-  const { collections = [], isOwner, profile, reflections = [], songs = [], stats = {} } = data
-  return <div className="creator-profile creator-profile--public"><PublicHero isOwner={isOwner} profile={profile} /><PublicStats stats={stats} /><PublishedSongs profile={profile} songs={songs} /><div className="creator-profile-editorial-grid"><PublicAbout profile={profile} /><PublicCommunity profile={profile} reflections={reflections} /></div>{profile.featuredQuote ? <aside aria-label="Featured artist quote" className="creator-profile-quote"><Quote aria-hidden="true" /><div><p>Featured Quote</p><blockquote>“{profile.featuredQuote}”</blockquote><cite>— {profile.displayName}</cite></div><span aria-hidden="true" className="creator-profile-quote__waveform" /></aside> : null}<PublicCollections collections={collections} /></div>
+  const { collections = [], isOwner, profile, reflections = [], stats = {} } = data
+  const songPage = data.songPage || { items: data.songs || [], pagination: { hasNextPage: false, page: 1 } }
+  async function loadMoreSongs() {
+    if (loadingMore || !songPage.pagination.hasNextPage) return
+    setLoadingMore(true)
+    try {
+      const next = await getPublicCreatorProfile(creatorId, token, songPage.pagination.page + 1)
+      const known = new Set(songPage.items.map((song) => song.id))
+      const items = [...songPage.items, ...next.songPage.items.filter((song) => !known.has(song.id))]
+      setData((current) => ({ ...current, songPage: { ...next.songPage, items }, songs: items }))
+    } catch (nextError) { setError(nextError.message) }
+    finally { setLoadingMore(false) }
+  }
+  return <div className="creator-profile creator-profile--public"><PublicHero isOwner={isOwner} profile={profile} /><PublicStats stats={stats} /><PublishedSongs loadingMore={loadingMore} onLoadMore={loadMoreSongs} pagination={songPage.pagination} profile={profile} songs={songPage.items} /><div className="creator-profile-editorial-grid"><PublicAbout profile={profile} /><PublicCommunity profile={profile} reflections={reflections} /></div>{profile.featuredQuote ? <aside aria-label="Featured artist quote" className="creator-profile-quote"><Quote aria-hidden="true" /><div><p>Featured Quote</p><blockquote>“{profile.featuredQuote}”</blockquote><cite>— {profile.displayName}</cite></div><span aria-hidden="true" className="creator-profile-quote__waveform" /></aside> : null}<PublicCollections collections={collections} /></div>
 }

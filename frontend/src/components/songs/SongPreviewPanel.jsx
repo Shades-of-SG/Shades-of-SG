@@ -5,7 +5,7 @@ import CreatorNameLink from '../CreatorNameLink'
 
 function PreviewArtwork({ song }) {
   return song?.coverImageUrl ? (
-    <img alt={`${song.title} cover artwork`} src={song.coverImageUrl} />
+    <img alt={`${song.title} cover artwork`} decoding="async" loading="lazy" src={song.coverImageUrl} />
   ) : (
     <span aria-label="Music preview placeholder" className="song-preview-art__fallback" role="img"><Music2 aria-hidden="true" size={40} /></span>
   )

@@ -36,37 +36,30 @@ function gradeFor(score) {
     return 'C';
 }
 
-async function listLeaderboardSongs() {
-    const beatmaps = await RhythmBeatmap.findAll({
-        attributes: ['difficulty'],
-        include: [{
-            model: Song,
-            as: 'song',
-            attributes: ['id', 'title', 'artist', 'coverImageUrl'],
-            required: true,
-            where: { status: 'PUBLISHED' },
-        }],
-        where: { status: 'PUBLISHED' },
-    });
-    const songsById = new Map();
-    beatmaps.forEach((beatmap) => {
-        if (!beatmap.song || !DIFFICULTIES.includes(beatmap.difficulty)) return;
-        const song = songsById.get(beatmap.song.id) || {
-            artist: beatmap.song.artist || '',
-            coverImageUrl: beatmap.song.coverImageUrl || '',
-            difficulties: [],
-            id: beatmap.song.id,
-            title: beatmap.song.title,
-        };
-        if (!song.difficulties.includes(beatmap.difficulty)) song.difficulties.push(beatmap.difficulty);
-        songsById.set(song.id, song);
-    });
-    return [...songsById.values()]
-        .map((song) => ({
-            ...song,
-            difficulties: song.difficulties.sort((left, right) => DIFFICULTIES.indexOf(left) - DIFFICULTIES.indexOf(right)),
-        }))
-        .sort((left, right) => left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
+async function listLeaderboardSongs(options = {}) {
+    const songWhere = { status: 'PUBLISHED' };
+    if (options.songId) songWhere.id = options.songId;
+    if (options.search) songWhere.title = { [Op.like]: `%${options.search}%` };
+    const query = {
+        attributes: ['id', 'title', 'artist', 'coverImageUrl'],
+        include: [{ model: RhythmBeatmap, as: 'rhythmBeatmaps', attributes: ['difficulty'], required: true, where: { status: 'PUBLISHED' } }],
+        order: [['title', 'ASC'], ['id', 'ASC']],
+        where: songWhere,
+    };
+    if (options.limit) {
+        query.limit = options.limit + 1;
+        query.offset = Math.max(0, (options.page - 1) * options.limit);
+    }
+    const rows = await Song.findAll(query);
+    const hasNextPage = Boolean(options.limit && rows.length > options.limit);
+    const pageRows = options.limit ? rows.slice(0, options.limit) : rows;
+    const songs = pageRows.map((song) => ({
+        artist: song.artist || '', coverImageUrl: song.coverImageUrl || '', id: song.id, title: song.title,
+        difficulties: [...new Set(song.rhythmBeatmaps.map((beatmap) => beatmap.difficulty).filter((value) => DIFFICULTIES.includes(value)))]
+            .sort((left, right) => DIFFICULTIES.indexOf(left) - DIFFICULTIES.indexOf(right)),
+    }));
+    songs.pagination = { hasNextPage, page: options.page || 1 };
+    return songs;
 }
 
 async function loadOfficialScores(where = {}) {
@@ -128,9 +121,11 @@ function publicEntry(score, position, currentUserId) {
     };
 }
 
-async function leaderboard({ currentUserId = null, difficulty, period = 'all-time', songId }) {
-    const songs = await listLeaderboardSongs();
-    const selectedSong = songId ? songs.find((song) => song.id === songId) : songs[0] || null;
+async function leaderboard({ currentUserId = null, difficulty, period = 'all-time', songId, songLimit, songPage = 1, songSearch = '' }) {
+    const songs = await listLeaderboardSongs({ limit: songLimit, page: songPage, search: songSearch });
+    const selectedMatches = songId && !songs.some((song) => song.id === songId) ? await listLeaderboardSongs({ songId }) : [];
+    const selectedSong = songId ? songs.find((song) => song.id === songId) || selectedMatches[0] : songs[0] || null;
+    if (selectedSong && !songs.some((song) => song.id === selectedSong.id)) songs.unshift(selectedSong);
     if (songId && !selectedSong) {
         const error = new Error('Published rhythm-game song not found.');
         error.statusCode = 404;
@@ -151,6 +146,7 @@ async function leaderboard({ currentUserId = null, difficulty, period = 'all-tim
             selectedDifficulty,
             selectedSong,
             songs,
+            songPagination: songs.pagination || { hasNextPage: false, page: 1 },
             totalRankedPlayers: 0,
         };
     }
@@ -170,6 +166,7 @@ async function leaderboard({ currentUserId = null, difficulty, period = 'all-tim
         selectedDifficulty,
         selectedSong,
         songs,
+        songPagination: songs.pagination || { hasNextPage: false, page: 1 },
         totalRankedPlayers: ranked.length,
     };
 }

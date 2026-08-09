@@ -53,7 +53,7 @@ export default function ReflectionWall() {
     const timer = window.setTimeout(() => {
       if (!active) return
       setIsLoading(true)
-      Promise.all([getReflections(token, requestedSongId), getReflectionSongs()])
+      Promise.all([getReflections(token, requestedSongId), getReflectionSongs({ limit: 50 })])
         .then(([nextReflections, nextSongs]) => {
           if (!active) return
           setReflections(nextReflections)

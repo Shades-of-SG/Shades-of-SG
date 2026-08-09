@@ -11,7 +11,7 @@ function formatSongDuration(durationSecs) {
 
 function SongArtwork({ song }) {
   return song.coverImageUrl ? (
-    <img alt={`${song.title} cover artwork`} src={song.coverImageUrl} />
+    <img alt={`${song.title} cover artwork`} decoding="async" loading="lazy" src={song.coverImageUrl} />
   ) : (
     <span aria-label={`No cover artwork available for ${song.title}`} className="song-catalogue-art__fallback" role="img">
       <Music2 aria-hidden="true" size={20} />
