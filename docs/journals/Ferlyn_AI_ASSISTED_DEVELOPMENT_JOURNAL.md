@@ -4989,3 +4989,169 @@ The Song Library filter controls no longer overlap. Project documentation is now
 ### Lesson
 
 Accurate documentation is not only about current facts; its established structure is part of the assessment evidence. AI can accelerate repository comparison, but human review must correct over-redesign, reused identifiers, overconfident attribution, and ownership models that erase shared contributions.
+
+---
+
+## 2026-08-09 — Reflection Wall Interaction and Moderation Completion
+
+### AI Tool Used
+
+Codex.
+
+### Development Phases
+
+1. Audited the existing Reflection Wall JSX, services, routes, models, moderation screens, administrator safety workflow, tests, and documentation.
+2. Reused the existing reflection-comment, reflection-like, warning, moderation-action, and audit systems; introduced only the missing persisted comment-report resource.
+3. Completed public like/unlike, comment deletion/reporting, creator-owned-song moderation, and administrator review interactions.
+4. Added server-authoritative community-content validation, ownership checks, idempotency/conflict handling, and regression coverage.
+5. Updated schema, architecture, use-case, implementation, README, and journal records, then ran focused and repository-wide verification.
+
+### Objective
+
+Complete the Reflection Wall interaction and moderation lifecycle without replacing working systems: persistent synchronized reflection and comment likes, accessible comments and reports, server-side vulgar-content rejection for reflections and comments, creator moderation limited to comments on the creator's own songs, platform-wide administrator visibility, auditable outcomes, responsive UI states, and regression documentation.
+
+### Prompt and Iterations
+
+The supplied task required an initial audit before implementation, additive migrations only, no duplicated like/comment/moderation systems, database- or service-level protection against repeated submissions, privacy-safe anonymous display, creator ownership enforcement, administrator visibility, automated tests, documentation updates, and a detailed development journal entry. Earlier UI requests in the same workspace concerned Rhythm Game search alignment, changing the search term from artist to creator, and removing the white creator-name pill; those edits remained separate from this Reflection Wall scope.
+
+During verification, targeted lint identified a React effect that synchronously reset discussion state. The implementation was revised to derive the selected discussion's loading state from its reflection identifier and update state only after the asynchronous request. A final concurrency review also found that administrator comment-report resolution needed the same conditional database updates as creator moderation, so the route and test were tightened to return `409` and avoid duplicate audit outcomes.
+
+In a follow-up display review, Ferlyn requested removal of the redundant uppercase anonymous badge. The public card now shows only the generic Anonymous name and avatar while retaining the song pill. The discussion modal already used that single generic identity, so regression coverage was added to ensure neither public view renders a profile link, identifying data, or a separate anonymous badge.
+
+Ferlyn then requested database-backed likes for signed-out visitors. The implementation was extended so a guest receives an opaque, HTTP-only cookie, can toggle the existing heart without being redirected to login, and sees the same state on refresh and in both the card and discussion modal. Successful login reconciles guest likes into the account without creating a second like. Comments, reports, and moderation remain authenticated actions.
+
+The next card-layout review requested a stable action footer. Reflection cards now stretch within each grid row and use a column layout so variable reflection text and author-name lengths cannot move the action row away from the bottom. Like and comment counts form a non-wrapping left-hand group, while View discussion remains a separate right-aligned control with larger touch targets and compact mobile spacing.
+
+Ferlyn clarified that comments inside the discussion should also have their own like interaction. A compact heart and count were added beneath every visible comment. Comment likes are persisted per authenticated account, restore on reload, reject duplicate rows, update optimistically, block rapid repeat clicks, and roll back after failed requests. Signed-out users can see the counts but are routed to the existing login flow when they press a comment heart.
+
+### AI Suggestions and Implementation Choices
+
+- Keep the existing `ReflectionLike` composite identity and optimistic client behaviour, reconciling both the wall card and open discussion modal with the server response.
+- Keep comments in the established `ReflectionComment` table and preserve removed text with a `REMOVED` status for moderation evidence.
+- Add `reflection_comment_reports` as an additive resource with one row per reporter/comment and explicit pending, dismissed, and actioned states.
+- Centralise reflection and comment content validation on the server, normalising Unicode, whitespace, common leetspeak, repeated characters, and punctuation/spacing bypasses while keeping only friendly validation messages in the client bundle.
+- Return `404` for creator attempts to inspect or moderate another creator's song discussion so protected moderation evidence is not disclosed.
+- Reuse `UserWarning`, `ModerationAction`, and `AuditLog` rather than creating parallel history systems.
+- Show exact timestamps, report reasons/reporters, resolution states, and prior actions in creator evidence; integrate comment reports into the existing administrator queue and safety timeline.
+- Use confirmation before destructive comment removal and disable repeated controls while requests are in flight.
+- Represent guest identity with a random server-issued session UUID stored only in an HTTP-only cookie and a private database table; do not expose that UUID through reflection responses or collect profile, IP-address, or user-agent data for it.
+- Store guest likes separately with a composite `(reflection_id, guest_session_id)` primary key, include only unexpired sessions in counts, and retain the established account-like table for signed-in users.
+- Reconcile guest likes inside the login transaction with idempotent account-like inserts, then remove the guest session so overlapping guest/account likes contribute exactly one public like.
+- Store individual comment likes in a separate composite-key join table instead of overloading reflection likes or comment records; serialize public counts and only the current account's selected state.
+
+### Ferlyn Review and Decisions
+
+Ferlyn's decisions available for this iteration were the explicit constraints in the supplied task: preserve existing behaviour and data, avoid reset/destructive migrations, enforce creator ownership and administrator authority, retain moderation evidence, use respectful error messages, keep the layout responsive, and document test limitations honestly. The later guest-like request explicitly selected server persistence, an HTTP-only anonymous identifier, one like per guest/reflection, refresh persistence, safe login reconciliation, and no relaxation of authentication for comments, reports, or moderation. Ferlyn then clarified that the requested discussion interaction meant liking individual comments; this was implemented as an authenticated, persisted comment-level heart while retaining public counts and the existing guest login prompt. The implementation follows those constraints and does not claim that notifications, appeals, or automated administrator flagging exist.
+
+### Files Created
+
+- `backend/migrations/029_reflection_comment_reports.sql`
+- `backend/migrations/030_guest_reflection_likes.sql`
+- `backend/migrations/031_reflection_comment_likes.sql`
+- `backend/models/GuestLikeSession.js`
+- `backend/models/GuestReflectionLike.js`
+- `backend/models/ReflectionCommentReport.js`
+- `backend/models/ReflectionCommentLike.js`
+- `backend/services/guestLikeService.js`
+- `frontend/src/components/ReflectionCard.test.jsx`
+- `frontend/src/pages/ReflectionWall.test.jsx`
+- `frontend/src/services/reflectionService.test.js`
+
+### Files Modified
+
+- `README.md`
+- `backend/models/index.js`
+- `backend/routes/admin.js`
+- `backend/routes/auth.js`
+- `backend/routes/reflections.js`
+- `backend/services/commentContentService.js`
+- `backend/tests/adminSafety.test.js`
+- `backend/tests/reflections.test.js`
+- `docs/project/Architecture.md`
+- `docs/project/DATABASE_SCHEMA_OVERVIEW.md`
+- `docs/project/HIGH_LEVEL_DESIGN.md`
+- `docs/project/PROJECT_IMPLEMENTATION_PHASE.md`
+- `docs/project/USE_CASE_SPECIFICATION.md`
+- `frontend/src/App.css`
+- `frontend/src/components/ReflectionCard.jsx`
+- `frontend/src/components/ReflectionDiscussionModal.jsx`
+- `frontend/src/components/ReflectionDiscussionModal.test.jsx`
+- `frontend/src/components/ReflectionGrid.jsx`
+- `frontend/src/components/creator/reflections/ReflectionDetailsPanel.jsx`
+- `frontend/src/pages/AdminCommunityPage.jsx`
+- `frontend/src/pages/AdminCommunityPage.test.jsx`
+- `frontend/src/pages/PrivacyPolicy.jsx`
+- `frontend/src/pages/ReflectionModeration.css`
+- `frontend/src/pages/ReflectionModeration.jsx`
+- `frontend/src/pages/ReflectionModeration.test.jsx`
+- `frontend/src/pages/ReflectionWall.jsx`
+- `frontend/src/services/reflectionService.js`
+- `frontend/src/services/authApi.js`
+- `frontend/src/utils/commentValidation.js`
+
+### Database and API Changes
+
+Migration 029 adds `reflection_comment_reports` with foreign keys to comments, reporters, and resolvers; a unique `(comment_id, reporter_id)` constraint; status and reason checks; and queue-oriented indexes. It is forward-only and does not replace or reset existing reflection, comment, like, warning, moderation, or audit data.
+
+Migration 030 adds private `guest_like_sessions` and `guest_reflection_likes` tables. The guest-like table has a composite primary key that enforces one like per reflection/session, and both resources cascade cleanly when a reflection or expired/reconciled session is removed. Public reflection counts now sum account likes with likes belonging to unexpired guest sessions.
+
+Migration 031 adds `reflection_comment_likes` with cascading comment and user foreign keys and a composite `(comment_id, user_id)` primary key. The Reflection API exposes authenticated idempotent POST/DELETE comment-like endpoints and includes `likeCount` plus current-account `isLiked` state when listing comments.
+
+The Reflection API adds report submission, creator/admin moderation-discussion evidence, and scoped comment moderation endpoints. Public comment serialization now exposes permission booleans without leaking authenticated anonymous identity. The administrator API combines pending comment reports with existing flagged reflections, resolves comment reports through conditional state transitions, accepts comment-linked warnings, and includes creator/admin comment actions in safety history.
+
+Public reflection listing and like endpoints now accept the opaque guest cookie when no JWT is present. Local/test cookies use `HttpOnly; SameSite=Lax`; production cookies additionally use `Secure; SameSite=None` for the configured cross-origin frontend. Login, email verification, OAuth completion, and `/api/auth/me` all invoke the same reconciliation service so a restored session cannot bypass merging.
+
+### Verification Performed
+
+- Backend focused tests: 31 of 31 passed across `reflections.test.js` and `adminSafety.test.js`.
+- Frontend focused tests: 21 of 21 passed across Reflection Card, discussion modal, creator moderation, and administrator community safety suites.
+- Anonymous-display follow-up tests: 9 of 9 passed across the Reflection Card and discussion modal suites; the production build also passed after the follow-up.
+- Guest-like backend tests: 28 of 28 passed in `reflections.test.js`, covering like/unlike, cookie refresh persistence, duplicate prevention, aggregate counts, missing and expired sessions, production cookie flags, and guest-to-account reconciliation.
+- Guest-like frontend tests: 12 of 12 passed across the Reflection Wall, Reflection Card, discussion modal, and reflection-service suites, including card/modal synchronization, rapid-click suppression, rollback after a failed request, credentialed requests, and guest toggling without a login redirect.
+- Reflection-card action-alignment follow-up: 5 of 5 focused component/page tests passed, targeted ESLint passed, and the production frontend build passed. Live browser inspection was unavailable because no browser instance was connected to the development environment.
+- Individual-comment-like follow-up: 29 of 29 backend Reflection tests and 12 of 12 focused frontend discussion/service/wall tests passed. Targeted backend/frontend ESLint, the production frontend build, and `git diff --check` also passed. Coverage includes authentication, like/unlike, refresh state, duplicate prevention, public counts, rapid-click suppression, and failed-request rollback.
+- The creator moderation suite passed 7 of 7 independently and remained green in the final broad frontend run after its authentication mock was made stable.
+- Targeted ESLint passed for every changed backend and frontend JavaScript/JSX file.
+- Frontend production build passed. Vite retained its existing warning that the main generated chunk exceeds 500 kB.
+- `git diff --check` passed.
+- Full backend tests recorded 258 passing and 14 unrelated failures across song lifecycle, multi-creator isolation, user profiles, badge catalogue totals, and song reports.
+- Full frontend tests recorded 286 passing and 10 failures across existing App/authentication, creator application/generation, and guided-lesson expectations or timeouts; all Reflection Wall and moderation suites passed in that broad run.
+- Repository-wide lint remained blocked by six unrelated existing errors in generation controller/service code, instrument service code, and older AI/onboarding tests; targeted lint for this feature passed.
+
+### Final Outcome
+
+The Reflection Wall now has persisted, synchronized reflection like/unlike behaviour for account holders and guests; authenticated per-comment likes with public counts; accessible loading and selected states; authenticated comments with exact timestamps, deletion, and reporting; server-authoritative vulgar-content rejection for reflections and comments; creator moderation limited to owned-song discussions; and administrator review with persisted reports, warnings, retained evidence, and audit history. Guest reflection likes survive refresh through a private cookie-backed session, remain non-identifying in public responses, and merge into an account without duplicate counts. Repeated likes, reports, removals, and report outcomes are rejected or reconciled without duplicate records.
+
+### Migration and Deployment Steps
+
+1. Back up the target database using the project's normal deployment process.
+2. Apply migrations in numeric order, including `backend/migrations/029_reflection_comment_reports.sql`, `backend/migrations/030_guest_reflection_likes.sql`, and `backend/migrations/031_reflection_comment_likes.sql`, against the existing database.
+3. Deploy/restart the backend before exposing the updated frontend so the report and moderation endpoints are available.
+4. Smoke-test guest and registered reflection like/unlike, authenticated comment like/unlike, refresh persistence, guest-to-account reconciliation, comment/report, creator-owned-song action, foreign-creator denial, and administrator resolution in the target environment.
+
+### Recommended Commit Grouping
+
+1. `feat(reflections): persist reports and enforce community validation`
+2. `feat(reflections): complete public and creator moderation interactions`
+3. `feat(admin): integrate comment reports with community safety`
+4. `test(reflections): cover interactions moderation and authorization`
+5. `docs(reflections): record migration workflows and verification`
+6. `feat(reflections): persist and reconcile anonymous guest likes`
+7. `test(reflections): cover guest like lifecycle`
+8. `feat(reflections): add persisted likes to discussion comments`
+9. `test(reflections): cover comment like state and failure recovery`
+
+No commits or pushes were performed during this task.
+
+### Remaining Work and Limitations
+
+- Apply migrations 029, 030, and 031 through the managed deployment process; the attached runtime log confirms migration 030 is currently missing from the connected PostgreSQL database, and no external database was modified in this session.
+- Perform signed-in browser smoke testing against representative production data and mobile viewport sizes.
+- Confirm the production frontend/API deployment sends the guest cookie across origins with HTTPS and the configured credentialed CORS origin.
+- The administrator queue currently combines and paginates open reflection flags and comment reports in application memory; this is correct for the present dataset but should move to a unified database query if queue volume grows substantially.
+- Warning/report actions record in-product state and audit history but do not claim email or push-notification delivery.
+- Address the unrelated repository-wide lint and full-suite baseline failures separately.
+
+### Lesson
+
+Finishing a community feature means treating the visible interaction, persistence constraint, authorization boundary, moderation evidence, administrator outcome, and documentation as one lifecycle. Optimistic UI is only trustworthy when the server remains authoritative and repeated outcomes are prevented at the state-transition boundary. Anonymous participation also needs an explicit lifecycle: private identifier issuance, expiry, uniqueness, reconciliation at login, and deletion after reconciliation.

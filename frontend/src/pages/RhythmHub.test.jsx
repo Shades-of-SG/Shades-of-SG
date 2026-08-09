@@ -64,11 +64,11 @@ describe('RhythmHub', () => {
     expect(within(home).getByRole('link', { name: 'Play Home Again on Easy difficulty' })).toHaveAttribute('href', '/game/song-1?difficulty=EASY')
     expect(within(home).queryByText(/best:/i)).not.toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Search by song title or artist'), { target: { value: 'City Voices' } })
+    fireEvent.change(screen.getByLabelText('Search by song title or creator'), { target: { value: 'City Voices' } })
     expect(screen.queryByRole('article', { name: 'Home Again' })).not.toBeInTheDocument()
     expect(screen.getByRole('article', { name: 'City Lights' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Search by song title or artist'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Search by song title or creator'), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: 'Filters' }))
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'Heritage' } })
     expect(screen.getByRole('article', { name: 'Home Again' })).toBeInTheDocument()

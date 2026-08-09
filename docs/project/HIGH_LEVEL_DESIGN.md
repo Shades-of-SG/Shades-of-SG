@@ -1,9 +1,9 @@
 # HIGH LEVEL DESIGN — Shades of SG
 
-**Last updated:** 8 August 2026
+**Last updated:** 9 August 2026
 **Document purpose:** Describe the current architecture, data design, API surface, repository structure, and deployment configuration of Shades of SG.
 
-> **Current implementation note:** The React routes, Express routes and services, Sequelize models, and SQL migrations through `028` are the source of truth.
+> **Current implementation note:** The React routes, Express routes and services, Sequelize models, and SQL migrations through `031` are the source of truth.
 >
 > - Song: `DRAFT -> GENERATING -> READY -> PUBLISHED -> ARCHIVED`.
 > - GenerationJob: `QUEUED -> PROCESSING -> COMPLETED | FAILED`.
@@ -185,6 +185,10 @@ rhythm_beatmaps (
 reflections (id UUID PRIMARY KEY, user_id UUID, song_id UUID NOT NULL, display_mode VARCHAR(32), content TEXT, status VARCHAR(32), ...);
 reflection_comments (id UUID PRIMARY KEY, reflection_id UUID, user_id UUID, content TEXT, status VARCHAR(16), ...);
 reflection_likes (reflection_id UUID, user_id UUID, PRIMARY KEY (reflection_id, user_id));
+reflection_comment_likes (comment_id UUID, user_id UUID, PRIMARY KEY (comment_id, user_id));
+reflection_comment_reports (id UUID PRIMARY KEY, comment_id UUID, reporter_id UUID, status VARCHAR(16), ...);
+guest_like_sessions (id UUID PRIMARY KEY, expires_at TIMESTAMPTZ, ...);
+guest_reflection_likes (reflection_id UUID, guest_session_id UUID, PRIMARY KEY (reflection_id, guest_session_id));
 song_reports (id UUID PRIMARY KEY, user_id UUID, song_id UUID, reason VARCHAR(32), status VARCHAR(32), ...);
 
 badges (id UUID PRIMARY KEY, user_id UUID, name VARCHAR(255), earned_at TIMESTAMPTZ, ...);
@@ -314,8 +318,13 @@ Additional supporting tables cover sessions, OTPs, OAuth identities, instruments
 | `PUT` | `/api/reflections/:id` | JWT/owner | Edit own reflection |
 | `DELETE` | `/api/reflections/:id` | JWT/owner or moderator | Delete permitted reflection |
 | `GET/POST` | `/api/reflections/:id/comments` | Optional/JWT | List or add discussion comments |
-| `POST/DELETE` | `/api/reflections/:id/like` | JWT | Add or remove like |
+| `DELETE` | `/api/reflections/:id/comments/:commentId` | Comment/reflection owner or Admin JWT | Remove an authorised comment |
+| `POST/DELETE` | `/api/reflections/:id/comments/:commentId/like` | JWT | Add or remove one account like on a visible comment |
+| `POST` | `/api/reflections/:id/comments/:commentId/reports` | JWT | Submit one persisted report per user/comment |
+| `POST/DELETE` | `/api/reflections/:id/like` | Optional JWT / HTTP-only guest cookie | Add or remove one account or guest-session like |
 | `GET` | `/api/reflections/moderation` | Creator/Admin JWT | Get scoped moderation queue |
+| `GET` | `/api/reflections/:id/moderation-discussion` | Song creator/Admin JWT | Inspect comments, reports, authors, timestamps, and history |
+| `POST` | `/api/reflections/:id/comments/:commentId/moderation` | Song creator/Admin JWT | Keep, remove, or warn with ownership enforcement and audit |
 | `PUT` | `/api/reflections/:id/moderation` | Creator owner/Admin | Approve, flag, or reject |
 | `POST` | `/api/reflections/:id/warn` | Creator owner/Admin | Issue warning with authorization |
 

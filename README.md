@@ -16,7 +16,7 @@ Studio creates one persistent draft and keeps the same Song UUID through editing
 
 Guests may play Rhythm Game but do not create GameScore rows. Registered-player scores use the JWT-derived user and a published Song; creator sessions are not persisted as player scores. Rhythm charts are currently deterministic and duration-derived, not musically authored beatmaps.
 
-Every guest or registered-user reflection starts `PENDING`. Registered identity and ownership come from token authentication; anonymous display does not expose that identity. A creator may moderate only reflections attached to their own songs; administrators have explicit platform-wide authority. Public queries show approved reflections whose Song remains published.
+Every guest or registered-user reflection starts `PENDING`. Registered identity and ownership come from token authentication; anonymous display does not expose that identity. Approved reflections support persisted likes for registered accounts and anonymous HTTP-only-cookie guest sessions, plus authenticated discussion comments and one persisted comment like per account. Guest reflection likes reconcile into account likes at sign-in without double-counting. Reflections and comments share server-side community-language validation. Members can report comments; the owning Song creator can review, keep, remove, or warn within that Song only, while administrators retain platform-wide report, warning, suspension, and audit oversight. Public queries show only approved reflections and visible comments whose Song remains published.
 
 Creator ownership always derives from `songs.creator_id`. Generation jobs, scene segments, generated frames, lessons, trivia, scores/analytics, reflections, beatmaps, and collection links are authorised through that parent song. Frontend filtering is never an access-control boundary.
 
@@ -30,7 +30,7 @@ npm install --prefix frontend
 
 Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `frontend/.env`. Do not commit real environment files.
 
-For local SQLite, leave `DATABASE_URL` unset. For Supabase, apply every numbered SQL file in `backend/migrations` in ascending order.
+For local SQLite, leave `DATABASE_URL` unset. For Supabase, apply every numbered SQL file in `backend/migrations` in lexicographic filename order. Reflection comment reporting, guest reflection likes, and comment likes require additive migrations `029_reflection_comment_reports.sql`, `030_guest_reflection_likes.sql`, and `031_reflection_comment_likes.sql`; do not reset or reseed existing data.
 
 Apply every numbered migration explicitly before starting the corresponding application version. Server startup does not run `sequelize.sync`, alter tables, reset data, or seed demo content. The optional `SEED_ADMIN_*` settings bootstrap the first administrator; remove the bootstrap password after use. All normal creator accounts are produced by admin approval of a registered user's creator application. `seed:mock` is development-only.
 

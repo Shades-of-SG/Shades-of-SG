@@ -1,6 +1,6 @@
 # AI Music Video Generation Platform - Use Cases
 
-**Last updated:** 8 August 2026
+**Last updated:** 9 August 2026
 
 **Document Purpose:** Consolidate the creator/admin and public-facing use cases in the format established by the original two use-case documents, updated against the current implementation.
 
@@ -787,13 +787,17 @@ Approve safe content and act on inappropriate reflections/comments with traceabl
 1. System returns the actor's authorized moderation queue.
 2. Moderator filters and opens reflection details.
 3. Moderator approves, flags, rejects, deletes, or adds a note.
-4. Authorized moderator may remove a comment or issue a warning.
-5. System records moderation/audit information.
+4. Moderator may inspect a comment's author, exact timestamp, reports, and previous moderation outcomes.
+5. Authorized moderator may keep a comment, dismiss a report, remove a comment, or issue a warning.
+6. System records moderation/audit information and updates the open report queue.
 
 **Alternate Flows:**
 
 **AF-01: Creator Attempts Foreign Song**
 - System rejects the action without revealing protected content.
+
+**AF-02: Repeated Comment Moderation**
+- System rejects already-resolved reports and comments so a repeated submission cannot create a second outcome.
 
 **Success Outcome:**
 - Public feed includes only approved content for published Songs.
@@ -804,6 +808,7 @@ Approve safe content and act on inappropriate reflections/comments with traceabl
 **Key Acceptance Criteria:**
 - ✓ Creator scope follows `reflections.song_id → songs.creator_id`.
 - ✓ Administrator actions are platform-wide and auditable.
+- ✓ Removed comments retain moderation evidence while disappearing from the public discussion.
 
 **Implementation Status:** **Implemented**.
 
@@ -1731,7 +1736,7 @@ Store valid user scores, show results/personal best/leaderboard, and safely clai
 **Secondary Actors:** Reflection API, comment/like services, moderation workflow
 
 **Preconditions:**
-- Reflected Song is published; comments/likes require authentication.
+- Reflected Song is published; comments, comment likes, and reports require authentication, while guest reflection likes use an anonymous HTTP-only cookie session.
 
 **Triggers:**
 - Actor opens `/reflections` or a Song reflection action.
@@ -1744,7 +1749,8 @@ Share a moderated memory and participate in approved discussion.
 2. Actor submits validated content with anonymous/profile display where allowed.
 3. New reflection is stored as `PENDING`.
 4. Registered owner may edit/delete own reflection.
-5. Registered user may like and comment on approved content.
+5. Guest or registered user may like and unlike approved content with one persisted like per browser session or account.
+6. Registered user may comment, like or unlike an individual visible comment, delete their own comments, and report another member's comment.
 
 **Alternate Flows:**
 
@@ -1753,6 +1759,15 @@ Share a moderated memory and participate in approved discussion.
 
 **AF-P02: Removed Comment**
 - Comment becomes hidden; administrator may restore it.
+
+**AF-P03: Prohibited Community Content**
+- Server-side validation rejects vulgar or bypass-obfuscated reflection and comment text with a respectful, actionable message.
+
+**AF-P04: Repeated Like or Report Submission**
+- Database uniqueness and service checks preserve one reflection like, one comment like, and one active report per member and target.
+
+**AF-P05: Guest Session Expires or Signs In**
+- A missing or expired guest cookie receives a new anonymous session; successful sign-in transactionally converts unique guest likes to account likes and removes duplicate guest rows.
 
 **Success Outcome:**
 - Submission enters moderation or authorized interaction is stored.
@@ -1763,6 +1778,10 @@ Share a moderated memory and participate in approved discussion.
 **Key Acceptance Criteria:**
 - ✓ Anonymous display does not discard authenticated ownership.
 - ✓ Only approved reflections on published Songs are public.
+- ✓ Like state and counts remain synchronized between wall cards and discussion details.
+- ✓ Guests may read discussion and toggle likes, but are prompted to sign in for commenting, reporting, and other protected interactions.
+- ✓ Guests can like without identifying information, local storage, or public exposure of the HTTP-only session identifier.
+- ✓ Comment like counts are public, while account-specific comment like state and toggling require authentication.
 
 **Implementation Status:** **Implemented**.
 

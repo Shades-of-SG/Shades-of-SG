@@ -672,7 +672,7 @@ describe('App', () => {
     expect(screen.getAllByAltText('Playable Published Song cover artwork')).toHaveLength(1)
     expect(screen.queryByText('Scores not saved for guests')).not.toBeInTheDocument()
     expect(screen.getByText('Playing as a guest')).toBeInTheDocument()
-    expect(screen.getByLabelText('Search by song title or artist')).toBeInTheDocument()
+    expect(screen.getByLabelText('Search by song title or creator')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View Leaderboard' })).toHaveAttribute('href', '/rhythm-game/leaderboard')
     expect(screen.getByText('1:00')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Play Playable Published Song on Easy difficulty' })).toHaveAttribute('href', '/game/playable-1?difficulty=EASY')

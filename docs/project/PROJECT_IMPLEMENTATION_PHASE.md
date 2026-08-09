@@ -1,6 +1,6 @@
 # PROJECT IMPLEMENTATION PHASES — Shades of SG
 
-**Last updated:** 8 August 2026
+**Last updated:** 9 August 2026
 **Document purpose:** Record the original implementation phases and task ownership while showing the current evidence-based completion state.
 
 > SCCCI AI Challenge | Team: Unpaid Interns | Main development period: 13 June – 8 August 2026
@@ -53,7 +53,7 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 **Database & Cloud Provisioning**
 - [x] Configure PostgreSQL/Supabase through `DATABASE_URL`
 - [x] Provide SQLite fallback for local development and tests
-- [x] Create the initial migration and forward-only migration sequence through `028`
+- [x] Create the initial migration and forward-only migration sequence through `031`
 - [x] Configure Cloudinary integration
 - [x] Add Render and Vercel deployment configuration
 - [ ] Introspect and compare the final live production schema against every repository migration
@@ -251,9 +251,9 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 - [x] **Reflection Wall** (`/reflections`)
   - Guest/registered submission, anonymous/profile display, tags, pending moderation, and owner edit/delete
 - [x] **Discussion and Likes**
-  - Authenticated comments, removal/restore behavior, and one like per user/reflection
+  - Optimistic account/guest reflection like-unlike with database uniqueness and sign-in reconciliation, synchronized counts, accessible account-only comment likes, authenticated comments, owner deletion, and user reporting
 - [x] **Reflection Moderation** (`/creator/reflections`)
-  - Creator-owned-song scope; administrator platform scope; approval, flagging, rejection, notes, and warnings
+  - Creator-owned-song scope; administrator platform scope; approval, flagging, rejection, notes, comment evidence/report review, comment removal, warnings, and auditable outcomes
 
 ---
 

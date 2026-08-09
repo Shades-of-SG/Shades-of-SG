@@ -1,6 +1,6 @@
 # DATABASE SCHEMA OVERVIEW — Shades of SG
 
-**Last updated:** 8 August 2026
+**Last updated:** 9 August 2026
 **Document purpose:** Describe the current PostgreSQL schema produced by `backend/migrations/*.sql`, cross-checked against every Sequelize model and association. This is documentation only; no schema behavior was changed.
 
 > SCCCI AI Challenge | Team: Unpaid Interns
@@ -28,7 +28,8 @@ users
 │   ├── scene_segments ── generated_frames
 │   ├── rhythm_beatmaps
 │   ├── game_scores
-│   ├── reflections ── reflection_comments / reflection_likes
+│   ├── reflections ── reflection_comments ── reflection_comment_likes
+│   │                 └─ reflection_likes / guest_reflection_likes
 │   ├── song_reports, song_bookmarks, song_explorations
 │   ├── lessons, trivia_questions ── trivia_attempts
 │   ├── song_instruments ── instruments
@@ -349,6 +350,30 @@ Purpose: one like per user/reflection.
 
 `reflection_id UUID` FK reflections cascade + `user_id UUID` FK users cascade form composite PK; `created_at TIMESTAMPTZ` required default now; no `updated_at`. Indexes by reflection/date and user/date. Introduced by 023.
 
+### `reflection_comment_likes`
+
+Purpose: one authenticated like per user/comment.
+
+`comment_id UUID` FK reflection comments cascade + `user_id UUID` FK users cascade form the composite PK; `created_at TIMESTAMPTZ` required default now; no `updated_at`. Indexes by comment/date and user/date support public counts and account state. Removed comments cannot receive new likes, and deleting a comment cascades its likes. Introduced by 031.
+
+### `guest_like_sessions`
+
+Purpose: anonymous server-side identities for browser-persisted guest reflection likes without account or identifying profile data.
+
+`id UUID` random PK; `expires_at TIMESTAMPTZ` required; timestamps. The browser receives only this random value in an HTTP-only, same-site-aware cookie. Expired sessions are rejected and removed. Introduced by 030.
+
+### `guest_reflection_likes`
+
+Purpose: one persisted like per active anonymous guest session/reflection.
+
+`reflection_id UUID` FK reflections cascade + `guest_session_id UUID` FK guest like sessions cascade form the composite PK; `created_at TIMESTAMPTZ` required default now. Reflection/date and session/date indexes support counts and reconciliation. Successful authentication converts unique rows into account `reflection_likes`, ignores account duplicates, deletes the guest session, and clears its cookie. Introduced by 030.
+
+### `reflection_comment_reports`
+
+Purpose: authenticated, auditable safety reports for individual Reflection Wall comments.
+
+`id UUID` PK; `comment_id UUID` required FK reflection comments cascade; `reporter_id UUID` required FK users cascade; `reason TEXT` required with length 5..500; `status VARCHAR(16)` required default `PENDING` (`PENDING`,`DISMISSED`,`ACTIONED`); `resolved_by UUID` optional FK users set null; `resolved_at TIMESTAMPTZ`; `resolution_reason TEXT` optional with length 5..2000; timestamps. A unique `(comment_id, reporter_id)` constraint prevents repeated reports by the same account. Status/date and comment/status indexes support creator and administrator queues. Introduced by 029.
+
 ### `song_reports`
 
 Purpose: authenticated safety/content reports for songs.
@@ -454,6 +479,9 @@ Purpose: saved song membership for a user.
 | `026_badge_definitions.sql` | Badge metadata catalog and seed rows |
 | `027_song_exploration_badges.sql` | Distinct exploration records and badge seeds |
 | `028_song_section_recommendations.sql` | AI section recommendations and confirmation timestamp |
+| `029_reflection_comment_reports.sql` | Authenticated comment reports, duplicate prevention, and resolution state |
+| `030_guest_reflection_likes.sql` | Anonymous cookie sessions, persisted guest likes, and composite duplicate prevention |
+| `031_reflection_comment_likes.sql` | Persisted authenticated comment likes and composite duplicate prevention |
 
 ---
 
