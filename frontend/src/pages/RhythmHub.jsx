@@ -185,9 +185,9 @@ export default function RhythmHub() {
     {!loading && !error && songs.length > 0 ? <section aria-label="Find rhythm games" className="rhythm-controls">
       <div className="rhythm-controls__primary">
         <label className="rhythm-search" htmlFor="rhythm-search">
-          <span className="sr-only">Search by song title or artist</span>
+          <span className="sr-only">Search by song title or creator</span>
           <Search aria-hidden="true" size={18} />
-          <input id="rhythm-search" onChange={(event) => setSearch(event.target.value)} placeholder="Search title or artist" type="search" value={search} />
+          <input id="rhythm-search" onChange={(event) => setSearch(event.target.value)} placeholder="Search title or creator" type="search" value={search} />
         </label>
         <button aria-expanded={filtersOpen} className={filtersActive ? 'is-active' : ''} onClick={() => setFiltersOpen((open) => !open)} type="button">
           <SlidersHorizontal aria-hidden="true" size={17} /> Filters{filtersActive ? ' · On' : ''}
@@ -216,7 +216,7 @@ export default function RhythmHub() {
     {!loading && !error && songs.length === 0 ? <EmptyState description="Published songs with a playable rhythm track will appear here." title="No published rhythm games yet" /> : null}
     {!loading && !error && songs.length > 0 && visibleSongs.length === 0 ? <div className="state-box rhythm-search-empty">
       <strong>No songs match your search</strong>
-      <p>Try another title or artist, or clear the active filters.</p>
+      <p>Try another title or creator, or clear the active filters.</p>
       <button onClick={() => { setSearch(''); clearFilters() }} type="button">Clear search and filters</button>
     </div> : null}
 
