@@ -602,6 +602,7 @@ export default function VideoEditor() {
         })
 
         setHasEdits(true)
+        setJobData(prev => (prev ? { ...prev, song: { ...prev.song, videoUrl: null } } : prev))
         setShowEditModal(false)
       } else {
         alert('Edit failed: ' + (result.message || 'Unknown error'))
@@ -804,6 +805,7 @@ export default function VideoEditor() {
         })
 
         setHasEdits(true)
+        setJobData(prev => (prev ? { ...prev, song: { ...prev.song, videoUrl: null } } : prev))
       }
 
       setCopilotLog(prev => [...prev, { role: 'assistant', text: `✓ Applied to ${allUpdatedScenes.length} scene(s) successfully. Thumbnails updated.` }])
@@ -834,6 +836,8 @@ export default function VideoEditor() {
     setIsPublishing(true);
     try {
       let finalVideoUrl = jobData?.song?.videoUrl || '';
+      const activeFrameImage = frames[currentFrameIndex]?.imageUrl || frames[0]?.imageUrl || '';
+      let updatedSong = jobData?.song ? { ...jobData.song, coverImageUrl: activeFrameImage } : { coverImageUrl: activeFrameImage };
 
       // Heavy Lane: Run export API if edits exist or if no video is compiled yet
       if (hasEdits || !finalVideoUrl) {
@@ -845,6 +849,11 @@ export default function VideoEditor() {
         const result = await res.json();
         if (result.success && result.videoUrl) {
           finalVideoUrl = result.videoUrl;
+          if (updatedSong) {
+            updatedSong = { ...updatedSong, videoUrl: result.videoUrl };
+          }
+          setJobData(prev => (prev ? { ...prev, song: updatedSong } : prev));
+          setHasEdits(false);
         } else {
           alert('Failed to prepare clean video: ' + (result.message || 'Unknown error'));
           setIsPublishing(false);
@@ -852,19 +861,34 @@ export default function VideoEditor() {
         }
       }
 
+      // Persist current active frame as song cover image
+      if (activeFrameImage) {
+        try {
+          await fetch(`${API_URL}/songs/${songId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({ coverImageUrl: activeFrameImage })
+          });
+        } catch (coverErr) {
+          console.warn('[handlePublishToStudio] Failed updating cover image:', coverErr);
+        }
+      }
+
       // Fast Lane / Completion: Instantly navigate
-      const rawLyrics = jobData?.song?.rawLyrics || jobData?.song?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || jobData?.song?.lyrics;
-      const currentCoverImage = frames[currentFrameIndex]?.imageUrl || jobData?.song?.coverImageUrl || frames[0]?.imageUrl || '';
+      const rawLyrics = updatedSong?.rawLyrics || updatedSong?.sceneSegments?.map(s => s.lyrics).filter(Boolean).join('\n\n') || updatedSong?.lyrics;
       
       navigate(`/creator/studio/${encodeURIComponent(songId)}`, {
         state: { 
           videoUrl: finalVideoUrl,
           lyrics: rawLyrics,
-          transcriptionSegments: jobData?.song?.transcriptionSegments || [],
-          coverImageUrl: currentCoverImage,
+          transcriptionSegments: updatedSong?.transcriptionSegments || [],
+          coverImageUrl: activeFrameImage,
           jobId: id,
           originalSongId: songId,
-          songData: jobData?.song
+          songData: updatedSong
         } 
       });
     } catch (e) {
@@ -1468,7 +1492,7 @@ export default function VideoEditor() {
                   type="button"
                   onClick={() => handleEditFrameAdvanced(true)}
                   disabled={isRegenerating || isSavingLyrics || !editVisualPrompt.trim()}
-                  title="Force new DALL-E image generation"
+                  title="Force new GPT Image generation"
                   style={{
                     background: 'rgba(124,58,237,0.2)',
                     border: '1px solid rgba(139,92,246,0.4)',

@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import { useAuth } from '../context/AuthContext'
 import { getSongCuration, updateSongCuration, generateSongArticle, generateSongTrivia } from '../services/songService'
+import { API_URL } from '../services/apiConfig'
 import useLabInstruments from '../hooks/useLabInstruments'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 
 export default function CreatorCuration() {
   const { songId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { token } = useAuth()
 
   const labInstruments = useLabInstruments()
@@ -27,6 +29,9 @@ export default function CreatorCuration() {
   const [allInstruments, setAllInstruments] = useState([])
   const [selectedInstrumentIds, setSelectedInstrumentIds] = useState([])
   const [latestJobId, setLatestJobId] = useState(null)
+
+  const activeJobId = location.state?.jobId || location.state?.job?.id || latestJobId || (song?.generationJobs?.[0]?.id) || null
+  const backRoute = activeJobId ? `/creator/generation/${activeJobId}` : '/creator/generation'
   
   const [generatingArticle, setGeneratingArticle] = useState(false)
   const [generatingTrivia, setGeneratingTrivia] = useState(false)
@@ -289,15 +294,73 @@ export default function CreatorCuration() {
           <h2 style={{ color: '#ef4444', marginTop: '1rem' }}>Unable to Load Curation</h2>
           <p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>{error}</p>
           <button
-            onClick={() => navigate('/creator/generation')}
+            onClick={() => navigate(backRoute)}
             className="studio-button studio-button--secondary"
             style={{ marginTop: '2rem' }}
           >
-            Back to Dashboard
+            Back to Job
           </button>
         </section>
       </CreatorPageShell>
     )
+  }
+
+  const handleProceedToStudio = async () => {
+    const songData = song || {}
+    let firstFrameUrl = songData.coverImageUrl || ''
+
+    if (!firstFrameUrl) {
+      try {
+        let fetchedSong = null
+        if (latestJobId) {
+          const jobRes = await fetch(`${API_URL}/generation/${latestJobId}/status`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          })
+          if (jobRes.ok) {
+            const jobJson = await jobRes.json()
+            fetchedSong = jobJson.data?.song || jobJson.song
+          }
+        }
+        if (!fetchedSong) {
+          const songRes = await fetch(`${API_URL}/songs/creator/${songId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          })
+          if (songRes.ok) {
+            const songJson = await songRes.json()
+            fetchedSong = songJson.song || songJson.data
+          }
+        }
+
+        const firstScene = fetchedSong?.sceneSegments?.[0]
+        firstFrameUrl = firstScene?.imageUrl || firstScene?.generatedFrames?.[0]?.imageUrl || fetchedSong?.coverImageUrl || ''
+      } catch (fetchErr) {
+        console.warn('[handleProceedToStudio] Failed fetching first frame:', fetchErr)
+      }
+    }
+
+    if (firstFrameUrl) {
+      try {
+        await fetch(`${API_URL}/songs/${songId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ coverImageUrl: firstFrameUrl })
+        })
+      } catch (putErr) {
+        console.warn('[handleProceedToStudio] Failed updating cover image:', putErr)
+      }
+    }
+
+    const updatedSongData = { ...songData, coverImageUrl: firstFrameUrl }
+    navigate(`/creator/studio/${songId}`, {
+      state: {
+        lyrics: songData?.rawLyrics,
+        coverImageUrl: firstFrameUrl,
+        songData: updatedSongData
+      }
+    })
   }
 
   return (
@@ -309,13 +372,13 @@ export default function CreatorCuration() {
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button
             className="studio-button studio-button--secondary"
-            onClick={() => navigate('/creator/generation')}
+            onClick={() => navigate(backRoute)}
           >
-            Back to Jobs
+            Back to Job
           </button>
           <button
             className="studio-button studio-button--secondary"
-            onClick={() => navigate(`/creator/studio/${songId}`, { state: { lyrics: song?.rawLyrics, coverImageUrl: song?.coverImageUrl, songData: song } })}
+            onClick={handleProceedToStudio}
           >
             Proceed to Studio
           </button>
@@ -699,9 +762,9 @@ export default function CreatorCuration() {
           <button
             type="button"
             className="studio-button studio-button--secondary"
-            onClick={() => navigate('/creator/generation')}
+            onClick={() => navigate(backRoute)}
           >
-            Back to Jobs
+            Back to Job
           </button>
           <button
             type="submit"

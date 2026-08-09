@@ -125,7 +125,7 @@ export default function CreatorGenerationJobs() {
         formDataObj.append('lyrics', 'Instrumental / AI Transcribed')
         formDataObj.append('theme', 'Standard')
         formDataObj.append('description', 'AI Generated')
-        formDataObj.append('file', audioFile)
+        formDataObj.append('audioFile', audioFile)
 
         const songRes = await fetch(`${API_URL}/songs`, {
           method: 'POST',
@@ -399,21 +399,12 @@ export default function CreatorGenerationJobs() {
                     <Trash2 aria-hidden="true" size={18} />
                   </button>
                   <button
-                    className="studio-button studio-button--secondary"
+                    className="studio-button studio-button--primary"
                     onClick={() => navigate(`/creator/generation/${job.id}`)}
                     type="button"
                   >
                     View Status
                   </button>
-                  {job.status.toLowerCase() === 'completed' && (
-                    <button
-                      className="studio-button studio-button--primary"
-                      onClick={() => navigate(`/creator/editor/${job.id}`)}
-                      type="button"
-                    >
-                      Open Video Editor
-                    </button>
-                  )}
                 </div>
               </div>
             ))}

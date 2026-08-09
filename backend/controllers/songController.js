@@ -654,6 +654,11 @@ async function getCurationDetails(req, res, next) {
     } catch (error) { return next(error); }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function isUuid(val) {
+    return typeof val === 'string' && UUID_REGEX.test(val);
+}
+
 async function updateCurationDetails(req, res, next) {
     try {
         const { id } = req.params;
@@ -692,15 +697,26 @@ async function updateCurationDetails(req, res, next) {
             await SongInstrument.destroy({ where: { songId: id } });
             
             if (selectedInstruments.length > 0) {
-                const instrumentRecords = await Instrument.findAll({
-                    where: {
-                        [Op.or]: [
-                            { id: selectedInstruments },
-                            { name: selectedInstruments },
-                            { slug: selectedInstruments }
-                        ]
-                    }
-                });
+                const uuidIds = selectedInstruments.filter(isUuid);
+                const nonUuidValues = selectedInstruments.filter(val => !isUuid(val));
+
+                const orConditions = [];
+                if (uuidIds.length > 0) {
+                    orConditions.push({ id: uuidIds });
+                }
+                if (nonUuidValues.length > 0) {
+                    orConditions.push({ name: nonUuidValues });
+                    orConditions.push({ slug: nonUuidValues });
+                }
+
+                let instrumentRecords = [];
+                if (orConditions.length > 0) {
+                    instrumentRecords = await Instrument.findAll({
+                        where: {
+                            [Op.or]: orConditions
+                        }
+                    });
+                }
 
                 const songInstEntries = instrumentRecords.map((inst) => ({
                     songId: id,

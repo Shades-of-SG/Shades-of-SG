@@ -56,6 +56,7 @@ router.post('/:id/sections/recommend', requireCreator, songSectionsController.re
 router.put('/:id/sections', requireCreator, songSectionsController.saveSections);
 router.post('/', requireCreator, upload.single('audioFile'), songController.createSong);
 router.put('/:id/metadata', requireCreator, songController.updateSong);
+router.put('/:id', requireCreator, songController.updateSong);
 router.post('/:id/audio', requireCreator, upload.single('audioFile'), songController.uploadSongAudio);
 router.post('/:id/video', requireCreator, videoUpload.single('videoFile'), songController.uploadSongVideo);
 router.post('/:id/cover', requireCreator, coverUpload.single('coverImage'), songController.uploadCoverImage);

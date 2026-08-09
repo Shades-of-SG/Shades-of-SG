@@ -238,6 +238,10 @@ const getGenerationStatus = async (req, res, next) => {
       throw error
     }
 
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+
     return res.json({
       success: true,
       data: job,
@@ -568,6 +572,7 @@ const exportVideo = async (req, res, next) => {
       await job.update({ status: 'COMPLETED' });
       throw err;
     }
+    await Song.update({ videoUrl: assembleResult.videoUrl, status: 'READY' }, { where: { id: job.songId } });
     await job.update({ status: 'COMPLETED', completedAt: new Date() });
     await job.reload();
 
@@ -695,6 +700,10 @@ const regenerateFrame = async (req, res, next) => {
 
     segment.imageUrl = finalImageUrl;
     await segment.save();
+
+    if (segment.songId) {
+      await Song.update({ videoUrl: null }, { where: { id: segment.songId } });
+    }
 
     return res.json({ success: true, data: frame });
   } catch (error) {
@@ -1004,6 +1013,7 @@ const editFrameAdvanced = async (req, res, next) => {
         { imageUrl: newImageUrl },
         { where: { sceneSegmentId: id } }
       )
+      await Song.update({ videoUrl: null }, { where: { id: songId } })
     } else {
       console.log(`[editFrameAdvanced] Prompt untouched. Updating text/lyrics without image regeneration.`)
     }

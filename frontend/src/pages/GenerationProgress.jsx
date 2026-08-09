@@ -306,9 +306,10 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
   }
 
   const formatTime = (secs) => {
-    const m = Math.floor(secs / 60)
-    const s = (secs % 60).toFixed(1)
-    return `${m}:${s.padStart(4, '0')}`
+    const val = Number(secs) || 0
+    const m = Math.floor(val / 60)
+    const s = (val % 60).toFixed(2)
+    return `${m}:${s.padStart(5, '0')}`
   }
 
   return (
@@ -398,7 +399,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
                       backgroundColor: 'rgba(15, 23, 42, 0.8)', color: '#94a3b8',
                       padding: '2px 8px', borderRadius: '4px',
                     }}>
-                      {formatTime(scene.startTime)} – {formatTime(scene.endTime)}
+                      {Number(scene?.startTime || 0).toFixed(2)}s – {Number(scene?.endTime || 0).toFixed(2)}s
                     </span>
                     {isChorusRepeat && (
                       <span style={{
@@ -539,7 +540,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
           {(() => {
             const nextScene = editingScenes[sceneIdx + 1]
             const hasGap = nextScene && (nextScene.startTime - scene.endTime >= 0.5)
-            const gapDuration = hasGap ? (nextScene.startTime - scene.endTime).toFixed(1) : 0
+            const gapDuration = hasGap ? Number(nextScene.startTime - scene.endTime).toFixed(2) : 0
 
             return (
               <>
@@ -857,7 +858,7 @@ export default function GenerationProgress() {
   const getPhaseStatus = (phaseNum) => {
     const hasScenes = sceneSegments && sceneSegments.length > 0;
     const totalFrames = sceneSegments?.length || 0;
-    const generatedFrames = sceneSegments?.filter(s => s.generatedFrames && s.generatedFrames.length > 0).length || 0;
+    const generatedFrames = sceneSegments?.filter(s => (s.generatedFrames && s.generatedFrames.length > 0) || Boolean(s.imageUrl)).length || 0;
     const framesDone = totalFrames > 0 && generatedFrames === totalFrames;
 
     if (phaseNum === 1) {
@@ -1105,7 +1106,7 @@ export default function GenerationProgress() {
                           padding: '2px 8px', 
                           borderRadius: '4px' 
                         }}>
-                          {segment.startTime}s - {segment.endTime}s
+                          {Number(segment?.startTime || 0).toFixed(2)}s - {Number(segment?.endTime || 0).toFixed(2)}s
                         </span>
                       </div>
 
@@ -1266,7 +1267,7 @@ export default function GenerationProgress() {
                     <p className="text-red-400 text-sm">There was an error stitching the video.</p>
                   </div>
                 </div>
-              ) : (sceneSegments.length > 0 && sceneSegments.every(seg => seg.generatedFrames && seg.generatedFrames.length > 0)) ? (
+              ) : (sceneSegments.length > 0 && sceneSegments.every(seg => (seg.generatedFrames && seg.generatedFrames.length > 0) || Boolean(seg.imageUrl))) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
                   <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Stitching MP4 with FFmpeg...</p>

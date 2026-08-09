@@ -44,7 +44,7 @@ async function generateSingleFrame(prompt) {
   const safePrompt = (prompt || 'Cinematic scene').substring(0, 4000)
   let openAiImageUrl
 
-  console.log(`[generateSingleFrame] Calling OpenAI DALL-E 3...`)
+  console.log(`[generateSingleFrame] Calling OpenAI GPT Image 2...`)
 
   let attempts = 0
   const maxAttempts = 3
@@ -52,12 +52,12 @@ async function generateSingleFrame(prompt) {
   while (attempts < maxAttempts) {
     try {
       attempts++
-      console.log(`[OpenAI] Attempting DALL-E 3 (Attempt ${attempts}/${maxAttempts}) with key prefix: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`)
+      console.log(`[OpenAI] Attempting GPT Image 2 (Attempt ${attempts}/${maxAttempts}) with key prefix: ${process.env.OPENAI_API_KEY?.substring(0, 7)}...`)
       const response = await openai.images.generate({
-        model: process.env.OPENAI_IMAGE_MODEL || 'dall-e-3',
+        model: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2',
         prompt: safePrompt,
         size: '1792x1024',
-        quality: 'standard',
+        quality: 'auto',
         n: 1,
       })
 
@@ -75,13 +75,13 @@ async function generateSingleFrame(prompt) {
 
       if (isRateLimit && attempts < maxAttempts) {
         const backoffMs = attempts * 20000
-        console.warn(`[Rate Limit 429] DALL-E 3 rate limited. Pausing ${backoffMs / 1000}s before retry attempt ${attempts + 1}...`)
+        console.warn(`[Rate Limit 429] GPT Image 2 rate limited. Pausing ${backoffMs / 1000}s before retry attempt ${attempts + 1}...`)
         await delay(backoffMs)
         continue
       }
 
-      // Fallback to DALL-E 2 on primary non-retriable failure
-      console.warn(`[Fallback] DALL-E 3 failed (${openaiError.message}). Falling back to DALL-E 2.`)
+      // Fallback to GPT Image 1 Mini on primary non-retriable failure
+      console.warn(`[Fallback] GPT Image 2 failed (${openaiError.message}). Falling back to GPT Image 1 Mini.`)
 
       let fallbackPrompt = safePrompt.substring(0, 1000)
       if (openaiError.message?.toLowerCase().includes('safety') || openaiError.message?.toLowerCase().includes('rejected')) {
@@ -91,7 +91,7 @@ async function generateSingleFrame(prompt) {
 
       try {
         const fallbackResponse = await openai.images.generate({
-          model: 'dall-e-2',
+          model: 'gpt-image-1-mini',
           prompt: fallbackPrompt,
           size: '1024x1024',
           n: 1,
@@ -188,22 +188,39 @@ async function generateFrames(jobId, songId) {
 
     console.log(`[Frame Generator] Optimization: Found ${uniqueGenerationTasks.size} unique scenes out of ${segments.length} segments.`)
 
-    // 3. Generate unique frames in parallel chunks of 4 with a 62s rate limit cooldown
+    // 3. Generate unique frames in parallel chunks of 4 with incremental DB saves and progress updates
     const uniqueSegments = Array.from(uniqueGenerationTasks.values())
     const chunkSize = 4
     const totalChunks = Math.ceil(uniqueSegments.length / chunkSize)
+    let completedCount = 0
 
     for (let i = 0; i < uniqueSegments.length; i += chunkSize) {
       const chunkIndex = Math.floor(i / chunkSize)
       const chunk = uniqueSegments.slice(i, i + chunkSize)
       console.log(`[Frame Generator] Processing chunk ${chunkIndex + 1} of ${totalChunks}...`)
 
-      await Promise.all(chunk.map(async (segment) => {
-        const cacheKey = segmentToCacheKey.get(segment.id)
-        console.log(`[Cache Miss] Generating new frame for segment ${segment.id}...`)
-        const finalImageUrl = await generateSingleFrame(segment.visualPrompt)
+      await Promise.all(chunk.map(async (uniqueSegment) => {
+        const cacheKey = segmentToCacheKey.get(uniqueSegment.id)
+        console.log(`[Cache Miss] Generating new frame for segment ${uniqueSegment.id}...`)
+        const finalImageUrl = await generateSingleFrame(uniqueSegment.visualPrompt)
         imagePromptCache.set(cacheKey, finalImageUrl)
+
+        // Persist frame URL incrementally to DB for this segment and any deduplicated chorus siblings
+        const matchingSegments = segments.filter(s => segmentToCacheKey.get(s.id) === cacheKey)
+        for (const seg of matchingSegments) {
+          await GeneratedFrame.create({
+            sceneSegmentId: seg.id,
+            imageUrl: finalImageUrl,
+          })
+          seg.imageUrl = finalImageUrl
+          await seg.save()
+          completedCount++
+        }
       }))
+
+      // Incrementally update job progress in DB after each chunk
+      const percentProgress = Math.min(100, Math.round((completedCount / segments.length) * 100))
+      await job.update({ progress: percentProgress })
 
       if (chunkIndex < totalChunks - 1) {
         console.log(`[Frame Generator] Rate limit cooldown: Pausing 62s before next batch to respect OpenAI 5 IPM limit...`)
@@ -211,20 +228,8 @@ async function generateFrames(jobId, songId) {
       }
     }
 
-    // 4. Database Saving
-    console.log(`[Frame Generator] Saving ${segments.length} frames to database...`)
-    for (const segment of segments) {
-      const cacheKey = segmentToCacheKey.get(segment.id)
-      const finalImageUrl = imagePromptCache.get(cacheKey)
-
-      await GeneratedFrame.create({
-        sceneSegmentId: segment.id,
-        imageUrl: finalImageUrl,
-      })
-
-      segment.imageUrl = finalImageUrl
-      await segment.save()
-    }
+    // Ensure final 100% progress state
+    await job.update({ progress: 100 })
 
     // 5. Phase Complete
     console.log(`[Phase 3 Complete] All frames generated for Job ${jobId} (Song ${songId}).`)

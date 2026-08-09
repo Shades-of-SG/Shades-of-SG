@@ -1,0 +1,24 @@
+{
+  "watch": [
+    "server.js",
+    "controllers",
+    "services",
+    "models",
+    "routes",
+    "middleware",
+    "config"
+  ],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    "database.sqlite*",
+    "storage/*",
+    "storage/**/*",
+    "audio-sources/*",
+    "audio-sources/**/*",
+    "*.mp3",
+    "*.mp4",
+    "*.srt",
+    "*.jpg",
+    "*.png"
+  ]
+}
