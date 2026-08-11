@@ -76,14 +76,17 @@ describe('shared user profile system', () => {
     fireEvent.change(name, { target: { value: 'Ferlyn Tan' } })
     fireEvent.change(screen.getByLabelText('Theme'), { target: { value: 'LIGHT' } })
     fireEvent.click(screen.getByRole('button', { name: 'National Day' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Show badges/i }))
     fireEvent.click(screen.getByRole('checkbox', { name: /Show rhythm summary/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /Show reflections/i }))
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(fetchMock.mock.calls.some(([url, options]) => String(url).includes('/users/me/profile') && options?.method === 'PATCH')).toBe(true))
     const patchCall = fetchMock.mock.calls.find(([, options]) => options?.method === 'PATCH')
     expect(JSON.parse(patchCall[1].body)).toMatchObject({
-      displayName: 'Ferlyn Tan', interestTags: ['National Day'], showRhythmRanking: false, theme: 'LIGHT',
+      displayName: 'Ferlyn Tan', interestTags: ['National Day'], showBadges: false,
+      showReflections: false, showRhythmRanking: false, theme: 'LIGHT',
     })
     expect(await screen.findByText('Settings saved.')).toBeInTheDocument()
     expect(JSON.parse(localStorage.getItem('authUser'))).toMatchObject({
@@ -154,6 +157,24 @@ describe('shared user profile system', () => {
     expect(screen.getByRole('heading', { name: 'Reflections' })).toBeInTheDocument()
     expect(screen.getByText('A memory of home.')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Edit Profile' })).not.toBeInTheDocument()
+  })
+
+  it('hides each disabled section from the public profile, including owner preview', async () => {
+    authenticate()
+    window.history.pushState({}, '', '/users/user-1')
+    vi.stubGlobal('fetch', vi.fn(() => response({
+      ...profilePayload,
+      isOwner: true,
+      visibleSections: { badges: false, reflections: false, rhythm: false },
+    })))
+    render(<AuthProvider><App /></AuthProvider>)
+
+    expect(await screen.findByText('This is your public-profile preview.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Reflections' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Keepsakes' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Rhythm Journey' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Achievements earned')).not.toBeInTheDocument()
+    expect(screen.queryByText('Best rhythm score')).not.toBeInTheDocument()
   })
 
   it('renders public bio and canonical interests as text without interpreting markup', async () => {

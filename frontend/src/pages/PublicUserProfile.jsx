@@ -28,14 +28,17 @@ export default function PublicUserProfile() {
   if (error || !data) return <div className="profile-page"><div className="profile-empty" role="status"><h1>Profile unavailable</h1><p>{error}</p><Link className="profile-button profile-button--soft" to="/songs">Explore published songs</Link></div></div>
 
   const { badges = [], profile, reflections = [], rhythm } = data
+  const showBadges = data.visibleSections?.badges !== false
+  const showReflections = data.visibleSections?.reflections !== false
+  const showRhythm = data.visibleSections?.rhythm !== false
   return (
     <div className="profile-page" data-theme="dark">
       {data.isOwner ? <div className="profile-owner-banner"><span>This is your public-profile preview.</span><div><Link className="profile-button profile-button--soft" to="/profile">Back to Profile</Link><Link className="profile-button profile-button--soft" to="/settings#profile">Edit Profile</Link></div></div> : null}
       <ProfileHero editable={false} isCreator={profile.isCreator} profile={profile} />
-      {rhythm || badges.length ? <ProfileStats badges={data.visibleSections?.badges === false ? null : badges.length} loading={{ badges: false, scores: false }} rhythm={data.visibleSections?.rhythm === false ? null : rhythm} /> : null}
-      {reflections.length ? <ProfileMemories loading={false} memories={reflections} subtitle={`Public reflections from ${profile.displayName}`} title="Reflections" /> : null}
-      {badges.length ? <ProfileBadges badges={badges} loading={false} subtitle={`${profile.displayName}'s earned badges`} title="Keepsakes" /> : null}
-      {rhythm ? <ProfileMusicJourney loading={false} scores={rhythm.recentScores || []} subtitle={`Recent scores from ${profile.displayName}`} title="Rhythm Journey" /> : null}
+      {(showRhythm && rhythm) || (showBadges && badges.length) ? <ProfileStats badges={showBadges ? badges.length : null} loading={{ badges: false, scores: false }} rhythm={showRhythm ? rhythm : null} /> : null}
+      {showReflections && reflections.length ? <ProfileMemories loading={false} memories={reflections} subtitle={`Public reflections from ${profile.displayName}`} title="Reflections" /> : null}
+      {showBadges && badges.length ? <ProfileBadges badges={badges} loading={false} subtitle={`${profile.displayName}'s earned badges`} title="Keepsakes" /> : null}
+      {showRhythm && rhythm ? <ProfileMusicJourney loading={false} scores={rhythm.recentScores || []} subtitle={`Recent scores from ${profile.displayName}`} title="Rhythm Journey" /> : null}
     </div>
   )
 }

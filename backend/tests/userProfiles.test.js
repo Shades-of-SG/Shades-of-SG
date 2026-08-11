@@ -104,6 +104,13 @@ test('owner updates shared identity and public activity obeys privacy preference
     expect(JSON.stringify(publicResponse.body)).not.toContain('Anonymous memory');
     expect(JSON.stringify(publicResponse.body)).not.toContain('Pending memory');
     expect(JSON.stringify(publicResponse.body)).not.toContain('listener-profile@example.com');
+
+    const ownerPreview = await request(app).get(`/api/users/${listener.id}/profile`).set(authorization(listener));
+    expect(ownerPreview.status).toBe(200);
+    expect(ownerPreview.body.isOwner).toBe(true);
+    expect(ownerPreview.body.visibleSections).toMatchObject({ badges: false, reflections: true, rhythm: false });
+    expect(ownerPreview.body.badges).toEqual([]);
+    expect(ownerPreview.body.rhythm).toBeNull();
 });
 
 test('optional bio and canonical interest tags persist across profile reloads', async () => {

@@ -139,7 +139,9 @@ router.get('/:userId/profile', optionalAuth, async (req, res, next) => {
         const profile = profileValues(user, user.profile);
         const isOwner = req.authUserRecord?.id === user.id;
         if (profile.profileVisibility === 'PRIVATE' && !isOwner) return res.status(404).json({ message: 'User profile not found.' });
-        const activity = await activityFor(user.id, { profile, publicView: !isOwner });
+        // This endpoint always represents the public-facing profile, including
+        // when its owner opens the "Public preview" link.
+        const activity = await activityFor(user.id, { profile, publicView: true });
         return res.json({ ...activity, isOwner, profile: publicIdentity(user, user.profile) });
     } catch (error) { return next(error); }
 });
