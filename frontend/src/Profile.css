@@ -39,6 +39,7 @@
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
+  scrollbar-color: #8b5cf6 #0b1028;
 }
 
 .profile-note-carousel .profile-note {
@@ -51,12 +52,13 @@
 }
 
 .profile-note-carousel::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
+  background: #0b1028;
   border-radius: 999px;
 }
 
 .profile-note-carousel::-webkit-scrollbar-thumb {
-  background: rgba(196, 181, 253, 0.35);
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  border: 2px solid #0b1028;
   border-radius: 999px;
 }
 

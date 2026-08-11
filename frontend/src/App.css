@@ -184,7 +184,7 @@
 .rw-reflection-modal__header > div > span { color: #746a82; display: block; font-size: .92rem; margin-top: 5px; }
 .rw-reflection-modal__header > button { align-items: center; background: #f3edf9; color: #3b2854; display: flex; flex: 0 0 auto; justify-content: center; transition: background .16s ease, transform .16s ease; }
 .rw-reflection-modal__header > button:hover { background: #eadff5; transform: rotate(3deg); }
-.rw-reflection-modal__body { display: grid; gap: 16px; min-height: 0; overflow-y: auto; padding: 18px 28px 22px; scrollbar-color: #c7b4df transparent; scrollbar-width: thin; }
+.rw-reflection-modal__body { display: grid; gap: 16px; min-height: 0; overflow-y: auto; padding: 18px 28px 22px; scrollbar-color: #8b5cf6 #0b1028; scrollbar-width: thin; }
 .rw-journal-section { display: grid; gap: 7px; }
 .rw-field-label,
 .rw-memory-types > legend,
