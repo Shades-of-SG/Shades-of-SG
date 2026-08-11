@@ -172,15 +172,22 @@ async function listPublicSongs(req, res, next) {
         }
         const jsonContainsAny = (column, values) => {
             if (!values.length) return null;
-            const escaped = values.map((value) => sequelize.escape(String(value).toLowerCase()));
             if (sequelize.getDialect() === 'postgres') {
-                return sequelize.literal(`EXISTS (SELECT 1 FROM jsonb_array_elements_text("Song"."${column}") value WHERE lower(value) IN (${escaped.join(',')}))`);
+                return {
+                    [Op.or]: values.map((value) => sequelize.literal(
+                        `"Song"."${column}"::jsonb @> ${sequelize.escape(JSON.stringify([value]))}::jsonb`
+                    )),
+                };
             }
+            const escaped = values.map((value) => sequelize.escape(String(value).toLowerCase()));
             return sequelize.literal(`EXISTS (SELECT 1 FROM json_each(Song.${column}) WHERE lower(json_each.value) IN (${escaped.join(',')}))`);
         };
         const languages = parseMultiValue(req.query.language);
         const moods = parseMultiValue(req.query.mood);
-        const extraConditions = [jsonContainsAny('languages', languages), jsonContainsAny('mood_tags', moods)].filter(Boolean);
+        const extraConditions = [
+            jsonContainsAny('languages', languages),
+            jsonContainsAny('mood_tags', moods),
+        ].filter(Boolean);
         const difficulty = String(req.query.difficulty || '').toUpperCase();
         if (difficulty && !['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) return res.status(400).json({ message: 'Invalid rhythm difficulty.' });
         if (req.query.rhythm === 'true' || difficulty) {

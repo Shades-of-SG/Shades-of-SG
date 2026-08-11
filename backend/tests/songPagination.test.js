@@ -63,6 +63,22 @@ test('search, sort, and JSON filters are applied before pagination totals', asyn
     expect(response.body.items.map((song) => song.title)).toEqual([...response.body.items.map((song) => song.title)].sort());
 });
 
+test('language and mood JSON filters work separately and support multiple selections', async () => {
+    const english = await request(app).get('/api/songs?language=English&limit=50');
+    expect(english.status).toBe(200);
+    expect(english.body.pagination.totalItems).toBe(7);
+    expect(english.body.items.every((song) => song.languages.includes('English'))).toBe(true);
+
+    const joyful = await request(app).get('/api/songs?mood=Joyful&limit=50');
+    expect(joyful.status).toBe(200);
+    expect(joyful.body.pagination.totalItems).toBe(7);
+    expect(joyful.body.items.every((song) => song.moodTags.includes('Joyful'))).toBe(true);
+
+    const multiple = await request(app).get('/api/songs?language=English,Malay&mood=Joyful,Reflective&limit=50');
+    expect(multiple.status).toBe(200);
+    expect(multiple.body.pagination.totalItems).toBe(14);
+});
+
 test('rhythm and played-status filters return eligible songs with beatmap summaries', async () => {
     const rhythm = await request(app).get('/api/songs?rhythm=true&page=1&limit=10');
     expect(rhythm.status).toBe(200);
