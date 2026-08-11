@@ -5,6 +5,123 @@
   margin-left: auto;
 }
 
+.navbar-language {
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.navbar-language__button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: #d8b4fe;
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  padding: 0;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+  width: 40px;
+}
+
+.navbar-language__button:hover,
+.navbar-language__button:focus-visible,
+.navbar-language__button[aria-expanded='true'] {
+  background: rgba(216, 180, 254, 0.12);
+  border-color: rgba(216, 180, 254, 0.28);
+  color: #d8b4fe;
+  outline: none;
+}
+
+.navbar-language__dropdown {
+  background: #182238;
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+  display: grid;
+  min-width: 185px;
+  padding: 7px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  z-index: 40;
+}
+
+.navbar-language__dropdown button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #dbe4f3;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 0.87rem;
+  font-weight: 700;
+  justify-content: space-between;
+  padding: 10px 11px;
+  text-align: left;
+}
+
+.navbar-language__dropdown button:hover,
+.navbar-language__dropdown button:focus-visible,
+.navbar-language__dropdown button.is-active {
+  background: rgba(167, 139, 250, 0.14);
+  color: #ffffff;
+  outline: none;
+}
+
+.navbar-language__dropdown button.is-active svg {
+  color: #c4a5ff;
+}
+
+.google-translate-host {
+  height: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 0;
+}
+
+/* Keep Google Translate's functionality without its injected page banner. */
+html {
+  margin-top: 0 !important;
+}
+
+body {
+  position: static !important;
+  top: 0 !important;
+}
+
+iframe.goog-te-banner-frame,
+.goog-te-banner-frame,
+.goog-te-banner,
+iframe.VIpgJd-ZVi9od-ORHb-OEVmcd,
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-te-balloon,
+.goog-tooltip {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.registered-navbar__name {
+  color: #f2edfb;
+  font-size: 0.88rem;
+  font-weight: 800;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .registered-navbar__account {
   position: relative;
 }
@@ -147,6 +264,15 @@
     padding-top: 14px;
   }
 
+  .navbar-language {
+    margin-right: auto;
+  }
+
+  .navbar-language__dropdown {
+    left: 0;
+    right: auto;
+  }
+
   .registered-navbar__account-button {
     justify-content: center;
   }
@@ -157,6 +283,15 @@
     position: static;
     width: 100%;
   }
+}
+
+@media (max-width: 560px) {
+  .public-navbar__utilities {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .navbar-language { flex: 0 0 auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
