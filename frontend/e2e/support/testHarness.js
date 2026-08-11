@@ -52,7 +52,7 @@ function adminAnalytics() {
   return {
     activitySeries: [], events: {}, generationJobs: 1,
     pending: { creatorApplications: 0, flaggedReflections: 0, suspendedAccounts: 0, unresolvedWarnings: 0 },
-    reflections: 0, scores: 0, songs: { published: 1, total: 1 }, users: { admins: 1, creators: 1, registered: 1, total: 3 },
+    reflections: 0, scores: 0, songs: { published: 1, total: 1 }, users: { admins: 1, creators: 1, registered: 2, registeredOnly: 1, total: 3 },
   }
 }
 

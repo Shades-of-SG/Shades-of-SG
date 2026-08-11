@@ -92,7 +92,7 @@ export default function AdminOverview() {
   }
 
   const metrics = analytics ? [
-    { icon: Users, label: 'Registered members', value: analytics.users.registered, note: `${analytics.users.total} total accounts including creators and administrators` },
+    { icon: Users, label: 'Registered members', value: analytics.users.registered, note: `Includes ${analytics.users.creators} approved creators · ${analytics.users.total} total accounts including administrators` },
     { icon: UserCheck, label: 'Approved creators', value: analytics.users.creators, note: 'Creator accounts included in the total account count' },
     { icon: Music2, label: 'Published songs', value: analytics.songs.published, note: `${analytics.songs.published} of ${analytics.songs.total} songs are publicly available` },
     { icon: Music2, label: 'Songs across all stages', value: analytics.songs.total, note: 'Includes draft, processing, ready, published and archived songs' },

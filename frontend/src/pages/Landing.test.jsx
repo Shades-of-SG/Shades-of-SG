@@ -5,6 +5,7 @@ import { AuthProvider } from '../context/AuthContext'
 import Landing from './Landing'
 
 const mocks = vi.hoisted(() => ({
+  getBadgeCatalog: vi.fn(),
   getCommunityStats: vi.fn(),
   getMyBestScores: vi.fn(),
   getMyStats: vi.fn(),
@@ -13,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   getUserBadges: vi.fn(),
 }))
 
-vi.mock('../services/badgeService', () => ({ getUserBadges: mocks.getUserBadges }))
+vi.mock('../services/badgeService', () => ({ getBadgeCatalog: mocks.getBadgeCatalog, getUserBadges: mocks.getUserBadges }))
 vi.mock('../services/publicSongService', () => ({ getPublishedSongs: mocks.getPublishedSongs }))
 vi.mock('../services/reflectionService', () => ({ getReflections: mocks.getReflections }))
 vi.mock('../services/scoreService', () => ({ getMyBestScores: mocks.getMyBestScores }))
@@ -35,6 +36,7 @@ function renderLanding() {
 describe('Landing page', () => {
   beforeEach(() => {
     localStorage.clear()
+    mocks.getBadgeCatalog.mockResolvedValue([])
     mocks.getCommunityStats.mockResolvedValue({ reflectionsCount: 9, songsCount: 6, usersCount: 14 })
     mocks.getMyBestScores.mockResolvedValue(null)
     mocks.getMyStats.mockResolvedValue({})
@@ -90,6 +92,18 @@ describe('Landing page', () => {
       'href',
       '/reflections'
     )
+  })
+
+  it('prefers the current profile display name over a stale session name', async () => {
+    localStorage.setItem('authToken', 'player-token')
+    localStorage.setItem('authUser', JSON.stringify({
+      id: 'user-1', name: 'Tan Paint', role: 'REGISTERED', sharedProfile: { displayName: 'Vernice Tan' },
+    }))
+
+    renderLanding()
+
+    expect(await screen.findByText('Welcome, Vernice Tan')).toBeInTheDocument()
+    expect(screen.queryByText('Welcome, Tan Paint')).not.toBeInTheDocument()
   })
 
   it('places the view-all links in their section headers', async () => {

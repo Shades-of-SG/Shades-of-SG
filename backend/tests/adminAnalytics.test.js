@@ -62,6 +62,13 @@ test('admin analytics returns authoritative tab counts and real listening events
     });
     expect(response.body.activitySeries.reduce((total, day) => total + day.views, 0)).toBe(2);
     expect(response.body.activitySeries.reduce((total, day) => total + day.playbacks, 0)).toBe(1);
+    expect(response.body.users).toEqual({
+        admins: 1,
+        creators: 1,
+        registered: 2,
+        registeredOnly: 1,
+        total: 3,
+    });
 });
 
 test('admin analytics remains protected by administrator authorisation', async () => {

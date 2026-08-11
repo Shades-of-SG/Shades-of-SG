@@ -432,14 +432,20 @@ router.get('/users', async (req, res, next) => {
                 'creatorAccessStatus', 'creatorSuspensionReason', 'lastActiveDate', 'createdAt', 'updatedAt',
             ],
             include: [
-                { model: Reflection, as: 'reflections', attributes: ['id', 'moderatedAt', 'status', 'updatedAt'], required: false },
-                { model: UserWarning, as: 'warnings', attributes: ['createdAt', 'id', 'resolvedAt', 'status'], required: false },
                 {
-                    model: Song, as: 'songs', attributes: ['id'], required: false,
+                    model: Reflection, as: 'reflections', attributes: ['id', 'moderatedAt', 'status', 'updatedAt'],
+                    required: false, separate: true,
+                },
+                {
+                    model: UserWarning, as: 'warnings', attributes: ['createdAt', 'id', 'resolvedAt', 'status'],
+                    required: false, separate: true,
+                },
+                {
+                    model: Song, as: 'songs', attributes: ['id'], required: false, separate: true,
                     include: [{ model: SongReport, as: 'reports', attributes: ['createdAt', 'id', 'status'], required: false }],
                 },
             ],
-            distinct: true, limit, offset, order: USER_SORTS[sortKey], subQuery: false, where,
+            distinct: true, limit, offset, order: USER_SORTS[sortKey], where,
         });
         const safetyActions = rows.length ? await ModerationAction.findAll({
             attributes: ['actionType', 'createdAt', 'reason', 'targetUserId'],
@@ -1100,7 +1106,13 @@ router.get('/analytics', async (req, res, next) => {
                 users: safetyUsers,
                 warnings: unresolvedWarnings,
             },
-            users: { admins, creators, registered: registeredUsers, total: admins + creators + registeredUsers },
+            users: {
+                admins,
+                creators,
+                registered: registeredUsers + creators,
+                registeredOnly: registeredUsers,
+                total: admins + creators + registeredUsers,
+            },
         });
     } catch (error) { return next(error); }
 });

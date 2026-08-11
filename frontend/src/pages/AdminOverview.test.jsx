@@ -23,7 +23,7 @@ const summary = {
   activitySeries,
   pending: { creatorApplications: 2, flaggedReflections: 3, suspendedAccounts: 1, unresolvedWarnings: 4 },
   songs: { published: 6, total: 9 },
-  users: { admins: 1, creators: 4, registered: 8, total: 13 },
+  users: { admins: 1, creators: 4, registered: 12, registeredOnly: 8, total: 13 },
 }
 
 const records = [
@@ -74,8 +74,8 @@ describe('AdminOverview hierarchy and states', () => {
   it('uses authoritative summary values and explains related metrics', () => {
     renderOverview()
 
-    expect(screen.getByText('Registered members').closest('.admin-metric')).toHaveTextContent('8')
-    expect(screen.getByText('Registered members').closest('.admin-metric')).toHaveTextContent('13 total accounts including creators and administrators')
+    expect(screen.getByText('Registered members').closest('.admin-metric')).toHaveTextContent('12')
+    expect(screen.getByText('Registered members').closest('.admin-metric')).toHaveTextContent('Includes 4 approved creators · 13 total accounts including administrators')
     expect(screen.getByText('Published songs').closest('.admin-metric')).toHaveTextContent('6 of 9 songs are publicly available')
     expect(screen.getByText('Songs across all stages').closest('.admin-metric')).toHaveTextContent('9')
   })

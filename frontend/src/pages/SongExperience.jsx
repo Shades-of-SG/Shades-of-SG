@@ -6,10 +6,13 @@ import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import useLabInstruments from '../hooks/useLabInstruments'
 import { getPublishedSong } from '../services/publicSongService'
+import { trackAnalyticsEvent } from '../services/analyticsService'
+import { useAuth } from '../context/AuthContext'
 import './SongExperience.css'
 
 export default function SongExperience() {
   const { id } = useParams()
+  const { token } = useAuth()
 
   const labInstruments = useLabInstruments()
   const { playNote } = useInstrumentAudio()
@@ -44,6 +47,7 @@ export default function SongExperience() {
       .then((data) => {
         if (!isMounted) return
         setSong(data)
+        trackAnalyticsEvent('SONG_PAGE_VIEWED', { songId: data.id }, token).catch(() => {})
       })
       .catch((err) => {
         if (!isMounted) return
@@ -56,7 +60,7 @@ export default function SongExperience() {
     return () => {
       isMounted = false
     }
-  }, [id])
+  }, [id, token])
 
   function stopAudioPlayback() {
     melodyTimeouts.current.forEach(clearTimeout)
@@ -215,7 +219,7 @@ export default function SongExperience() {
   }
 
   return (
-    <div className="page-stack" style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', padding: '0 1rem' }}>
+    <div className="page-stack" style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', padding: '10px 1rem 0' }}>
       <PageHeader
         eyebrow="Song Experience"
         title={song.title}
@@ -235,6 +239,7 @@ export default function SongExperience() {
               onPlay={() => {
                 setIsPlaying(true)
                 stopAudioPlayback()
+                trackAnalyticsEvent('SONG_PLAYBACK_STARTED', { songId: song.id }, token).catch(() => {})
               }}
               onPause={() => setIsPlaying(false)}
             />
@@ -614,6 +619,7 @@ export default function SongExperience() {
           color: '#f8fafc',
           transition: 'all 200ms ease',
           marginTop: '1rem',
+          marginBottom: '16px',
         }}
         className="hover:border-violet-500/50 hover:bg-slate-800/80 group"
       >

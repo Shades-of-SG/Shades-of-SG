@@ -88,7 +88,10 @@ describe('RhythmLeaderboard', () => {
     fireEvent.change(screen.getByLabelText('Time period'), { target: { value: 'monthly' } })
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('songId=song-1&difficulty=MEDIUM&period=monthly'))
 
-    fireEvent.change(screen.getByLabelText('Song'), { target: { value: 'song-2' } })
+    fireEvent.click(screen.getByRole('combobox', { name: /Song/ }))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search songs' }), { target: { value: 'Home' } })
+    fireEvent.click(await screen.findByRole('option', { name: 'Home' }))
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('songId=song-2&difficulty=HARD&period=monthly'))
     expect(await screen.findByText('No scores for this selection')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Play This Song' })).toHaveAttribute('href', '/game/song-2?difficulty=HARD')

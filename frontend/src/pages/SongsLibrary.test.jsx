@@ -8,11 +8,13 @@ const mocks = vi.hoisted(() => ({
   getBeatmapSummary: vi.fn(),
   getPublishedSongs: vi.fn(),
   reportSong: vi.fn(),
+  trackAnalyticsEvent: vi.fn(),
 }))
 
 vi.mock('../services/publicSongService', () => ({ getPublishedSongs: mocks.getPublishedSongs }))
 vi.mock('../services/beatmapService', () => ({ getBeatmapSummary: mocks.getBeatmapSummary }))
 vi.mock('../services/songReportService', () => ({ reportSong: mocks.reportSong }))
+vi.mock('../services/analyticsService', () => ({ trackAnalyticsEvent: mocks.trackAnalyticsEvent }))
 
 const songs = [
   {
@@ -24,7 +26,6 @@ const songs = [
     languages: ['English'],
     moodTags: ['Reflective'],
     publishedDate: '2026-07-20T00:00:00.000Z',
-    rhythmDifficulties: [{ difficulty: 'EASY', status: 'PUBLISHED' }],
     theme: 'Identity',
     title: 'Home',
     videoUrl: '/home.mp4',
@@ -70,6 +71,7 @@ function filteredSongs(filters = {}) {
 
 describe('Songs Library', () => {
   beforeEach(() => {
+    mocks.trackAnalyticsEvent.mockResolvedValue({ accepted: true })
     mocks.getPublishedSongs.mockImplementation((filters) => Promise.resolve(filteredSongs(filters)))
     mocks.getBeatmapSummary.mockImplementation((songId) => Promise.resolve(
       songId === 'home'
@@ -110,6 +112,19 @@ describe('Songs Library', () => {
     expect(video).toHaveAttribute('preload', 'metadata')
   })
 
+  it('records a playback start when a catalogue preview is played', async () => {
+    renderPage()
+    const video = await screen.findByLabelText('Home video preview')
+
+    fireEvent.play(video)
+
+    expect(mocks.trackAnalyticsEvent).toHaveBeenCalledWith(
+      'SONG_PLAYBACK_STARTED',
+      { songId: 'home' },
+      null,
+    )
+  })
+
   it('updates the contextual panel when a row is selected and shows a missing-video fallback', async () => {
     renderPage()
     await screen.findByText('3 songs available')
@@ -144,14 +159,14 @@ describe('Songs Library', () => {
     fireEvent.click(screen.getByRole('button', { name: 'All themes' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Community' }))
 
-    await waitFor(() => expect(mocks.getPublishedSongs).toHaveBeenLastCalledWith(expect.objectContaining({
+    await waitFor(() => expect(mocks.getPublishedSongs).toHaveBeenLastCalledWith({
       language: [], mood: [], search: '', theme: ['Community'],
-    }), null, expect.objectContaining({ signal: expect.any(AbortSignal) })))
-    expect(await screen.findByText('Showing 1 of 1 songs')).toBeInTheDocument()
+    }, null))
+    expect(await screen.findByText('Showing 1–1 of 1 songs')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remove Theme: Community filter' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
-    expect(await screen.findByText('Showing 3 of 3 songs')).toBeInTheDocument()
+    expect(await screen.findByText('Showing 1–3 of 3 songs')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeDisabled()
   })
 
@@ -175,16 +190,14 @@ describe('Songs Library', () => {
     expect(screen.getByRole('complementary', { name: 'Preview for City Lights' })).toBeInTheDocument()
   })
 
-  it('appends later pages without resetting the selected preview', async () => {
+  it('resets selection safely when pagination changes', async () => {
     const paginatedSongs = Array.from({ length: 10 }, (_, index) => ({
       ...songs[index % songs.length],
       id: `song-${index + 1}`,
       title: `Song ${index + 1}`,
       videoUrl: '',
     }))
-    mocks.getPublishedSongs.mockImplementation((filters) => Promise.resolve(filters.page === 2
-      ? { items: [paginatedSongs[9]], pagination: { page: 2, totalItems: 10, totalPages: 2, hasNextPage: false } }
-      : { items: paginatedSongs.slice(0, 9), pagination: { page: 1, totalItems: 10, totalPages: 2, hasNextPage: true } }))
+    mocks.getPublishedSongs.mockResolvedValue(paginatedSongs)
     mocks.getBeatmapSummary.mockResolvedValue([])
     renderPage()
     await screen.findByText('10 songs available')
@@ -192,9 +205,9 @@ describe('Songs Library', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select Song 2 preview' }))
     expect(screen.getByRole('complementary', { name: 'Preview for Song 2' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Load more published songs' }))
-    expect(await screen.findByRole('button', { name: 'Select Song 10 preview' })).toBeInTheDocument()
-    expect(screen.getByRole('complementary', { name: 'Preview for Song 2' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+    expect(await screen.findByRole('complementary', { name: 'Preview for Song 10' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('exposes a retry state when a video fails', async () => {

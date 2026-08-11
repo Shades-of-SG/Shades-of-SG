@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, Search } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getLeaderboard } from '../services/leaderboardService'
@@ -37,6 +38,9 @@ export default function RhythmLeaderboard() {
   const [songSearch, setSongSearch] = useState('')
   const [songPage, setSongPage] = useState(1)
   const [songOptions, setSongOptions] = useState([])
+  const [songPickerOpen, setSongPickerOpen] = useState(false)
+  const [songInput, setSongInput] = useState('')
+  const songPickerRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -82,6 +86,11 @@ export default function RhythmLeaderboard() {
 
   function changeSong(nextSongId) {
     const song = songOptions.find((item) => item.id === nextSongId)
+    if (!song) return
+    setSongInput('')
+    setSongSearch('')
+    setSongPage(1)
+    setSongPickerOpen(false)
     setFilters({ difficulty: song?.difficulties?.[0] || '', songId: nextSongId })
   }
 
@@ -89,6 +98,9 @@ export default function RhythmLeaderboard() {
   const selectedSong = data?.selectedSong || null
   const selectedDifficulty = data?.selectedDifficulty || difficulty
   const availableDifficulties = data?.availableDifficulties || []
+  const visibleSongOptions = songOptions.filter((song) => (
+    !songInput.trim() || song.title.toLowerCase().includes(songInput.trim().toLowerCase())
+  ))
   const contextLabel = selectedSong && selectedDifficulty ? `${selectedSong.title} · ${difficultyLabel(selectedDifficulty)}` : ''
   const playPath = selectedSong && selectedDifficulty
     ? `/game/${selectedSong.id}?difficulty=${encodeURIComponent(selectedDifficulty)}`
@@ -104,17 +116,75 @@ export default function RhythmLeaderboard() {
 
       {data ? (
         <section aria-label="Leaderboard filters" className="rhythm-leaderboard-filters">
-          <label>
-            <span>Search songs</span>
-            <input aria-label="Search leaderboard songs" onChange={(event) => { setSongSearch(event.target.value); setSongPage(1) }} placeholder="Search songs" type="search" value={songSearch} />
-          </label>
-          <label>
-            <span>Song</span>
-            <select disabled={!songOptions.length} onChange={(event) => changeSong(event.target.value)} value={selectedSong?.id || ''}>
-              {songOptions.map((song) => <option key={song.id} value={song.id}>{song.title}</option>)}
-            </select>
-            {data.songPagination?.hasNextPage ? <button onClick={() => setSongPage((value) => value + 1)} type="button">Load more songs</button> : null}
-          </label>
+          <div
+            className="rhythm-song-picker rhythm-leaderboard-filter-field"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setSongPickerOpen(false)
+            }}
+            ref={songPickerRef}
+          >
+            <span id="leaderboard-song-label">Song</span>
+            <button
+              aria-controls="leaderboard-song-options"
+              aria-expanded={songPickerOpen}
+              aria-haspopup="listbox"
+              aria-labelledby="leaderboard-song-label leaderboard-song-picker"
+              id="leaderboard-song-picker"
+              onClick={() => {
+                setSongPickerOpen((open) => !open)
+                if (!songPickerOpen) {
+                  setSongInput('')
+                  setSongSearch('')
+                  setSongPage(1)
+                }
+              }}
+              role="combobox"
+              type="button"
+            >
+              <span>{selectedSong?.title || 'Select a song'}</span>
+              <ChevronDown aria-hidden="true" size={18} />
+            </button>
+            {songPickerOpen ? <div className="rhythm-song-picker__menu">
+              <div className="rhythm-song-picker__search">
+                <Search aria-hidden="true" size={17} />
+                <input
+                  aria-label="Search songs"
+                  autoComplete="off"
+                  autoFocus
+                  onChange={(event) => {
+                    setSongInput(event.target.value)
+                    setSongSearch(event.target.value)
+                    setSongPage(1)
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      setSongPickerOpen(false)
+                      songPickerRef.current?.querySelector('[role="combobox"]')?.focus()
+                    }
+                  }}
+                  placeholder="Search songs"
+                  type="search"
+                  value={songInput}
+                />
+              </div>
+              <div className="rhythm-song-picker__options" id="leaderboard-song-options" role="listbox">
+                {visibleSongOptions.length > 0 ? visibleSongOptions.map((song) => (
+                  <button
+                    aria-selected={song.id === selectedSong?.id}
+                    className={song.id === selectedSong?.id ? 'is-selected' : ''}
+                    key={song.id}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => changeSong(song.id)}
+                    role="option"
+                    type="button"
+                  >
+                    {song.title}
+                  </button>
+                )) : <p>No songs found</p>}
+                {data.songPagination?.hasNextPage ? <button className="rhythm-song-picker__more" onMouseDown={(event) => event.preventDefault()} onClick={() => setSongPage((value) => value + 1)} type="button">Load more songs</button> : null}
+              </div>
+            </div> : null}
+          </div>
           <label>
             <span>Difficulty</span>
             <select onChange={(event) => setFilters({ difficulty: event.target.value })} value={selectedDifficulty || ''}>
@@ -158,7 +228,7 @@ export default function RhythmLeaderboard() {
         ) : (
           <section className="rhythm-my-ranking rhythm-my-ranking--empty">
             <div><span>Your Rank for {contextLabel}</span><strong>Not ranked yet</strong></div>
-            <p>Complete this chart during the selected time period to join the ranking.</p>
+            <p>Complete this chart to join the leaderboard.</p>
           </section>
         )
       ) : null}

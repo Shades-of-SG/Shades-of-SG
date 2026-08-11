@@ -10,7 +10,7 @@ function adminResponse(url) {
     activitySeries: [], events: {}, generationJobs: 0, pending: {}, reflections: 0, scores: 0,
     songs: { published: 0, total: 9 },
     tabCounts: { collections: 5, creatorApplications: 12, creators: 4, placementRequests: 3, reports: 2, songs: 9, users: 6, warnings: 1 },
-    users: { admins: 1, creators: 4, registered: 0, total: 5 },
+    users: { admins: 1, creators: 4, registered: 4, registeredOnly: 0, total: 5 },
   }
   if (path.includes('/admin/creator-applications')) return { applications: [], pagination: {} }
   if (path.includes('/admin/creators')) return { creators: [], pagination: {} }

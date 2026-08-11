@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Music2, Play, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Music2, Play, Sparkles, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import FilterBar from '../components/FilterBar'
 import Reveal from '../components/Reveal'
 import ReportSongModal from '../components/songs/ReportSongModal'
 import SongCatalogue from '../components/songs/SongCatalogue'
 import SongPreviewPanel from '../components/songs/SongPreviewPanel'
+import { getBeatmapSummary } from '../services/beatmapService'
 import { getPublishedSongs } from '../services/publicSongService'
 import { toggleBookmark as toggleBookmarkRequest } from '../services/bookmarkService'
 import { reportSong as reportSongRequest } from '../services/songReportService'
+import { trackAnalyticsEvent } from '../services/analyticsService'
 import { useAuth } from '../context/AuthContext'
 import CreatorNameLink from '../components/CreatorNameLink'
 
@@ -21,9 +23,34 @@ function hasFilters(filters) {
   return Boolean(filters.search.trim()) || ['theme', 'language', 'mood'].some((key) => filters[key].length > 0)
 }
 
+function byNewest(first, second) {
+  const firstDate = Date.parse(first.publishedDate || first.createdAt || 0) || 0
+  const secondDate = Date.parse(second.publishedDate || second.createdAt || 0) || 0
+  return secondDate - firstDate
+}
+
+function charRank(char) {
+  if (!char) return 2
+  if (/\p{N}/u.test(char)) return 1
+  if (/\p{L}/u.test(char)) return 2
+  return 0
+}
+
+function naturalCompare(first, second) {
+  const a = String(first || '').trim()
+  const b = String(second || '').trim()
+  const rankDiff = charRank(a[0]) - charRank(b[0])
+  if (rankDiff !== 0) return rankDiff
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+function creatorLabel(song) {
+  return song.creator?.displayName || song.artist || ''
+}
+
 function SongArtwork({ song }) {
   return song.coverImageUrl ? (
-    <img alt={`${song.title} cover artwork`} decoding="async" loading="lazy" src={song.coverImageUrl} />
+    <img alt={`${song.title} cover artwork`} src={song.coverImageUrl} />
   ) : (
     <span aria-label={`No cover artwork available for ${song.title}`} className="songs-artwork-fallback" role="img">
       <Music2 aria-hidden="true" size={42} />
@@ -90,11 +117,29 @@ function CatalogueSkeleton() {
   )
 }
 
+function Pagination({ currentPage, onPageChange, totalPages }) {
+  if (totalPages <= 1) return null
+  return (
+    <nav aria-label="Song catalogue pages" className="songs-pagination">
+      <button disabled={currentPage === 1} onClick={() => onPageChange(currentPage - 1)} type="button">
+        <ArrowLeft aria-hidden="true" size={16} /> <span>Previous</span>
+      </button>
+      <div>
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+          <button aria-current={page === currentPage ? 'page' : undefined} key={page} onClick={() => onPageChange(page)} type="button">{page}</button>
+        ))}
+      </div>
+      <button disabled={currentPage === totalPages} onClick={() => onPageChange(currentPage + 1)} type="button">
+        <span>Next</span> <ArrowRight aria-hidden="true" size={16} />
+      </button>
+    </nav>
+  )
+}
+
 export default function SongsLibrary() {
   const { isAuthenticated, token } = useAuth()
   const catalogueRef = useRef(null)
   const [songs, setSongs] = useState([])
-  const [facets, setFacets] = useState(null)
   const [availableSongs, setAvailableSongs] = useState([])
   const [filters, setFilters] = useState(emptyFilters)
   const [sort, setSort] = useState('featured')
@@ -106,9 +151,7 @@ export default function SongsLibrary() {
   const [selectedSongId, setSelectedSongId] = useState('')
   const [playingSongId, setPlayingSongId] = useState('')
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
-  const [pagination, setPagination] = useState({ page: 1, totalItems: 0, totalPages: 0, hasNextPage: false })
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [loadMoreError, setLoadMoreError] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [bookmarkPendingIds, setBookmarkPendingIds] = useState(() => new Set())
   const [reportPendingIds, setReportPendingIds] = useState(() => new Set())
   const [reportedSongIds, setReportedSongIds] = useState(() => new Set())
@@ -118,46 +161,75 @@ export default function SongsLibrary() {
   const filtersActive = hasFilters(filters)
 
   useEffect(() => {
-    const controller = new AbortController()
+    let active = true
     const timer = window.setTimeout(() => {
       setLoading(true)
-      setLoadMoreError('')
-      getPublishedSongs({ ...filters, direction: sortDirection, includeRhythm: true, limit: PAGE_SIZE, page: 1, sort: sort === 'featured' ? 'newest' : sort }, token, { signal: controller.signal })
+      getPublishedSongs(filters, token)
         .then((data) => {
-          const items = data.items || data
-          setSongs(items)
-          setPagination(data.pagination || { page: 1, totalItems: items.length, totalPages: 1, hasNextPage: false })
-          if (data.facets) setFacets(data.facets)
-          if (!hasFilters(filters)) setAvailableSongs(items)
-          setRhythmBySong(Object.fromEntries(items.map((song) => [song.id, (song.rhythmDifficulties || []).map((item) => item.difficulty)])))
-          const alreadyReported = items.filter((song) => song.reported).map((song) => song.id)
+          if (!active) return
+          const nextSongs = data.items || data
+          setSongs(nextSongs)
+          if (!hasFilters(filters)) setAvailableSongs(nextSongs)
+          const alreadyReported = nextSongs.filter((song) => song.reported).map((song) => song.id)
           if (alreadyReported.length) setReportedSongIds((current) => new Set([...current, ...alreadyReported]))
           setError('')
         })
         .catch((nextError) => {
-          if (nextError.name === 'AbortError') return
+          if (!active) return
           setError(nextError.message)
           setSongs([])
         })
-        .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+        .finally(() => active && setLoading(false))
     }, filters.search ? 250 : 0)
 
     return () => {
-      controller.abort()
+      active = false
       window.clearTimeout(timer)
     }
-  }, [filters, requestVersion, sort, sortDirection, token])
+  }, [filters, requestVersion, token])
+
+  useEffect(() => {
+    if (availableSongs.length === 0) return undefined
+    let active = true
+    Promise.all(availableSongs.map(async (song) => {
+      const beatmaps = await getBeatmapSummary(song.id).catch(() => [])
+      return [song.id, beatmaps.filter((beatmap) => beatmap.status === 'PUBLISHED').map((beatmap) => beatmap.difficulty)]
+    })).then((entries) => {
+      if (active) setRhythmBySong(Object.fromEntries(entries))
+    })
+    return () => { active = false }
+  }, [availableSongs])
 
   const catalog = availableSongs.length > 0 ? availableSongs : songs
   const options = useMemo(() => ({
-    languageOptions: facets?.languages || [...new Set(catalog.flatMap((song) => song.languages || []))].sort(),
-    moodOptions: facets?.moods || [...new Set(catalog.flatMap((song) => song.moodTags || []))].sort(),
-    themeOptions: facets?.themes || [...new Set(catalog.map((song) => song.theme).filter(Boolean))].sort(),
-  }), [catalog, facets])
+    languageOptions: [...new Set(catalog.flatMap((song) => song.languages || []))].sort(),
+    moodOptions: [...new Set(catalog.flatMap((song) => song.moodTags || []))].sort(),
+    themeOptions: [...new Set(catalog.map((song) => song.theme).filter(Boolean))].sort(),
+  }), [catalog])
 
   const featuredSong = availableSongs[0] || (!filtersActive ? songs[0] : null)
-  const startIndex = 0
-  const pageSongs = songs
+  const sortedSongs = useMemo(() => {
+    let nextSongs = [...songs]
+    if (sort === 'newest') nextSongs.sort(byNewest)
+    else if (sort === 'title') nextSongs.sort((first, second) => naturalCompare(first.title, second.title))
+    else if (sort === 'creator') {
+      nextSongs.sort((first, second) => (
+        naturalCompare(creatorLabel(first), creatorLabel(second)) || first.id.localeCompare(second.id)
+      ))
+    }
+    if (sortDirection === 'asc') nextSongs = nextSongs.reverse()
+    if (isAuthenticated) {
+      const bookmarked = nextSongs.filter((song) => song.bookmarked)
+      const rest = nextSongs.filter((song) => !song.bookmarked)
+      nextSongs = [...bookmarked, ...rest]
+    }
+    return nextSongs
+  }, [songs, sort, sortDirection, isAuthenticated])
+
+  const totalPages = Math.max(1, Math.ceil(sortedSongs.length / PAGE_SIZE))
+  const safePage = Math.min(currentPage, totalPages)
+  const startIndex = (safePage - 1) * PAGE_SIZE
+  const pageSongs = sortedSongs.slice(startIndex, startIndex + PAGE_SIZE)
   const selectedSong = pageSongs.find((song) => song.id === selectedSongId) || pageSongs[0] || featuredSong
   const activeSelectedId = selectedSong?.id || ''
 
@@ -172,6 +244,7 @@ export default function SongsLibrary() {
   ].filter(Boolean)
 
   function resetCatalogueContext() {
+    setCurrentPage(1)
     setSelectedSongId('')
     setPlayingSongId('')
     setMobilePreviewOpen(false)
@@ -204,18 +277,12 @@ export default function SongsLibrary() {
     catalogueRef.current?.scrollIntoView?.({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
   }
 
-  async function loadMore() {
-    if (loadingMore || !pagination.hasNextPage) return
-    setLoadingMore(true); setLoadMoreError('')
-    try {
-      const data = await getPublishedSongs({ ...filters, direction: sortDirection, includeRhythm: true, limit: PAGE_SIZE, page: pagination.page + 1, sort: sort === 'featured' ? 'newest' : sort }, token)
-      const existing = new Set(songs.map((song) => song.id))
-      const fresh = data.items.filter((song) => !existing.has(song.id))
-      setSongs((current) => [...current, ...fresh])
-      setRhythmBySong((current) => ({ ...current, ...Object.fromEntries(fresh.map((song) => [song.id, (song.rhythmDifficulties || []).map((item) => item.difficulty)])) }))
-      setPagination(data.pagination)
-    } catch (nextError) { setLoadMoreError(nextError.message) }
-    finally { setLoadingMore(false) }
+  function changePage(page) {
+    setCurrentPage(page)
+    setSelectedSongId('')
+    setPlayingSongId('')
+    setMobilePreviewOpen(false)
+    window.requestAnimationFrame(() => scrollToCatalogue())
   }
 
   function selectSong(songId, options = {}) {
@@ -292,7 +359,7 @@ export default function SongsLibrary() {
           <p className="songs-library-intro__subtitle">Discover original songs inspired by our people, culture and everyday moments.</p>
           <div className="songs-library-intro__utility">
             {availableSongs.length > 0 || (!loading && !error) ? (
-              <p className="songs-library-intro__count"><Music2 aria-hidden="true" size={16} />{pagination.totalItems} {pagination.totalItems === 1 ? 'song' : 'songs'} available</p>
+              <p className="songs-library-intro__count"><Music2 aria-hidden="true" size={16} />{availableSongs.length} {availableSongs.length === 1 ? 'song' : 'songs'} available</p>
             ) : null}
             <div className="songs-library-intro__actions">
               {featuredSong ? <Link to={`/songs/${featuredSong.id}`}><Play aria-hidden="true" size={17} /> Play featured song</Link> : null}
@@ -325,7 +392,7 @@ export default function SongsLibrary() {
         />
 
         <div className="songs-catalogue-summary">
-          <p aria-live="polite">{songs.length > 0 ? `Showing ${songs.length} of ${pagination.totalItems} songs` : 'Showing 0 songs'}</p>
+          <p aria-live="polite">{sortedSongs.length > 0 ? `Showing ${startIndex + 1}–${Math.min(startIndex + PAGE_SIZE, sortedSongs.length)} of ${sortedSongs.length} songs` : 'Showing 0 songs'}</p>
           {activeFilters.length > 0 ? (
             <div aria-label="Active filters" className="songs-active-filters">
               {activeFilters.map((filter) => (
@@ -363,15 +430,17 @@ export default function SongsLibrary() {
                 startIndex={startIndex}
               />
               {reportFeedback ? <p aria-live="polite" className="songs-library-report-feedback" role="status">{reportFeedback}</p> : null}
-              {loadMoreError ? <div className="state-box" role="alert">{loadMoreError}<button onClick={loadMore} type="button">Retry loading more songs</button></div> : null}
-              {pagination.hasNextPage ? <button aria-label="Load more published songs" className="songs-primary-action" disabled={loadingMore} onClick={loadMore} type="button">{loadingMore ? 'Loading more songsâ€¦' : 'Load more songs'}</button> : songs.length ? <p aria-live="polite">You've reached the end of the catalogue.</p> : null}
+              <Pagination currentPage={safePage} onPageChange={changePage} totalPages={totalPages} />
             </div>
             <SongPreviewPanel
               key={activeSelectedId}
               mobileOpen={mobilePreviewOpen}
               onClose={() => setMobilePreviewOpen(false)}
               onPause={() => setPlayingSongId('')}
-              onPlay={() => setPlayingSongId(activeSelectedId)}
+              onPlay={() => {
+                setPlayingSongId(activeSelectedId)
+                trackAnalyticsEvent('SONG_PLAYBACK_STARTED', { songId: activeSelectedId }, token).catch(() => {})
+              }}
               rhythmDifficulties={rhythmBySong[activeSelectedId] || []}
               song={selectedSong}
               sticky={pageSongs.length >= 5}

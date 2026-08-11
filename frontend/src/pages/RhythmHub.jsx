@@ -7,8 +7,23 @@ import { useAuth } from '../context/AuthContext'
 import { getPublishedSongs } from '../services/publicSongService'
 import { getMyRhythmProgress } from '../services/scoreService'
 
-const DIFFICULTY_ORDER = ['EASY', 'MEDIUM', 'HARD']
+const DIFFICULTY_ORDER = {
+  EASY: 1,
+  MEDIUM: 2,
+  HARD: 3,
+}
 const EMPTY_PROGRESS = { bestScores: [], scores: [] }
+
+function normalizeSong(song) {
+  const difficulties = song.rhythmDifficulties || song.difficulties || []
+  return {
+    ...song,
+    difficulties: [...difficulties].sort((left, right) => (
+      (DIFFICULTY_ORDER[left.difficulty] ?? Number.MAX_SAFE_INTEGER)
+      - (DIFFICULTY_ORDER[right.difficulty] ?? Number.MAX_SAFE_INTEGER)
+    )),
+  }
+}
 
 function difficultyLabel(difficulty) {
   return difficulty[0] + difficulty.slice(1).toLowerCase()
@@ -67,7 +82,7 @@ export default function RhythmHub() {
       getPublishedSongs({ difficulty, language, limit: 10, page: 1, playStatus, rhythm: true, search, sort: sortBy, theme: category }, token, { signal: controller.signal })
         .then((page) => {
           const items = page.items || page
-          const normalized = items.map((song) => ({ ...song, difficulties: song.rhythmDifficulties || song.difficulties || [] }))
+          const normalized = items.map(normalizeSong)
           setSongs(normalized); setPagination(page.pagination || { page: 1, hasNextPage: false }); if (page.facets) setFacets(page.facets)
         })
         .catch((nextError) => { if (nextError.name !== 'AbortError') setError('Rhythm games could not be loaded right now. Please try again.') })
@@ -82,7 +97,7 @@ export default function RhythmHub() {
     try {
       const page = await getPublishedSongs({ difficulty, language, limit: 10, page: pagination.page + 1, playStatus, rhythm: true, search, sort: sortBy, theme: category }, token)
       const known = new Set(songs.map((song) => song.id))
-      const fresh = page.items.filter((song) => !known.has(song.id)).map((song) => ({ ...song, difficulties: song.rhythmDifficulties || [] }))
+      const fresh = page.items.filter((song) => !known.has(song.id)).map(normalizeSong)
       setSongs((current) => [...current, ...fresh]); setPagination(page.pagination)
     } catch { setError('More rhythm games could not be loaded. Your current results are still available.') }
     finally { setLoadingMore(false) }
@@ -198,7 +213,7 @@ export default function RhythmHub() {
       {filtersOpen ? <div className="rhythm-filter-panel">
         <label><span>Category</span><select onChange={(event) => setCategory(event.target.value)} value={category}><option value="">All categories</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
         <label><span>Language</span><select onChange={(event) => setLanguage(event.target.value)} value={language}><option value="">All languages</option>{languages.map((item) => <option key={item}>{item}</option>)}</select></label>
-        <label><span>Difficulty</span><select onChange={(event) => setDifficulty(event.target.value)} value={difficulty}><option value="">Any difficulty</option>{DIFFICULTY_ORDER.map((item) => <option key={item} value={item}>{difficultyLabel(item)}</option>)}</select></label>
+        <label><span>Difficulty</span><select onChange={(event) => setDifficulty(event.target.value)} value={difficulty}><option value="">Any difficulty</option>{Object.keys(DIFFICULTY_ORDER).map((item) => <option key={item} value={item}>{difficultyLabel(item)}</option>)}</select></label>
         {isAuthenticated && progressReady ? <label><span>Progress</span><select onChange={(event) => setPlayStatus(event.target.value)} value={playStatus}><option value="">Played or unplayed</option><option value="played">Played</option><option value="unplayed">Not played</option></select></label> : null}
         {filtersActive ? <button className="rhythm-clear-filters" onClick={clearFilters} type="button">Clear filters</button> : null}
       </div> : null}

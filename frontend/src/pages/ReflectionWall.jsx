@@ -53,7 +53,7 @@ export default function ReflectionWall() {
     const timer = window.setTimeout(() => {
       if (!active) return
       setIsLoading(true)
-      Promise.all([getReflections(token, requestedSongId), getReflectionSongs({ limit: 50 })])
+      Promise.all([getReflections(token, shouldOpenComposer ? '' : requestedSongId), getReflectionSongs({ limit: 50 })])
         .then(([nextReflections, nextSongs]) => {
           if (!active) return
           setReflections(nextReflections)
@@ -65,7 +65,7 @@ export default function ReflectionWall() {
               setError('The requested Song is unavailable or is not published.')
               return
             }
-            setSongId(requestedSongId)
+            setSongId(shouldOpenComposer ? '' : requestedSongId)
           }
           setError('')
         })
@@ -73,7 +73,7 @@ export default function ReflectionWall() {
         .finally(() => active && setIsLoading(false))
     }, 0)
     return () => { active = false; window.clearTimeout(timer) }
-  }, [requestedSongId, token])
+  }, [requestedSongId, shouldOpenComposer, token])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -101,12 +101,15 @@ export default function ReflectionWall() {
     const timer = window.setTimeout(() => {
       const nextSearchParams = new URLSearchParams(searchParams)
       nextSearchParams.delete('compose')
+      nextSearchParams.delete('song_id')
       setSearchParams(nextSearchParams, { replace: true })
+
+      const composerSongId = requestedSongId || songId
 
       if (!user || !token) {
         savePostLoginIntent({
           action: 'create-reflection',
-          draftReflection: { content: '', isAnonymous: false, songId },
+          draftReflection: { content: '', isAnonymous: false, songId: composerSongId },
           openReflectionModal: true,
           returnTo: '/reflections',
         })
@@ -120,12 +123,12 @@ export default function ReflectionWall() {
       }
 
       setModalReflection(null)
-      setReflectionDraft({ content: '', isAnonymous: false, songId })
+      setReflectionDraft({ content: '', isAnonymous: false, songId: composerSongId })
       setIsModalOpen(true)
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [isLoading, searchParams, setSearchParams, shouldOpenComposer, songId, songs, token, user])
+  }, [isLoading, requestedSongId, searchParams, setSearchParams, shouldOpenComposer, songId, songs, token, user])
 
   const visibleReflections = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -269,6 +272,7 @@ export default function ReflectionWall() {
 
       {error && <div className="rw-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} type="button">Dismiss</button></div>}
       {isLoading ? <div className="rw-loading" role="status">Loading community memories…</div> : null}
+      {!isLoading && (query.trim() || songId) && visibleReflections.length > 0 ? <p aria-live="polite" className="rw-results-count">{visibleReflections.length} {visibleReflections.length === 1 ? 'reflection' : 'reflections'} found</p> : null}
       {!isLoading && visibleReflections.length > 0 ? <ReflectionGrid likeBusyIds={likeBusyIds} onDelete={removeReflection} onEdit={(reflection) => { setModalReflection(reflection); setIsModalOpen(true) }} onLike={toggleReflectionLike} onOpen={setDiscussionReflection} reflections={visibleReflections} /> : null}
       {!isLoading && visibleReflections.length === 0 ? <ReflectionEmptyState filtered={Boolean(query || songId)} onAdd={openCreate} /> : null}
 

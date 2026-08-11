@@ -18,7 +18,11 @@ const songs = [
       avatarUrl: '/creator.jpg', displayName: 'Heritage Studio', id: 'creator-1',
     },
     durationSecs: 125, id: 'song-1', languages: ['English'], publishedDate: '2026-06-01',
-    rhythmDifficulties: [{ difficulty: 'EASY', noteCount: 40, status: 'PUBLISHED' }, { difficulty: 'MEDIUM', noteCount: 70, status: 'PUBLISHED' }], theme: 'Heritage', title: 'Home Again',
+    rhythmDifficulties: [
+      { difficulty: 'HARD', noteCount: 100, status: 'PUBLISHED' },
+      { difficulty: 'EASY', noteCount: 40, status: 'PUBLISHED' },
+      { difficulty: 'MEDIUM', noteCount: 70, status: 'PUBLISHED' },
+    ], theme: 'Heritage', title: 'Home Again',
   },
   {
     artist: 'City Voices', audioUrl: '/city.mp3', coverImageUrl: '/city.jpg', creator: {
@@ -62,6 +66,11 @@ describe('RhythmHub', () => {
     expect(within(home).getByText('The Performers')).toBeInTheDocument()
     expect(within(home).getByRole('link', { name: 'View Heritage Studio’s creator profile' })).toHaveAttribute('href', '/creators/creator-1')
     expect(within(home).getByRole('link', { name: 'Play Home Again on Easy difficulty' })).toHaveAttribute('href', '/game/song-1?difficulty=EASY')
+    expect(within(home).getAllByRole('link').filter((link) => link.getAttribute('href')?.startsWith('/game/')).map((link) => link.textContent)).toEqual([
+      expect.stringContaining('Easy'),
+      expect.stringContaining('Medium'),
+      expect.stringContaining('Hard'),
+    ])
     expect(within(home).queryByText(/best:/i)).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Search by song title or creator'), { target: { value: 'City Voices' } })

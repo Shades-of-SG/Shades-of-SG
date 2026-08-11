@@ -12,9 +12,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   deleteReflection,
   getModerationReflections,
-  getReflectionModerationDiscussion,
   getReflectionSongs,
-  moderateReflectionComment,
   moderateReflection,
   warnReflectionAuthor,
 } from '../services/reflectionService'
@@ -56,7 +54,6 @@ export default function ReflectionModeration() {
   const [error, setError] = useState('')
   const [toast, setToast] = useState(null)
   const [retryKey, setRetryKey] = useState(0)
-  const [discussion, setDiscussion] = useState({ comments: [], error: '', loading: false, reflectionId: null })
   const requestId = useRef(0)
 
   const hasActiveFilters = Boolean(filters.search.trim() || filters.songId || filters.dateFrom || filters.anonymousOnly)
@@ -64,11 +61,6 @@ export default function ReflectionModeration() {
     () => reflections.find((reflection) => reflection.id === selectedId) || null,
     [reflections, selectedId],
   )
-  const selectedDiscussion = !selectedReflection
-    ? { comments: [], error: '', loading: false }
-    : discussion.reflectionId === selectedReflection.id
-      ? discussion
-      : { comments: [], error: '', loading: true }
 
   useEffect(() => {
     let active = true
@@ -122,15 +114,6 @@ export default function ReflectionModeration() {
     const timer = window.setTimeout(() => setToast(null), 3500)
     return () => window.clearTimeout(timer)
   }, [toast])
-
-  useEffect(() => {
-    if (!selectedReflection) return undefined
-    let active = true
-    getReflectionModerationDiscussion(selectedReflection.id, token)
-      .then((data) => { if (active) setDiscussion({ comments: data.comments || [], error: '', loading: false, reflectionId: selectedReflection.id }) })
-      .catch((nextError) => { if (active) setDiscussion({ comments: [], error: nextError.message, loading: false, reflectionId: selectedReflection.id }) })
-    return () => { active = false }
-  }, [selectedReflection, token])
 
   function changeStatus(status) {
     setActiveStatus(status)
@@ -220,26 +203,6 @@ export default function ReflectionModeration() {
     }
   }
 
-  async function moderateComment(comment, action, reportId = null) {
-    if (action === 'REMOVE_COMMENT' && !window.confirm('Remove this comment from the public discussion? The original text will be retained for audit review.')) return
-    const reason = window.prompt('Moderation reason (stored in history):')?.trim() || ''
-    if (!reason) return
-    setBusyId(comment.id)
-    try {
-      await moderateReflectionComment(selectedReflection.id, comment.id, { action, reason, reportId }, token)
-      const data = await getReflectionModerationDiscussion(selectedReflection.id, token)
-      setDiscussion({ comments: data.comments || [], error: '', loading: false, reflectionId: selectedReflection.id })
-      setToast({
-        message: action === 'REMOVE_COMMENT' ? 'Comment removed and retained for audit.' : action === 'WARN_USER' ? 'Warning recorded for the commenter.' : 'Report dismissed; the comment remains visible.',
-        type: 'success',
-      })
-    } catch (nextError) {
-      setToast({ message: nextError.message, type: 'error' })
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   async function confirmDelete() {
     if (!deleteTarget) return
     const target = deleteTarget
@@ -320,12 +283,10 @@ export default function ReflectionModeration() {
         </div>
 
         <ReflectionDetailsPanel
-          busy={Boolean(busyId)}
-          discussion={selectedDiscussion}
+          busy={busyId === selectedReflection?.id}
           isOpen={Boolean(selectedReflection)}
           onAction={runAction}
           onClose={() => setSelectedId(null)}
-          onModerateComment={moderateComment}
           onSaveNote={saveModeratorNote}
           reflection={selectedReflection}
         />

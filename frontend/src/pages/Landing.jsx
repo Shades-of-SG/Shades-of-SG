@@ -22,7 +22,7 @@ const initialCommunityStats = { usersCount: 0, songsCount: 0, reflectionsCount: 
 const initialUserStats = { badgesCount: 0, triviaAttemptsCount: 0, gamePlaysCount: 0 }
 
 export default function Landing() {
-  const { user, token } = useAuth()
+  const { user, userProfile, token } = useAuth()
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
   const [communityStats, setCommunityStats] = useState(initialCommunityStats)
@@ -75,10 +75,11 @@ export default function Landing() {
   const accuracyBest = bestScores?.accuracy
   const comboBest = bestScores?.maxCombo
   const rankBest = bestScores?.rank
+  const displayName = userProfile?.profile?.displayName || user?.name
 
   return (
     <div className="page-stack landing-page">
-      {user ? <p className="welcome-banner">Welcome, {user.name}</p> : null}
+      {user ? <p className="welcome-banner">Welcome, {displayName}</p> : null}
 
       <section className="hero-panel">
         <div className="hero-panel__content">

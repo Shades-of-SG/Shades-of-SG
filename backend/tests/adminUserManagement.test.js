@@ -13,7 +13,7 @@ process.env.DB_STORAGE = databasePath;
 const request = require('supertest');
 const app = require('../server');
 const {
-    Badge, ModerationAction, Song, User, sequelize,
+    Badge, ModerationAction, Song, User, UserWarning, sequelize,
 } = require('../models');
 const { createToken, hashPassword } = require('../services/authService');
 const { resetRateLimitsForTests } = require('../middleware/rateLimit');
@@ -54,6 +54,29 @@ describe('GET /api/admin/users', () => {
 
         const invalid = await request(app).get('/api/admin/users?sort=bogus').set(auth(admin));
         expect(invalid.status).toBe(400);
+    });
+
+    test('returns one row per matching account even when a user has many related safety records', async () => {
+        const users = await Promise.all([
+            User.create({ email: 'pagination-alpha@example.com', name: 'Pagination Alpha', passwordHash, role: 'REGISTERED' }),
+            User.create({ email: 'pagination-beta@example.com', name: 'Pagination Beta', passwordHash, role: 'REGISTERED' }),
+            User.create({ email: 'pagination-gamma@example.com', name: 'Pagination Gamma', passwordHash, role: 'REGISTERED' }),
+        ]);
+        await UserWarning.bulkCreate(Array.from({ length: 5 }, (_, index) => ({
+            issuedBy: admin.id,
+            reason: `Pagination warning ${index + 1}`,
+            userId: users[0].id,
+        })));
+
+        const response = await request(app)
+            .get('/api/admin/users?search=Pagination&sort=nameAsc&limit=3')
+            .set(auth(admin));
+
+        expect(response.status).toBe(200);
+        expect(response.body.pagination.total).toBe(3);
+        expect(response.body.users.map((user) => user.name)).toEqual([
+            'Pagination Alpha', 'Pagination Beta', 'Pagination Gamma',
+        ]);
     });
 });
 

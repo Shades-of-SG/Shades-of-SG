@@ -113,6 +113,17 @@ export function AuthProvider({ children }) {
       }
 
       setUserProfile(data)
+      setUser((current) => {
+        if (!current) return current
+        const nextUser = {
+          ...current,
+          avatarUrl: data.profile.avatarUrl || current.avatarUrl || '',
+          name: data.profile.displayName || current.name,
+          sharedProfile: data.profile,
+        }
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser))
+        return nextUser
+      })
       return data
     } finally {
       setProfileLoading(false)

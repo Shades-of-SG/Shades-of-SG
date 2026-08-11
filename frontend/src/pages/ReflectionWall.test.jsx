@@ -38,6 +38,17 @@ describe('ReflectionWall guest likes', () => {
     expect(screen.getByRole('searchbox', { name: 'Search reflections' })).toBeInTheDocument()
     expect(screen.queryByRole('searchbox', { name: 'Search song' })).not.toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Song' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Song' }), { target: { value: 'song-1' } })
+    expect(screen.getByText('1 reflection found')).toBeInTheDocument()
+  })
+
+  it('prefills a post-game reflection without filtering the public wall', async () => {
+    render(<MemoryRouter initialEntries={['/reflections?song_id=song-1&compose=1']}><ReflectionWall /></MemoryRouter>)
+
+    expect(await screen.findByText('An anonymous memory.')).toBeInTheDocument()
+    expect(getReflections).toHaveBeenCalledWith(null, '')
+    expect(screen.getByRole('combobox', { name: 'Song' })).toHaveValue('')
   })
 
   it('lets a guest toggle the card heart and keeps an open modal synchronized', async () => {
