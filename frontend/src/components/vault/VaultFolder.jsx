@@ -29,11 +29,11 @@ export default function VaultFolder({ collection, isOpen, onToggle }) {
         <div className="vault-folder__body">
           <p className="vault-folder__question">{collection.question}</p>
 
-          <div className="vault-grid">
+          {collection.items.length ? <div className="vault-grid">
             {collection.items.map((item) => (
               <VaultItem item={item} key={item.id} />
             ))}
-          </div>
+          </div> : <p className="vault-folder__empty">More archival material will be added to this collection soon.</p>}
 
           <p className="vault-folder__reflection">{collection.reflection}</p>
         </div>

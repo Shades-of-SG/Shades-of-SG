@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import VaultFolder from '../components/vault/VaultFolder'
 import Reveal from '../components/Reveal'
+import { getApprovedFolders } from '../services/folderService'
 
 /*
 TODO - Shermaine
@@ -9,7 +10,7 @@ TODO - Shermaine
 Replace placeholder photo/video/audio tiles with real archival media when available.
 */
 
-const collections = [
+const heritageExhibits = [
   {
     id: 'before-independence',
     items: [
@@ -190,10 +191,45 @@ const reflectionPrompts = [
 ]
 
 export default function HeritageVault() {
-  const [openCollectionId, setOpenCollectionId] = useState(collections[0].id)
+  const [collections, setCollections] = useState([])
+  const [collectionsError, setCollectionsError] = useState('')
+  const [collectionsLoading, setCollectionsLoading] = useState(true)
+  const [openCollectionId, setOpenCollectionId] = useState(null)
   const [reflectionPrompt] = useState(
     () => reflectionPrompts[Math.floor(Math.random() * reflectionPrompts.length)]
   )
+
+  useEffect(() => {
+    let active = true
+    const exhibitsBySlug = new Map(heritageExhibits.map((collection) => [collection.id, collection]))
+
+    getApprovedFolders()
+      .then((folders) => {
+        if (!active) return
+        const mapped = folders.map((folder, index) => {
+          const exhibit = exhibitsBySlug.get(folder.slug)
+          return {
+            id: folder.id,
+            items: exhibit?.items || [],
+            number: String(folder.displayOrder || index + 1).padStart(2, '0'),
+            question: folder.description || exhibit?.question || 'What will you discover in this collection?',
+            reflection: exhibit?.reflection || 'Every collection adds another chapter to Singapore\'s living story.',
+            title: folder.name,
+          }
+        })
+        setCollections(mapped)
+        setOpenCollectionId(mapped[0]?.id || null)
+        setCollectionsError('')
+      })
+      .catch((error) => {
+        if (active) setCollectionsError(error.message || 'The Vault collections could not be loaded.')
+      })
+      .finally(() => {
+        if (active) setCollectionsLoading(false)
+      })
+
+    return () => { active = false }
+  }, [])
 
   function toggleCollection(id) {
     setOpenCollectionId((current) => (current === id ? null : id))
@@ -220,6 +256,9 @@ export default function HeritageVault() {
         </Reveal>
 
         <ol className="vault-folder-list">
+          {collectionsLoading ? <li>Loading Vault collections...</li> : null}
+          {!collectionsLoading && collectionsError ? <li role="alert">{collectionsError}</li> : null}
+          {!collectionsLoading && !collectionsError && !collections.length ? <li>No collections are currently available.</li> : null}
           {collections.map((collection) => (
             <VaultFolder
               collection={collection}

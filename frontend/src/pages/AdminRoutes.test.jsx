@@ -148,8 +148,8 @@ describe('consolidated admin routes', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Collections: 5' }))
     await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/admin/folders'), expect.any(Object)))
-    fireEvent.click(screen.getByRole('button', { name: 'Placement Requests: 3' }))
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/admin/folder-song-proposals'), expect.any(Object)))
+    fireEvent.click(screen.getByRole('button', { name: 'Songs: 9' }))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/admin/songs'), expect.any(Object)))
 
     expect(fetch.mock.calls.filter(([url]) => String(url).includes('/admin/analytics'))).toHaveLength(1)
   })
@@ -185,8 +185,8 @@ describe('consolidated admin routes', () => {
     const collections = await screen.findByRole('button', { name: 'Collections: 5' })
     expect(collections).toHaveAttribute('aria-current', 'page')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Placement Requests: 3' }))
-    await waitFor(() => expect(new URLSearchParams(window.location.search).get('tab')).toBe('placements'))
+    fireEvent.click(screen.getByRole('button', { name: 'Songs: 9' }))
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('tab')).toBe('songs'))
     act(() => { window.history.back() })
     await waitFor(() => expect(screen.getByRole('button', { name: 'Collections: 5' })).toHaveAttribute('aria-current', 'page'))
   })

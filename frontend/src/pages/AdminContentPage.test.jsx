@@ -5,14 +5,14 @@ import AdminContentPage from './AdminContentPage'
 
 const mocks = vi.hoisted(() => ({
   archiveAdminSong: vi.fn(), assignSongToFolder: vi.fn(), createPlatformFolder: vi.fn(),
-  getAdminFolders: vi.fn(), getAdminSongs: vi.fn(), getFolderSongProposals: vi.fn(),
+  deleteAdminFolder: vi.fn(), getAdminFolders: vi.fn(), getAdminSongs: vi.fn(),
   publishAdminSong: vi.fn(), refreshSummary: vi.fn(), removeSongFromFolder: vi.fn(),
-  restoreAdminSong: vi.fn(), reviewFolderSongProposal: vi.fn(), unpublishAdminSong: vi.fn(), updateAdminFolder: vi.fn(),
+  restoreAdminSong: vi.fn(), unpublishAdminSong: vi.fn(), updateAdminFolder: vi.fn(),
 }))
 
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ token: 'admin-token' }) }))
 vi.mock('../hooks/useAdminSummary', () => ({
-  default: () => ({ data: { tabCounts: { collections: 1, placementRequests: 2, songs: 2 } }, error: '', loading: false, refresh: mocks.refreshSummary }),
+  default: () => ({ data: { tabCounts: { collections: 1, songs: 2 } }, error: '', loading: false, refresh: mocks.refreshSummary }),
 }))
 vi.mock('../services/adminService', () => mocks)
 vi.mock('../components/admin/ContextAuditHistory', () => ({ default: () => <section aria-label="Context audit history" /> }))
@@ -34,12 +34,6 @@ const folder = {
   allowedTransitions: ['ARCHIVED'], description: 'Published community songs.', displayOrder: 2, id: 'folder-1', membershipCount: 1,
   name: 'Heritage Voices', origin: 'PLATFORM', publiclyVisible: true, songs: [publicSong], status: 'APPROVED', updatedAt: '2026-08-01T08:00:00.000Z',
 }
-const placement = {
-  allowedTransitions: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'], approvalEligibility: { eligible: true, issues: [] },
-  createdAt: '2026-08-01T08:00:00.000Z', creatorNote: 'This fits the collection.', folder: { id: 'folder-1', name: 'Heritage Voices', status: 'APPROVED' },
-  id: 'placement-1', reviewNote: null, reviewedAt: null, song: publicSong, status: 'PENDING', updatedAt: '2026-08-01T08:00:00.000Z',
-}
-
 function renderPage(entry = '/admin/content') {
   return render(<MemoryRouter initialEntries={[entry]}><Routes><Route element={<AdminContentPage />} path="/admin/content" /></Routes></MemoryRouter>)
 }
@@ -49,7 +43,6 @@ describe('Admin Content workflow', () => {
     vi.clearAllMocks()
     mocks.getAdminSongs.mockImplementation((_token, filters) => Promise.resolve({ songStatuses: statuses, songs: filters?.status === 'PUBLISHED' ? [publicSong, eligibleSong] : [readySong, publicSong], visibilityOptions: ['PUBLIC', 'NOT_PUBLIC'] }))
     mocks.getAdminFolders.mockResolvedValue({ folderOrigins: ['PLATFORM', 'CREATOR_PROPOSAL'], folderStatuses: ['PENDING', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'ARCHIVED'], folders: [folder] })
-    mocks.getFolderSongProposals.mockResolvedValue({ placementStatuses: ['PENDING', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'WITHDRAWN'], proposals: [placement] })
     mocks.refreshSummary.mockResolvedValue(undefined)
   })
 
@@ -152,20 +145,4 @@ describe('Admin Content workflow', () => {
     expect(screen.getByRole('status')).toHaveTextContent('The song remains published and creator-owned')
   })
 
-  it('uses authoritative placement transitions, records approval intent, and keeps an honest empty state', async () => {
-    mocks.reviewFolderSongProposal.mockResolvedValue({ proposal: { ...placement, allowedTransitions: [], status: 'APPROVED' } })
-    renderPage('/admin/content?tab=placements')
-    fireEvent.click(await screen.findByRole('button', { name: 'Review' }))
-    const drawer = screen.getByRole('complementary', { name: 'Placement request' })
-    expect(within(drawer).getByText('This fits the collection.')).toBeInTheDocument()
-    expect(within(drawer).getByText('Approval adds collection membership only. Song ownership remains with the creator.')).toBeInTheDocument()
-    fireEvent.click(within(drawer).getByRole('button', { name: 'Approve' }))
-    const dialog = screen.getByRole('dialog', { name: 'Approve placement?' })
-    expect(dialog).toHaveTextContent('Creator ownership and existing content data remain unchanged')
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }))
-    await waitFor(() => expect(mocks.reviewFolderSongProposal).toHaveBeenCalledWith('placement-1', expect.objectContaining({ status: 'APPROVED' }), 'admin-token'))
-
-    cleanup(); mocks.getFolderSongProposals.mockResolvedValue({ placementStatuses: ['PENDING'], proposals: [] }); renderPage('/admin/content?tab=placements')
-    expect(await screen.findByText('Creators have not requested placement into a platform collection. Requests appear here when submitted.')).toBeInTheDocument()
-  })
 })

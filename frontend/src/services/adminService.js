@@ -28,6 +28,7 @@ export const restoreAdminSong = (id, token) => platformRequest(`/admin/songs/${e
 export const getAdminFolders = (token, filters = {}) => platformRequest(`/admin/folders${queryString(typeof filters === 'string' ? { status: filters } : filters)}`, { token })
 export const createPlatformFolder = (values, token) => platformRequest('/admin/folders', jsonOptions('POST', values, token))
 export const updateAdminFolder = (id, values, token) => platformRequest(`/admin/folders/${encodeURIComponent(id)}`, jsonOptions('PATCH', values, token))
+export const deleteAdminFolder = (id, token) => platformRequest(`/admin/folders/${encodeURIComponent(id)}`, { method: 'DELETE', token })
 export const getFolderSongProposals = (token, filters = {}) => platformRequest(`/admin/folder-song-proposals${queryString(filters)}`, { token })
 export const reviewFolderSongProposal = (id, values, token) => platformRequest(`/admin/folder-song-proposals/${encodeURIComponent(id)}`, jsonOptions('PATCH', values, token))
 export const assignSongToFolder = (folderId, songId, songOrder, token) => platformRequest(`/admin/folders/${encodeURIComponent(folderId)}/songs/${encodeURIComponent(songId)}`, jsonOptions('PUT', { songOrder }, token))

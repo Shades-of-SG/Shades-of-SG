@@ -29,7 +29,7 @@ function activityDestination(log) {
   const type = String(log.entityType || '').toUpperCase()
   if (type === 'CREATOR_APPLICATION') return '/admin/creators?tab=applications'
   if (type === 'CREATOR') return '/admin/creators?tab=approved'
-  if (type === 'FOLDER_SONG_PROPOSAL') return '/admin/content?tab=placements'
+  if (type === 'FOLDER_SONG_PROPOSAL') return '/admin/content?tab=collections'
   if (type === 'FOLDER') return '/admin/content?tab=collections'
   if (type === 'SONG') return '/admin/content?tab=songs'
   if (type === 'REFLECTION') return '/admin/community?tab=reports'
