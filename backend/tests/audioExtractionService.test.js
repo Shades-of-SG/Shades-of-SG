@@ -3,7 +3,9 @@ const { EventEmitter } = require('events');
 const mockSpawn = jest.fn();
 jest.mock('child_process', () => ({ spawn: mockSpawn }));
 
-const { getYouTubeMetadata } = require('../services/audioExtractionService');
+const fs = require('fs');
+
+const { getCookieArgs, getYouTubeMetadata, runYtDlp } = require('../services/audioExtractionService');
 
 function mockProcess() {
     const child = new EventEmitter();
@@ -22,10 +24,9 @@ describe('YouTube extraction configuration', () => {
         jest.restoreAllMocks();
     });
 
-    test('uses the configured JavaScript runtime, EJS source, and cookie file for metadata', async () => {
-        process.env.YT_DLP_JS_RUNTIME = 'node';
+    test('writes base64 cookies to a temporary file and uses them for metadata', async () => {
         process.env.YT_DLP_REMOTE_COMPONENT = 'ejs:github';
-        process.env.YT_DLP_COOKIES_PATH = __filename;
+        process.env.YOUTUBE_COOKIES_BASE64 = Buffer.from('# Netscape HTTP Cookie File\n.youtube.com\tTRUE').toString('base64');
         const child = mockProcess();
 
         const resultPromise = getYouTubeMetadata('https://www.youtube.com/watch?v=abcdefghijk');
@@ -33,8 +34,23 @@ describe('YouTube extraction configuration', () => {
         child.emit('close', 0);
 
         await expect(resultPromise).resolves.toEqual({ durationSecs: 12, title: 'Test song', videoId: 'abcdefghijk' });
+        const cookieArgs = getCookieArgs();
+        expect(cookieArgs[0]).toBe('--cookies');
+        expect(fs.readFileSync(cookieArgs[1], 'utf8')).toContain('# Netscape HTTP Cookie File');
         expect(mockSpawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining([
-            '--js-runtimes', 'node', '--remote-components', 'ejs:github', '--cookies', __filename,
+            '--js-runtimes', 'node', '--remote-components', 'ejs:github', '--cookies', cookieArgs[1],
+        ]), { windowsHide: true });
+    });
+
+    test('uses the Node runtime and cookies for audio download commands', async () => {
+        process.env.YOUTUBE_COOKIES_BASE64 = Buffer.from('# Netscape HTTP Cookie File').toString('base64');
+        const child = mockProcess();
+        const resultPromise = runYtDlp(['--no-progress', 'https://www.youtube.com/watch?v=abcdefghijk']);
+        child.emit('close', 0);
+
+        await expect(resultPromise).resolves.toBeUndefined();
+        expect(mockSpawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining([
+            '--js-runtimes', 'node', '--cookies', expect.stringMatching(/cookies\.txt$/),
         ]), { windowsHide: true });
     });
 

@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -8,8 +9,9 @@ const YOUTUBE_URL_PATTERN = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i;
 const YOUTUBE_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/;
 const DEFAULT_YT_DLP_COMMAND = process.env.YT_DLP_PATH || 'yt-dlp';
 const MAX_YOUTUBE_AUDIO_BYTES = 24 * 1024 * 1024;
-const DEFAULT_COOKIE_PATH = path.join(__dirname, '..', 'cookies.txt');
-const RENDER_COOKIE_PATH = '/etc/secrets/youtube-cookies.txt';
+const RENDER_COOKIE_PATH = '/etc/secrets/cookies.txt';
+const LOCAL_COOKIE_PATH = path.resolve(process.cwd(), 'cookies.txt');
+const TEMP_COOKIE_PATH = path.join(os.tmpdir(), 'cookies.txt');
 
 const MIME_TYPES_BY_EXTENSION = {
     m4a: 'audio/mp4',
@@ -20,32 +22,38 @@ const MIME_TYPES_BY_EXTENSION = {
 
 function getAudioExtractionConfigStatus() {
     return {
-        cookiesConfigured: Boolean(getCookiePath()),
-        jsRuntime: process.env.YT_DLP_JS_RUNTIME?.trim() || 'node',
+        cookiesConfigured: getCookieArgs().length > 0,
+        jsRuntime: 'node',
         maxFileSizeMb: MAX_YOUTUBE_AUDIO_BYTES / (1024 * 1024),
         tool: DEFAULT_YT_DLP_COMMAND,
     };
 }
 
-function getCookiePath() {
-    const configuredPath = process.env.YT_DLP_COOKIES_PATH?.trim();
-    if (configuredPath) return fsSync.existsSync(configuredPath) ? configuredPath : '';
+function getCookieArgs() {
+    const cookiePath = [RENDER_COOKIE_PATH, LOCAL_COOKIE_PATH]
+        .find((candidate) => fsSync.existsSync(candidate));
 
-    return [DEFAULT_COOKIE_PATH, RENDER_COOKIE_PATH].find((candidate) => fsSync.existsSync(candidate)) || '';
+    if (cookiePath) return ['--cookies', cookiePath];
+
+    const encodedCookies = process.env.YOUTUBE_COOKIES_BASE64?.trim();
+    if (!encodedCookies) return [];
+
+    const cookieContents = Buffer.from(encodedCookies, 'base64');
+    if (!cookieContents.length) return [];
+
+    fsSync.writeFileSync(TEMP_COOKIE_PATH, cookieContents, { mode: 0o600 });
+    return ['--cookies', TEMP_COOKIE_PATH];
 }
 
 function getCommonYtDlpArgs() {
-    const jsRuntime = process.env.YT_DLP_JS_RUNTIME?.trim() || 'node';
     const remoteComponent = process.env.YT_DLP_REMOTE_COMPONENT?.trim() || 'ejs:github';
-    const cookiePath = getCookiePath();
 
     return [
         '--no-playlist',
         '--js-runtimes',
-        jsRuntime,
+        'node',
         '--remote-components',
         remoteComponent,
-        ...(cookiePath ? ['--cookies', cookiePath] : []),
     ];
 }
 
@@ -71,6 +79,7 @@ function getYouTubeMetadata(youtubeUrl) {
   return new Promise((resolve, reject) => {
     const child = spawn(DEFAULT_YT_DLP_COMMAND, [
       ...getCommonYtDlpArgs(),
+      ...getCookieArgs(),
       '--dump-single-json',
       youtubeUrl,
     ], {
@@ -132,7 +141,6 @@ async function extractAudioFromYouTube(youtubeUrl) {
     const outputTemplate = path.join(TEMP_DIR, `${jobId}.%(ext)s`);
 
     await runYtDlp([
-        ...getCommonYtDlpArgs(),
         '--no-progress',
         '--max-filesize',
         `${MAX_YOUTUBE_AUDIO_BYTES}`,
@@ -249,7 +257,11 @@ function getYoutubeVideoId(youtubeUrl) {
 
 function runYtDlp(args) {
     return new Promise((resolve, reject) => {
-        const process = spawn(DEFAULT_YT_DLP_COMMAND, args, {
+        const process = spawn(DEFAULT_YT_DLP_COMMAND, [
+            ...getCommonYtDlpArgs(),
+            ...getCookieArgs(),
+            ...args,
+        ], {
             windowsHide: true,
         });
         let stderr = '';
@@ -297,5 +309,7 @@ module.exports = {
     downloadMediaFromUrl,
     extractAudioFromYouTube,
     getAudioExtractionConfigStatus,
+    getCookieArgs,
     getYouTubeMetadata,
+    runYtDlp,
 };
