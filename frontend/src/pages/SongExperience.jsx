@@ -6,8 +6,6 @@ import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import useLabInstruments from '../hooks/useLabInstruments'
 import { getPublishedSong } from '../services/publicSongService'
-import { getBeatmapSummary } from '../services/beatmapService'
-import { LEARNING_HUB_INSTRUMENTS } from '../data/learningHubInstruments'
 import './SongExperience.css'
 
 export default function SongExperience() {
@@ -19,7 +17,6 @@ export default function SongExperience() {
   const [song, setSong] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [rhythmDifficulties, setRhythmDifficulties] = useState([])
 
   // Video playback & synthetic melody state
   const [isPlaying, setIsPlaying] = useState(false)
@@ -59,22 +56,6 @@ export default function SongExperience() {
     return () => {
       isMounted = false
     }
-  }, [id])
-
-  useEffect(() => {
-    if (!id) return
-    let active = true
-    getBeatmapSummary(id)
-      .then((beatmaps) => {
-        if (!active) return
-        setRhythmDifficulties(
-          beatmaps
-            .filter((beatmap) => beatmap.status === 'PUBLISHED')
-            .map((beatmap) => beatmap.difficulty)
-        )
-      })
-      .catch(() => active && setRhythmDifficulties([]))
-    return () => { active = false }
   }, [id])
 
   function stopAudioPlayback() {
@@ -617,40 +598,63 @@ export default function SongExperience() {
       </div>
 
       {/* ─── Learning Hub CTA ─── */}
-      <section className="section-card">
-        <h2>Explore This Song</h2>
-        <div className="button-row">
-          <Link className="inline-link" to={`/songs/${id}/playground`}>Open Playground</Link>
-          <Link className="inline-link" to={`/songs/${id}/trivia`}>Start Trivia</Link>
-          {rhythmDifficulties.length
-            ? rhythmDifficulties.map((difficulty) => {
-                const label = difficulty[0] + difficulty.slice(1).toLowerCase()
-                return <Link className="inline-link" key={difficulty} to={`/game/${id}?difficulty=${difficulty}`}>Play {label} Rhythm</Link>
-              })
-            : <span className="inline-link is-disabled" title="This rhythm game is not available yet.">Rhythm game unavailable</span>}
-          <Link className="inline-link" to={`/reflections?song_id=${encodeURIComponent(id)}`}>Share a Reflection</Link>
-        </div>
-      </section>
 
       <Link
-        to={`/learning`}
+        to="/learning"
         style={{
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
+          justifyContent: 'space-between',
+          padding: '1.25rem 1.75rem',
           borderRadius: '12px',
-          background: 'linear-gradient(135deg, var(--primary), var(--violet))',
+          background: 'rgba(30, 41, 59, 0.6)',
+          border: '1px solid var(--line)',
+          backdropFilter: 'blur(8px)',
           textDecoration: 'none',
-          color: '#fff',
-          fontWeight: 600,
-          fontSize: '1.05rem',
-          transition: 'filter 200ms',
-          boxShadow: '0 0 30px rgba(91, 75, 138, 0.3)',
+          color: '#f8fafc',
+          transition: 'all 200ms ease',
+          marginTop: '1rem',
         }}
+        className="hover:border-violet-500/50 hover:bg-slate-800/80 group"
       >
-        Take a Lesson in the Learning Hub →
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              width: '44px',
+              height: '44px',
+              borderRadius: '10px',
+              background: 'rgba(124, 58, 237, 0.15)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <BookOpen className="w-5 h-5 text-violet-400" />
+          </div>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>
+              Guided Heritage Lessons
+            </h4>
+            <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
+              Explore interactive instrument sequences in the Learning Hub
+            </p>
+          </div>
+        </div>
+
+        <span
+          style={{
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            color: '#818cf8',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+        >
+          Take a Lesson →
+        </span>
       </Link>
     </div>
   )

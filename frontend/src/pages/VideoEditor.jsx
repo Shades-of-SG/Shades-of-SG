@@ -849,11 +849,12 @@ export default function VideoEditor() {
     setIsPublishing(true);
     try {
       let finalVideoUrl = jobData?.song?.videoUrl || '';
+      const isPlaceholderVideo = Boolean(finalVideoUrl && (finalVideoUrl.includes('placeholder') || finalVideoUrl.includes('unsplash.com')));
       const activeFrameImage = frames[currentFrameIndex]?.imageUrl || frames[0]?.imageUrl || '';
       let updatedSong = jobData?.song ? { ...jobData.song, coverImageUrl: activeFrameImage } : { coverImageUrl: activeFrameImage };
 
-      // Heavy Lane: Run export API if edits exist or if no video is compiled yet
-      if (hasEdits || !finalVideoUrl) {
+      // Heavy Lane: Run export API if edits exist, no video is compiled yet, or if video is a placeholder
+      if (hasEdits || !finalVideoUrl || isPlaceholderVideo) {
         const res = await fetch(`${API_URL}/generation/${id}/export`, { 
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },

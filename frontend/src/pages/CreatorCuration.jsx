@@ -356,6 +356,7 @@ export default function CreatorCuration() {
     const updatedSongData = { ...songData, coverImageUrl: firstFrameUrl }
     navigate(`/creator/studio/${songId}`, {
       state: {
+        videoUrl: songData?.videoUrl,
         lyrics: songData?.rawLyrics,
         coverImageUrl: firstFrameUrl,
         songData: updatedSongData

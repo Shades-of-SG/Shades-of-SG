@@ -452,12 +452,12 @@ const resumeFromPhase3 = async (jobId) => {
     await assertGenerationIsActive(jobId)
 
     // ─── Phase 4: Video Assembly ───
-    const placeholderApplied = await usePlaceholderVideo(job.songId)
-    if (placeholderApplied) {
-      console.warn(`[Temporary Video] Job ${jobId} is using configured PLACEHOLDER_VIDEO_URL.`)
-    } else {
-      console.log(`[Phase 4] Assembling Video with FFmpeg...`)
+    console.log(`[Phase 4] Assembling Video with FFmpeg...`)
+    try {
       await assembleVideo(jobId, job.songId)
+    } catch (videoError) {
+      console.warn(`[Phase 4 Warning] Video assembly failed for Job ${jobId}: ${videoError.message}. Falling back to placeholder video.`)
+      await usePlaceholderVideo(job.songId)
     }
     await assertGenerationIsActive(jobId)
 

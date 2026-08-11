@@ -128,9 +128,10 @@ export default function Studio() {
         }
         setCoverImageUrl(loadedSong.coverImageUrl || location.state?.coverImageUrl || '')
         setCoverFileName('')
-        setSavedAudioFileName(savedMediaName(loadedSong.audioFileName, loadedSong.videoUrl || loadedSong.audioUrl))
-        setAudioPreviewUrl(loadedSong.videoUrl || loadedSong.audioUrl || '')
-        setMediaType(isUploadedVideoMedia(loadedSong) ? 'video' : loadedSong.audioUrl ? 'audio' : '')
+        const effectiveVideoUrl = location.state?.videoUrl || loadedSong.videoUrl
+        setSavedAudioFileName(savedMediaName(loadedSong.audioFileName, effectiveVideoUrl || loadedSong.audioUrl))
+        setAudioPreviewUrl(effectiveVideoUrl || loadedSong.audioUrl || '')
+        setMediaType((effectiveVideoUrl || isUploadedVideoMedia(loadedSong)) ? 'video' : loadedSong.audioUrl ? 'audio' : '')
         setLastSavedAt(new Date(loadedSong.updatedAt))
       })
       .catch((error) => { if (active) setLoadError(error.message || 'The requested draft could not be loaded.') })
