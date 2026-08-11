@@ -61,6 +61,9 @@ Backend:
 - `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`: Creator Studio Whisper transcription plus existing unrelated OpenAI image/video features. Keep `OPENAI_TRANSCRIPTION_MODEL=whisper-1` so the lyrics workflow receives segment timestamps.
 - `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`, `DEEPSEEK_MODEL`: DeepSeek JSON generation for Creator Studio song-section recommendations and rhythm beatmaps. Defaults are `https://api.deepseek.com` and `deepseek-v4-pro`.
 - `YT_DLP_PATH`: optional yt-dlp executable path.
+- `YT_DLP_JS_RUNTIME`: JavaScript runtime passed to yt-dlp; defaults to `node` and requires Node 22 or newer.
+- `YT_DLP_REMOTE_COMPONENT`: yt-dlp EJS component source; defaults to `ejs:github`.
+- `YT_DLP_COOKIES_PATH`: optional absolute path to a fresh Netscape-format YouTube cookie file. On Render, a secret file named `youtube-cookies.txt` at `/etc/secrets/youtube-cookies.txt` is detected automatically. Never commit this file.
 - `PLACEHOLDER_VIDEO_URL`: optional publicly reachable temporary MP4.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`: optional first-admin operational bootstrap.
 - `GOOGLE_CLIENT_ID`: Google Identity Services web client ID; enables Google sign-in when set.

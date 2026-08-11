@@ -4,7 +4,7 @@ import { Loader2, CheckCircle2, AlertCircle, Clock, Pencil } from 'lucide-react'
  * A pure, stateless component for displaying generation job status.
  * Expects exactly one of the five ENUM states from the database.
  */
-export default function GenerationStatusBadge({ status, errorMessage, className = '' }) {
+export default function GenerationStatusBadge({ status, className = '' }) {
   if (status === 'QUEUED' || status === 'NOT_STARTED') {
     return (
       <span
@@ -50,7 +50,7 @@ export default function GenerationStatusBadge({ status, errorMessage, className 
       <span
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 ${className}`}
       >
-        <AlertCircle className="w-3.5 h-3.5" /> Failed: {errorMessage}
+        <AlertCircle className="w-3.5 h-3.5" /> Failed
       </span>
     )
   }

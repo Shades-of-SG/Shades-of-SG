@@ -1,4 +1,5 @@
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -7,6 +8,8 @@ const YOUTUBE_URL_PATTERN = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i;
 const YOUTUBE_ID_PATTERN = /^[a-zA-Z0-9_-]{11}$/;
 const DEFAULT_YT_DLP_COMMAND = process.env.YT_DLP_PATH || 'yt-dlp';
 const MAX_YOUTUBE_AUDIO_BYTES = 24 * 1024 * 1024;
+const DEFAULT_COOKIE_PATH = path.join(__dirname, '..', 'cookies.txt');
+const RENDER_COOKIE_PATH = '/etc/secrets/youtube-cookies.txt';
 
 const MIME_TYPES_BY_EXTENSION = {
     m4a: 'audio/mp4',
@@ -17,15 +20,57 @@ const MIME_TYPES_BY_EXTENSION = {
 
 function getAudioExtractionConfigStatus() {
     return {
+        cookiesConfigured: Boolean(getCookiePath()),
+        jsRuntime: process.env.YT_DLP_JS_RUNTIME?.trim() || 'node',
         maxFileSizeMb: MAX_YOUTUBE_AUDIO_BYTES / (1024 * 1024),
         tool: DEFAULT_YT_DLP_COMMAND,
     };
 }
 
+function getCookiePath() {
+    const configuredPath = process.env.YT_DLP_COOKIES_PATH?.trim();
+    if (configuredPath) return fsSync.existsSync(configuredPath) ? configuredPath : '';
+
+    return [DEFAULT_COOKIE_PATH, RENDER_COOKIE_PATH].find((candidate) => fsSync.existsSync(candidate)) || '';
+}
+
+function getCommonYtDlpArgs() {
+    const jsRuntime = process.env.YT_DLP_JS_RUNTIME?.trim() || 'node';
+    const remoteComponent = process.env.YT_DLP_REMOTE_COMPONENT?.trim() || 'ejs:github';
+    const cookiePath = getCookiePath();
+
+    return [
+        '--no-playlist',
+        '--js-runtimes',
+        jsRuntime,
+        '--remote-components',
+        remoteComponent,
+        ...(cookiePath ? ['--cookies', cookiePath] : []),
+    ];
+}
+
+function createYtDlpFailure(stderr, fallbackMessage) {
+    const details = String(stderr || '').trim();
+    let message = fallbackMessage;
+
+    if (/sign in to confirm you.re not a bot|cookies-from-browser|cookies for the authentication/i.test(details)) {
+        message = 'YouTube blocked audio extraction from this server. Configure fresh YouTube cookies on the backend, then retry, or upload the audio file instead.';
+    } else if (/no supported javascript runtime|js-runtimes/i.test(details)) {
+        message = 'YouTube audio extraction is missing its JavaScript runtime. Check the backend yt-dlp deployment configuration, then retry.';
+    } else if (/cookie/i.test(details)) {
+        message = 'The configured YouTube session has expired or is invalid. Refresh the backend YouTube cookies, then retry.';
+    }
+
+    if (details) console.error(`[yt-dlp] ${details}`);
+    const extractionError = new Error(message);
+    extractionError.status = 502;
+    return extractionError;
+}
+
 function getYouTubeMetadata(youtubeUrl) {
   return new Promise((resolve, reject) => {
     const child = spawn(DEFAULT_YT_DLP_COMMAND, [
-      '--no-playlist',
+      ...getCommonYtDlpArgs(),
       '--dump-single-json',
       youtubeUrl,
     ], {
@@ -53,11 +98,7 @@ function getYouTubeMetadata(youtubeUrl) {
 
     child.on('close', (code) => {
       if (code !== 0) {
-        const extractionError = new Error(
-          stderr.trim() || `yt-dlp exited with code ${code}.`
-        )
-        extractionError.status = 502
-        reject(extractionError)
+        reject(createYtDlpFailure(stderr, `YouTube metadata extraction failed with exit code ${code}.`))
         return
       }
 
@@ -90,15 +131,11 @@ async function extractAudioFromYouTube(youtubeUrl) {
     const jobId = `youtube-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const outputTemplate = path.join(TEMP_DIR, `${jobId}.%(ext)s`);
 
-    const cookiesTxtPath = path.join(__dirname, '..', 'cookies.txt');
-    const cookieArgs = require('fs').existsSync(cookiesTxtPath) ? ['--cookies', cookiesTxtPath] : [];
-
     await runYtDlp([
-        '--no-playlist',
+        ...getCommonYtDlpArgs(),
         '--no-progress',
         '--max-filesize',
         `${MAX_YOUTUBE_AUDIO_BYTES}`,
-        ...cookieArgs,
         '-f',
         'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
         '-o',
@@ -235,11 +272,7 @@ function runYtDlp(args) {
                 return;
             }
 
-            const extractionError = new Error(
-                stderr.trim() || `YouTube audio extraction failed with exit code ${code}.`
-            );
-            extractionError.status = 502;
-            reject(extractionError);
+            reject(createYtDlpFailure(stderr, `YouTube audio extraction failed with exit code ${code}.`));
         });
     });
 }
