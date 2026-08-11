@@ -53,8 +53,11 @@
 .admin-topbar__crumb i { color: #4f5870; font-size: .8rem; font-style: normal; }
 .admin-topbar__crumb strong { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-topbar__right { align-items: center; display: flex; gap: 10px; position: relative; }
+.admin-language-switcher .navbar-language__button { background: rgba(255,255,255,.055); border-color: rgba(196,181,253,.13); border-radius: 10px; color: #d9d7e8; height: 38px; width: 38px; }
+.admin-language-switcher .navbar-language__button:hover,.admin-language-switcher .navbar-language__button:focus-visible,.admin-language-switcher .navbar-language__button[aria-expanded='true'] { background: rgba(139,92,246,.13); border-color: rgba(196,181,253,.25); color: #fff; }
 .admin-topbar__pending { position: relative; }
 .admin-topbar__pending::after { background: #c084fc; border: 2px solid #090e28; border-radius: 50%; content: ''; height: 8px; position: absolute; right: -1px; top: -1px; width: 8px; }
+.admin-profile-wrap { position: relative; }
 .admin-profile { align-items: center; background: transparent; border: 0; border-radius: 10px; color: #dfe3ed; cursor: pointer; display: flex; gap: 9px; padding: 3px 5px; text-align: left; }
 .admin-profile:hover { background: rgba(255,255,255,.045); }
 .admin-profile__avatar { align-items: center; background: linear-gradient(135deg,#a78bfa,#6d28d9); border-radius: 50%; display: flex; font-size: .78rem; font-weight: 900; height: 34px; justify-content: center; width: 34px; }

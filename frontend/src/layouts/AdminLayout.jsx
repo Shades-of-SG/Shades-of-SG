@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Menu, Music2, ShieldCheck, UserRound, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 import '../components/admin/AdminUI.css'
 
 const navigation = [
@@ -71,11 +72,14 @@ export default function AdminLayout() {
           </div>
           <div className="admin-topbar__right">
             <NavLink aria-label="Escalated community reports" className="admin-topbar__icon admin-topbar__pending" to="/admin/community?tab=reports"><Bell /></NavLink>
-            <button aria-expanded={profileOpen} aria-haspopup="menu" className="admin-profile" onClick={() => setProfileOpen((value) => !value)} title={user?.email || ''} type="button">
-              <div className="admin-profile__avatar">{String(user?.name || 'A').slice(0, 2).toUpperCase()}</div>
-              <span><strong>{user?.name || 'Administrator'}</strong>{user?.email || 'Administrator profile'}</span><ChevronDown />
-            </button>
-            {profileOpen ? <div className="admin-profile-menu" role="menu"><p><strong>{user?.name || 'Administrator'}</strong><span>{user?.email}</span></p><NavLink onClick={() => setProfileOpen(false)} role="menuitem" to="/admin/activity"><History />Audit history</NavLink><button onClick={logout} role="menuitem" type="button"><LogOut />Log out</button></div> : null}
+            <div className="admin-profile-wrap">
+              <button aria-expanded={profileOpen} aria-haspopup="menu" className="admin-profile" onClick={() => setProfileOpen((value) => !value)} title={user?.email || ''} type="button">
+                <div className="admin-profile__avatar">{String(user?.name || 'A').slice(0, 2).toUpperCase()}</div>
+                <span><strong>{user?.name || 'Administrator'}</strong>{user?.email || 'Administrator profile'}</span><ChevronDown />
+              </button>
+              {profileOpen ? <div className="admin-profile-menu" role="menu"><p><strong>{user?.name || 'Administrator'}</strong><span>{user?.email}</span></p><NavLink onClick={() => setProfileOpen(false)} role="menuitem" to="/admin/activity"><History />Audit history</NavLink><button onClick={logout} role="menuitem" type="button"><LogOut />Log out</button></div> : null}
+            </div>
+            <LanguageSwitcher className="admin-language-switcher" />
           </div>
         </header>
         <Outlet />

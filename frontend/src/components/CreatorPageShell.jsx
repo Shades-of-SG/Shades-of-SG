@@ -1,4 +1,5 @@
 import CreatorAccountWidget from './CreatorAccountWidget'
+import LanguageSwitcher from './LanguageSwitcher'
 import { useAuth } from '../context/AuthContext'
 import { hasActiveCreatorAccess } from '../utils/accessStatus'
 
@@ -24,7 +25,7 @@ export default function CreatorPageShell({ actions, breadcrumbs = [], children, 
 
         {(showCreatorAccount || actions) && (
           <div className="creator-page__header-actions">
-            {showCreatorAccount ? <CreatorAccountWidget /> : null}
+            {showCreatorAccount ? <div className="creator-page__utilities"><CreatorAccountWidget /><LanguageSwitcher /></div> : null}
             {actions && <div className="creator-page__actions">{actions}</div>}
           </div>
         )}

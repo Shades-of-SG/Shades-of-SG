@@ -7352,6 +7352,13 @@ textarea {
   min-width: max-content;
 }
 
+.creator-page__utilities {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .creator-page__copy {
   display: grid;
   gap: 34px;

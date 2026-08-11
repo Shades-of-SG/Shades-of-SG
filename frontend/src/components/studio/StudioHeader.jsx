@@ -1,4 +1,5 @@
 import CreatorAccountWidget from '../CreatorAccountWidget'
+import LanguageSwitcher from '../LanguageSwitcher'
 
 const stepContent = {
   1: {
@@ -68,7 +69,7 @@ export default function StudioHeader({
       </div>
 
       <div className="studio-header__actions">
-        <CreatorAccountWidget />
+        <div className="creator-page__utilities"><CreatorAccountWidget /><LanguageSwitcher /></div>
         <div className="studio-header__button-row">
           {activeStep === 4 && (
             <button className="studio-button studio-button--ghost" onClick={onBackToLyrics} type="button">

@@ -264,11 +264,11 @@ iframe.VIpgJd-ZVi9od-ORHb-OEVmcd,
     padding-top: 14px;
   }
 
-  .navbar-language {
+  .public-navbar__utilities .navbar-language {
     margin-right: auto;
   }
 
-  .navbar-language__dropdown {
+  .public-navbar__utilities .navbar-language__dropdown {
     left: 0;
     right: auto;
   }
@@ -291,7 +291,7 @@ iframe.VIpgJd-ZVi9od-ORHb-OEVmcd,
     flex-wrap: wrap;
   }
 
-  .navbar-language { flex: 0 0 auto; }
+  .public-navbar__utilities .navbar-language { flex: 0 0 auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
