@@ -228,7 +228,7 @@ export default function ReflectionDiscussionModal({ reflection, onClose, onLogin
               <div><output aria-live="polite">{remaining} characters remaining</output><button className="rw-primary-button" disabled={submitting || !comment.trim()} type="submit">{submitting ? 'Posting…' : 'Post comment'}</button></div>
             </form>
           ) : (
-            <div className="rw-discussion__login"><span>Log in to join the discussion.</span><button className="rw-primary-button" onClick={onLogin} type="button">Log in</button></div>
+            <div className="rw-discussion__login"><span>Log in to like or join the discussion.</span><button className="rw-primary-button" onClick={onLogin} type="button">Log in</button></div>
           )}
         </footer>
       </section>

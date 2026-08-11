@@ -245,6 +245,7 @@ export default function VideoEditor() {
 
   const [jobData, setJobData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [frames, setFrames] = useState([])
   const framesRef = useRef(frames)
 
@@ -353,18 +354,30 @@ export default function VideoEditor() {
   }
 
   useEffect(() => {
+    let active = true
+    setLoading(true)
+    setLoadError('')
     fetch(`${API_URL}/generation/${id}/status`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` } })
-      .then(res => res.json())
+      .then(async res => {
+        const result = await res.json()
+        if (!res.ok || !result.success || !result.data) {
+          throw new Error(result.message || 'The requested generation job could not be loaded.')
+        }
+        return result
+      })
       .then(result => {
-        if (result.success && result.data) {
+        if (active) {
           setJobData(result.data)
           setFrames(extractFrames(result.data.song))
           setAudioUrl(result.data.song?.audioUrl || '')
           setTranscriptionSegments(result.data.song?.transcriptionSegments || [])
         }
       })
-      .catch(console.error)
-      .finally(() => setLoading(false))
+      .catch(error => {
+        if (active) setLoadError(error.message || 'The requested generation job could not be loaded.')
+      })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [id])
 
   const syncFrameToTime = useCallback((time) => {
@@ -976,6 +989,25 @@ export default function VideoEditor() {
     )
   }
 
+  if (loadError || !jobData) {
+    return (
+      <CreatorPageShell breadcrumbs={['Generation Tasks', 'Video Editor']} title="Video Editor" description="The requested workspace could not be opened.">
+        <section className="studio-card" role="alert" style={{ textAlign: 'center', padding: '3rem' }}>
+          <h2 style={{ color: '#ef4444' }}>Video Editor Unavailable</h2>
+          <p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>{loadError || 'The requested generation job could not be loaded.'}</p>
+          <button
+            className="studio-button studio-button--secondary"
+            onClick={() => navigate('/creator/generation')}
+            style={{ marginTop: '2rem' }}
+            type="button"
+          >
+            Exit to Generation Jobs
+          </button>
+        </section>
+      </CreatorPageShell>
+    )
+  }
+
   return (
     <CreatorPageShell
       breadcrumbs={['Generation Tasks', 'Video Editor']}
@@ -1012,8 +1044,9 @@ export default function VideoEditor() {
           <button
             className="studio-button studio-button--secondary"
             onClick={() => navigate(`/creator/generation/${id}`)}
+            type="button"
           >
-            Back to Job
+            Exit Editor
           </button>
           <button
             className="studio-button studio-button--secondary"
