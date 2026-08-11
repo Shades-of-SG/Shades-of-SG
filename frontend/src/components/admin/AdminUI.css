@@ -60,7 +60,8 @@
 .admin-profile-wrap { position: relative; }
 .admin-profile { align-items: center; background: transparent; border: 0; border-radius: 10px; color: #dfe3ed; cursor: pointer; display: flex; gap: 9px; padding: 3px 5px; text-align: left; }
 .admin-profile:hover { background: rgba(255,255,255,.045); }
-.admin-profile__avatar { align-items: center; background: linear-gradient(135deg,#a78bfa,#6d28d9); border-radius: 50%; display: flex; font-size: .78rem; font-weight: 900; height: 34px; justify-content: center; width: 34px; }
+.admin-profile__avatar { align-items: center; background: rgba(139,92,246,.12); border: 1px solid rgba(196,181,253,.2); border-radius: 50%; display: flex; flex: 0 0 34px; height: 34px; justify-content: center; overflow: hidden; padding: 3px; width: 34px; }
+.admin-profile__avatar img { display: block; height: 100%; object-fit: contain; width: 100%; }
 .admin-profile span { color: #78839d; display: grid; font-size: .68rem; line-height: 1.25; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-profile strong { font-size: .78rem; }
 .admin-profile > svg { color: #79839b; height: 14px; width: 14px; }

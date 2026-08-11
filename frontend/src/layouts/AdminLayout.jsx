@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bell, ChevronDown, ChevronLeft, ChevronRight, History, LayoutDashboard, LogOut, Menu, Music2, ShieldCheck, UserRound, Users } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -25,7 +25,25 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('adminSidebarCollapsed') === 'true')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef(null)
   const current = pageTitles[pathname] || (pathname.startsWith('/admin/users/') ? 'Users' : 'Overview')
+
+  useEffect(() => {
+    function closeProfileMenu(event) {
+      if (profileRef.current && !profileRef.current.contains(event.target)) setProfileOpen(false)
+    }
+
+    function closeProfileMenuOnEscape(event) {
+      if (event.key === 'Escape') setProfileOpen(false)
+    }
+
+    document.addEventListener('mousedown', closeProfileMenu)
+    document.addEventListener('keydown', closeProfileMenuOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeProfileMenu)
+      document.removeEventListener('keydown', closeProfileMenuOnEscape)
+    }
+  }, [])
 
   function toggleSidebar() {
     if (window.matchMedia('(max-width: 760px)').matches) {
@@ -72,9 +90,9 @@ export default function AdminLayout() {
           </div>
           <div className="admin-topbar__right">
             <NavLink aria-label="Escalated community reports" className="admin-topbar__icon admin-topbar__pending" to="/admin/community?tab=reports"><Bell /></NavLink>
-            <div className="admin-profile-wrap">
+            <div className="admin-profile-wrap" ref={profileRef}>
               <button aria-expanded={profileOpen} aria-haspopup="menu" className="admin-profile" onClick={() => setProfileOpen((value) => !value)} title={user?.email || ''} type="button">
-                <div className="admin-profile__avatar">{String(user?.name || 'A').slice(0, 2).toUpperCase()}</div>
+                <div className="admin-profile__avatar"><img alt="" src="/images/admin%20pfp.png" /></div>
                 <span><strong>{user?.name || 'Administrator'}</strong>{user?.email || 'Administrator profile'}</span><ChevronDown />
               </button>
               {profileOpen ? <div className="admin-profile-menu" role="menu"><p><strong>{user?.name || 'Administrator'}</strong><span>{user?.email}</span></p><NavLink onClick={() => setProfileOpen(false)} role="menuitem" to="/admin/activity"><History />Audit history</NavLink><button onClick={logout} role="menuitem" type="button"><LogOut />Log out</button></div> : null}
