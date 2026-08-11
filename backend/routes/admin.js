@@ -892,8 +892,7 @@ router.post('/folders', async (req, res, next) => {
         if (name.length < 2 || name.length > 255 || !slug) return res.status(400).json({ message: 'A valid folder name is required.' });
         const description = String(req.body.description || '').trim() || null;
         if (description && description.length > 2000) return res.status(400).json({ message: 'Collection description must be 2000 characters or fewer.' });
-        const displayOrder = Number(req.body.displayOrder || 0);
-        if (!Number.isInteger(displayOrder) || displayOrder < 0) return res.status(400).json({ message: 'displayOrder must be a non-negative integer.' });
+        const displayOrder = await Folder.count() + 1;
         if (await duplicateFolderName(name)) return res.status(409).json({ message: 'A collection with this name already exists.' });
         const folder = await Folder.create({ createdBy: req.authUserRecord.id, description, displayOrder, name, origin: 'PLATFORM', slug, status: 'APPROVED' });
         await writeAudit({ action: 'PLATFORM_FOLDER_CREATED', actorId: req.authUserRecord.id, entityId: folder.id, entityType: 'FOLDER', req });
@@ -946,6 +945,25 @@ router.patch('/folders/:id', validateUuidParam('id', 'Collection ID must be a va
         if (error.name === 'SequelizeUniqueConstraintError') return res.status(409).json({ message: 'A collection with this name or slug already exists.' });
         return next(error);
     }
+});
+
+router.delete('/folders/:id', validateUuidParam('id', 'Collection ID must be a valid UUID.'), async (req, res, next) => {
+    try {
+        const folder = await Folder.findByPk(req.params.id);
+        if (!folder) return res.status(404).json({ message: 'Folder not found.' });
+        await sequelize.transaction(async (transaction) => {
+            await writeAudit({
+                action: 'FOLDER_DELETED', actorId: req.authUserRecord.id, creatorId: folder.proposedBy,
+                entityId: folder.id, entityType: 'FOLDER', metadata: { name: folder.name, slug: folder.slug }, req, transaction,
+            });
+            await folder.destroy({ transaction });
+            const remaining = await Folder.findAll({
+                attributes: ['id'], order: [['displayOrder', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']], transaction,
+            });
+            await Promise.all(remaining.map((item, index) => item.update({ displayOrder: index + 1 }, { transaction })));
+        });
+        return res.status(204).send();
+    } catch (error) { return next(error); }
 });
 
 router.get('/folder-song-proposals', async (req, res, next) => {

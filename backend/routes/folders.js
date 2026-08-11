@@ -40,11 +40,10 @@ router.get('/', async (req, res, next) => {
             });
             byFolder.set(song.folder_id, values);
         });
-        return res.json({ folders: folders.flatMap((folder) => {
+        return res.json({ folders: folders.map((folder) => {
             const songs = byFolder.get(folder.id) || [];
-            if (!songs.length) return [];
             const totalItems = Number(previews.find((song) => song.folder_id === folder.id)?.total_count || songs.length);
-            return [{ ...folder.get({ plain: true }), songs, songPagination: { limit: 6, totalItems, hasNextPage: totalItems > 6 } }];
+            return { ...folder.get({ plain: true }), songs, songPagination: { limit: 6, totalItems, hasNextPage: totalItems > 6 } };
         }) });
     } catch (error) { return next(error); }
 });

@@ -99,9 +99,10 @@ test('unpublish and archive preserve creator data, dependent rows, and collectio
 
 test('platform collection validation and membership rules prevent duplicates and unpublished placement', async () => {
     expect((await request(app).post('/api/admin/folders').set(auth()).send({ name: '' })).status).toBe(400);
+    const collectionCount = await Folder.count();
     const created = await request(app).post('/api/admin/folders').set(auth()).send({ description: 'Published songs only.', displayOrder: 2, name: 'Public Heritage' });
     expect(created.status).toBe(201);
-    expect(created.body.folder).toMatchObject({ allowedTransitions: ['ARCHIVED'], origin: 'PLATFORM', publiclyVisible: true, status: 'APPROVED' });
+    expect(created.body.folder).toMatchObject({ allowedTransitions: ['ARCHIVED'], displayOrder: collectionCount + 1, origin: 'PLATFORM', publiclyVisible: true, status: 'APPROVED' });
     expect((await request(app).post('/api/admin/folders').set(auth()).send({ name: 'public heritage' })).status).toBe(409);
     const folderId = created.body.folder.id;
     expect((await request(app).put(`/api/admin/folders/${folderId}/songs/${incompleteReadySong.id}`).set(auth()).send({ songOrder: 0 })).status).toBe(409);
@@ -112,6 +113,11 @@ test('platform collection validation and membership rules prevent duplicates and
     expect((await publishedSong.reload()).status).toBe('PUBLISHED');
     expect((await request(app).patch(`/api/admin/folders/${folderId}`).set(auth()).send({ status: 'REJECTED' })).status).toBe(409);
     expect((await request(app).patch('/api/admin/folders/not-a-uuid').set(auth()).send({ status: 'ARCHIVED' })).status).toBe(400);
+    expect((await request(app).get('/api/folders')).body.folders.some((folder) => folder.id === folderId)).toBe(true);
+    expect((await request(app).delete(`/api/admin/folders/${folderId}`).set(auth())).status).toBe(204);
+    expect(await Folder.count({ where: { id: folderId } })).toBe(0);
+    expect(await Song.count({ where: { id: publishedSong.id } })).toBe(1);
+    expect(await AuditLog.count({ where: { action: 'FOLDER_DELETED', entityId: folderId } })).toBe(1);
 });
 
 test('placement approval adds the intended published song while rejection preserves records', async () => {
