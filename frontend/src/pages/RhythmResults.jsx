@@ -57,10 +57,11 @@ function isDisplayableResult(result) {
 }
 
 export default function RhythmResults() {
-  const { songId } = useParams()
+  const { songId: routeSongId } = useParams()
   const location = useLocation()
   const { refreshProfile, token, user } = useAuth()
-  const result = location.state?.result || (token ? readStoredResult(songId) : null)
+  const result = location.state?.result || (token ? readStoredResult(routeSongId) : null)
+  const resultSongId = result?.songId || routeSongId
   const [songDetails, setSongDetails] = useState(null)
   const [songState, setSongState] = useState('loading')
   const [saveState, setSaveState] = useState('idle')
@@ -128,7 +129,7 @@ export default function RhythmResults() {
   useEffect(() => {
     let ignore = false
 
-    fetchSongDetails(songId, { preview: Boolean(result?.preview), token })
+    fetchSongDetails(resultSongId, { preview: Boolean(result?.preview), token })
       .then((song) => {
         if (!ignore) {
           setSongDetails(song)
@@ -145,7 +146,7 @@ export default function RhythmResults() {
     return () => {
       ignore = true
     }
-  }, [result?.preview, songId, token])
+  }, [result?.preview, resultSongId, token])
 
   const breakdown = useMemo(() => {
     if (!result) return null
@@ -184,7 +185,9 @@ export default function RhythmResults() {
   const gradeMessage = GRADE_MESSAGES[rank] || 'Keep practising!'
   const judgementTotal = JUDGEMENT_METRICS.reduce((total, metric) => total + breakdown[metric.key], 0)
   const progressMaximum = Math.max(judgementTotal, 1)
-  const reflectionPath = `/reflections?song_id=${encodeURIComponent(songId)}&compose=1`
+  const canonicalSongId = songDetails?.id || resultSongId
+  const encodedSongId = encodeURIComponent(canonicalSongId)
+  const reflectionPath = `/reflections?song_id=${encodedSongId}&compose=1`
   const pendingClaim = !token ? readPendingScoreClaim() : null
   const canClaimResult = Boolean(
     pendingClaim
@@ -319,21 +322,21 @@ export default function RhythmResults() {
         <nav aria-label="Result actions" className="result-actions">
           <Link
             className="result-action result-action--primary"
-            to={result.preview ? `/game/${songId}?difficulty=${result.difficulty}&preview=1` : `/game/${songId}`}
+            to={result.preview ? `/game/${encodedSongId}?difficulty=${encodeURIComponent(result.difficulty)}&preview=1` : `/game/${encodedSongId}`}
           >
             Play Again
           </Link>
 
           {!result.preview ? <Link
             className="result-action result-action--secondary"
-            to={`/rhythm-game/leaderboard?songId=${encodeURIComponent(songId)}&difficulty=${encodeURIComponent(result.difficulty)}`}
+            to={`/rhythm-game/leaderboard?songId=${encodedSongId}&difficulty=${encodeURIComponent(result.difficulty)}`}
           >
             View Leaderboard
           </Link> : null}
 
           <Link
             className="result-action result-action--secondary"
-            to={result.preview ? `/creator/studio/${songId}` : `/songs/${songId}`}
+            to={result.preview ? `/creator/studio/${encodedSongId}` : `/songs/${encodedSongId}`}
           >
             {result.preview ? 'Back to Studio' : 'Explore This Song'}
           </Link>

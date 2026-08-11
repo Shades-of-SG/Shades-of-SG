@@ -15,11 +15,11 @@ function result(playedAt, overrides = {}) {
   }
 }
 
-function renderResults(gameResult, { layout = false } = {}) {
+function renderResults(gameResult, { layout = false, routeSongId = 'song-1' } = {}) {
   const resultsRoute = <Route element={<RhythmResults />} path="/game/:songId/results" />
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={[{ pathname: '/game/song-1/results', state: gameResult ? { result: gameResult } : null }]}>
+      <MemoryRouter initialEntries={[{ pathname: `/game/${routeSongId}/results`, state: gameResult ? { result: gameResult } : null }]}>
         <Routes>
           {layout ? <Route element={<MainLayout role="guest" />}>{resultsRoute}</Route> : resultsRoute}
         </Routes>
@@ -64,6 +64,33 @@ describe('RhythmResults score persistence and presentation', () => {
     expect(localStorage.getItem('rhythmResult:song-1')).toBeNull()
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/scores'))).toBe(false)
+  })
+
+  it('uses the completed result song instead of a stale route ID for every destination', async () => {
+    const canonicalSongId = 'c0666665-b1b2-4288-8819-b9a266f5733a'
+    const fetchMock = vi.fn(async () => ({
+      json: async () => ({ song: { id: canonicalSongId, title: 'Canonical Song' } }),
+      ok: true,
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderResults(result('canonical-run', { songId: canonicalSongId }), { routeSongId: 'stale-song-id' })
+
+    expect(await screen.findByRole('heading', { name: 'Canonical Song' })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/songs/${canonicalSongId}`),
+      expect.objectContaining({}),
+    )
+    expect(screen.getByRole('link', { name: 'Play Again' })).toHaveAttribute('href', `/game/${canonicalSongId}`)
+    expect(screen.getByRole('link', { name: 'View Leaderboard' })).toHaveAttribute(
+      'href',
+      `/rhythm-game/leaderboard?songId=${canonicalSongId}&difficulty=MEDIUM`,
+    )
+    expect(screen.getByRole('link', { name: 'Explore This Song' })).toHaveAttribute('href', `/songs/${canonicalSongId}`)
+    expect(screen.getByRole('link', { name: 'Write a Reflection' })).toHaveAttribute(
+      'href',
+      `/reflections?song_id=${canonicalSongId}&compose=1`,
+    )
   })
 
   it('offers to save the completed result only while its matching claim is pending', async () => {

@@ -161,6 +161,27 @@ test('my scores returns recent attempts and the personal best for each song and 
     ]));
 });
 
+test('profile rhythm history returns the five latest attempts without collapsing song difficulties', async () => {
+    await Promise.all([
+        scoreFor(player, { createdAt: new Date('2026-08-01T01:00:00Z'), difficulty: 'EASY', score: 1000 }),
+        scoreFor(player, { createdAt: new Date('2026-08-02T01:00:00Z'), difficulty: 'MEDIUM', score: 2000 }),
+        scoreFor(player, { createdAt: new Date('2026-08-03T01:00:00Z'), difficulty: 'EASY', score: 3000, songId: secondSong.id }),
+        scoreFor(player, { createdAt: new Date('2026-08-04T01:00:00Z'), difficulty: 'HARD', score: 4000 }),
+        scoreFor(player, { createdAt: new Date('2026-08-05T01:00:00Z'), difficulty: 'EASY', score: 5000 }),
+        scoreFor(player, { createdAt: new Date('2026-08-06T01:00:00Z'), difficulty: 'MEDIUM', score: 6000 }),
+    ]);
+
+    const response = await request(app).get('/api/users/me/profile').set(authorization(player));
+
+    expect(response.status).toBe(200);
+    expect(response.body.rhythm.recentScores).toHaveLength(5);
+    expect(response.body.rhythm.recentScores.map((entry) => entry.score)).toEqual([6000, 5000, 4000, 3000, 2000]);
+    expect(response.body.rhythm.recentScores.slice(0, 3)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ difficulty: 'EASY', songId: publishedSong.id }),
+        expect.objectContaining({ difficulty: 'MEDIUM', songId: publishedSong.id }),
+    ]));
+});
+
 test('a completed run persists and updates own profile, public profile, and leaderboard data', async () => {
     const saved = await request(app).post('/api/scores').set(authorization(player)).send(validPayload());
     expect(saved.status).toBe(201);

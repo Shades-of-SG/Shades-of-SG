@@ -220,21 +220,22 @@ export default function RhythmGame() {
     videoRef.current?.pause()
     const finalStats = statsRef.current
     const finalAccuracy = calculateWeightedAccuracy(finalStats.earnedAccuracyPoints, finalStats.maximumAccuracyPoints)
+    const canonicalSongId = song?.id || songId
     const result = createResult({
       accuracy: finalAccuracy, difficulty, score: finalStats.score, maxCombo: finalStats.maxCombo,
       perfectHits: finalStats.judgements.PERFECT, greatHits: finalStats.judgements.GREAT,
       goodHits: finalStats.judgements.GOOD, badHits: finalStats.judgements.BAD,
       misses: finalStats.judgements.MISS, holdCompletions: finalStats.holdCompletions,
-      earlyReleases: finalStats.earlyReleases, processedNotes: finalStats.processed, preview, songId, totalNotes,
+      earlyReleases: finalStats.earlyReleases, processedNotes: finalStats.processed, preview, songId: canonicalSongId, totalNotes,
     })
     if (!preview && token && ['REGISTERED', 'CREATOR'].includes(user?.role)) storeResult(result)
     else if (!preview && !token) storePendingScoreClaim(result)
     if (!preview) trackAnalyticsEvent('RHYTHM_GAME_COMPLETED', {
-      metadata: { accuracy: finalAccuracy, difficulty, score: finalStats.score }, songId,
+      metadata: { accuracy: finalAccuracy, difficulty, score: finalStats.score }, songId: canonicalSongId,
     }, token).catch(() => {})
     setPhase('finished')
-    navigate(`/game/${songId}/results`, { replace: true, state: { result } })
-  }, [difficulty, navigate, preview, songId, token, totalNotes, user?.role])
+    navigate(`/game/${encodeURIComponent(canonicalSongId)}/results`, { replace: true, state: { result } })
+  }, [difficulty, navigate, preview, song?.id, songId, token, totalNotes, user?.role])
 
   const finishAtAudioEnd = useCallback(() => {
     notesRef.current = notesRef.current.map((note) => {
@@ -374,13 +375,13 @@ export default function RhythmGame() {
       if (audioRef.current) audioRef.current.muted = false
     }
     resetRun(beatmap)
-    if (!preview) trackAnalyticsEvent('RHYTHM_GAME_STARTED', { metadata: { difficulty }, songId }, token).catch(() => {})
+    if (!preview) trackAnalyticsEvent('RHYTHM_GAME_STARTED', { metadata: { difficulty }, songId: song?.id || songId }, token).catch(() => {})
     setPhase('countdown')
     const values = ['3', '2', '1', 'Go']
     setCountdown(values[0])
     values.slice(1).forEach((value, index) => timersRef.current.push(window.setTimeout(() => setCountdown(value), (index + 1) * 700)))
     timersRef.current.push(window.setTimeout(() => { setCountdown(null); startPlayback() }, values.length * 700))
-  }, [beatmap, difficulty, loadingState, preview, resetRun, songId, startPlayback, token])
+  }, [beatmap, difficulty, loadingState, preview, resetRun, song?.id, songId, startPlayback, token])
 
   const requestRestart = useCallback(() => {
     if (phase === 'playing' && !window.confirm('Restart this run? Your current score will be lost.')) return
@@ -389,8 +390,8 @@ export default function RhythmGame() {
 
   const requestExit = useCallback(() => {
     if (phase === 'playing' && !window.confirm('Exit this run? Your current score will be lost.')) return
-    navigate(preview ? `/creator/studio/${songId}` : '/rhythm-game')
-  }, [navigate, phase, preview, songId])
+    navigate(preview ? `/creator/studio/${encodeURIComponent(song?.id || songId)}` : '/rhythm-game')
+  }, [navigate, phase, preview, song?.id, songId])
 
   useEffect(() => {
     function keyDown(event) {

@@ -21,6 +21,12 @@ function compareScores(left, right) {
     return String(left.id).localeCompare(String(right.id));
 }
 
+function compareRecentScores(left, right) {
+    const playedDifference = new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    if (playedDifference) return playedDifference;
+    return String(right.id).localeCompare(String(left.id));
+}
+
 function periodStart(period, now = new Date()) {
     if (period === 'weekly') return new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
     if (period === 'monthly') return new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
@@ -34,6 +40,24 @@ function gradeFor(score) {
     if (accuracy >= 85) return 'A';
     if (accuracy >= 70) return 'B';
     return 'C';
+}
+
+function profileScore(score) {
+    return {
+        accuracy: score.accuracy,
+        createdAt: score.createdAt,
+        difficulty: score.difficulty,
+        id: score.id,
+        maxCombo: Number(score.maxCombo || 0),
+        rank: gradeFor(score),
+        score: Number(score.score),
+        song: {
+            coverImageUrl: score.song?.coverImageUrl || null,
+            id: score.songId,
+            title: score.song?.title || 'Unknown Song',
+        },
+        songId: score.songId,
+    };
 }
 
 async function listLeaderboardSongs(options = {}) {
@@ -227,26 +251,17 @@ async function userRhythmSummary(userId) {
     const topScores = personalBests
         .sort(compareScores)
         .slice(0, 3)
-        .map((score) => ({
-            accuracy: score.accuracy,
-            createdAt: score.createdAt,
-            difficulty: score.difficulty,
-            id: score.id,
-            maxCombo: Number(score.maxCombo || 0),
-            rank: gradeFor(score),
-            score: Number(score.score),
-            song: {
-                coverImageUrl: score.song?.coverImageUrl || null,
-                id: score.songId,
-                title: score.song?.title || 'Unknown Song',
-            },
-            songId: score.songId,
-        }));
+        .map(profileScore);
+    const recentScores = [...userScores]
+        .sort(compareRecentScores)
+        .slice(0, 5)
+        .map(profileScore);
     return {
         bestLeaderboardRank,
         bestScore: topScores[0]?.score || 0,
         gamesCompleted: userScores.length,
         gamesPlayed: userScores.length,
+        recentScores,
         rank: bestLeaderboardRank?.position || null,
         topScores,
     };
@@ -256,6 +271,7 @@ module.exports = {
     DIFFICULTIES,
     PERIODS,
     bestScorePerUser,
+    compareRecentScores,
     compareScores,
     leaderboard,
     listLeaderboardSongs,

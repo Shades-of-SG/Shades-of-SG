@@ -31,6 +31,7 @@ export default function CreatorCuration() {
   const [latestJobId, setLatestJobId] = useState(null)
 
   const activeJobId = location.state?.jobId || location.state?.job?.id || latestJobId || (song?.generationJobs?.[0]?.id) || null
+  const canonicalSongId = song?.id || songId
   const backRoute = activeJobId ? `/creator/generation/${activeJobId}` : '/creator/generation'
   
   const [generatingArticle, setGeneratingArticle] = useState(false)
@@ -212,7 +213,7 @@ export default function CreatorCuration() {
         instrumentIds: uniqueResolvedIds,
       }
 
-      const res = await updateSongCuration(songId, payload, token)
+      const res = await updateSongCuration(canonicalSongId, payload, token)
       if (res?.song) setSong(res.song)
       showToast('success', 'Song curation saved successfully!')
     } catch (err) {
@@ -225,7 +226,7 @@ export default function CreatorCuration() {
   const handleRegenerateArticle = async () => {
     try {
       setGeneratingArticle(true)
-      const res = await generateSongArticle(songId, token)
+      const res = await generateSongArticle(canonicalSongId, token)
       setAiSummary(res.aiSummary || '')
       if (res.matchedInstrumentIds) {
         setSelectedInstrumentIds(res.matchedInstrumentIds)
@@ -241,7 +242,7 @@ export default function CreatorCuration() {
   const handleRegenerateTrivia = async () => {
     try {
       setGeneratingTrivia(true)
-      const res = await generateSongTrivia(songId, token)
+      const res = await generateSongTrivia(canonicalSongId, token)
       setTriviaQuestions(
         Array.isArray(res.trivia) && res.trivia.length > 0
           ? res.trivia.map((q, idx) => ({
@@ -322,7 +323,7 @@ export default function CreatorCuration() {
           }
         }
         if (!fetchedSong) {
-          const songRes = await fetch(`${API_URL}/songs/creator/${songId}`, {
+          const songRes = await fetch(`${API_URL}/songs/creator/${encodeURIComponent(canonicalSongId)}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
           })
           if (songRes.ok) {
@@ -340,7 +341,7 @@ export default function CreatorCuration() {
 
     if (firstFrameUrl) {
       try {
-        await fetch(`${API_URL}/songs/${songId}`, {
+        await fetch(`${API_URL}/songs/${encodeURIComponent(canonicalSongId)}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -354,7 +355,7 @@ export default function CreatorCuration() {
     }
 
     const updatedSongData = { ...songData, coverImageUrl: firstFrameUrl }
-    navigate(`/creator/studio/${songId}`, {
+    navigate(`/creator/studio/${encodeURIComponent(canonicalSongId)}`, {
       state: {
         videoUrl: songData?.videoUrl,
         lyrics: songData?.rawLyrics,

@@ -9,11 +9,21 @@ const score = (id, value) => ({
 })
 
 describe('ProfileMusicJourney', () => {
-  it('labels and renders no more than three backend-ranked scores', () => {
-    render(<MemoryRouter><ProfileMusicJourney scores={[score('one', 400), score('two', 300), score('three', 200), score('four', 100)]} /></MemoryRouter>)
-    expect(screen.getByText('Top rhythm game scores')).toBeInTheDocument()
-    expect(screen.getAllByRole('article')).toHaveLength(3)
-    expect(screen.queryByText('Song four')).not.toBeInTheDocument()
+  it('labels and renders the five latest attempts without collapsing difficulties', () => {
+    const attempts = [
+      score('one', 600),
+      { ...score('two', 500), difficulty: 'MEDIUM', song: { title: 'Song one' } },
+      score('three', 400),
+      score('four', 300),
+      score('five', 200),
+      score('six', 100),
+    ]
+    render(<MemoryRouter><ProfileMusicJourney scores={attempts} /></MemoryRouter>)
+    expect(screen.getByText('Latest rhythm game attempts')).toBeInTheDocument()
+    expect(screen.getAllByRole('article')).toHaveLength(5)
+    expect(screen.getAllByText('Song one')).toHaveLength(2)
+    expect(screen.getByText(/MEDIUM/)).toBeInTheDocument()
+    expect(screen.queryByText('Song six')).not.toBeInTheDocument()
   })
 
   it('links a friendly empty state to rhythm games', () => {

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { AuthProvider } from '../context/AuthContext'
@@ -24,6 +24,7 @@ const profilePayload = {
     gamesCompleted: 7,
     gamesPlayed: 7,
     rank: 2,
+    recentScores: [{ accuracy: 91, createdAt: '2026-01-04', difficulty: 'MEDIUM', id: 'score-2', rank: 'A', score: 4000, song: { title: 'Home' } }],
     topScores: [{ accuracy: 96, createdAt: '2026-01-03', difficulty: 'EASY', id: 'score-1', rank: 'S', score: 4321, song: { title: 'Home' } }],
   },
 }
@@ -54,7 +55,10 @@ describe('shared user profile system', () => {
     expect(screen.getByText('Home · Easy')).toBeInTheDocument()
     expect(screen.getByText('4,321 points · 96.00%')).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
-    expect(screen.getByText('Top rhythm game scores')).toBeInTheDocument()
+    expect(screen.getByText('Latest rhythm game attempts')).toBeInTheDocument()
+    const musicJourney = screen.getByRole('heading', { name: 'My Music Journey' }).closest('section')
+    expect(within(musicJourney).getByText('4,000')).toBeInTheDocument()
+    expect(within(musicJourney).getByText((content, element) => element.tagName === 'SMALL' && content.includes('MEDIUM'))).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Creator profile/ })).toHaveAttribute('href', '/creator/profile')
     expect(screen.queryByText('Studio Activity')).not.toBeInTheDocument()
   })
