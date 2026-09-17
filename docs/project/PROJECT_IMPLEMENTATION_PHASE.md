@@ -1,6 +1,6 @@
 # PROJECT IMPLEMENTATION PHASES — Shades of SG
 
-**Last updated:** 9 August 2026
+**Last updated:** 17 September 2026 (Landing/Home only)
 **Document purpose:** Record the original implementation phases and task ownership while showing the current evidence-based completion state.
 
 > SCCCI AI Challenge | Team: Unpaid Interns | Main development period: 13 June – 8 August 2026
@@ -186,7 +186,10 @@ Implementation continued beyond the original July schedule. Phase 0 is implement
 **Current Status:** **Implemented**, with later public lifecycle integration shared with Ferlyn.
 
 - [x] **Landing Page** (`/`)
-  - Hero, feature journey, published-song/reflection previews, CTA links, and public navigation
+  - Singapore-image hero with updated music/stories/community messaging; four accessible feature-navigation cards
+  - Audience-information and count-statistics sections are absent; Explore leads directly to dynamic five-song and pinned-memory carousels
+  - Explore Songs links to /songs; Share Your Music and Become a Creator use the existing guarded /apply/creator route
+  - Landing-specific song metadata/artwork fallbacks, memory readability, visible focus, responsive stacking and reduced-motion scrolling; public navigation/footer and signed-in welcome/badges/best rhythm records preserved
 - [x] **Songs Library** (`/songs`)
   - Published catalogue, search, theme/language/mood filtering, sorting, preview, and responsive results
 - [x] **Registered Discovery Actions**

@@ -1,6 +1,6 @@
 # AI Music Video Generation Platform - Use Cases
 
-**Last updated:** 9 August 2026
+**Last updated:** 17 September 2026 (UC-P01 Landing/Home only)
 
 **Document Purpose:** Consolidate the creator/admin and public-facing use cases in the format established by the original two use-case documents, updated against the current implementation.
 
@@ -18,7 +18,7 @@
 
 The **Legacy Document Allocation** column preserves the member block recorded in the [creator](../archive/legacy-use-cases/CREATOR_PLATFORM_USE_CASES.md) and [public-facing](../archive/legacy-use-cases/PUBLIC_PLATFORM_USE_CASES.md) use-case documents. It is not treated as verified ownership unless the ownership specification independently supports it. Implementation contribution is based on Git history, journals, and current implementation evidence; merge and revert commits are supporting evidence rather than sole proof.
 
-Journal evidence was cross-checked against the [team journal](../journals/TEAM_AI_DEVELOPMENT_JOURNAL.md), the [creator-workflow journal](../archive/ORIGINAL_CREATOR_WORKFLOW_JOURNAL.md), and the individual journals for [Ferlyn](../journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md), [Lia](../journals/lia/AI_JOURNAL.md), and [Shermaine](../journals/shermaine/AI_DEVELOPMENT_JOURNAL.md). Htet's implementation evidence is primarily recorded through Git history, generation code, Song Experience code, and tests.
+Journal evidence was cross-checked against the [team journal](../journals/TEAM_AI_DEVELOPMENT_JOURNAL.md), the [creator-workflow journal](../archive/ORIGINAL_CREATOR_WORKFLOW_JOURNAL.md), and the individual journals for [Ferlyn](../journals/ferlyn/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md), [Lia](../journals/lia/AI_JOURNAL.md), and [Shermaine](../journals/shermaine/AI_DEVELOPMENT_JOURNAL.md). Htet's implementation evidence is primarily recorded through Git history, generation code, Song Experience code, and tests.
 
 Commits authored as **Solitice-debug** are listed separately because mapping that identity to Ferlyn Ng **Needs team confirmation**. Ferlyn is named directly only where her journal, formal feature allocation, or commits authored as Ferlyn Ng provide independent evidence. Migration 028 ownership also **Needs team confirmation**.
 
@@ -1139,7 +1139,7 @@ Review recorded platform state and apply safe, traceable identity, content, and 
 
 **Primary Actor:** Guest or Returning User
 
-**Secondary Actors:** Authentication context, stats service, public Song/Reflection APIs
+**Secondary Actors:** Authentication context, public Song/Reflection APIs, signed-in badge and best-score services
 
 **Preconditions:**
 - Platform URL is available.
@@ -1152,14 +1152,18 @@ Enter public experiences immediately or authenticate for persisted actions.
 
 **Main Flow:**
 1. Client restores current JWT user when present.
-2. Landing renders public navigation, hero, features, and recorded content previews.
-3. Guest may browse without creating a database session/user.
-4. User selects Songs, Learning, Rhythm, Reflections, Login, or Register.
+2. Landing renders the Singapore-image hero, four feature-navigation cards and dynamic published-song/pinned-memory previews.
+3. Guest may browse without creating a database session/user; signed-in users retain their welcome, badges and best rhythm records.
+4. User selects Songs, Learning, Rhythm, Reflections, Login or Register through the existing navigation; feature cards support keyboard activation.
+5. Featured cards link to the real Song and creator profile; memory cards retain likes and open the existing discussion modal.
 
 **Alternate Flows:**
 
 **AF-P01: Protected Intent Exists**
 - After authentication, client restores a validated internal path or pending score claim.
+
+**AF-P01B: Creator Application**
+- Share Your Music and Become a Creator lead to the existing `/apply/creator` route. Its guard permits active registered accounts and redirects guests to Login; this phase adds no separate onboarding route.
 
 **Success Outcome:**
 - Actor reaches the selected public/auth experience.

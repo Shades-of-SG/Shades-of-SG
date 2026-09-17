@@ -1,4 +1,5 @@
-import { ArrowRight } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, Music } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CreatorNameLink from './CreatorNameLink'
 
@@ -16,7 +17,38 @@ function SongArtwork({ song }) {
   )
 }
 
+function FeaturedArtwork({ song }) {
+  const [failedSource, setFailedSource] = useState('')
+  return song.coverImageUrl && failedSource !== song.coverImageUrl ? (
+    <img alt={`${song.title || 'Song'} cover`} className="song-art song-art--image" decoding="async" loading="lazy" onError={() => setFailedSource(song.coverImageUrl)} src={song.coverImageUrl} />
+  ) : (
+    <div aria-label={`No cover image for ${song.title || 'this song'}`} className="song-art song-art--fallback" role="img"><Music aria-hidden="true" size={36} /></div>
+  )
+}
+
 export default function SongCard({ song, variant = 'default' }) {
+  if (variant === 'featured') {
+    const languages = Array.isArray(song.languages) ? song.languages.filter(Boolean) : song.languages ? [song.languages] : []
+    return (
+      <article className="song-card song-card--featured">
+        <FeaturedArtwork song={song} />
+        <div className="featured-song__body">
+          <h3>{song.title || 'Untitled song'}</h3>
+          <CreatorNameLink className="song-card__artist" song={song} />
+          <div aria-label="Song metadata" className="featured-song__metadata">
+            <span className="featured-song__chip featured-song__chip--category">{song.theme || 'Uncategorised'}</span>
+            {(languages.length ? languages : ['Language not specified']).map((language, index) => (
+              <span className="featured-song__chip featured-song__chip--language" key={`${language}-${index}`}>{language}</span>
+            ))}
+          </div>
+          <p className="song-card-description">{song.description || 'Explore this song and the story behind it.'}</p>
+        </div>
+        <Link aria-label={`Explore Song: ${song.title || 'Untitled song'}`} className="song-card__action" to={`/songs/${song.id}`}>
+          Explore Song <ArrowRight aria-hidden="true" size={16} />
+        </Link>
+      </article>
+    )
+  }
   if (variant === 'library') {
     const tags = [
       ...(song.languages || []).map((value) => ({ label: value, type: 'language' })),

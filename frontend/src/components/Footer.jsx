@@ -9,8 +9,8 @@ export default function Footer() {
         <Link aria-label="Shades of SG home" className="footer-brand" to="/">
           <BrandLogo className="brand-logo--footer" />
         </Link>
-        <p className="footer-tagline">Music, Memory &amp; Culture</p>
-        <p>Discover Singapore's culture through songs, stories, rhythm, and community memories.</p>
+        <p className="footer-tagline">Music &bull; Stories &bull; Community</p>
+        <p>Discover original music, local stories and shared experiences from Singapore.</p>
       </div>
 
       <nav aria-label="Explore" className="footer-column">

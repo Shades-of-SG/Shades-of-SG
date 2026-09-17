@@ -61,11 +61,7 @@ The shared team journal contains project-wide records. This personal journal ext
 
 The implementation plan assigned me two main feature areas.
 
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
-### Rose Task 3 — Song Metadata and Publishing
-========
 ### Creator Task 3 — Song Metadata and Publishing
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 My formal creator-side responsibilities included:
 
@@ -245,21 +241,13 @@ ChatGPT and image-generation support during wireframe discussions.
 I decided that:
 
 - the site should use a coherent dark theme instead of mixing unrelated light sections;
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - Rose should have a distinct creator segment rather than being placed awkwardly beside unrelated content;
-========
-- Creator should have a distinct creator segment rather than being placed awkwardly beside unrelated content;
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - public, registered, and creator users needed different navigation behaviour;
 - the Reflection Wall should feel personal and memory-led rather than like a statistics dashboard;
 - profile reflections should resemble a scrapbook or digital journal;
 - badges should feel like keepsakes rather than generic achievement icons;
 - the song-experience flow should lead naturally into play, learning, and reflection;
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - the creator portal should stay within creator routes rather than sending Rose into public pages.
-========
-- the creator portal should stay within creator routes rather than sending Creator into public pages.
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 ### Human oversight
 
@@ -861,11 +849,7 @@ Codex
 
 ### Objective
 
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 Connect the local seeded creator credential flow to the creator-side pages without exposing Rose's password in frontend code or tracked documentation.
-========
-Connect the local seeded creator credential flow to the creator-side pages without exposing Creator's password in frontend code or tracked documentation.
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 ### Prompt Summary
 
@@ -912,11 +896,7 @@ No direct user code modifications were made in this step.
 
 ### Final Outcome
 
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 Rose can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
-========
-Creator can now log in through the normal `/login` page using the creator seed account stored in `backend/.env`.
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 After successful login:
 
@@ -2502,11 +2482,7 @@ The work also aimed to establish a consistent legal-page design language: a comp
 
 ### Context
 
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 Before this task, the public footer displayed a Privacy Statement link that returned users to the homepage and a Terms label that did not lead to a completed legal page. The project already had a dark navy visual foundation, lavender and Rose accents, rounded components, shared public navigation, and a full footer, but it did not have a legal-page pattern.
-========
-Before this task, the public footer displayed a Privacy Statement link that returned users to the homepage and a Terms label that did not lead to a completed legal page. The project already had a dark navy visual foundation, lavender and Creator accents, rounded components, shared public navigation, and a full footer, but it did not have a legal-page pattern.
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 The first Terms implementation established the correct information architecture but initially felt too much like a documentation page. Its hero and typography were also too large for the amount of legal content, and the original quick-navigation pills competed visually with the section cards. The page therefore went through several screenshot-led refinements before becoming the reference design for the Privacy Policy.
 
@@ -2519,11 +2495,7 @@ I asked Codex to:
 - add sticky quick navigation for Acceptance of Terms, Community Guidelines, User Accounts, Reflections & User Content, Intellectual Property, Privacy, Limitation of Liability, and Contact;
 - write content specifically for an educational, community-driven Singapore music platform rather than generic placeholder legal copy;
 - present every major section in its own rounded card with purple headings, subtle borders, and generous spacing;
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - preserve the Shades of SG dark navy, lavender, Rose, rounded-component, and typography system;
-========
-- preserve the Shades of SG dark navy, lavender, Creator, rounded-component, and typography system;
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - enable smooth anchor scrolling and end with a continued-use acceptance note;
 - connect the page to the footer;
 - polish the page so it felt warmer, brighter, more editorial, and less like technical documentation;
@@ -2553,11 +2525,7 @@ Codex then refined the Terms design through several visual iterations:
 - added `aria-current="location"` to the active section link;
 - tracked the visible section with `IntersectionObserver` so the underline follows reading position;
 - alternated slate and indigo card backgrounds to avoid a wall of identical navy panels;
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - increased section-heading hierarchy and added narrow Rose dividers beneath headings;
-========
-- increased section-heading hierarchy and added narrow Creator dividers beneath headings;
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 - used two-digit lavender section numbers to create a clear reading sequence;
 - limited paragraph width, increased line height, and separated paragraphs for a calmer legal-reading experience;
 - retained responsive one-column cards and horizontal navigation on mobile;
@@ -2609,11 +2577,7 @@ I asked for brighter layering rather than replacing the dark theme. The final di
 
 I reviewed the hero through a screenshot and found it disproportionately tall and typographically dominant. I requested that the component itself be compacted, then clarified that typography throughout the page also needed to be smaller. I selected 14 pixels for navigation and legal copy and 15 pixels for section numbers. I later removed the document icon because the title and decorative background already communicated the page purpose without it.
 
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 For the Privacy Policy, I chose visual continuity over a separate redesign. The page copies the Terms structure and uses only subtle privacy-specific accents. I accepted shield and lock decoration at low opacity, but kept the palette within lavender, indigo, muted blue, and Rose rather than introducing unrelated greens.
-========
-For the Privacy Policy, I chose visual continuity over a separate redesign. The page copies the Terms structure and uses only subtle privacy-specific accents. I accepted shield and lock decoration at low opacity, but kept the palette within lavender, indigo, muted blue, and Creator rather than introducing unrelated greens.
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 I also reviewed the first scroll animation interaction and identified that quick-navigation clicks caused too many cards to reveal while the browser moved past them. I requested a less abrupt behaviour. The final solution distinguishes manual exploration from programmatic anchor navigation, allowing ordinary scroll reveals while preventing intermediate animation cascades during a quick jump.
 
@@ -2677,11 +2641,7 @@ I also reviewed the first scroll animation interaction and identified that quick
 
 Shades of SG now has a complete, coherent public legal experience. Terms & Conditions and Privacy Policy are real footer destinations rather than placeholders. Both pages share a compact branded hero, lightweight sticky navigation, active-section feedback, premium rounded cards, consistent numbering, readable 14-pixel body copy, responsive layouts, accurate platform-specific wording, and accessible contact actions.
 
-<<<<<<<< HEAD:docs/journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 The two pages feel like companions: Terms uses a warmer Rose music-and-community treatment, while Privacy uses cooler indigo and trust-oriented shield/lock details. Their interaction design supports both deliberate manual reading and fast section navigation. Manual scrolling produces calm per-card entrance motion, while quick-navigation clicks avoid revealing every intermediate section and instead focus attention on the selected destination.
-========
-The two pages feel like companions: Terms uses a warmer Creator music-and-community treatment, while Privacy uses cooler indigo and trust-oriented shield/lock details. Their interaction design supports both deliberate manual reading and fast section navigation. Manual scrolling produces calm per-card entrance motion, while quick-navigation clicks avoid revealing every intermediate section and instead focus attention on the selected destination.
->>>>>>>> origin/main:docs/journals/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md
 
 ### Remaining Work
 
@@ -5208,3 +5168,147 @@ The leaderboard filter panel was subsequently tightened to a four-column desktop
 4. `feat(rhythm): page playable songs and leaderboard options`
 5. `test(songs): cover pagination filters limits and ownership`
 6. `docs(songs): record pagination audit and rollout`
+
+
+## 2026-09-16 - Controlled Landing/Home UI/UX Upgrade
+
+AI assistance was used to inspect Home, shared cards/styles, data services and registered routes, then implement the supplied landing brief. Updated the hero and creator/song CTAs; made four journey cards accessible feature links; replaced the statistics section and its unused requests with listener/creator/community information; and added a landing-specific Featured Songs layout with concise metadata, creator links, clamped descriptions and missing/broken artwork fallbacks. Improved memory-card contrast, spacing, equal heights and focus, and connected previously missing Home like/discussion handlers to the existing services and discussion modal. Added responsive landing styles and reduced-motion carousel scrolling.
+
+Preserved API-loaded songs (limit 5/page 1) and reflections, both carousels, memory decorations/author anonymity/timestamps/engagement, song and creator routes, signed-in welcome/badges/best rhythm records, the Singapore hero image/overlay, logo, navbar and footer/legal links. Reflection backend rules, schemas and unrelated pages were unchanged; ownership tools remain on the Reflection Wall. Creator CTAs use the existing /apply/creator route and guest authentication guard.
+
+Validation: production build passed with the existing bundle-size warning; 21 focused landing/reflection tests and three Home app assertions passed; six Playwright tests passed at 1440, 768, 390 and 320 pixels, covering keyboard/card navigation, carousel controls, equal heights, discussions/focus restoration, likes, public/navbar/footer links, application access and Home refresh. Live desktop/tablet/mobile checks returned HTTP 200 with five songs and five reflections, zero horizontal overflow and no console/runtime errors when external assets were allowed. Full frontend tests passed 308/316; the same eight unrelated failures reproduced using the original Landing and App assertions. Full frontend lint reported seven existing unrelated errors and two warnings; targeted lint passed. No live content was changed by verification. Production hosting, real-account authentication/onboarding and live comment/like writes were not tested.
+
+
+### AI Tool Used
+
+Codex.
+
+### Objective and Prompt Summary
+
+The user requested the supplied ten-part controlled Landing/Home upgrade while preserving the existing visual identity, data fetching, routes and working interactions. The follow-up made documentation a required deliverable: inspect existing conventions, update affected current documents, retain the personal journal format, verify claims and report implementation and documentation together. Work was limited to Home and its directly related files; no next page or phase was started.
+
+### Implementation Approach and Preserved Constraints
+
+Codex inspected Landing, shared cards/carousels, styles, auth, reflection services/modal and App route guards before editing. The feature links reuse FeatureCard; Home selects a new SongCard featured variant so library/default cards remain unchanged. Dedicated Landing.css rules avoid an existing desktop media-rule nesting issue and keep responsive changes scoped. Count-statistics state/fetching was removed with the replacement information section. Reflection interactions reuse existing endpoints and the discussion modal, including busy guards and rollback; backend business rules were not changed. Home suppresses ownership tools in its public memory preview; edit/delete remain on the Reflection Wall. The original Singapore hero image/overlay, logo, palette, nav/footer/legal routes, five-song server preview, dynamic reflections and signed-in badges/best scores were deliberately retained.
+
+### User Direction and Review Status
+
+The supplied copy, destinations, preservation requirements and Home-only boundary came from the user. Codex made implementation and test choices within that scope. The follow-up explicitly required documentation completion; no claim is made that the user personally performed browser tests or accepted the final appearance.
+
+### Files Created
+
+- `frontend/src/pages/Landing.css`
+- `frontend/e2e/landing.spec.js`
+
+### Files Modified
+
+- Code/tests: `frontend/src/pages/Landing.jsx`, `frontend/src/components/FeatureCard.jsx`, `frontend/src/components/SongCard.jsx`, `frontend/src/components/Carousel.jsx`, `frontend/src/pages/Landing.test.jsx`, `frontend/src/App.test.jsx` (Home assertions only).
+- Documentation: `README.md`, `frontend/README.md`, `docs/README.md`, `docs/journals/README.md`, `docs/project/PROJECT_IMPLEMENTATION_PHASE.md`, `docs/project/OWNERSHIP_SPECIFICATION.md`, `docs/project/USE_CASE_SPECIFICATION.md` (UC-P01 and journal link), `docs/reference/ROUTE_INVENTORY.md`, `docs/guides/PLAYWRIGHT_TESTING.md`, and this journal.
+- No tracked files were deleted. No standalone changelog was found, so none was created. API/schema/deployment documents and historical journals/audits were not rewritten because their contracts and historical evidence were unchanged.
+
+### Problems Encountered and Resolutions
+
+- PowerShell blocked npm.ps1; commands were executed through npm.cmd.
+- Playwright Chromium was absent and its default cache was outside the writable workspace. Browser installation initially failed on filesystem/network restrictions; the browser was installed with authorised network access into the ignored frontend/node_modules/.cache/ms-playwright cache.
+- Existing Home memory buttons lacked handlers. Codex wired the current like/unlike services and shared discussion modal rather than changing reflection backend rules.
+- Carousel snap padding leaves a six-pixel inset at the first card. The browser assertion was corrected to account for that existing padding instead of requiring scrollLeft zero.
+- App tests expected the old heading and one Explore Songs link; only the affected Home assertions were updated for the new heading and two CTAs.
+- A Windows text round-trip corrupted the bullet eyebrow; HTML character entities restored the intended text. Files were checked for incidental encoding changes.
+- Sandbox network restrictions initially blocked external artwork. Authorised read-only live browser checks loaded the hero/cover assets; image decoding was awaited before final desktop capture. No console/runtime errors were reported in the final live desktop/tablet/mobile runs.
+- Two journal indexes and the use-case evidence link pointed to Ferlyn's obsolete filename; they now point to this existing file.
+- Full lint and eight unrelated tests remained failing. The same eight test failures reproduced with the original Landing/App assertions; no unrelated pages were modified to conceal them.
+
+### Verification Performed
+
+Commands actually executed during implementation (repository root unless stated otherwise):
+
+- `npm.cmd run build --prefix frontend`: passed; existing large-bundle warning remained.
+- `npm.cmd run test --prefix frontend -- src/pages/Landing.test.jsx src/components/ReflectionCard.test.jsx src/components/ReflectionDiscussionModal.test.jsx`: 21 passed.
+- `npm.cmd run test -- src/App.test.jsx -t 'renders the public landing shell|preserves an authenticated creator in User Mode across a direct root refresh|redirects guests away from the creator moderation route'` from frontend: 3 passed, 31 skipped.
+- `npm.cmd run test:e2e --prefix frontend -- landing.spec.js --reporter=line` with the project browser cache: final run 6 passed. Earlier attempts failed on the missing browser and the incorrect zero-scroll assertion; those attempts are not reported as passes.
+- `npm.cmd run test --prefix frontend`: 308 passed, 8 failed across 56 files. An original-Landing/App-assertion comparison across App, CreatorGenerationJobs and RegistrationScoreClaimFlow tests reproduced the same 8 failures (28 passed).
+- `npm.cmd run lint --prefix frontend`: 7 existing errors and 2 warnings on unrelated pages. `npm.cmd exec -- eslint src/pages/Landing.jsx src/pages/Landing.test.jsx src/App.test.jsx src/components/SongCard.jsx src/components/FeatureCard.jsx src/components/Carousel.jsx e2e/landing.spec.js` from frontend: passed. One follow-up attempt from the root used frontend-relative paths and failed to match files; rerunning from frontend passed.
+- `npm.cmd exec -- prettier --write frontend/src/pages/Landing.css` and `git diff --check`: completed; diff check passed.
+- Read-only live API/browser smoke scripts ran against localhost preview/backend. Song/reflection requests returned 200 with 5 rendered previews each at 1440, 768 and 390 pixels; horizontal overflow was zero and CTA heights were at least 44 pixels. Discussion opened/closed, comments loaded and Home refreshed. Screenshots were visually inspected; external image loading was checked with authorised network access. No live content was changed.
+
+### Documentation Accuracy and Final Outcome
+
+Current Home descriptions, removed-statistics references, new CTA entry points, component responsibilities and focused test commands were updated in the existing documents. Documented Home destinations were checked against App routes/guards, commands against package.json scripts, and feature descriptions against Landing, cards and the browser tests. Documentation-only checks and their outcome are recorded below. Implementation and documentation together describe a controlled Home upgrade; this does not certify production services or complete unrelated features.
+
+### Remaining Work and Recommended Next Step
+
+Review the Home appearance and diff, then perform production smoke checks with dedicated accounts before release. Real-account login/registration/onboarding, deployed SPA refresh behaviour, screen readers/real devices and live comment/like persistence were not tested. The 8 baseline frontend test failures, 7 lint errors/2 warnings, existing bundle-size warning and old merge markers elsewhere in this append-only journal remain outside this phase. No next-page upgrade is authorised by this work.
+
+
+### Documentation Follow-up Verification
+
+`node frontend/node_modules/.cache/landing-doc-check.cjs` passed: 10 affected documents, 44 relative file links, 9 Home route destinations, 5 referenced frontend package scripts and 7 implementation/feature checks. Older journal text is unchanged after normalising Git checkout line endings; an initial raw-byte comparison was unsuitable because HEAD and the Windows checkout use different line endings, so it was corrected to compare normalised text. `git diff --check` passed. Documentation changes do not add setup, API, database or deployment requirements. The only follow-up source change is a comment explaining why Home preview cards keep ownership edit/delete on the Reflection Wall. Runtime suites were not rerun for these documentation/comment-only edits; the earlier phase results above remain the actual executed results.
+
+
+## 2026-09-17 - Landing/Home Phase 1 Follow-up Polish
+
+### AI Tool Used
+
+Codex.
+
+### Objective and Prompt Summary
+
+The user requested a bounded polish of the existing uncommitted Landing/Home Phase 1 implementation: remove the audience-information section, refine Explore cards and Featured Song metadata/spacing, compact the creator CTA, preserve working interactions and visual identity, inspect genuine journal conflict artifacts, and complete accurate documentation. This is a follow-up to the 16 September entry, not a new phase. No other page upgrade was started.
+
+### Context and Implementation Approach
+
+Codex inspected the first-pass diff and documentation conventions before editing and saved a snapshot in the ignored frontend dependency cache. The public flow is now Hero, Explore, Featured Songs, Community Memories, creator CTA and Footer. The complete audience section and its dedicated styles/imports were removed without replacement. Explore retains four semantic full-card links with the same copy/routes; larger icons, subtle navy/purple/pink tints and hover/focus borders accompany an aria-hidden bottom-right arrow instead of destination labels. Featured Song cards retain dynamic artwork, creator links, category/languages, description, fallbacks and Explore Song. Category and individual languages use wrapping pills; missing values retain explicit fallbacks. Two-line description clamping, tighter spacing and removal of reserved short-description height reduce card height while the carousel keeps cards aligned. CTA vertical padding is 25% lower, with copy, routes, horizontal spacing and action hierarchy preserved; total height reduction varies with responsive text/button wrapping.
+
+### Preserved Functionality and Review Decisions
+
+The upgraded hero, Singapore image/overlay, logo, navbar/footer, legal/auth entry points, dynamic five-song/reflection reads, carousel controls, signed-in welcome/badges/best rhythm records, creator routes and existing authentication guards were retained. Community Memories markup and styles were intentionally preserved. The reflection handlers, shared discussion modal and like/unlike services were audited against Reflection Wall and backend permission/persistence rules: Home reuses existing functionality and optimistic UI orchestration; no backend rules or reflection functionality were added. The hero, memory markup, reflection handlers and CTA markup match the saved first-pass snapshot. SongCard library/default branches and the existing Carousel/App assertions were preserved. No API integration, schema, Supabase setup or unrelated page changed. The supplied instructions authorise the journal conflict cleanup; no claim is made that the user personally reviewed the appearance or ran tests.
+
+### Files Created, Modified and Deleted
+
+- No new tracked project files were created or deleted by this polish. Landing.css and landing.spec.js already existed in the uncommitted first-pass work.
+- Code/tests modified: frontend/src/pages/Landing.jsx, frontend/src/pages/Landing.css, frontend/src/pages/Landing.test.jsx, frontend/src/components/FeatureCard.jsx, frontend/src/components/SongCard.jsx and frontend/e2e/landing.spec.js.
+- Documentation modified: this journal, README.md, frontend/README.md, docs/project/PROJECT_IMPLEMENTATION_PHASE.md, docs/project/OWNERSHIP_SPECIFICATION.md and docs/project/USE_CASE_SPECIFICATION.md. The five non-journal documents previously described the removed audience section or destination-label prop, so only those inaccurate descriptions and affected current-document dates were corrected.
+- Documentation/journal indexes, route inventory and testing guide received no additional polish edits; their first-pass changes remain. No changelog was found or created. Historical first-pass results remain dated history; this entry supersedes its unresolved-merge-marker limitation.
+
+### Merge-Marker Inspection and Resolution
+
+Ten genuine unresolved conflict blocks were found, including seven- and eight-character markers; none were examples. Their alternatives differed only in Rose/Creator wording. The first block now uses the creator-role heading 'Creator Task 3 — Song Metadata and Publishing'. Four blocks retain the legitimate Rose account/person references: creator segment, portal navigation, seeded password objective and login outcome. Five retain Rose colour terminology in legal-page design notes. All valid older entries were preserved; the duplicate alternative lines and marker wrappers were removed. The verification comparison allows exactly these ten authorised resolutions plus the appended follow-up, and confirms no conflict markers remain.
+
+### Verification Performed
+
+Actual final commands from frontend unless stated otherwise:
+
+- npm.cmd exec -- eslint src/pages/Landing.jsx src/pages/Landing.test.jsx src/components/FeatureCard.jsx src/components/SongCard.jsx e2e/landing.spec.js: passed with no findings.
+- npm.cmd run build: passed; the existing chunk-size warning above 500 kB remains.
+- npm.cmd run test -- src/pages/Landing.test.jsx src/components/ReflectionCard.test.jsx src/components/ReflectionDiscussionModal.test.jsx: 24 passed across three files. Metadata coverage includes multiple, single, string, absent and empty-array language values, missing category and broken artwork; existing discussion/like/unlike/rollback checks remain.
+- npm.cmd run test -- src/App.test.jsx -t 'renders the public landing shell|preserves an authenticated creator in User Mode across a direct root refresh|redirects guests away from the creator moderation route': 3 passed, 31 skipped.
+- npm.cmd run test:e2e -- landing.spec.js --reporter=line with PLAYWRIGHT_BROWSERS_PATH pointing to frontend/node_modules/.cache/ms-playwright: 6 passed. The four layout cases cover 1440, 768, 390 and 320 pixels, card alignment, chip containment, focus, carousel navigation, discussion/like interactions, no horizontal overflow and refresh. Additional cases check all Home actions and existing navbar/footer routes, guest creator-application redirects, Login/Register entry routes and the registered-listener creator application.
+- node frontend/node_modules/.cache/landing-doc-check.cjs from repository root: passed before this append; 10 existing documents, 44 relative file links, 9 Home routes, 5 referenced package scripts, 7 feature checks and the exact 10 authorised conflict resolutions. The check is rerun after the append before completion.
+- git diff --check from repository root: passed before the append; rerun before completion.
+
+Read-only live checks used the local preview/backend, not production. Song/reflection endpoints returned 200 and rendered five previews each at all four widths. Overflow was zero; action heights remained 44-46 px. Existing discussion/comments loaded, Escape closed the modal and Home refreshed; no console/runtime errors were collected. Browser screenshots were visually inspected for desktop/tablet/mobile layout and loaded artwork. Heading checks found one h1 and the expected four public h2 sections; song images had meaningful alt text. Explore focus remained visible, arrows were decorative and reduced-motion computed styles disabled transitions, animations and transforms. Short-description comparison fixtures reduced aligned song-card heights by approximately 56-57 px (desktop 509.30 to 451.88 px); CTA padding reduced from 48 to 36 px at desktop, 30.72 to 23.04 px at tablet and 24 to 18 px at both mobile widths. These are fixture measurements, not claims that every live card has that height. No live like/comment writes or other content changes were performed.
+
+### Problems Encountered and Resolutions
+
+Temporary helper scripts initially failed on quoting, assumed Windows line endings and an incorrect working-directory path; those commands were corrected and rerun. UTF-8 reads and normalised line-ending comparisons avoided unintended content changes. Full-page screenshots at narrow widths did not paint offscreen lazy artwork reliably; separate visible-card captures awaited image decoding and confirmed loaded artwork. The previous journal-preservation checker rejected any older-text change by design; it now verifies only the ten explicitly authorised conflict resolutions plus the appended entry. External artwork checks used authorised read-only network access. No source regression or broken navigation was discovered in the executed focused checks.
+
+### Remaining Issues and Recommended Next Step
+
+Production hosting/SPA refresh, real-account login/registration/onboarding, screen readers/physical devices and live comment/like persistence were not verified. The first-pass full-suite evidence reported eight unrelated frontend test failures and full lint reported seven unrelated errors/two warnings; these broad checks were not rerun or repaired during this polish. The existing bundle-size warning remains. Review the Home diff and appearance, then perform dedicated-account production smoke checks before release. Stop after this Home Phase 1 follow-up; no next page or phase is authorised.
+
+### Final Documentation Verification
+
+The post-append documentation checker passed with the same 10 documents, 44 relative links, 9 routes, 5 scripts and 7 feature checks. It confirmed exactly 10 authorised conflict resolutions, preservation of the remaining first-pass journal text and no remaining conflict markers. The final scope comparison found exactly 12 polish-modified files and no unexpected changes. git diff --check passed after the follow-up entry was appended.
+
+
+### 2026-09-17 - Final Home Phase 1 Micro-polish
+
+**AI tool, task and user request:** Codex was asked to reduce excessive whitespace between major Home sections by approximately 15-20%, replace the footer positioning copy, verify responsive layouts, run targeted checks and update this existing Phase 1 entry. This is a final micro-polish, not a redesign, refactor or Phase 2.
+
+**Approach and files changed:** Updated frontend/src/pages/Landing.css outer section margins and bottom padding, frontend/src/components/Footer.jsx's two brand-copy strings, and this journal only. No project files were created or deleted. Current documentation was inspected; no other document required factual correction. The shared footer now displays 'Music • Stories • Community' and 'Discover original music, local stories and shared experiences from Singapore.' Wherever the existing shared footer is rendered, the same copy appears; its markup, logo, layout, styling and links remain unchanged.
+
+**Spacing and preservation:** Computed baseline spacing showed later-loaded App.css overriding the earlier Home margin rule. A more specific Home selector applies the requested outer spacing without editing shared App.css or card internals. Desktop margins changed from 88 to 72 px (18.2%); tablet/mobile margins changed from 60 to 49 px (18.3%). CTA-to-footer spacing changed from 64 to 52 px at desktop (18.8%) and 52 to 43 px at tablet/mobile (17.3%). The existing 820 px breakpoint and clamped desktop behaviour remain. Hero content, card internals, memory appearance/engagement, dynamic reads, navigation, authentication, carousels, focus/reduced-motion behaviour and all backend rules were preserved. No new functionality was introduced.
+
+**Verification actually performed:** From frontend, npm.cmd exec -- eslint src/components/Footer.jsx passed; npm.cmd run build passed with the existing bundle-size warning; npm.cmd run test -- src/pages/Landing.test.jsx passed 11/11; npm.cmd run test:e2e -- landing.spec.js --reporter=line passed 6/6 using the existing project Chromium cache. Browser measurements checked all five major-section transitions at 1440, 768, 390 and 320 px, the exact requested footer copy and zero horizontal overflow. Desktop/tablet/mobile screenshots were visually inspected: sections retain clear separation and cards/buttons remain readable and responsive. These additional layout captures used local preview API fixtures and deliberately blocked external images, so they verify spacing rather than live artwork/services. The existing Home E2E coverage also checked navigation, creator links/entry guards, discussion/likes, focus, carousel controls and refresh. A source comparison confirmed that only the two copy strings changed in Footer.jsx. git diff --check passed before the journal append and is rerun after it; the existing documentation accuracy checker is also rerun before completion.
+
+**Problems and limitations:** Temporary browser helpers initially waited for memories absent from the default fixture and encountered a working-directory path mismatch; the helper paths and reflection fixture were corrected and the final checks passed. No source regression was discovered. Production, physical devices, screen readers, real-account authentication and live persistence were not newly verified. Unrelated baseline failures were neither rerun nor repaired. The existing bundle-size warning remains. Review these three files to close Home Phase 1; no next page or Phase 2 was started.

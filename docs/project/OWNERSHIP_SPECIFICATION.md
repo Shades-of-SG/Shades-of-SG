@@ -1,6 +1,6 @@
 # Shades of SG – Page Ownership & Design Specification (MVP)
 
-**Last updated:** 8 August 2026
+**Last updated:** 17 September 2026 (Landing/Home only)
 **Document purpose:** Preserve the original page-ownership presentation while distinguishing original responsibility from later shared implementation and maintenance.
 
 ## 1. Product Overview
@@ -269,14 +269,15 @@ Administrator
 **Components:**
 - Guest/registered navbar
 - Hero section
-- Feature journey
-- Featured published songs
-- Reflection/community preview
+- Four accessible feature-navigation cards
+- Dynamic Featured Songs carousel with a landing-specific card variant
+- Dynamic pinned-memory carousel with existing likes/discussion interactions
+- Signed-in welcome, badges and best rhythm records
 - CTA sections
 - Footer
 - Loading and API-degraded states
 
-**Later shared work:** Ferlyn integrated current published-song lifecycle, statistics, authentication, and public profile behavior.
+**Later shared work:** Ferlyn integrated current published-song lifecycle, statistics, authentication, and public profile behavior. In the controlled September Landing/Home phase, Codex implemented the user-directed Home refinements and replaced the count-statistics section while preserving badge and rhythm records; original feature ownership remains unchanged.
 
 #### Home Page
 **Original Route:** `/home`

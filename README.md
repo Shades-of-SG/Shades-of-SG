@@ -20,6 +20,14 @@ Every guest or registered-user reflection starts `PENDING`. Registered identity 
 
 Creator ownership always derives from `songs.creator_id`. Generation jobs, scene segments, generated frames, lessons, trivia, scores/analytics, reflections, beatmaps, and collection links are authorised through that parent song. Frontend filtering is never an access-control boundary.
 
+## Landing/Home experience
+
+The shared Home route is `/`. Its Singapore-image hero introduces "Where Singapore's stories become music." Four full-card feature links lead to Songs Library, Learning Hub, Rhythm Game and Reflection Wall. The public flow continues from Explore directly to Featured Songs, Community Memories and the creator CTA; the audience-information and count-statistics sections are absent. Home no longer requests community or personal count statistics. Signed-in welcome, badges and best rhythm records remain.
+
+Featured Songs keeps the API-backed five-song preview and carousel, with creator-profile links, left-aligned category/language metadata, clamped descriptions and missing/broken-image fallbacks. "Memories from the Community" retains dynamic pinned-note cards, song associations, author/anonymous state, timestamps, likes and discussions. Explore Songs links to `/songs`; Share Your Music and Become a Creator link to the existing `/apply/creator` route, which requires an active registered account and sends guests through the existing login guard. The navbar, footer/legal links and dark navy/purple/pink identity are preserved.
+
+See the [route inventory](docs/reference/ROUTE_INVENTORY.md) for entry points and the [Playwright guide](docs/guides/PLAYWRIGHT_TESTING.md) for focused Home checks. This phase adds no API, database or deployment requirements.
+
 ## Local setup
 
 ```bash

@@ -1,6 +1,6 @@
 # Frontend route and navigation inventory
 
-Last updated: 8 August 2026
+Last updated: 16 September 2026 (Landing/Home entry points rechecked)
 
 Purpose: record the current React routes, access boundaries, entry points and page states. The inventory was rechecked against `frontend/src/App.jsx`; the branch name in the original audit note below is historical.
 
@@ -13,17 +13,17 @@ Audited against `frontend/src/App.jsx` on the `ferlyn-continued` branch. “Back
 | `/songs/:id` | Public; song must be published | `SongExperience` | Song cards/catalogue/preview; featured/recommended cards; learning song cards; creator/public-profile published-song cards; rhythm-results Back to Song | Navbar/footer plus Back to Songs on error | yes / partial-content fallbacks / n/a / yes |
 | `/songs/:id/trivia` | Public; song must be published | `TriviaHub` | Song Experience Start Trivia; Learning Hub song action | Navbar/footer plus Back to Song/Choose another song | yes / yes (questions unavailable) / n/a / yes |
 | `/songs/:id/playground` | Public; song must be published | `InstrumentPlayground` | Song Experience Open Playground; Learning Hub song action | Navbar/footer plus Back to Song/Choose another song | yes / partial instrument fallback / n/a / yes |
-| `/learning` | Public | `LearningHub` | Public navbar; footer; Landing Learn & Play card; Song Experience learning CTA; profile keepsake empty state | Navbar/footer | yes / yes / n/a / n/a |
+| `/learning` | Public | `LearningHub` | Public navbar; footer; Landing Explore the Story card; Song Experience learning CTA; profile keepsake empty state | Navbar/footer | yes / yes / n/a / n/a |
 | `/learning/heritage-vault` | Public | `HeritageVault` | Learning Hub Heritage Vault card; creator public-collection links | Navbar/footer and onward learning cards | no / yes / n/a / n/a |
 | `/learning/instrument-lab` | Public | `InstrumentDiscoveryLab` | Learning Hub card; Heritage Vault continue card | Navbar/footer and guided-lessons continuation | no / local fallback content / n/a / n/a |
 | `/learning/guided-lessons` | Public | `GuidedMusicLessons` | Learning Hub card; Heritage Vault and Instrument Lab continuation links | Navbar/footer | no / yes when lessons are unavailable / n/a / n/a |
-| `/rhythm-game` | Public | `RhythmHub` | Public navbar; footer; Landing rhythm feature; profile rhythm empty state; gameplay Exit; results Return to Rhythm Games | Navbar/footer | yes / yes / n/a / n/a |
+| `/rhythm-game` | Public | `RhythmHub` | Public navbar; footer; Landing Play the Rhythm card and signed-in best-record link; profile rhythm empty state; gameplay Exit; results Return to Rhythm Games | Navbar/footer | yes / yes / n/a / n/a |
 | `/rhythm-game/leaderboard` | Public; signed-in users may also receive their own rank; optional `songId` and `period` filters | `RhythmLeaderboard` | Rhythm Hub View Leaderboard; completed non-preview Rhythm Results | Navbar/footer; explicit Back to Rhythm Game; optional Play This Song | yes / yes / n/a / invalid filters surface an API error |
-| `/reflections` | Public; posting identity varies by account | `ReflectionWall` | Public navbar; footer; Landing reflection feature/community link; Heritage Vault CTAs; Song Experience and Rhythm Results reflection CTAs | Navbar/footer | yes / yes / contextual auth modal / invalid song query handled |
+| `/reflections` | Public; posting identity varies by account | `ReflectionWall` | Public navbar; footer; Landing Join the Conversation card and View all reflections link; Heritage Vault CTAs; Song Experience and Rhythm Results reflection CTAs | Navbar/footer | yes / yes / contextual auth modal / invalid song query handled |
 | `/creators/:creatorId` | Public unless creator profile is private; owner may preview | `PublicCreatorProfile` | `CreatorNameLink` wherever creator names render; Creator Profile Public Preview | Navbar/footer; owner Back to Creator Profile; error to Songs | yes / yes for songs, collections, reflections / n/a / yes |
 | `/users/:userId` | Public unless user profile is private; owner may preview | `PublicUserProfile` in wide `MainLayout` | Normal Profile Public preview | Navbar/footer; owner Back to Profile/Edit; error to Songs | yes / optional sections omitted when empty / n/a / yes |
 | `/profile` | Active `REGISTERED` or `CREATOR` account | `Profile` | Registered account dropdown; creator User Profile; suspended-creator continuation | Navbar/footer | yes / yes per profile section / redirect to Login / n/a |
-| `/apply/creator` | Active `REGISTERED` account only | `CreatorApplication` | Registered account dropdown | Navbar/footer; Return home after submit | yes / yes for application history / role redirect / n/a |
+| `/apply/creator` | Active `REGISTERED` account only | `CreatorApplication` | Registered account dropdown; Landing Share Your Music and Become a Creator | Navbar/footer; Return home after submit | yes / yes for application history / role redirect / n/a |
 | `/settings` | Active `REGISTERED` or `CREATOR` account | `Settings` | Registered/creator account menus; profile Edit Profile; creator shared-profile edit link; creator Settings navigation | Navbar/footer | yes / no / redirect to Login / n/a |
 | `/privacy` | Public | `PrivacyPolicy` | Footer; Register acceptance checkbox | Navbar/footer and section navigation | no / n/a / n/a / n/a |
 | `/terms` | Public | `TermsAndConditions` | Footer; Register acceptance checkbox | Navbar/footer and section navigation | no / n/a / n/a / n/a |
@@ -70,6 +70,23 @@ Audited against `frontend/src/App.jsx` on the `ferlyn-continued` branch. “Back
 - Page-level wrappers (`site-main`, `creator-main`, `.creator-page`, `.profile-page`, `.creator-profile`, and `.studio-page`) use the available width. Remaining `max-width` rules are confined to readable text, forms, modals, navigation bars, and the 1440px admin data canvas; none constrains the public or creator page root. `/users/:userId` now receives `site-main--wide`, matching public creator profiles.
 
 ---
+
+## Landing/Home actions (16 September 2026)
+
+| Action | Destination/behaviour |
+|---|---|
+| Hero/bottom Explore Songs; Discover Music; View all songs | `/songs` |
+| Share Your Music; Become a Creator | `/apply/creator`; active registered accounts only, guest redirect to `/login` through the existing guard |
+| Explore the Story | `/learning` |
+| Play the Rhythm | `/rhythm-game` |
+| Join the Conversation; View all reflections | `/reflections` |
+| Explore Song | `/songs/:id`, using the API Song ID |
+| Featured creator name | `/creators/:creatorId` when an ID is present; otherwise plain text |
+| Memory author | `/users/:userId` when non-anonymous author data is present |
+| View discussion | Existing discussion modal on Home; no new route |
+| Discussion Login | `/login`, with Home as the return location |
+
+Home no longer renders the count-statistics section. Signed-in badges/best rhythm records, the public navbar and footer/legal destinations remain. Memory ownership tools stay on `/reflections`.
 
 ## Backend API routes — AI Generation Pipeline
 

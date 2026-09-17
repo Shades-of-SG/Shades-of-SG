@@ -22,8 +22,8 @@ describe('App', () => {
       </AuthProvider>,
     )
 
-    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /explore songs/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /where singapore's stories become music/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /explore songs/i })[0]).toBeInTheDocument()
   })
 
   it('keeps registration success reachable after verification signs the user in', () => {
@@ -44,7 +44,7 @@ describe('App', () => {
 
     render(<AuthProvider><App /></AuthProvider>)
 
-    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /where singapore's stories become music/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open user menu for Rose/i })).toBeInTheDocument()
     expect(localStorage.getItem('authToken')).toBe('creator-token')
     expect(localStorage.getItem('activeMode')).toBe('user')
@@ -147,7 +147,7 @@ describe('App', () => {
     render(<AuthProvider><App /></AuthProvider>)
 
     await waitFor(() => expect(window.location.pathname).toBe('/'))
-    expect(screen.getByRole('heading', { level: 1, name: /discover singapore through music and memories/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /where singapore's stories become music/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /reflection moderation/i })).not.toBeInTheDocument()
   })
 

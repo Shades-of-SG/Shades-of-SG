@@ -1,32 +1,32 @@
-import { useEffect, useState } from 'react'
-import { Award, BookOpen, Drum, Flame, Gamepad2, HelpCircle, Headphones, Medal, MessageCircle, Music, Target, Trophy, Users } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { BookOpen, Drum, Flame, Headphones, Medal, MessageCircle, Target, Trophy } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import BadgeShelf from '../components/BadgeShelf'
 import Carousel from '../components/Carousel'
 import EmptyState from '../components/EmptyState'
 import FeatureCard from '../components/FeatureCard'
 import PageHeader from '../components/PageHeader'
 import ReflectionCard from '../components/ReflectionCard'
+import ReflectionDiscussionModal from '../components/ReflectionDiscussionModal'
 import RhythmStatCard from '../components/RhythmStatCard'
 import SongCard from '../components/SongCard'
-import StatCard from '../components/StatCard'
 import { useAuth } from '../context/AuthContext'
 import { getUserBadges } from '../services/badgeService'
 import Reveal from '../components/Reveal'
 import { getPublishedSongs } from '../services/publicSongService'
-import { getReflections } from '../services/reflectionService'
+import { getReflections, likeReflection, unlikeReflection } from '../services/reflectionService'
 import { getMyBestScores } from '../services/scoreService'
-import { getCommunityStats, getMyStats } from '../services/statsService'
-
-const initialCommunityStats = { usersCount: 0, songsCount: 0, reflectionsCount: 0 }
-const initialUserStats = { badgesCount: 0, triviaAttemptsCount: 0, gamePlaysCount: 0 }
+import './Landing.css'
 
 export default function Landing() {
   const { user, userProfile, token } = useAuth()
+  const navigate = useNavigate()
   const [songs, setSongs] = useState([])
   const [reflections, setReflections] = useState([])
-  const [communityStats, setCommunityStats] = useState(initialCommunityStats)
-  const [userStats, setUserStats] = useState(initialUserStats)
+  const [discussionReflection, setDiscussionReflection] = useState(null)
+  const [likeBusyIds, setLikeBusyIds] = useState(new Set())
+  const likeRequests = useRef(new Set())
+  const [interactionError, setInteractionError] = useState('')
   const [badges, setBadges] = useState(null)
   const [bestScores, setBestScores] = useState(undefined)
   const [loading, setLoading] = useState(true)
@@ -35,7 +35,7 @@ export default function Landing() {
   useEffect(() => {
     let active = true
 
-    Promise.all([getPublishedSongs({ limit: 5, page: 1 }), getReflections()])
+    Promise.all([getPublishedSongs({ limit: 5, page: 1 }), getReflections(token)])
       .then(([songPage, nextReflections]) => {
         if (!active) return
         setSongs((songPage.items || songPage).slice(0, 5))
@@ -44,20 +44,12 @@ export default function Landing() {
       .catch((nextError) => active && setError(nextError.message))
       .finally(() => active && setLoading(false))
 
-    getCommunityStats()
-      .then((data) => active && setCommunityStats({ ...initialCommunityStats, ...data }))
-      .catch(() => {})
-
     return () => { active = false }
-  }, [])
+  }, [token])
 
   useEffect(() => {
     if (!user || !token) return undefined
     let active = true
-
-    getMyStats(token)
-      .then((data) => active && setUserStats({ ...initialUserStats, ...data }))
-      .catch(() => {})
 
     getUserBadges(user.id, token)
       .then((data) => active && setBadges(data.slice(0, 3)))
@@ -76,6 +68,37 @@ export default function Landing() {
   const comboBest = bestScores?.maxCombo
   const rankBest = bestScores?.rank
   const displayName = userProfile?.profile?.displayName || user?.name
+  const closeDiscussion = useCallback(() => setDiscussionReflection(null), [])
+
+  function updateDiscussionReflection(nextReflection) {
+    setDiscussionReflection((current) => current?.id === nextReflection.id ? nextReflection : current)
+    setReflections((items) => items.map((item) => item.id === nextReflection.id ? nextReflection : item))
+  }
+
+  async function toggleReflectionLike(reflection) {
+    if (likeRequests.current.has(reflection.id)) return
+    likeRequests.current.add(reflection.id)
+    setLikeBusyIds((current) => new Set(current).add(reflection.id))
+    setInteractionError('')
+    const optimistic = {
+      ...reflection,
+      isLiked: !reflection.isLiked,
+      likeCount: Math.max(0, reflection.likeCount + (reflection.isLiked ? -1 : 1)),
+    }
+    updateDiscussionReflection(optimistic)
+    try {
+      const result = reflection.isLiked
+        ? await unlikeReflection(reflection.id, token)
+        : await likeReflection(reflection.id, token)
+      updateDiscussionReflection({ ...optimistic, isLiked: result.liked, likeCount: result.likeCount })
+    } catch (nextError) {
+      updateDiscussionReflection(reflection)
+      setInteractionError(nextError.message)
+    } finally {
+      likeRequests.current.delete(reflection.id)
+      setLikeBusyIds((current) => { const next = new Set(current); next.delete(reflection.id); return next })
+    }
+  }
 
   return (
     <div className="page-stack landing-page">
@@ -84,50 +107,50 @@ export default function Landing() {
       <section className="hero-panel">
         <div className="hero-panel__content">
           <PageHeader
-            description="Explore Singapore stories through published songs, cultural learning, rhythm, and shared memories."
-            eyebrow="Music • Memory • Culture"
-            title="Discover Singapore through music and memories"
+            description="Discover original songs from local creators, explore the stories behind them, play along and share the memories they bring back."
+            eyebrow="MUSIC &#8226; STORIES &#8226; COMMUNITY"
+            title="Where Singapore's stories become music."
           />
           <div className="hero-actions">
             <Link className="primary-link" to="/songs">
               Explore Songs
             </Link>
-            <a className="secondary-link" href="#journey">
-              Discover How It Works
-            </a>
+            <Link className="secondary-link" to="/apply/creator">
+              Share Your Music
+            </Link>
           </div>
         </div>
       </section>
 
       <section className="content-section journey-section" id="journey">
         <Reveal as="header" className="section-heading landing-heading-reveal">
-          <h2>Your journey through Singapore&rsquo;s music</h2>
-          <p>Listen, learn, play and reflect through one connected cultural experience.</p>
+          <h2>Explore Shades of SG</h2>
+          <p>Discover music, stories and experiences created around Singapore.</p>
         </Reveal>
         <div className="feature-row">
           {[
             {
-              description: 'Explore Singapore songs and the stories behind them.',
+              description: 'Explore original songs and the stories behind them.',
               icon: <Headphones />,
-              title: 'Listen & Discover',
+              title: 'Discover Music',
               to: '/songs',
             },
             {
-              description: 'Discover cultural instruments, traditions and interactive activities.',
+              description: "Learn about Singapore's music, culture and traditions.",
               icon: <BookOpen />,
-              title: 'Learn & Play',
+              title: 'Explore the Story',
               to: '/learning',
             },
             {
-              description: 'Play rhythm challenges inspired by featured songs.',
+              description: 'Try rhythm challenges inspired by featured songs.',
               icon: <Drum />,
-              title: 'Test Your Rhythm',
+              title: 'Play the Rhythm',
               to: '/rhythm-game',
             },
             {
-              description: 'Post a reflection and connect through shared experiences.',
+              description: 'Share memories and connect through community reflections.',
               icon: <MessageCircle />,
-              title: 'Share Your Memory',
+              title: 'Join the Conversation',
               to: '/reflections',
             },
           ].map((feature, index) => (
@@ -136,28 +159,6 @@ export default function Landing() {
             </Reveal>
           ))}
         </div>
-      </section>
-
-      <section className="content-section">
-        <Reveal as="header" className="landing-section-header landing-heading-reveal">
-          <div className="landing-section-header__row">
-            <h2>Stats</h2>
-          </div>
-        </Reveal>
-
-        {user ? (
-          <div className="feature-row stats-row" aria-label="Your statistics">
-            <StatCard description="Keepsakes you've collected so far." icon={<Award />} label="Badges Earned" value={userStats.badgesCount} />
-            <StatCard description="Trivia questions you've answered." icon={<HelpCircle />} label="Trivia Attempts" value={userStats.triviaAttemptsCount} />
-            <StatCard description="Rounds of the rhythm game you've played." icon={<Gamepad2 />} label="Rhythm Plays" value={userStats.gamePlaysCount} />
-          </div>
-        ) : (
-          <div className="feature-row stats-row" aria-label="Community statistics">
-            <StatCard description="Registered users exploring Shades of SG." icon={<Users />} label="Active Explorers" value={communityStats.usersCount} />
-            <StatCard description="Published songs available to explore." icon={<Music />} label="Heritage Songs" value={communityStats.songsCount} />
-            <StatCard description="Community reflections approved and shared." icon={<BookOpen />} label="Stories Shared" value={communityStats.reflectionsCount} />
-          </div>
-        )}
       </section>
 
       {user ? (
@@ -199,7 +200,7 @@ export default function Landing() {
               delay={index * 100}
               key={song.id}
             >
-              <SongCard song={song} />
+              <SongCard song={song} variant="featured" />
             </Reveal>
           )}
         />
@@ -218,13 +219,13 @@ export default function Landing() {
             <RhythmStatCard difficulty={scoreBest?.difficulty} icon={<Trophy />} label="Score" loading={rhythmLoading} songTitle={scoreBest?.songTitle} value={scoreBest?.score ?? 0} />
             <RhythmStatCard difficulty={accuracyBest?.difficulty} icon={<Target />} label="Accuracy" loading={rhythmLoading} songTitle={accuracyBest?.songTitle} suffix="%" value={accuracyBest ? Math.round(accuracyBest.accuracy) : 0} />
             <RhythmStatCard difficulty={comboBest?.difficulty} icon={<Flame />} label="Max Combo" loading={rhythmLoading} songTitle={comboBest?.songTitle} value={comboBest?.maxCombo ?? 0} />
-            <RhythmStatCard difficulty={rankBest?.difficulty} icon={<Medal />} isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '—'} />
+            <RhythmStatCard difficulty={rankBest?.difficulty} icon={<Medal />} isText label="Rank" loading={rhythmLoading} songTitle={rankBest?.songTitle} value={rankBest?.rank || '\u2014'} />
           </div>
         </section>
       ) : null}
 
       {!loading && !error && reflections.length > 0 ? (
-        <section className="content-section">
+        <section className="content-section landing-memories">
           <Reveal
             as="header"
             className="landing-section-header section-heading landing-heading-reveal"
@@ -249,22 +250,40 @@ export default function Landing() {
                 delay={index * 100}
                 key={reflection.id}
               >
-                <ReflectionCard reflection={reflection} />
+                {/* Keep ownership edit/delete tools on the Reflection Wall. */}
+                <ReflectionCard
+                  likeBusy={likeBusyIds.has(reflection.id)}
+                  onLike={toggleReflectionLike}
+                  onOpen={setDiscussionReflection}
+                  reflection={{ ...reflection, isOwner: false }}
+                />
               </Reveal>
             )}
           />
+          {interactionError ? <p role="alert">{interactionError}</p> : null}
         </section>
       ) : null}
 
       <Reveal as="section" className="landing-cta landing-cta-reveal">
         <div>
-          <h2>Every song carries a memory</h2>
-          <p>Discover the stories behind Singapore&rsquo;s music and share one of your own.</p>
+          <h2>Have a story worth hearing?</h2>
+          <p>Share your original music, connect with listeners and become part of Singapore's growing music story.</p>
         </div>
-        <Link className="primary-link" to="/songs">
-          Start Exploring Songs
-        </Link>
+        <div className="landing-cta__actions">
+          <Link className="primary-link" to="/songs">Explore Songs</Link>
+          <Link className="secondary-link" to="/apply/creator">Become a Creator</Link>
+        </div>
       </Reveal>
+      {discussionReflection ? (
+        <ReflectionDiscussionModal
+          onClose={closeDiscussion}
+          onLogin={() => navigate('/login', { state: { from: { pathname: '/' } } })}
+          onReflectionChange={updateDiscussionReflection}
+          reflection={discussionReflection}
+          token={token}
+          user={user}
+        />
+      ) : null}
     </div>
   )
 }

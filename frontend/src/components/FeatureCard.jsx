@@ -1,3 +1,4 @@
+import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function FeatureCard({ icon, title, description, to }) {
@@ -8,6 +9,7 @@ export default function FeatureCard({ icon, title, description, to }) {
       </span>
       <h3>{title}</h3>
       <p>{description}</p>
+      {to ? <ArrowRight aria-hidden="true" className="feature-card__arrow" size={18} /> : null}
     </>
   )
 

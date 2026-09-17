@@ -6,6 +6,10 @@ export default function Carousel({ items, renderItem, ariaLabel }) {
   const displayItems = items.slice(0, 5)
   const count = displayItems.length
 
+  function scrollBehavior() {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+  }
+
   function getStep() {
     const track = trackRef.current
     const first = itemRefs.current[0]
@@ -21,10 +25,10 @@ export default function Carousel({ items, renderItem, ariaLabel }) {
     if (!track) return
     const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1
     if (atEnd) {
-      track.scrollTo({ left: 0, behavior: 'smooth' })
+      track.scrollTo({ left: 0, behavior: scrollBehavior() })
       return
     }
-    track.scrollBy({ left: getStep(), behavior: 'smooth' })
+    track.scrollBy({ left: getStep(), behavior: scrollBehavior() })
   }
 
   function handlePrev() {
@@ -32,10 +36,10 @@ export default function Carousel({ items, renderItem, ariaLabel }) {
     if (!track) return
     const atStart = track.scrollLeft <= 1
     if (atStart) {
-      track.scrollTo({ left: track.scrollWidth, behavior: 'smooth' })
+      track.scrollTo({ left: track.scrollWidth, behavior: scrollBehavior() })
       return
     }
-    track.scrollBy({ left: -getStep(), behavior: 'smooth' })
+    track.scrollBy({ left: -getStep(), behavior: scrollBehavior() })
   }
 
   if (count === 0) return null

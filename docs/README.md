@@ -1,6 +1,6 @@
 # Shades of SG documentation
 
-Last updated: 8 August 2026
+Last updated: 16 September 2026 (Landing/Home documentation and journal link)
 
 This index separates current project documentation from historical evidence. The implementation, Sequelize models, and ordered SQL migrations remain the source of truth.
 
@@ -35,7 +35,7 @@ These files explain earlier decisions but do not override the current project do
 Attribution and individual records are preserved without consolidation or rewriting.
 
 - [Team AI development journal](journals/TEAM_AI_DEVELOPMENT_JOURNAL.md)
-- [Ferlyn's journal](journals/ferlyn/AI_ASSISTED_DEVELOPMENT_JOURNAL.md)
+- [Ferlyn's journal](journals/ferlyn/Ferlyn_AI_ASSISTED_DEVELOPMENT_JOURNAL.md)
 - [Lia's journal](journals/lia/AI_JOURNAL.md), [reflection](journals/lia/AI_REFLECTION.md), and [Claude logs](journals/lia/claude-logs/README_FIRST.md)
 - [Shermaine's journal](journals/shermaine/AI_DEVELOPMENT_JOURNAL.md)
 
