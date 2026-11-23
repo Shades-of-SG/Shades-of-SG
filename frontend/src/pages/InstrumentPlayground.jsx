@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
+import InstrumentIcon from '../components/shared/InstrumentIcon'
 import { enrichInstrumentForPlayback, getSongInstruments } from '../data/songExperienceInstrumentFallbacks'
 import { getPublishedSong } from '../services/publicSongService'
 
@@ -16,7 +18,7 @@ export default function InstrumentPlayground() {
     return () => { active = false }
   }, [id])
   if (loading) return <div className="page-stack"><p role="status">Loading song playground…</p></div>
-  if (error || !song) return <div className="page-stack"><div className="state-box" role="alert">{error || 'Published song not found.'}</div><Link to="/songs">Choose another song</Link></div>
+  if (error || !song) return <div className="page-stack"><div className="state-box" role="alert">{error || 'Published song not found.'}</div><Link className="inline-link" to="/songs">Choose another song</Link></div>
   const instruments = getSongInstruments(song)
 
   return (
@@ -28,38 +30,33 @@ export default function InstrumentPlayground() {
       />
       <section className="three-column">
         <SectionCard title="Instrument Selection">
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div className="playground-instrument-list">
             {instruments.map((instrument, index) => {
               const displayInstrument = enrichInstrumentForPlayback(instrument)
               const iconImage = instrument.imageUrl || instrument.iconUrl
               return (
                 <article
+                  className="playground-instrument-tile"
                   key={instrument.id || instrument.name || index}
-                  style={{
-                    alignItems: 'center',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--line)',
-                    borderRadius: '8px',
-                    display: 'grid',
-                    gap: '10px',
-                    gridTemplateColumns: '44px 1fr',
-                    padding: '12px',
-                  }}
                 >
                   {iconImage ? (
                     <img
                       alt={instrument.name}
+                      className="playground-instrument-thumb"
                       src={iconImage}
-                      style={{ borderRadius: '8px', height: '44px', objectFit: 'cover', width: '44px' }}
                     />
                   ) : (
-                    <span aria-hidden="true" style={{ fontSize: '2rem', textAlign: 'center' }}>
-                      {displayInstrument.icon || '🎵'}
+                    <span aria-hidden="true" className="playground-instrument-icon">
+                      <InstrumentIcon
+                        instrumentId={instrument.id || displayInstrument.id}
+                        instrumentName={instrument.name}
+                        size={28}
+                      />
                     </span>
                   )}
-                  <div>
+                  <div className="playground-instrument-meta">
                     <strong>{instrument.name}</strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: 1.45, margin: '4px 0 0' }}>
+                    <p>
                       {instrument.description || displayInstrument.description}
                     </p>
                   </div>
@@ -73,7 +70,9 @@ export default function InstrumentPlayground() {
           <p>{song.theme || 'Theme unavailable'} · {(song.languages || []).join(', ') || 'Language unavailable'}</p>
         </SectionCard>
         <SectionCard title="Continue">
-          <Link className="inline-link" to={`/songs/${song.id}`}>Back to Song Experience</Link>
+          <Link className="inline-link" to={`/songs/${song.id}`}>
+            <ArrowLeft aria-hidden="true" size={18} /> Back to Song Experience
+          </Link>
         </SectionCard>
       </section>
     </div>

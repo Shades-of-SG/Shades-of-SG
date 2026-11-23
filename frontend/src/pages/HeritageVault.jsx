@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowDown, Drum, MessageSquare, Music, PenLine } from 'lucide-react'
 import VaultFolder from '../components/vault/VaultFolder'
 import Reveal from '../components/Reveal'
 import { getApprovedFolders } from '../services/folderService'
@@ -16,7 +17,7 @@ const heritageExhibits = [
     items: [
       {
         caption: 'Bumboats crowd the Singapore River, once the beating heart of a busy trading port.',
-        icon: '🚤',
+        icon: 'river',
         id: 'before-independence-photo',
         title: 'Singapore River, 1950s',
         type: 'photo',
@@ -65,7 +66,7 @@ const heritageExhibits = [
       },
       {
         caption: 'Crowds gather at the Padang as word of independence spreads across the island.',
-        icon: '🏟️',
+        icon: 'landmark',
         id: 'independence-photo',
         title: 'The Padang, 1965',
         type: 'photo',
@@ -86,7 +87,7 @@ const heritageExhibits = [
     items: [
       {
         caption: 'Chinatown, Kampong Glam, and Little India each grew as distinct cultural enclaves.',
-        icon: '🗺️',
+        icon: 'map',
         id: 'multicultural-map',
         title: 'Ethnic Enclaves, 1960s',
         type: 'map',
@@ -153,7 +154,7 @@ const heritageExhibits = [
     items: [
       {
         caption: 'The Marina Bay skyline today, built on the foundations of the generations before it.',
-        icon: '🌃',
+        icon: 'skyline',
         id: 'today-photo',
         title: 'Marina Bay Skyline, Today',
         type: 'photo',
@@ -245,7 +246,7 @@ export default function HeritageVault() {
           nation, one vault collection at a time.
         </p>
         <a className="vault-hero__cta" href="#vault-collections">
-          Begin Exploring the Vault <span aria-hidden="true">↓</span>
+          Begin Exploring the Vault <ArrowDown aria-hidden="true" size={18} />
         </a>
       </section>
 
@@ -288,10 +289,10 @@ export default function HeritageVault() {
 
           <div className="vault-reflection__actions">
             <Link className="vault-reflection__primary" to="/reflections?compose=1">
-              <span aria-hidden="true">✍️</span> Share Your Reflection
+              <PenLine aria-hidden="true" size={20} /> Share Your Reflection
             </Link>
             <Link className="vault-reflection__secondary" to="/reflections">
-              <span aria-hidden="true">💬</span> Read Community Reflections
+              <MessageSquare aria-hidden="true" size={20} /> Read Community Reflections
             </Link>
           </div>
         </div>
@@ -303,13 +304,13 @@ export default function HeritageVault() {
 
         <div className="vault-continue__grid">
           <Link className="vault-continue__card" to="/learning/instrument-lab">
-            <span aria-hidden="true">🥁</span>
+            <span aria-hidden="true"><Drum size={28} /></span>
             <strong>Instrument Discovery Lab</strong>
             <p>Learn about the traditional instruments used across Singapore's diverse communities.</p>
           </Link>
 
           <Link className="vault-continue__card" to="/learning/guided-lessons">
-            <span aria-hidden="true">🎼</span>
+            <span aria-hidden="true"><Music size={28} /></span>
             <strong>Guided Music Lessons</strong>
             <p>Discover the songs that continue to unite Singaporeans every National Day.</p>
           </Link>

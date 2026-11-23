@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, Lightbulb, Pause, Play, RotateCcw, Trophy } from 'lucide-react'
 import LessonKeyboard from './LessonKeyboard'
 import SequenceProgress from './SequenceProgress'
 import { preloadInstrument } from '../../hooks/useInstrumentAudio'
@@ -44,7 +45,7 @@ export default function LessonPlayer({ difficultyKey, instrument, onBack, song }
   return (
     <section aria-label={`${song.title} lesson`} className="lesson-player">
       <button className="lesson-player__back" onClick={onBack} type="button">
-        <span aria-hidden="true">←</span> Back to Difficulty
+        <ArrowLeft aria-hidden="true" size={18} /> Back to Difficulty
       </button>
 
       <div className="lesson-player__stage">
@@ -58,15 +59,24 @@ export default function LessonPlayer({ difficultyKey, instrument, onBack, song }
           <div className="lesson-listen">
             <p className="lesson-listen__description">{song.description}</p>
             <button
+              aria-label={isPlaying ? '⏸ Pause Sample' : '▶ Play Sample'}
               className="lesson-transport__button"
               onClick={isPlaying ? pause : play}
               type="button"
             >
-              {isPlaying ? '⏸ Pause Sample' : '▶ Play Sample'}
+              {isPlaying ? (
+                <>
+                  <Pause aria-hidden="true" size={18} /> Pause Sample
+                </>
+              ) : (
+                <>
+                  <Play aria-hidden="true" size={18} /> Play Sample
+                </>
+              )}
             </button>
             <p className="lesson-listen__hint">Listen as many times as you like before you start learning it.</p>
             <button className="lesson-transport__button lesson-transport__button--secondary" onClick={handleStartLearning} type="button">
-              Start Learning the Notes <span aria-hidden="true">→</span>
+              Start Learning the Notes <ArrowRight aria-hidden="true" size={18} />
             </button>
           </div>
         )}
@@ -77,28 +87,28 @@ export default function LessonPlayer({ difficultyKey, instrument, onBack, song }
               <span style={{ width: `${percentComplete}%` }} />
             </div>
 
+            <SequenceProgress currentStepIndex={currentStepIndex} steps={variant.steps} />
+
             <div className="lesson-transport">
               {isPlaying ? (
-                <button className="lesson-transport__button" onClick={pause} type="button">
-                  ⏸ Pause
+                <button aria-label="⏸ Pause" className="lesson-transport__button" onClick={pause} type="button">
+                  <Pause aria-hidden="true" size={18} /> Pause
                 </button>
               ) : (
-                <button className="lesson-transport__button" onClick={play} type="button">
-                  ▶ Play
+                <button aria-label="▶ Play" className="lesson-transport__button" onClick={play} type="button">
+                  <Play aria-hidden="true" size={18} /> Play
                 </button>
               )}
               <button className="lesson-transport__button lesson-transport__button--secondary" onClick={restart} type="button">
-                ↺ Restart
+                <RotateCcw aria-hidden="true" size={18} /> Restart
               </button>
             </div>
 
             <LessonKeyboard instrument={instrument} steps={variant.steps} />
 
-            <SequenceProgress currentStepIndex={currentStepIndex} steps={variant.steps} />
-
             <div className="lesson-insight">
               <p className="lesson-insight__prompt">
-                <span aria-hidden="true">💡</span> Practice Tips
+                <Lightbulb aria-hidden="true" size={18} /> Practice Tips
               </p>
               {variant.practiceTips.map((tip) => (
                 <p className="lesson-insight__explanation" key={tip}>{tip}</p>
@@ -109,7 +119,9 @@ export default function LessonPlayer({ difficultyKey, instrument, onBack, song }
 
         {isComplete && (
           <div className="lesson-complete">
-            <p aria-hidden="true" className="lesson-complete__emoji">🎉</p>
+            <p aria-hidden="true" className="lesson-complete__emoji">
+              <Trophy size={36} />
+            </p>
             <h2>Lesson Complete!</h2>
             <p>
               You have played through {song.title} on {variant.label} difficulty.

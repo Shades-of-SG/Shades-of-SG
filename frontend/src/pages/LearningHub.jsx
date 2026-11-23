@@ -1,5 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  ArrowDown,
+  ArrowRight,
+  Building2,
+  CheckCircle2,
+  Drum,
+  Flag,
+  Landmark,
+  Minus,
+  Music,
+  Music2,
+  Plus,
+  Sparkles,
+  Users,
+} from 'lucide-react'
 import Reveal from '../components/Reveal'
 import useReveal from '../hooks/useReveal'
 import { getPublishedSongs } from '../services/publicSongService'
@@ -7,31 +22,31 @@ import { getPublishedSongs } from '../services/publicSongService'
 const milestones = [
   {
     description: 'On 9 August 1965, Singapore became a sovereign nation — the day modern Singapore was born.',
-    icon: '🇸🇬',
+    Icon: Flag,
     title: 'Singapore Gains Independence',
     year: '1965',
   },
   {
     description: 'A year later, the first National Day Parade brought citizens together to celebrate unity and pride.',
-    icon: '🎉',
+    Icon: Sparkles,
     title: 'First National Day Parade',
     year: '1966',
   },
   {
     description: 'Chinese, Malay, Indian, and other communities wove their traditions into one shared national identity.',
-    icon: '🤝',
+    Icon: Users,
     title: 'A Multicultural Identity Grows',
     year: '1970s–80s',
   },
   {
     description: 'Anthems like "Stand Up for Singapore" turned celebration into song, uniting generations through music.',
-    icon: '🎶',
+    Icon: Music2,
     title: 'National Day Songs Take Root',
     year: '1980s–90s',
   },
   {
     description: 'Every August, Singaporeans continue to honour this journey through parades, music, and shared memory.',
-    icon: '🏙️',
+    Icon: Building2,
     title: 'A Nation Still Growing',
     year: 'Today',
   },
@@ -41,7 +56,7 @@ const learningModules = [
   {
     cta: 'Explore',
     description: "Discover how Singapore's journey shaped today's National Day celebrations.",
-    icon: '🏛️',
+    Icon: Landmark,
     id: 'explorer',
     title: 'The Heritage Vault',
     to: '/learning/heritage-vault',
@@ -49,7 +64,7 @@ const learningModules = [
   {
     cta: 'Discover',
     description: "Listen to and interact with traditional instruments from Singapore's multicultural heritage.",
-    icon: '🥁',
+    Icon: Drum,
     id: 'playground',
     title: 'Instrument Discovery Lab',
     to: '/learning/instrument-lab',
@@ -57,7 +72,7 @@ const learningModules = [
   {
     cta: 'Start Learning',
     description: 'Learn to perform iconic National Day songs with guided lessons.',
-    icon: '🎼',
+    Icon: Music,
     id: 'lessons',
     title: 'Guided Music Lessons',
     to: '/learning/guided-lessons',
@@ -108,6 +123,7 @@ const quizQuestions = [
 function TimelineItem({ index, isOpen, milestone, onToggle }) {
   const panelId = `timeline-panel-${index}`
   const { isVisible, nodeRef } = useReveal()
+  const MilestoneIcon = milestone.Icon
 
   return (
     <li
@@ -115,7 +131,9 @@ function TimelineItem({ index, isOpen, milestone, onToggle }) {
       ref={nodeRef}
       style={{ transitionDelay: `${index * 80}ms` }}
     >
-      <span className="learning-timeline__icon" aria-hidden="true">{milestone.icon}</span>
+      <span className="learning-timeline__icon" aria-hidden="true">
+        <MilestoneIcon size={22} />
+      </span>
 
       <button
         aria-controls={panelId}
@@ -126,7 +144,9 @@ function TimelineItem({ index, isOpen, milestone, onToggle }) {
       >
         <span className="learning-timeline__year">{milestone.year}</span>
         <span className="learning-timeline__title">{milestone.title}</span>
-        <span className="learning-timeline__chevron" aria-hidden="true">{isOpen ? '−' : '+'}</span>
+        <span className="learning-timeline__chevron" aria-hidden="true">
+          {isOpen ? <Minus size={20} /> : <Plus size={20} />}
+        </span>
       </button>
 
       <div className={`learning-timeline__body ${isOpen ? 'is-open' : ''}`} id={panelId}>
@@ -139,15 +159,23 @@ function TimelineItem({ index, isOpen, milestone, onToggle }) {
 }
 
 function ModuleCard({ module }) {
+  const ModuleIcon = module.Icon
+
   return (
     <article className="learning-module-card">
-      <span className="learning-module-card__icon" aria-hidden="true">{module.icon}</span>
+      <span className="learning-module-card__icon" aria-hidden="true">
+        <ModuleIcon size={28} />
+      </span>
       <h3>{module.title}</h3>
       <p>{module.description}</p>
       {module.to ? (
-        <Link className="learning-module-card__cta" to={module.to}>{module.cta}</Link>
+        <Link className="learning-module-card__cta" to={module.to}>
+          {module.cta} <ArrowRight aria-hidden="true" size={18} />
+        </Link>
       ) : (
-        <button className="learning-module-card__cta" type="button">{module.cta}</button>
+        <button className="learning-module-card__cta" type="button">
+          {module.cta} <ArrowRight aria-hidden="true" size={18} />
+        </button>
       )}
     </article>
   )
@@ -238,14 +266,16 @@ export default function LearningHub() {
   return (
     <div className="learning-hub">
       <section className="learning-hero">
-        <p className="learning-hero__badge">🇸🇬 National Day Special</p>
+        <p className="learning-hero__badge">
+          <Flag aria-hidden="true" size={16} /> National Day Special
+        </p>
         <h1>Discover Singapore's Story, One Song at a Time</h1>
         <p className="learning-hero__intro">
           Every 9 August, Singapore celebrates the journey of a young nation that grew into a
           united, multicultural home. Explore the milestones, sounds, and stories behind it.
         </p>
         <button className="learning-hero__cta" onClick={handleBeginExploring} type="button">
-          Begin Exploring <span aria-hidden="true">&darr;</span>
+          Begin Exploring <ArrowDown aria-hidden="true" size={18} />
         </button>
       </section>
 
@@ -291,7 +321,7 @@ export default function LearningHub() {
         {songsLoading ? <p role="status">Loading published songs…</p> : null}
         {songError ? <div className="state-box" role="alert">{songError}</div> : null}
         {!songsLoading && !songError && publishedSongs.length === 0 ? <div className="state-box"><strong>No published songs yet</strong><p>Song-led learning will appear after a creator publishes a Song.</p></div> : null}
-        <div className="learning-modules__grid">
+        <div className="learning-modules__grid learning-songs__grid">
           {publishedSongs.map((song, index) => (
             <Reveal as="div" delay={index * 100} key={song.id}>
               <PublishedSongCard song={song} />
@@ -305,7 +335,7 @@ export default function LearningHub() {
           <p className="learning-fact__eyebrow">Did You Know?</p>
           <p className="learning-fact__text" key={factIndex}>{funFacts[factIndex]}</p>
           <button className="learning-fact__next" onClick={handleNextFact} type="button">
-            Next Fact <span aria-hidden="true">&rarr;</span>
+            Next Fact <ArrowRight aria-hidden="true" size={18} />
           </button>
         </div>
       </Reveal>
@@ -339,9 +369,12 @@ export default function LearningHub() {
         {quizChoice !== null && (
           <div className={`learning-quiz__feedback ${quizChoice === currentQuestion.correctIndex ? 'is-correct' : 'is-incorrect'}`}>
             <p>
-              {quizChoice === currentQuestion.correctIndex
-                ? 'Correct! 🎉'
-                : `Not quite — the answer is ${currentQuestion.options[currentQuestion.correctIndex]}.`}
+              {quizChoice === currentQuestion.correctIndex ? (
+                <>
+                  <CheckCircle2 aria-hidden="true" className="learning-quiz__feedback-icon" size={18} />
+                  {' '}Correct!
+                </>
+              ) : `Not quite — the answer is ${currentQuestion.options[currentQuestion.correctIndex]}.`}
               {' '}
               {currentQuestion.explanation}
             </p>
@@ -352,7 +385,7 @@ export default function LearningHub() {
         )}
 
         <button className="learning-quiz__next" onClick={handleNextQuestion} type="button">
-          Next Question <span aria-hidden="true">&rarr;</span>
+          Next Question <ArrowRight aria-hidden="true" size={18} />
         </button>
       </Reveal>
     </div>

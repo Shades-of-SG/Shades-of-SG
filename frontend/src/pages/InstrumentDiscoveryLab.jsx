@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowDown, ArrowRight } from 'lucide-react'
 import InstrumentCard from '../components/lab/InstrumentCard'
 import InstrumentPlayer from '../components/lab/InstrumentPlayer'
 import Reveal from '../components/Reveal'
@@ -56,7 +57,7 @@ export default function InstrumentDiscoveryLab() {
           play, and discover how each instrument brings its own voice to the nation's celebrations.
         </p>
         <button className="lab-hero__cta" onClick={handleStartExploring} type="button">
-          Start Exploring <span aria-hidden="true">↓</span>
+          Start Exploring <ArrowDown aria-hidden="true" size={18} />
         </button>
       </section>
 
@@ -98,7 +99,7 @@ export default function InstrumentDiscoveryLab() {
           Now discover how these sounds come together to create the songs that unite the nation.
         </p>
         <Link className="lab-continue__cta" to="/learning/guided-lessons">
-          Continue to Guided Music Lessons <span aria-hidden="true">→</span>
+          Continue to Guided Music Lessons <ArrowRight aria-hidden="true" size={18} />
         </Link>
       </Reveal>
     </div>

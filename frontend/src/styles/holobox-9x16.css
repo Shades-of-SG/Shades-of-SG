@@ -412,6 +412,626 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Wave 2 Anti-Slop Exhibition Layer (Learning Hub, Vault, Lab, Lessons, Extensions) */
+.learning-hero,
+.vault-hero,
+.lab-hero,
+.lesson-hero {
+  background: var(--surface-canvas, #0a0a1a);
+  background-image: none;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  box-shadow: none;
+}
+
+.learning-hero::before,
+.vault-hero::before,
+.learning-song-card::before,
+.vault-reflection__desk::before {
+  display: none;
+}
+
+.vault-hero {
+  border-color: rgba(212, 163, 89, 0.28);
+}
+
+.learning-hero h1,
+.vault-hero h1,
+.lab-hero h1,
+.lesson-hero h1 {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: #f8fafc;
+  font-family: var(--font-display, Georgia, serif);
+  -webkit-text-fill-color: currentColor;
+}
+
+.learning-hero__badge,
+.lab-hero__badge,
+.lesson-hero__badge {
+  align-items: center;
+  background: rgba(139, 92, 246, 0.14);
+  border: 1px solid rgba(139, 92, 246, 0.36);
+  color: var(--violet-soft, #c4b5fd);
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.vault-hero__badge {
+  align-items: center;
+  background: rgba(212, 163, 89, 0.14);
+  border: 1px solid rgba(212, 163, 89, 0.4);
+  color: var(--accent-heritage, #d4a359);
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.learning-hero__cta,
+.learning-module-card__cta,
+.learning-song-card__action--primary,
+.learning-fact__next,
+.learning-quiz__retry,
+.vault-hero__cta,
+.vault-reflection__primary,
+.lab-hero__cta,
+.lab-card__cta,
+.lab-player__melody,
+.lab-continue__cta,
+.lesson-hero__cta,
+.lesson-page .song-card__cta,
+.lesson-difficulty-card__cta,
+.lesson-transport__button:not(.lesson-transport__button--secondary),
+.lesson-complete__primary {
+  align-items: center;
+  background: var(--violet, #7c3aed);
+  border: 1px solid var(--violet-active, #8b5cf6);
+  box-shadow: none;
+  color: #ffffff;
+  display: inline-flex;
+  gap: 0.5rem;
+  justify-content: center;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease;
+}
+
+.learning-hero__cta:hover,
+.learning-module-card__cta:hover,
+.learning-song-card__action--primary:hover,
+.learning-fact__next:hover,
+.learning-quiz__retry:hover,
+.vault-hero__cta:hover,
+.vault-reflection__primary:hover,
+.lab-hero__cta:hover,
+.lab-card__cta:hover,
+.lab-player__melody:hover,
+.lab-continue__cta:hover,
+.lesson-hero__cta:hover,
+.lesson-page .song-card__cta:hover,
+.lesson-difficulty-card__cta:hover,
+.lesson-transport__button:not(.lesson-transport__button--secondary):hover,
+.lesson-complete__primary:hover {
+  background: var(--violet-active, #8b5cf6);
+  border-color: var(--violet-soft, #c4b5fd);
+  box-shadow: none;
+}
+
+.learning-hero__cta:active,
+.learning-module-card__cta:active,
+.learning-song-card__action:active,
+.learning-fact__next:active,
+.learning-quiz__option:active,
+.learning-quiz__next:active,
+.learning-quiz__retry:active,
+.vault-hero__cta:active,
+.vault-reflection__primary:active,
+.vault-reflection__secondary:active,
+.vault-continue__card:active,
+.lab-hero__cta:active,
+.lab-card__cta:active,
+.lab-card__preview:active,
+.lab-player__melody:active,
+.lab-continue__cta:active,
+.lesson-hero__cta:active,
+.lesson-page .song-card__cta:active,
+.lesson-difficulty-card__cta:active,
+.lesson-transport__button:active,
+.lesson-complete__primary:active,
+.lesson-complete__secondary:active {
+  transform: scale(0.98);
+}
+
+.learning-quiz__next,
+.vault-reflection__secondary,
+.lab-card__preview,
+.lab-player__back,
+.lab-compare__label,
+.lab-compare__switch,
+.lab-challenge,
+.lab-info h3,
+.lesson-player__back,
+.lesson-transport__button--secondary,
+.lesson-keyboard-practice__label,
+.lesson-insight__prompt,
+.lesson-complete__secondary,
+.lesson-page .song-card__difficulty-pill {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.45rem;
+}
+
+.learning-quiz__next,
+.vault-reflection__secondary,
+.lesson-transport__button--secondary,
+.lesson-complete__secondary {
+  justify-content: center;
+}
+
+.lab-info h3,
+.lab-compare__label,
+.lab-challenge,
+.lesson-keyboard-practice__label,
+.lesson-insight__prompt {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.learning-quiz__feedback-icon {
+  color: #4ade80;
+  display: inline-block;
+  margin-right: 0.25rem;
+  vertical-align: -0.2em;
+}
+
+/* Learning Hub unified matte slate hierarchy */
+.learning-timeline__track::before {
+  background: rgba(139, 92, 246, 0.35);
+}
+
+.learning-timeline__item:nth-child(n) .learning-timeline__icon {
+  background: var(--surface-interactive, #1e293b);
+  border: 2px solid var(--border-active, rgba(139, 92, 246, 0.45));
+  box-shadow: none;
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.learning-timeline__item.is-open .learning-timeline__icon {
+  background: rgba(124, 58, 237, 0.22);
+  border-color: var(--violet-active, #8b5cf6);
+  color: #f8fafc;
+}
+
+.learning-timeline__toggle {
+  background: var(--surface-raised, #162033);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.learning-timeline__toggle:hover {
+  background: var(--surface-interactive, #1e293b);
+  border-color: var(--border-active, rgba(139, 92, 246, 0.45));
+}
+
+.learning-timeline__year {
+  color: var(--accent-heritage, #d4a359);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.learning-module-card,
+.learning-song-card,
+.learning-fact__card,
+.learning-quiz {
+  background: var(--surface-raised, #162033);
+  background-image: none;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  box-shadow: none;
+}
+
+.learning-module-card:hover {
+  background: var(--surface-interactive, #1e293b);
+  border-color: var(--border-active, rgba(139, 92, 246, 0.45));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.26);
+}
+
+.learning-modules__grid > *:nth-child(n) .learning-module-card__icon {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.learning-song-card__cover-fallback {
+  background: var(--surface-base, #0f172a);
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.learning-fact__eyebrow {
+  color: var(--accent-heritage, #d4a359);
+}
+
+.learning-quiz__option {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+}
+
+/* Heritage Vault exhibition archive aesthetic */
+.vault-folder {
+  background: var(--surface-raised, #162033);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+}
+
+.vault-folder.is-open {
+  border-color: rgba(212, 163, 89, 0.48);
+  box-shadow: none;
+}
+
+.vault-folder__tab:hover {
+  background: rgba(212, 163, 89, 0.06);
+}
+
+.vault-folder__icon {
+  color: var(--accent-heritage, #d4a359);
+  display: inline-flex;
+  filter: none;
+}
+
+.vault-folder__number {
+  color: var(--accent-heritage, #d4a359);
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.vault-folder__chevron {
+  align-items: center;
+  color: var(--accent-heritage, #d4a359);
+  display: inline-flex;
+}
+
+.vault-folder__question {
+  border-left-color: var(--accent-heritage, #d4a359);
+  color: #e2e8f0;
+}
+
+.vault-item {
+  background: var(--surface-base, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.vault-item:hover {
+  border-color: rgba(212, 163, 89, 0.4);
+  box-shadow: none;
+}
+
+.vault-photo {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(212, 163, 89, 0.25);
+  color: var(--accent-heritage, #d4a359);
+  transform: none;
+}
+
+.vault-video-frame {
+  background: var(--surface-canvas, #0a0a1a);
+  border: 1px dashed rgba(212, 163, 89, 0.36);
+  color: var(--accent-heritage, #d4a359);
+}
+
+.vault-clipping {
+  background: var(--surface-base, #0f172a);
+  border-color: rgba(212, 163, 89, 0.25);
+  border-left-color: var(--accent-heritage, #d4a359);
+}
+
+.vault-clipping__masthead,
+.vault-quote cite,
+.vault-story h4,
+.vault-reflection__eyebrow,
+.vault-continue__eyebrow {
+  color: var(--accent-heritage, #d4a359);
+}
+
+.vault-quote {
+  border-left-color: var(--accent-heritage, #d4a359);
+}
+
+.vault-quote p,
+.vault-reflection__prompt {
+  color: #e2e8f0;
+}
+
+.vault-audio__toggle {
+  background: var(--violet, #7c3aed);
+  color: #ffffff;
+}
+
+.vault-audio__wave span {
+  background: rgba(212, 163, 89, 0.6);
+}
+
+.vault-fact__face--front {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(212, 163, 89, 0.35);
+  color: var(--accent-heritage, #d4a359);
+}
+
+.vault-fact__face--back {
+  background: var(--surface-raised, #162033);
+  border: 1px solid var(--border-active, rgba(139, 92, 246, 0.45));
+  color: #f8fafc;
+}
+
+.vault-reflection__desk,
+.vault-continue {
+  background: var(--surface-raised, #162033);
+  border: 1px solid rgba(212, 163, 89, 0.26);
+  box-shadow: none;
+}
+
+.vault-continue__card {
+  background: var(--surface-base, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+}
+
+.vault-continue__card:hover {
+  background: var(--surface-interactive, #1e293b);
+  border-color: rgba(212, 163, 89, 0.48);
+  box-shadow: none;
+}
+
+.vault-continue__card span {
+  align-items: center;
+  color: var(--accent-heritage, #d4a359);
+  display: inline-flex;
+  justify-content: center;
+}
+
+/* Instrument Discovery Lab unified slate + violet + heritage brass */
+.lab-card,
+.lab-player__stage,
+.lab-info,
+.lab-continue {
+  background: var(--surface-raised, #162033);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  box-shadow: none;
+}
+
+.lab-card:hover {
+  background: var(--surface-interactive, #1e293b);
+  border-color: var(--border-active, rgba(139, 92, 246, 0.45));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.26);
+}
+
+.lab-card__art,
+.lab-player__icon {
+  align-items: center;
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  border-radius: 16px;
+  color: var(--violet-soft, #c4b5fd);
+  display: inline-flex;
+  justify-content: center;
+}
+
+.lab-player__icon {
+  height: 60px;
+  width: 60px;
+}
+
+.lab-card__origin,
+.lab-player__origin,
+.lab-info__list dt {
+  color: var(--accent-heritage, #d4a359);
+}
+
+.lab-card__preview {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: var(--violet-soft, #c4b5fd);
+  justify-content: center;
+}
+
+.lab-player__back:hover,
+.lab-compare__switch {
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.lab-key {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  color: #f8fafc;
+}
+
+.lab-key:hover {
+  border-color: var(--violet-active, #8b5cf6);
+}
+
+.lab-key:active,
+.lab-key.is-active {
+  background: var(--violet, #7c3aed);
+  border-color: var(--violet-soft, #c4b5fd);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35);
+  color: #ffffff;
+  transform: scale(0.96);
+}
+
+.lab-key.is-active .lab-key__hint {
+  background: rgba(10, 10, 26, 0.35);
+  color: #f8fafc;
+}
+
+.lab-compare__chip {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+  color: #f8fafc;
+}
+
+.lab-compare__chip:hover {
+  border-color: var(--violet-active, #8b5cf6);
+}
+
+.lab-challenge.is-complete {
+  color: var(--violet-soft, #c4b5fd);
+}
+
+/* Guided Music Lessons unified slate + violet + heritage brass */
+.lesson-page .song-card,
+.lesson-difficulty-card,
+.lesson-player__stage {
+  background: var(--surface-raised, #162033);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  box-shadow: none;
+}
+
+.lesson-page .song-card:hover {
+  background: var(--surface-interactive, #1e293b);
+  border-color: var(--border-active, rgba(139, 92, 246, 0.45));
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.26);
+}
+
+.lesson-page .song-card__art {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.lesson-page .song-card__subtitle,
+.lesson-listen__eyebrow,
+.lesson-sequence__measure-label,
+.lesson-keyboard-practice__label {
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.lesson-listen__description {
+  margin-inline: auto;
+  max-width: min(42rem, 100%);
+}
+
+.lesson-player__back:hover,
+.lesson-complete__secondary:hover {
+  border-color: var(--violet-active, #8b5cf6);
+  color: var(--violet-soft, #c4b5fd);
+}
+
+.lesson-difficulty-card--medium {
+  border-color: rgba(139, 92, 246, 0.38);
+}
+
+.lesson-difficulty-card--hard {
+  border-color: rgba(212, 163, 89, 0.42);
+}
+
+.lesson-player__stage .progress-track span {
+  background: var(--violet-active, #8b5cf6);
+}
+
+.lesson-transport__button--secondary {
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(196, 181, 253, 0.35);
+  color: #f8fafc;
+}
+
+.lesson-player__stage .lab-key {
+  background: var(--surface-interactive, #1e293b);
+  border-color: rgba(139, 92, 246, 0.34);
+}
+
+.lesson-player__stage .lab-key:hover {
+  border-color: var(--violet-active, #8b5cf6);
+}
+
+.lesson-player__stage .lab-key--sharp {
+  background: var(--surface-canvas, #0a0a1a);
+  border-color: rgba(212, 163, 89, 0.42);
+}
+
+.lesson-player__stage .lab-key--sharp:hover {
+  border-color: var(--accent-heritage, #d4a359);
+}
+
+.lesson-player__stage .lab-key:active,
+.lesson-player__stage .lab-key.is-active,
+.lesson-player__stage .lab-key--sharp:active,
+.lesson-player__stage .lab-key--sharp.is-active {
+  background: var(--violet, #7c3aed);
+  border-color: var(--violet-soft, #c4b5fd);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35);
+  color: #ffffff;
+}
+
+.lesson-player__stage .lab-key.is-active .lab-key__hint {
+  background: rgba(10, 10, 26, 0.35);
+  color: #f8fafc;
+}
+
+.lesson-sequence__note {
+  background: var(--surface-interactive, #1e293b);
+  border-color: var(--border-subtle, rgba(255, 255, 255, 0.14));
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.lesson-sequence__note--chord {
+  border-color: rgba(212, 163, 89, 0.45);
+  color: var(--accent-heritage, #d4a359);
+}
+
+.lesson-sequence__note.is-active {
+  animation: none;
+  background: var(--violet, #7c3aed);
+  border-color: var(--violet-soft, #c4b5fd);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.32);
+  color: #ffffff;
+}
+
+.lesson-insight {
+  background: var(--surface-base, #0f172a);
+  border: 1px solid rgba(212, 163, 89, 0.32);
+}
+
+.lesson-insight__prompt,
+.lesson-complete__emoji {
+  color: var(--accent-heritage, #d4a359);
+}
+
+/* Instrument Playground (/songs/:id/playground) semantic tiles */
+.playground-instrument-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.playground-instrument-tile {
+  align-items: center;
+  background: var(--surface-base, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  display: grid;
+  gap: 0.875rem;
+  grid-template-columns: 52px minmax(0, 1fr);
+  padding: 0.875rem;
+}
+
+.playground-instrument-thumb {
+  border-radius: 10px;
+  height: 52px;
+  object-fit: cover;
+  width: 52px;
+}
+
+.playground-instrument-icon {
+  align-items: center;
+  background: var(--surface-interactive, #1e293b);
+  border: 1px solid rgba(139, 92, 246, 0.32);
+  border-radius: 10px;
+  color: var(--violet-soft, #c4b5fd);
+  display: inline-flex;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.playground-instrument-meta {
+  min-width: 0;
+}
+
+.playground-instrument-meta p {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0.25rem 0 0;
+}
+
 /* ==========================================================================
    2. Holobox 9:16 Portrait Exhibition Layer
    Matches both 1080x1920 (2x DPR) and 2160x3840 (1x DPR)
@@ -580,7 +1200,7 @@
   }
 
   /* Universal Wave 1 >= 56px Touch Targets & >= 12px Gaps */
-  button:not(.song-catalogue-row__select):not(.touch-lanes button),
+  :where(button:not(.song-catalogue-row__select):not(.touch-lanes button)),
   a.primary-link,
   a.secondary-link,
   a.inline-link,
@@ -1054,6 +1674,364 @@
   .rw-reflection-modal__footer button,
   .rw-modal-actions button,
   .report-dialog__actions button {
+    width: 100%;
+  }
+
+  /* ---- Wave 2 Portrait Full-Width Resets & Gutter Consistency ---- */
+  .learning-hub,
+  .learning-timeline__track,
+  .learning-fact__card,
+  .learning-quiz,
+  .vault-page,
+  .vault-folder-list,
+  .vault-reflection__desk,
+  .lab-page,
+  .lesson-page,
+  .lesson-player__stage {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .learning-hub,
+  .vault-page,
+  .lab-page,
+  .lesson-page {
+    padding: 1.5rem clamp(20px, 3.2dvw, 64px) 2rem;
+  }
+
+  .learning-modules__grid > *,
+  .vault-grid > *,
+  .lab-gallery__grid > *,
+  .lesson-library__grid > *,
+  .lesson-instrument-picker__grid > *,
+  .lesson-difficulty-picker__grid > *,
+  .playground-instrument-list > * {
+    min-width: 0;
+  }
+
+  /* ---- Page: Learning Hub (/learning) ---- */
+  .learning-hero,
+  .vault-hero,
+  .lab-hero,
+  .lesson-hero {
+    padding: clamp(28px, 3.5dvw, 56px);
+  }
+
+  .learning-hero h1,
+  .vault-hero h1,
+  .lab-hero h1,
+  .lesson-hero h1 {
+    max-width: min(46rem, 100%);
+  }
+
+  .learning-hero__intro,
+  .vault-hero__intro,
+  .lab-hero__intro,
+  .lesson-hero__intro {
+    max-width: min(42rem, 100%);
+  }
+
+  .learning-hub svg.lucide,
+  .vault-page svg.lucide,
+  .lab-page svg.lucide,
+  .lesson-page svg.lucide,
+  .page-stack a.inline-link svg.lucide {
+    flex-shrink: 0;
+    height: 1.15em;
+    width: 1.15em;
+  }
+
+  .learning-timeline__icon svg.lucide,
+  .vault-folder__icon svg.lucide {
+    height: 1.5rem;
+    width: 1.5rem;
+  }
+
+  .learning-module-card__icon svg.lucide,
+  .lab-card__art svg.lucide,
+  .lab-player__icon svg.lucide,
+  .lesson-page .song-card__art svg.lucide,
+  .vault-continue__card svg.lucide,
+  .playground-instrument-icon svg.lucide {
+    height: 2rem;
+    width: 2rem;
+  }
+
+  .vault-photo svg.lucide,
+  .vault-video-frame svg.lucide,
+  .lesson-complete__emoji svg.lucide {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  .learning-hero__cta,
+  .learning-module-card__cta,
+  .learning-song-card__action,
+  .learning-fact__next,
+  .learning-quiz__retry,
+  .learning-quiz__next {
+    min-height: max(56px, 3.5rem);
+  }
+
+  .learning-hero__cta,
+  .learning-fact__next,
+  .learning-quiz__next,
+  .learning-module-card__cta {
+    width: 100%;
+  }
+
+  .learning-timeline__item {
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+  }
+
+  .learning-timeline__track::before {
+    left: 1.75rem;
+  }
+
+  .learning-timeline__icon {
+    height: 3.5rem;
+    width: 3.5rem;
+  }
+
+  .learning-timeline__toggle {
+    min-height: max(64px, 4rem);
+    padding: 1rem 1.25rem;
+  }
+
+  .learning-modules__grid {
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .learning-modules__grid.learning-songs__grid {
+    gap: 1.25rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .learning-module-card__icon {
+    height: 4rem;
+    width: 4rem;
+  }
+
+  .learning-quiz__options {
+    gap: 0.875rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .learning-quiz__option {
+    min-height: max(64px, 4rem);
+    padding: 1rem 1.25rem;
+    width: 100%;
+  }
+
+  /* ---- Page: Heritage Vault (/learning/heritage-vault) ---- */
+  .vault-hero__cta {
+    min-height: max(56px, 3.5rem);
+    width: 100%;
+  }
+
+  .vault-folder__tab {
+    min-height: max(60px, 3.75rem);
+    padding: 1rem 1.25rem;
+  }
+
+  .vault-grid,
+  .vault-continue__grid {
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vault-photo {
+    aspect-ratio: 16 / 7;
+    max-height: max(220px, 14rem);
+  }
+
+  .vault-audio__toggle {
+    height: max(60px, 3.75rem);
+    min-height: max(60px, 3.75rem);
+    min-width: max(60px, 3.75rem);
+    width: max(60px, 3.75rem);
+  }
+
+  .vault-fact {
+    min-height: max(150px, 9.5rem);
+    width: 100%;
+  }
+
+  .vault-reflection__actions {
+    flex-direction: column;
+    gap: 0.875rem;
+    width: 100%;
+  }
+
+  .vault-reflection__primary,
+  .vault-reflection__secondary,
+  .vault-continue__card {
+    min-height: max(60px, 3.75rem);
+    width: 100%;
+  }
+
+  /* ---- Page: Instrument Discovery Lab (/learning/instrument-lab) ---- */
+  .lab-hero__cta,
+  .lab-continue__cta {
+    min-height: max(56px, 3.5rem);
+    width: 100%;
+  }
+
+  .lab-gallery__grid {
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lab-card__art {
+    height: 5.5rem;
+    width: 5.5rem;
+  }
+
+  .lab-card__actions {
+    width: 100%;
+  }
+
+  .lab-card__preview,
+  .lab-card__cta {
+    min-height: max(56px, 3.5rem);
+    width: 100%;
+  }
+
+  .lab-player__icon {
+    height: 4rem;
+    width: 4rem;
+  }
+
+  .lab-player__back,
+  .lab-compare__chip,
+  .lab-compare__switch {
+    min-height: max(56px, 3.5rem);
+    padding: 0.75rem 1rem;
+  }
+
+  .lab-player__layout {
+    gap: 1.5rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Upper Zone: Instrument Identity & Cultural Context; Hand-Reach Zone: Touch Pads + Melody CTA */
+  .lab-info {
+    order: -1;
+    position: static;
+  }
+
+  .lab-player__stage .lab-keyboard {
+    gap: 0.875rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .lab-player__stage .lab-key {
+    min-height: max(112px, 7rem);
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .lab-player__melody {
+    min-height: max(64px, 4rem);
+    width: 100%;
+  }
+
+  /* ---- Page: Guided Music Lessons (/learning/guided-lessons) ---- */
+  .lesson-hero__cta,
+  .lesson-page .song-card__cta,
+  .lesson-difficulty-card__cta,
+  .lesson-complete__primary,
+  .lesson-complete__secondary {
+    min-height: max(56px, 3.5rem);
+    width: 100%;
+  }
+
+  .lesson-page .song-card__art {
+    height: 5.25rem;
+    width: 5.25rem;
+  }
+
+  .lesson-player__back {
+    min-height: max(56px, 3.5rem);
+    padding: 0.75rem 1rem;
+  }
+
+  .lesson-instrument-picker__grid,
+  .lesson-library__grid {
+    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lesson-difficulty-picker__grid {
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lesson-complete__actions {
+    flex-direction: column;
+    gap: 0.875rem;
+    width: 100%;
+  }
+
+  .lesson-listen {
+    width: 100%;
+  }
+
+  .lesson-transport {
+    display: grid;
+    gap: 0.875rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .lesson-transport__button {
+    min-height: max(64px, 4rem);
+    width: 100%;
+  }
+
+  .lesson-player__stage .lab-keyboard {
+    gap: 0.875rem;
+    grid-template-columns: repeat(auto-fit, minmax(max(96px, 6rem), 1fr));
+  }
+
+  .lesson-player__stage .lab-key {
+    min-height: max(96px, 6rem);
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  /* ---- Pages: Trivia Hub & Instrument Playground (/songs/:id/trivia, /songs/:id/playground) ---- */
+  .three-column {
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .playground-instrument-tile {
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    min-height: max(72px, 4.5rem);
+    padding: 1rem;
+  }
+
+  .playground-instrument-icon,
+  .playground-instrument-thumb {
+    height: 3.5rem;
+    width: 3.5rem;
+  }
+
+  .page-stack a.inline-link {
+    align-items: center;
+    background: var(--surface-interactive, #1e293b);
+    border: 1px solid var(--border-active, rgba(139, 92, 246, 0.45));
+    border-radius: 12px;
+    color: #f8fafc;
+    display: inline-flex;
+    font-weight: 700;
+    gap: 0.5rem;
+    justify-content: center;
+    min-height: max(56px, 3.5rem);
+    padding: 0.875rem 1.25rem;
+    text-decoration: none;
     width: 100%;
   }
 }

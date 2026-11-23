@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import SectionCard from '../components/SectionCard'
 import { getPublishedSong } from '../services/publicSongService'
@@ -15,6 +16,6 @@ export default function TriviaHub() {
     return () => { active = false }
   }, [id])
   if (loading) return <div className="page-stack"><p role="status">Loading song trivia…</p></div>
-  if (error || !song) return <div className="page-stack"><div className="state-box" role="alert">{error || 'Published song not found.'}</div><Link to="/songs">Choose another song</Link></div>
-  return <div className="page-stack"><PageHeader description={`Trivia for ${song.title} by ${song.artist || 'an unlisted artist'}.`} eyebrow="Trivia" title={`${song.title} Trivia`} /><section className="three-column"><SectionCard title="Questions unavailable"><p>No published trivia questions are available for this Song yet.</p></SectionCard><SectionCard title="Song Context"><p>{song.description || 'No description is available.'}</p><p>{song.theme || 'Theme unavailable'} · {(song.languages || []).join(', ') || 'Language unavailable'}</p></SectionCard><SectionCard title="Continue"><Link className="inline-link" to={`/songs/${song.id}`}>Back to Song Experience</Link></SectionCard></section></div>
+  if (error || !song) return <div className="page-stack"><div className="state-box" role="alert">{error || 'Published song not found.'}</div><Link className="inline-link" to="/songs">Choose another song</Link></div>
+  return <div className="page-stack"><PageHeader description={`Trivia for ${song.title} by ${song.artist || 'an unlisted artist'}.`} eyebrow="Trivia" title={`${song.title} Trivia`} /><section className="three-column"><SectionCard title="Questions unavailable"><p>No published trivia questions are available for this Song yet.</p></SectionCard><SectionCard title="Song Context"><p>{song.description || 'No description is available.'}</p><p>{song.theme || 'Theme unavailable'} · {(song.languages || []).join(', ') || 'Language unavailable'}</p></SectionCard><SectionCard title="Continue"><Link className="inline-link" to={`/songs/${song.id}`}><ArrowLeft aria-hidden="true" size={18} /> Back to Song Experience</Link></SectionCard></section></div>
 }

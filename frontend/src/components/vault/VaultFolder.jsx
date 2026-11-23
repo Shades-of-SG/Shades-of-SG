@@ -1,3 +1,4 @@
+import { Folder, FolderOpen, Minus, Plus } from 'lucide-react'
 import useReveal from '../../hooks/useReveal'
 import VaultItem from './VaultItem'
 
@@ -17,12 +18,16 @@ export default function VaultFolder({ collection, isOpen, onToggle }) {
         onClick={() => onToggle(collection.id)}
         type="button"
       >
-        <span className="vault-folder__icon" aria-hidden="true">📂</span>
+        <span className="vault-folder__icon" aria-hidden="true">
+          {isOpen ? <FolderOpen size={22} /> : <Folder size={22} />}
+        </span>
         <span className="vault-folder__heading">
           <span className="vault-folder__number">Collection {collection.number}</span>
           <span className="vault-folder__title">{collection.title}</span>
         </span>
-        <span className="vault-folder__chevron" aria-hidden="true">{isOpen ? '−' : '+'}</span>
+        <span className="vault-folder__chevron" aria-hidden="true">
+          {isOpen ? <Minus size={20} /> : <Plus size={20} />}
+        </span>
       </button>
 
       <div className={`vault-folder__panel ${isOpen ? 'is-open' : ''}`} id={panelId}>

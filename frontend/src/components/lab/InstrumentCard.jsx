@@ -1,8 +1,13 @@
+import { Volume2 } from 'lucide-react'
+import InstrumentIcon from '../shared/InstrumentIcon'
+
 export default function InstrumentCard({ instrument, onPreloadFull, onPreview, onSelect }) {
   return (
     <article className="lab-card" onMouseEnter={() => onPreloadFull?.(instrument)}>
       <div className="lab-card__art" aria-hidden="true">
-        <span>{instrument.icon}</span>
+        <span>
+          <InstrumentIcon instrumentId={instrument.id} instrumentName={instrument.name} size={36} />
+        </span>
       </div>
 
       <div className="lab-card__body">
@@ -22,7 +27,7 @@ export default function InstrumentCard({ instrument, onPreloadFull, onPreview, o
           onFocus={() => onPreloadFull?.(instrument)}
           type="button"
         >
-          🔊 Preview
+          <Volume2 aria-hidden="true" size={18} /> Preview
         </button>
         <button className="lab-card__cta" onClick={() => onSelect(instrument.id)} type="button">
           Play Instrument

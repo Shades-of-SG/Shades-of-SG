@@ -1,6 +1,17 @@
+import { Check, Flag, Home, Mountain, Music2, Sparkles, Sun, Users } from 'lucide-react'
 import useSongProgress from '../../hooks/useSongProgress'
 
 const DIFFICULTY_KEYS = ['easy', 'medium', 'hard']
+
+const SONG_ICONS = {
+  'count-on-me': Users,
+  'giants-2026': Mountain,
+  home: Home,
+  'our-singapore': Flag,
+  'stand-up-for-singapore': Music2,
+  'tomorrows-here-today': Sun,
+  'youll-be-okay': Sparkles,
+}
 
 // Stage 2 of the guided lesson flow. Unlike the old LessonCard, a song here
 // never has a single fixed difficulty or a locked "coming soon" state —
@@ -9,11 +20,12 @@ const DIFFICULTY_KEYS = ['easy', 'medium', 'hard']
 export default function SongCard({ onSelect, song }) {
   const { progress } = useSongProgress(song.id)
   const completedCount = DIFFICULTY_KEYS.filter((key) => progress[key]?.isComplete).length
+  const SongIcon = SONG_ICONS[song.id] || Music2
 
   return (
     <article className="song-card">
       <div aria-hidden="true" className="song-card__art">
-        <span>{song.icon}</span>
+        <span><SongIcon size={32} /></span>
       </div>
 
       <div className="song-card__body">
@@ -31,7 +43,7 @@ export default function SongCard({ onSelect, song }) {
               key={key}
               role="listitem"
             >
-              {isComplete ? '✓ ' : ''}
+              {isComplete ? <Check aria-hidden="true" size={14} /> : null}
               {song.difficulties[key].label}
             </span>
           )

@@ -1,4 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  Circle,
+  Headphones,
+  Search,
+} from 'lucide-react'
+import InstrumentIcon from '../shared/InstrumentIcon'
 import useInstrumentAudio from '../../hooks/useInstrumentAudio'
 import { useAuth } from '../../context/AuthContext'
 import { completeInstrumentChallenge, getInstrumentChallengeProgress } from '../../services/instrumentPlaygroundService'
@@ -116,13 +126,15 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
   return (
     <section className="lab-player" aria-label={`${instrument.name} interactive player`}>
       <button className="lab-player__back" onClick={onBack} type="button">
-        <span aria-hidden="true">←</span> Back to the Gallery
+        <ArrowLeft aria-hidden="true" size={18} /> Back to the Gallery
       </button>
 
       <div className="lab-player__layout">
         <div className="lab-player__stage">
           <div className="lab-player__heading">
-            <span className="lab-player__icon" aria-hidden="true">{instrument.icon}</span>
+            <span className="lab-player__icon" aria-hidden="true">
+              <InstrumentIcon instrumentId={instrument.id} instrumentName={instrument.name} size={36} />
+            </span>
             <div>
               <p className="lab-player__origin">{instrument.origin}</p>
               <h2>{instrument.name}</h2>
@@ -152,12 +164,14 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
               onClick={() => playMelody(instrument, instrument.melody)}
               type="button"
             >
-              🎧 Hear a Traditional Melody
+              <Headphones aria-hidden="true" size={20} /> Hear a Traditional Melody
             </button>
           </div>
 
           <div className="lab-compare">
-            <p className="lab-compare__label">🔍 Compare with another instrument</p>
+            <p className="lab-compare__label">
+              <Search aria-hidden="true" size={18} /> Compare with another instrument
+            </p>
             <div className="lab-compare__row">
               {otherInstruments.map((candidate) => (
                 <button
@@ -167,7 +181,7 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
                   onClick={() => handlePreview(candidate)}
                   type="button"
                 >
-                  <span aria-hidden="true">{candidate.icon}</span>
+                  <InstrumentIcon instrumentId={candidate.id} instrumentName={candidate.name} size={18} />
                   {candidate.name}
                 </button>
               ))}
@@ -177,7 +191,7 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
               onClick={() => onSelectInstrument(otherInstruments[0]?.id)}
               type="button"
             >
-              Switch to {otherInstruments[0]?.name} →
+              Switch to {otherInstruments[0]?.name} <ArrowRight aria-hidden="true" size={18} />
             </button>
           </div>
 
@@ -190,7 +204,11 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
 
                 return (
                   <li className={`lab-challenge ${isComplete ? 'is-complete' : ''}`} key={challenge.id}>
-                    <span aria-hidden="true">{isComplete ? '✅' : '⬜'}</span>
+                    {isComplete ? (
+                      <CheckCircle2 aria-hidden="true" size={18} />
+                    ) : (
+                      <Circle aria-hidden="true" size={18} />
+                    )}
                     {challenge.label}
                   </li>
                 )
@@ -200,7 +218,9 @@ export default function InstrumentPlayer({ instrument, instruments, onBack, onSe
         </div>
 
         <aside className="lab-info" aria-label={`About the ${instrument.name}`}>
-          <h3>📖 Learn About the {instrument.name}</h3>
+          <h3>
+            <BookOpen aria-hidden="true" size={20} /> Learn About the {instrument.name}
+          </h3>
           <dl className="lab-info__list">
             <div>
               <dt>Origin</dt>

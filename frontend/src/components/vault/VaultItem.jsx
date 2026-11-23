@@ -1,10 +1,23 @@
 import { useState } from 'react'
+import { Building2, Camera, Film, Landmark, Lightbulb, Map, Pause, Play, Ship } from 'lucide-react'
+
+const MEDIA_ICONS = {
+  landmark: Landmark,
+  map: Map,
+  river: Ship,
+  skyline: Building2,
+}
+
+function renderMediaIcon(iconKey, FallbackIcon) {
+  const Icon = MEDIA_ICONS[iconKey] || FallbackIcon
+  return <Icon aria-hidden="true" size={28} />
+}
 
 function PhotoItem({ item }) {
   return (
     <figure className="vault-item vault-item--photo">
       <div className="vault-photo" aria-hidden="true">
-        <span>{item.icon || '\u{1F4F7}'}</span>
+        <span>{renderMediaIcon(item.icon, Camera)}</span>
       </div>
       <figcaption>
         <strong>{item.title}</strong>
@@ -18,7 +31,7 @@ function MapItem({ item }) {
   return (
     <figure className="vault-item vault-item--photo vault-item--map">
       <div className="vault-photo" aria-hidden="true">
-        <span>{item.icon || '\u{1F4CD}'}</span>
+        <span>{renderMediaIcon(item.icon, Map)}</span>
       </div>
       <figcaption>
         <strong>{item.title}</strong>
@@ -32,7 +45,7 @@ function VideoItem({ item }) {
   return (
     <figure className="vault-item vault-item--video">
       <div className="vault-video-frame">
-        <span aria-hidden="true">{'\u{1F3A5}'}</span>
+        <span aria-hidden="true"><Film size={28} /></span>
         <p>{item.title}</p>
       </div>
       <figcaption>{item.caption}</figcaption>
@@ -81,7 +94,7 @@ function AudioItem({ item }) {
           onClick={() => setIsPlaying((current) => !current)}
           type="button"
         >
-          {isPlaying ? '⏸' : '▶'}
+          {isPlaying ? <Pause aria-hidden="true" size={18} /> : <Play aria-hidden="true" size={18} />}
         </button>
         <div>
           <strong>{item.title}</strong>
@@ -112,7 +125,7 @@ function FactItem({ item }) {
     >
       <span className="vault-fact__inner">
         <span className="vault-fact__face vault-fact__face--front">
-          <span aria-hidden="true">{'\u{1F4A1}'}</span>
+          <span aria-hidden="true"><Lightbulb size={24} /></span>
           Did You Know?
         </span>
         <span className="vault-fact__face vault-fact__face--back">{item.text}</span>

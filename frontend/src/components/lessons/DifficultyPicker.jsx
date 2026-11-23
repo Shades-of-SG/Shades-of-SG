@@ -1,3 +1,4 @@
+import { ArrowLeft, Check } from 'lucide-react'
 import useSongProgress from '../../hooks/useSongProgress'
 import { formatDuration, getSequenceDurationMs } from '../../utils/songTiming'
 
@@ -13,7 +14,7 @@ export default function DifficultyPicker({ onBack, onSelect, song }) {
   return (
     <section aria-label={`Choose a difficulty for ${song.title}`} className="lesson-difficulty-picker">
       <button className="lesson-player__back" onClick={onBack} type="button">
-        <span aria-hidden="true">←</span> Back to Song Library
+        <ArrowLeft aria-hidden="true" size={18} /> Back to Song Library
       </button>
 
       <div className="learning-section-heading">
@@ -34,7 +35,11 @@ export default function DifficultyPicker({ onBack, onSelect, song }) {
                 {variant.bpm} BPM{variant.isEstimate ? ' (estimated)' : ''} · ~{formatDuration(durationMs)}
               </p>
               <button className="lesson-difficulty-card__cta" onClick={() => onSelect(key)} type="button">
-                {isComplete ? '✓ Replay' : 'Start'}
+                {isComplete ? (
+                  <>
+                    <Check aria-hidden="true" size={16} /> Replay
+                  </>
+                ) : 'Start'}
               </button>
             </article>
           )

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ArrowDown, ArrowLeft } from 'lucide-react'
 import DifficultyPicker from '../components/lessons/DifficultyPicker'
 import InstrumentPicker from '../components/lessons/InstrumentPicker'
 import LessonPlayer from '../components/lessons/LessonPlayer'
@@ -58,7 +59,7 @@ export default function GuidedMusicLessons() {
           them through interactive practice.
         </p>
         <button className="lesson-hero__cta" onClick={handleStartLearning} type="button">
-          Start Learning <span aria-hidden="true">↓</span>
+          Start Learning <ArrowDown aria-hidden="true" size={18} />
         </button>
       </section>
 
@@ -68,7 +69,7 @@ export default function GuidedMusicLessons() {
         {stage === 'song' && (
           <section aria-label="Choose a song" className="lesson-library">
             <button className="lesson-player__back" onClick={() => goToStage('instrument')} type="button">
-              <span aria-hidden="true">←</span> Back to Instruments
+              <ArrowLeft aria-hidden="true" size={18} /> Back to Instruments
             </button>
 
             <Reveal as="div" className="learning-section-heading">

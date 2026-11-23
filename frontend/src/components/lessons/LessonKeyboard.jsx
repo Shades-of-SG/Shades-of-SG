@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Music2 } from 'lucide-react'
 import useInstrumentAudio from '../../hooks/useInstrumentAudio'
 
 // Enough single-character keys to cover every note any lesson difficulty
@@ -62,7 +63,9 @@ export default function LessonKeyboard({ instrument, steps }) {
 
   return (
     <div className="lesson-keyboard-practice">
-      <p className="lesson-keyboard-practice__label">🎹 Try it yourself — click a key or press its letter</p>
+      <p className="lesson-keyboard-practice__label">
+        <Music2 aria-hidden="true" size={18} /> Try it yourself — Tap a key to play
+      </p>
       <div aria-label={`${instrument.name} notes for this lesson`} className="lab-keyboard" role="group">
         {notes.map((note) => (
           <button
