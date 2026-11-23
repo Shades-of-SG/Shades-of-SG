@@ -109,7 +109,6 @@ export default function RhythmLeaderboard() {
   return (
     <div className="page-stack rhythm-leaderboard-page">
       <header className="rhythm-leaderboard-header">
-        <p className="eyebrow">Rhythm Game</p>
         <h1>Leaderboard</h1>
         <p>Compare each player&apos;s best result on the same song, difficulty, and time period.</p>
       </header>

@@ -264,7 +264,7 @@ export default function ReflectionWall() {
   return (
     <div className="rw-board-page">
       <section className="rw-heading">
-        <h1 style={{ color: 'rgb(112, 64, 219)' }}>Reflection Wall</h1>
+        <h1>Reflection Wall</h1>
         <p>Share the memories, places, and feelings that Singapore's songs bring back to you.</p>
       </section>
 

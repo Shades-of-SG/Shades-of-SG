@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Maximize, Minimize, Subtitles } from 'lucide-react'
+import './CustomVideoPlayer.css'
 
 /**
  * A reusable video player with custom controls, time-synced captions,
@@ -12,126 +13,6 @@ import { Play, Pause, SkipBack, SkipForward, Maximize, Minimize, Subtitles } fro
  * @param {() => void} [props.onPlay] - Called when video starts playing
  * @param {() => void} [props.onPause] - Called when video pauses
  */
-
-/* ── Inline style objects (mirroring VideoEditor dark-panel aesthetic) ── */
-const styles = {
-  wrapper: {
-    position: 'relative',
-    width: '100%',
-    background: '#000',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    border: '1px solid #1e293b',
-    boxShadow: '0 25px 50px -12px rgba(0,0,0,.5)',
-  },
-  videoContainer: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: '16 / 9',
-    overflow: 'hidden',
-    background: '#000',
-  },
-  video: {
-    display: 'block',
-    width: '100%',
-    height: '100%',
-    aspectRatio: '16 / 9',
-    objectFit: 'contain',
-    cursor: 'pointer',
-    background: '#000',
-  },
-  captionOverlay: {
-    position: 'absolute',
-    bottom: '20px',
-    left: 0,
-    right: 0,
-    display: 'flex',
-    justifyContent: 'center',
-    padding: '0 16px',
-    pointerEvents: 'none',
-    transition: 'bottom 0.3s ease',
-  },
-  captionText: {
-    color: '#ffffff',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: '8px 20px',
-    borderRadius: '10px',
-    fontSize: 'clamp(1rem, 2.2vw, 1.25rem)',
-    fontWeight: 700,
-    letterSpacing: '0.025em',
-    textShadow: '0 2px 6px rgba(0, 0, 0, 0.95)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.6)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
-    textAlign: 'center',
-    maxWidth: '90%',
-    margin: 0,
-    lineHeight: 1.4,
-  },
-  controlsBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '10px 16px',
-    background: 'rgba(15,23,42,.9)',
-    borderTop: '1px solid #1e293b',
-  },
-  controlBtn: {
-    padding: '8px',
-    borderRadius: '8px',
-    background: 'transparent',
-    border: 'none',
-    color: '#94a3b8',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'color 150ms ease',
-  },
-  playBtn: {
-    padding: '10px',
-    borderRadius: '50%',
-    background: '#7c3aed',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 10px 15px -3px rgba(124,58,237,.25)',
-    transition: 'transform 100ms ease',
-  },
-  scrubberContainer: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    position: 'relative',
-    paddingLeft: 0,
-    paddingRight: 0,
-    marginLeft: 0,
-    marginRight: 0,
-  },
-  scrubber: {
-    width: '100%',
-    margin: 0,
-    padding: 0,
-    appearance: 'none',
-    WebkitAppearance: 'none',
-    accentColor: '#7c3aed',
-    cursor: 'pointer',
-    height: '4px',
-    borderRadius: '2px',
-    outline: 'none',
-    left: 0,
-    marginLeft: 0,
-  },
-  timeDisplay: {
-    fontSize: '0.75rem',
-    color: '#64748b',
-    fontFamily: 'monospace',
-    fontVariantNumeric: 'tabular-nums',
-    whiteSpace: 'nowrap',
-  },
-}
 
 function formatTime(secs) {
   if (!Number.isFinite(secs)) return '0:00'
@@ -285,37 +166,35 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
 
   return (
     <div
-      ref={wrapperRef}
-      style={{ ...styles.wrapper, cursor: cursorStyle }}
+      className="custom-video-player"
       onMouseMove={isFullscreen ? handleMouseMove : undefined}
+      onPointerDown={isFullscreen ? handleMouseMove : undefined}
+      ref={wrapperRef}
+      style={{ cursor: cursorStyle }}
     >
       {/* ── Video Element ── */}
-      <div style={styles.videoContainer}>
+      <div className="custom-video-player__stage">
         <video
+          className={`custom-video-player__video${isFullscreen ? ' is-fullscreen' : ''}`}
+          onClick={togglePlay}
+          onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}
+          onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setCurrentTime(0) }}
+          onPause={() => { setIsPlaying(false); onPause?.() }}
+          onPlay={() => { setIsPlaying(true); onPlay?.() }}
+          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+          playsInline
+          poster={poster}
           ref={videoRef}
           src={src}
-          poster={poster}
-          playsInline
-          onClick={togglePlay}
-          onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-          onLoadedMetadata={(e) => { setDuration(e.currentTarget.duration); setCurrentTime(0) }}
-          onPlay={() => { setIsPlaying(true); onPlay?.() }}
-          onPause={() => { setIsPlaying(false); onPause?.() }}
-          onEnded={() => { setIsPlaying(false); setCurrentTime(0) }}
-          style={{
-            ...styles.video,
-            ...(isFullscreen ? { height: '100vh', objectFit: 'contain' } : {}),
-          }}
         />
 
         {/* ── Caption Overlay ── */}
         {showCaptions && activeCaption && (
-          <div style={{
-            ...styles.captionOverlay,
-            bottom: (isFullscreen && controlsVisible) ? '80px' : '20px',
-            opacity: controlsVisible || !isFullscreen ? 1 : 0.9,
-          }}>
-            <p style={styles.captionText}>
+          <div
+            className={`custom-video-player__captions${isFullscreen && controlsVisible ? ' is-fullscreen-controls' : ''}`}
+            style={{ opacity: controlsVisible || !isFullscreen ? 1 : 0.9 }}
+          >
+            <p className="custom-video-player__caption-text">
               {activeCaption.text}
             </p>
           </div>
@@ -323,102 +202,107 @@ export default function CustomVideoPlayer({ src, transcriptionSegments = null, p
 
         {/* ── Fullscreen Toggle (top-right) ── */}
         <button
+          aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          className="custom-video-player__fs-toggle"
           onClick={toggleFullscreen}
-          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           style={{
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            background: 'rgba(0,0,0,0.6)',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '8px',
-            color: '#fff',
-            cursor: 'pointer',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(4px)',
-            transition: 'opacity 0.3s ease',
             opacity: controlsVisible ? 1 : 0,
             pointerEvents: controlsVisible ? 'auto' : 'none',
           }}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          type="button"
         >
           {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
         </button>
       </div>
 
       {/* ── Controls Bar ── */}
-      <div style={{
-        ...styles.controlsBar,
-        ...(isFullscreen ? {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 20,
-          background: 'rgba(0,0,0,0.85)',
-          borderTop: 'none',
-          padding: '14px 16px',
-          transition: 'opacity 0.3s ease, transform 0.3s ease',
+      <div
+        className={`custom-video-player__controls${isFullscreen ? ' is-fullscreen' : ''}`}
+        style={isFullscreen ? {
           opacity: controlsVisible ? 1 : 0,
           transform: controlsVisible ? 'translateY(0)' : 'translateY(100%)',
           pointerEvents: controlsVisible ? 'auto' : 'none',
-        } : {}),
-      }}>
+        } : undefined}
+      >
         {/* Skip Back */}
-        <button onClick={handleSkipBack} style={styles.controlBtn} title="Back 5s">
+        <button
+          aria-label="Back 5s"
+          className="custom-video-player__btn"
+          onClick={handleSkipBack}
+          title="Back 5s"
+          type="button"
+        >
           <SkipBack size={18} />
         </button>
 
         {/* Play / Pause */}
-        <button onClick={togglePlay} style={styles.playBtn} title={isPlaying ? 'Pause' : 'Play'}>
+        <button
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          className="custom-video-player__play"
+          onClick={togglePlay}
+          title={isPlaying ? 'Pause' : 'Play'}
+          type="button"
+        >
           {isPlaying ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: '2px' }} />}
         </button>
 
         {/* Skip Forward */}
-        <button onClick={handleSkipForward} style={styles.controlBtn} title="Forward 5s">
+        <button
+          aria-label="Forward 5s"
+          className="custom-video-player__btn"
+          onClick={handleSkipForward}
+          title="Forward 5s"
+          type="button"
+        >
           <SkipForward size={18} />
         </button>
 
         {/* CC Toggle (only if we have caption data) */}
         {hasCaptions && (
           <button
+            aria-label={showCaptions ? 'Hide Captions' : 'Show Captions'}
+            aria-pressed={showCaptions}
+            className={`custom-video-player__btn${showCaptions ? '' : ' is-captions-off'}`}
             onClick={() => setShowCaptions(prev => !prev)}
-            style={{ ...styles.controlBtn, color: showCaptions ? '#e2e8f0' : '#64748b' }}
             title={showCaptions ? 'Hide Captions' : 'Show Captions'}
+            type="button"
           >
             <Subtitles size={18} />
           </button>
         )}
 
         {/* Time */}
-        <span style={styles.timeDisplay}>
+        <span className="custom-video-player__time">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
 
         {/* Scrubber Container */}
-        <div style={styles.scrubberContainer}>
+        <div className="custom-video-player__scrubber-wrap">
           <input
-            type="range"
-            min="0"
-            max={duration || 0}
-            step="0.1"
-            value={currentTime}
-            onChange={handleSeek}
             aria-label="Video progress"
             className="custom-video-scrubber"
+            max={duration || 0}
+            min="0"
+            onChange={handleSeek}
+            step="0.1"
             style={{
-              ...styles.scrubber,
               background: `linear-gradient(90deg, #7c3aed ${duration ? (currentTime / duration) * 100 : 0}%, rgba(255, 255, 255, 0.2) ${duration ? (currentTime / duration) * 100 : 0}%)`,
             }}
+            type="range"
+            value={currentTime}
           />
         </div>
 
         {/* Fullscreen (inline, for non-fullscreen mode) */}
         {!isFullscreen && (
-          <button onClick={toggleFullscreen} style={styles.controlBtn} title="Fullscreen">
+          <button
+            aria-label="Fullscreen"
+            className="custom-video-player__btn"
+            onClick={toggleFullscreen}
+            title="Fullscreen"
+            type="button"
+          >
             <Maximize size={18} />
           </button>
         )}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BookOpen, Drum, Flame, Headphones, Medal, MessageCircle, Target, Trophy } from 'lucide-react'
+import { BookOpen, ChevronRight, Drum, Flame, Headphones, Medal, MessageCircle, Target, Trophy } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import BadgeShelf from '../components/BadgeShelf'
 import Carousel from '../components/Carousel'
@@ -108,7 +108,6 @@ export default function Landing() {
         <div className="hero-panel__content">
           <PageHeader
             description="Discover original songs from local creators, explore the stories behind them, play along and share the memories they bring back."
-            eyebrow="MUSIC &#8226; STORIES &#8226; COMMUNITY"
             title="Where Singapore's stories become music."
           />
           <div className="hero-actions">
@@ -174,7 +173,7 @@ export default function Landing() {
             <h2>Featured Songs</h2>
             {songs.length > 0 ? (
               <Link className="landing-section-link" to="/songs">
-                View all songs <span aria-hidden="true">&rarr;</span>
+                View all songs <ChevronRight aria-hidden="true" size={18} />
               </Link>
             ) : null}
           </div>
@@ -211,7 +210,7 @@ export default function Landing() {
           <div className="landing-section-header__row">
             <h2>Best Rhythm Game Stats</h2>
               <Link className="landing-section-link" to="/rhythm-game">
-                Play rhythm game <span aria-hidden="true">&rarr;</span>
+                Play rhythm game <ChevronRight aria-hidden="true" size={18} />
               </Link>
           </div>
 
@@ -233,7 +232,7 @@ export default function Landing() {
             <div className="landing-section-header__row">
               <h2>Memories from the Community</h2>
               <Link className="landing-section-link" to="/reflections">
-                View all reflections <span aria-hidden="true">&rarr;</span>
+                View all reflections <ChevronRight aria-hidden="true" size={18} />
               </Link>
             </div>
             <p>

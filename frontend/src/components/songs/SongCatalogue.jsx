@@ -1,4 +1,4 @@
-import { Bookmark, Flag, Music2, Pause, Play } from 'lucide-react'
+import { Bookmark, ChevronRight, Flag, Music2, Pause, Play } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import CreatorNameLink from '../CreatorNameLink'
 import { highlightMatch } from '../../utils/highlightMatch'
@@ -107,7 +107,7 @@ export default function SongCatalogue({
               </button>
             ) : null}
             <Link aria-label={`Explore song: ${song.title}`} className="song-catalogue-row__open" to={`/songs/${song.id}`}>
-              <span aria-hidden="true">›</span>
+              <ChevronRight aria-hidden="true" size={20} />
             </Link>
           </article>
         )

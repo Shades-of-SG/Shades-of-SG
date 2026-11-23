@@ -138,6 +138,6 @@ export default function PaginatedSongSelect({
       </select>
     </label>
     {error ? <span role="alert">{error} <button onClick={() => setSearch((current) => `${current} `)} type="button">Retry</button></span> : null}
-    {showLoadMore && pagination.hasNextPage ? <button aria-label={`Load more ${label.toLowerCase()} options`} disabled={loading} onClick={loadMore} type="button">{loading ? 'Loading songsâ€¦' : 'Load more songs'}</button> : null}
+    {showLoadMore && pagination.hasNextPage ? <button aria-label={`Load more ${label.toLowerCase()} options`} disabled={loading} onClick={loadMore} type="button">{loading ? 'Loading songs…' : 'Load more songs'}</button> : null}
   </div>
 }

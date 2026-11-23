@@ -1,0 +1,191 @@
+.custom-video-player {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.custom-video-player__stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.custom-video-player__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  cursor: pointer;
+  background: #000;
+}
+
+.custom-video-player__video.is-fullscreen {
+  height: 100dvh;
+}
+
+.custom-video-player__captions {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+  transition: bottom 0.3s ease, opacity 0.25s ease;
+}
+
+.custom-video-player__captions.is-fullscreen-controls {
+  bottom: 88px;
+}
+
+.custom-video-player__caption-text {
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.84);
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-size: clamp(1rem, 2.2vw, 1.3rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  text-align: center;
+  max-width: 90%;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.custom-video-player__fs-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  color: #fff;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+.custom-video-player__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.94);
+  border-top: 1px solid #1e293b;
+}
+
+.custom-video-player__controls.is-fullscreen {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: rgba(10, 10, 26, 0.9);
+  border-top: none;
+  padding: 14px 18px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.custom-video-player__btn {
+  padding: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #cbd5e1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 150ms ease, background 150ms ease, transform 100ms ease;
+}
+
+.custom-video-player__btn:hover,
+.custom-video-player__btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.custom-video-player__btn:active,
+.custom-video-player__play:active {
+  transform: scale(0.96);
+}
+
+.custom-video-player__btn:focus-visible,
+.custom-video-player__play:focus-visible,
+.custom-video-player__fs-toggle:focus-visible,
+.custom-video-scrubber:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 2px;
+}
+
+.custom-video-player__btn.is-captions-off {
+  color: #64748b;
+}
+
+.custom-video-player__play {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 10px;
+  border-radius: 50%;
+  background: #7c3aed;
+  border: 1px solid #8b5cf6;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(124, 58, 237, 0.25);
+  transition: transform 100ms ease, background 150ms ease;
+}
+
+.custom-video-player__play:hover {
+  background: #8b5cf6;
+}
+
+.custom-video-player__scrubber-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  position: relative;
+}
+
+.custom-video-scrubber {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  accent-color: #7c3aed;
+  cursor: pointer;
+  height: 8px;
+  border-radius: 999px;
+  outline: none;
+}
+
+.custom-video-player__time {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

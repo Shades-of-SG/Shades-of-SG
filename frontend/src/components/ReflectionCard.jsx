@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Heart, MessageCircle } from 'lucide-react'
+import { Heart, MessageCircle, MoreVertical, Music2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const formatter = new Intl.DateTimeFormat('en-SG', { dateStyle: 'medium', timeStyle: 'short' })
@@ -40,10 +40,10 @@ export default function ReflectionCard({ likeBusy, reflection, onEdit, onDelete,
       {style.decoration === 'tape' && <span aria-hidden="true" className="rw-note-tape" />}
       {style.decoration === 'clip' && <span aria-hidden="true" className="rw-note-clip" />}
       <div className="rw-card-topline">
-        <span className="rw-song-chip"><span aria-hidden="true">&#9835;</span> {reflection.song?.title || 'Song'}</span>
+        <span className="rw-song-chip"><Music2 aria-hidden="true" size={14} /> {reflection.song?.title || 'Song'}</span>
         {reflection.isOwner && !reflection.isPending && (
           <div className="rw-card-menu" ref={menuRef}>
-            <button aria-expanded={isMenuOpen} aria-label="Reflection actions" onClick={() => setIsMenuOpen((value) => !value)} type="button">&#8942;</button>
+            <button aria-expanded={isMenuOpen} aria-label="Reflection actions" onClick={() => setIsMenuOpen((value) => !value)} type="button"><MoreVertical aria-hidden="true" size={18} /></button>
             {isMenuOpen && (
               <div role="menu">
                 <button onClick={() => { setIsMenuOpen(false); onEdit(reflection) }} role="menuitem" type="button">Edit</button>

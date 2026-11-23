@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { PlayCircle, Square, Loader2, AlertCircle, Sparkles, BookOpen, Music2 } from 'lucide-react'
+import { PlayCircle, Square, Loader2, AlertCircle, Sparkles, BookOpen, Music2, Check, ChevronRight, X } from 'lucide-react'
 import CustomVideoPlayer from '../components/shared/CustomVideoPlayer'
-import PageHeader from '../components/PageHeader'
 import useInstrumentAudio from '../hooks/useInstrumentAudio'
 import useLabInstruments from '../hooks/useLabInstruments'
 import { getPublishedSong } from '../services/publicSongService'
@@ -184,86 +183,48 @@ export default function SongExperience() {
     }, 2200)
   }
 
-  function optionStyle(opt) {
-    const base = {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      width: '100%',
-      padding: '14px 16px',
-      border: '1px solid var(--line)',
-      borderRadius: '8px',
-      background: 'rgba(30, 41, 59, 0.5)',
-      color: 'var(--text)',
-      fontSize: '0.875rem',
-      cursor: selectedAnswer !== null ? 'default' : 'pointer',
-      transition: 'all 150ms ease',
-      textAlign: 'left',
-    }
-
-    if (selectedAnswer === null) return base
+  function optionClassName(opt) {
+    if (selectedAnswer === null) return 'se-quiz-option'
 
     const isCorrect = opt.rawValue === currentQuestion.correctAnswer
     const isSelected = opt.id === selectedAnswer
 
-    if (isSelected && isCorrect) {
-      return { ...base, borderColor: 'var(--green)', background: 'rgba(34, 197, 94, 0.12)', color: 'var(--green)' }
-    }
-    if (isSelected && !isCorrect) {
-      return { ...base, borderColor: 'var(--error)', background: 'rgba(239, 68, 68, 0.12)', color: 'var(--error)' }
-    }
-    if (!isSelected && isCorrect) {
-      return { ...base, borderColor: 'var(--green)', background: 'rgba(34, 197, 94, 0.08)', color: 'rgba(34, 197, 94, 0.8)' }
-    }
-    return { ...base, opacity: 0.4 }
+    if (isSelected && isCorrect) return 'se-quiz-option is-correct'
+    if (isSelected && !isCorrect) return 'se-quiz-option is-wrong'
+    if (!isSelected && isCorrect) return 'se-quiz-option is-missed-correct'
+    return 'se-quiz-option is-dimmed'
   }
 
   return (
-    <div className="page-stack" style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', padding: '10px 1rem 0' }}>
-      <PageHeader
-        eyebrow="Song Experience"
-        title={song.title}
-        description={`${song.artist || 'Singapore Artist'} · ${songYear} · Singapore`}
-      />
-
-      {/* ─── YouTube-Style Grid (Main 1fr + Sidebar 360px) ─── */}
+    <div className="page-stack se-page">
+      {/* ─── Vertical / Studio Grid (Main 1fr + Sidebar 360px) ─── */}
       <div className="song-experience-layout">
         {/* ═══ LEFT MAIN COLUMN (1fr): Video + Title + About ═══ */}
         <div className="se-left-col">
           {/* Custom Video Player */}
-          <div className="section-card" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
+          <div className="section-card se-video-frame">
             <CustomVideoPlayer
-              src={song.videoUrl || song.audioUrl}
-              transcriptionSegments={song.transcriptionSegments}
-              poster={song.coverImageUrl}
+              onPause={() => setIsPlaying(false)}
               onPlay={() => {
                 setIsPlaying(true)
                 stopAudioPlayback()
                 trackAnalyticsEvent('SONG_PLAYBACK_STARTED', { songId: song.id }, token).catch(() => {})
               }}
-              onPause={() => setIsPlaying(false)}
+              poster={song.coverImageUrl}
+              src={song.videoUrl || song.audioUrl}
+              transcriptionSegments={song.transcriptionSegments}
             />
           </div>
 
           {/* Title + Metadata Tags */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 700, color: '#f8fafc' }}>{song.title}</h1>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.95rem' }}>
+          <div className="se-meta">
+            <h1 className="se-meta__title">{song.title}</h1>
+            <p className="se-meta__byline">
               <span>{song.artist || 'Singapore Artist'}</span> · {songYear} · Singapore
             </p>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+            <div className="se-tags">
               {moodTags.map((tag, i) => (
-                <span
-                  key={i}
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--line)',
-                    background: 'rgba(30, 41, 59, 0.6)',
-                    color: 'var(--muted)',
-                    fontSize: '0.75rem',
-                  }}
-                >
+                <span className="se-tag" key={i}>
                   {tag}
                 </span>
               ))}
@@ -272,15 +233,15 @@ export default function SongExperience() {
 
           {/* About This Song & Cultural Story */}
           <div className="section-card">
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
-              <Sparkles className="w-5 h-5 text-amber-400" />
+            <h3 className="se-section-heading">
+              <Sparkles aria-hidden="true" className="se-icon--amber" size={20} />
               About This Song & Cultural Story
             </h3>
             {(() => {
               const articleContent = song.aiSummary || song.description || ''
               if (!articleContent.trim()) {
                 return (
-                  <p style={{ margin: '0.75rem 0 0', color: 'var(--muted)', lineHeight: 1.7, fontSize: '0.925rem' }}>
+                  <p className="se-story-copy se-story-copy--muted">
                     No cultural summary has been added for this song yet.
                   </p>
                 )
@@ -290,20 +251,17 @@ export default function SongExperience() {
               const isLong = cleanText.length > 350
 
               if (!isArticleExpanded && isLong) {
-                // Truncate to ~320-350 characters at word boundary
                 const truncated = cleanText.slice(0, 350).replace(/\s+\S*$/, '')
                 return (
-                  <p style={{ margin: '0.75rem 0 0', color: '#cbd5e1', lineHeight: 1.7, fontSize: '0.925rem' }}>
+                  <p className="se-story-copy">
                     {truncated}...{' '}
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      className="se-story-toggle"
                       onClick={() => setIsArticleExpanded(true)}
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsArticleExpanded(true)}
-                      style={{ color: '#94a3b8', fontWeight: 600, cursor: 'pointer', marginLeft: '4px' }}
+                      type="button"
                     >
                       See More
-                    </span>
+                    </button>
                   </p>
                 )
               }
@@ -314,31 +272,21 @@ export default function SongExperience() {
                 .filter((p) => p.length > 0)
 
               return (
-                <div style={{ marginTop: '0.75rem' }}>
+                <div className="se-story-stack">
                   {paragraphs.map((para, index) => {
                     const isLast = index === paragraphs.length - 1
 
                     return (
-                      <p
-                        key={index}
-                        style={{
-                          margin: index === 0 ? 0 : '0.875rem 0 0',
-                          color: '#cbd5e1',
-                          lineHeight: 1.7,
-                          fontSize: '0.925rem',
-                        }}
-                      >
+                      <p className="se-story-copy" key={index}>
                         {para.replace(/\n+/g, ' ')}{' '}
                         {isLast && isLong && (
-                          <span
-                            role="button"
-                            tabIndex={0}
+                          <button
+                            className="se-story-toggle"
                             onClick={() => setIsArticleExpanded(false)}
-                            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsArticleExpanded(false)}
-                            style={{ color: '#94a3b8', fontWeight: 600, cursor: 'pointer', marginLeft: '8px' }}
+                            type="button"
                           >
                             See Less
-                          </span>
+                          </button>
                         )}
                       </p>
                     )
@@ -353,13 +301,12 @@ export default function SongExperience() {
         <div className="se-right-col">
           {/* Featured Instruments */}
           <div className="section-card">
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc', fontSize: '1.05rem' }}>
-              <Music2 className="w-5 h-5 text-violet-400" />
+            <h3 className="se-section-heading">
+              <Music2 aria-hidden="true" className="se-icon--violet" size={20} />
               Featured Heritage Instruments
             </h3>
 
             {(() => {
-              // Extract raw instrument list from song database model
               const rawSongInstruments =
                 song?.instruments && Array.isArray(song.instruments)
                   ? song.instruments
@@ -367,7 +314,6 @@ export default function SongExperience() {
                   ? song.SongInstruments.map((si) => si.Instrument).filter(Boolean)
                   : null
 
-              // Hydrate DB instruments with active Web Audio notes and samples from useLabInstruments()
               const hydratedSongInstruments = (rawSongInstruments || []).map((rawInst) => {
                 const labMatch = labInstruments.find(
                   (lab) => lab.id === rawInst.id || lab.name?.toLowerCase() === rawInst.name?.toLowerCase()
@@ -378,124 +324,64 @@ export default function SongExperience() {
                 }
               })
 
-              // Check if DB explicitly returned an instrument array (even if empty [])
               const hasDbRecord = rawSongInstruments !== null
-
-              // Use hydrated DB instruments if record exists; ONLY use fallback if song has no DB relation
               const finalInstruments = hasDbRecord ? hydratedSongInstruments : []
 
-              // Deduplicate by name/id to prevent any duplicate cards
               const displayInstruments = Array.from(
                 new Map(finalInstruments.map((inst) => [inst.name?.toLowerCase() || inst.id, inst])).values()
               )
 
               return displayInstruments.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
+                <div className="se-instruments-list">
                   {displayInstruments.slice(0, 5).map((inst) => {
                     const instKey = inst.id || inst.name
                     const isInstPlaying = playingInstrumentId === instKey
-                    const hubMatch = labInstruments.find(
-                      (h) => h.name.toLowerCase() === (inst.name || '').toLowerCase() || h.id === inst.id
-                    )
                     const iconImage = inst.imageUrl || inst.iconUrl
-                    const iconEmoji = hubMatch?.icon || inst.icon || '🎵'
                     const displayOrigin = (inst.origin || inst.culture || '').split(',')[0].trim()
 
                     return (
                       <div
+                        className={`se-instrument-row${isInstPlaying ? ' is-playing' : ''}`}
                         key={instKey}
-                        style={{
-                          display: 'flex',
-                          gap: '10px',
-                          alignItems: 'center',
-                          padding: '8px 12px',
-                          borderRadius: '10px',
-                          border: isInstPlaying ? '1px solid var(--violet)' : '1px solid var(--line)',
-                          background: isInstPlaying ? 'rgba(124, 58, 237, 0.15)' : 'rgba(30, 41, 59, 0.5)',
-                          transition: 'all 150ms ease',
-                        }}
                       >
                         {iconImage ? (
                           <img
-                            src={iconImage}
                             alt={inst.name}
-                            style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
+                            className="se-instrument-thumb"
+                            src={iconImage}
                           />
                         ) : (
-                          <div
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '8px',
-                              backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '1.2rem',
-                              flexShrink: 0,
-                              border: '1px solid rgba(139, 92, 246, 0.2)'
-                            }}
-                          >
-                            {iconEmoji}
+                          <div aria-hidden="true" className="se-instrument-thumb se-instrument-thumb--fallback">
+                            <Music2 size={18} />
                           </div>
                         )}
 
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <h4
-                            style={{
-                              margin: 0,
-                              fontSize: '0.875rem',
-                              fontWeight: 600,
-                              color: '#f8fafc',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                            title={inst.name}
-                          >
+                        <div className="se-instrument-info">
+                          <h4 title={inst.name}>
                             {inst.name}
                           </h4>
                           {displayOrigin && (
-                            <span
-                              style={{
-                                fontSize: '0.75rem',
-                                color: '#818cf8',
-                                fontWeight: 500,
-                                display: 'block',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
+                            <span className="se-instrument-origin">
                               {displayOrigin}
                             </span>
                           )}
                         </div>
 
                         <button
-                          type="button"
+                          aria-label={isInstPlaying ? `Stop ${inst.name}` : `Play ${inst.name} sample`}
+                          className={`se-instrument-play${isInstPlaying ? ' is-playing' : ''}`}
                           onClick={() => handlePlayInstrument(inst)}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: isInstPlaying ? 'var(--violet)' : 'var(--muted)',
-                            cursor: 'pointer',
-                            padding: '4px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
                           title={isInstPlaying ? 'Stop Instrument' : 'Play Sample'}
+                          type="button"
                         >
-                          {isInstPlaying ? <Square size={18} fill="currentColor" /> : <PlayCircle size={18} />}
+                          {isInstPlaying ? <Square fill="currentColor" size={18} /> : <PlayCircle size={20} />}
                         </button>
                       </div>
                     )
                   })}
                 </div>
               ) : (
-                <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: '0.75rem' }}>
+                <p className="se-story-copy se-story-copy--muted">
                   No heritage instruments currently associated with this song.
                 </p>
               )
@@ -504,90 +390,69 @@ export default function SongExperience() {
 
           {/* Knowledge Check */}
           <div className="section-card">
-            <h3 style={{ margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: '8px', color: '#f8fafc' }}>
-              <BookOpen className="w-5 h-5 text-indigo-400" />
+            <h3 className="se-section-heading se-section-heading--quiz">
+              <BookOpen aria-hidden="true" className="se-icon--indigo" size={20} />
               Knowledge Check
             </h3>
 
             {triviaList.length === 0 ? (
-              <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
+              <p className="se-story-copy se-story-copy--muted">
                 No trivia questions available for this song yet.
               </p>
             ) : quizCompleted ? (
-              <div style={{ textAlign: 'center', padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-                <div
-                  style={{
-                    background: 'rgba(34, 197, 94, 0.15)',
-                    color: 'var(--green)',
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.75rem',
-                  }}
-                >
-                  ✓
+              <div className="se-quiz-complete">
+                <div aria-hidden="true" className="se-quiz-complete__badge">
+                  <Check size={28} />
                 </div>
                 <div>
-                  <h4 style={{ margin: '0 0 6px', fontSize: '1.2rem', color: '#f8fafc' }}>Quiz Completed!</h4>
-                  <p style={{ margin: 0, color: 'var(--muted)' }}>
+                  <h4>Quiz Completed!</h4>
+                  <p>
                     You scored {score} out of {triviaList.length}
                   </p>
                 </div>
                 <button
-                  type="button"
+                  className="se-quiz-retake"
                   onClick={() => {
                     setQuizCompleted(false)
                     setQuestionIndex(0)
                     setScore(0)
                   }}
-                  style={{
-                    marginTop: '8px',
-                    padding: '10px 24px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--line)',
-                    background: 'rgba(30, 41, 59, 0.8)',
-                    color: 'var(--text)',
-                    cursor: 'pointer',
-                    fontWeight: 500,
-                  }}
+                  type="button"
                 >
                   Retake Quiz
                 </button>
               </div>
             ) : (
               <>
-                <p style={{ margin: '0 0 0.5rem', color: 'var(--violet)', fontSize: '0.75rem', fontWeight: 600 }}>
+                <p className="se-quiz-progress">
                   Question {questionIndex + 1} of {triviaList.length}
                 </p>
-                <h4 style={{ margin: '0 0 1rem', fontSize: '0.95rem', lineHeight: 1.5, color: '#f8fafc' }}>
+                <h4 className="se-quiz-prompt">
                   {currentQuestion?.prompt}
                 </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div className="se-quiz-options">
                   {currentOptions.map((opt) => {
                     const isSelected = selectedAnswer === opt.id
                     const isCorrect = opt.rawValue === currentQuestion.correctAnswer
 
                     return (
                       <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleAnswerClick(opt)}
+                        className={optionClassName(opt)}
                         disabled={selectedAnswer !== null}
-                        style={optionStyle(opt)}
+                        key={opt.id}
+                        onClick={() => handleAnswerClick(opt)}
+                        type="button"
                       >
                         {selectedAnswer !== null ? (
                           (isSelected && isCorrect) || (!isSelected && isCorrect) ? (
-                            <span style={{ color: 'var(--green)', fontSize: '1.1rem', fontWeight: 'bold' }}>✓</span>
+                            <Check aria-hidden="true" className="se-icon--green" size={18} />
                           ) : isSelected && !isCorrect ? (
-                            <span style={{ color: 'var(--error)', fontSize: '1.1rem', fontWeight: 'bold' }}>✕</span>
+                            <X aria-hidden="true" className="se-icon--red" size={18} />
                           ) : (
-                            <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--line)', display: 'inline-block', flexShrink: 0 }} />
+                            <span aria-hidden="true" className="se-quiz-dot" />
                           )
                         ) : (
-                          <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: '1px solid var(--muted)', display: 'inline-block', flexShrink: 0 }} />
+                          <span aria-hidden="true" className="se-quiz-dot" />
                         )}
                         <span>
                           {opt.id}. {opt.text}
@@ -603,63 +468,23 @@ export default function SongExperience() {
       </div>
 
       {/* ─── Learning Hub CTA ─── */}
-
-      <Link
-        to="/learning"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '1.25rem 1.75rem',
-          borderRadius: '12px',
-          background: 'rgba(30, 41, 59, 0.6)',
-          border: '1px solid var(--line)',
-          backdropFilter: 'blur(8px)',
-          textDecoration: 'none',
-          color: '#f8fafc',
-          transition: 'all 200ms ease',
-          marginTop: '1rem',
-          marginBottom: '16px',
-        }}
-        className="hover:border-violet-500/50 hover:bg-slate-800/80 group"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '10px',
-              background: 'rgba(124, 58, 237, 0.15)',
-              border: '1px solid rgba(139, 92, 246, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <BookOpen className="w-5 h-5 text-violet-400" />
+      <Link className="se-lessons-cta" to="/learning">
+        <div className="se-lessons-cta__main">
+          <div aria-hidden="true" className="se-lessons-cta__icon">
+            <BookOpen className="se-icon--violet" size={22} />
           </div>
           <div>
-            <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>
+            <h4>
               Guided Heritage Lessons
             </h4>
-            <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--muted)' }}>
+            <p>
               Explore interactive instrument sequences in the Learning Hub
             </p>
           </div>
         </div>
 
-        <span
-          style={{
-            fontSize: '0.9rem',
-            fontWeight: 600,
-            color: '#818cf8',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-        >
-          Take a Lesson →
+        <span className="se-lessons-cta__action">
+          Take a Lesson <ChevronRight aria-hidden="true" size={18} />
         </span>
       </Link>
     </div>

@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import PaginatedSongSelect from './PaginatedSongSelect'
 
@@ -46,7 +47,7 @@ export default function ReflectionModal({ draft, isGuest = false, reflection, so
             <h2 id="rw-modal-title">{reflection ? 'Edit Reflection' : 'Add Reflection'}</h2>
             <span>Share a memory inspired by Singapore&apos;s songs.</span>
           </div>
-          <button aria-label="Close" onClick={onClose} type="button">&times;</button>
+          <button aria-label="Close" onClick={onClose} type="button"><X aria-hidden="true" size={20} /></button>
         </header>
 
         <div className="rw-reflection-modal__body">

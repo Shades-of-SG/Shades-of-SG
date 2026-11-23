@@ -66,7 +66,6 @@ function FeaturedSongsSection({ songs }) {
     <Reveal as="section" aria-labelledby="featured-recommended-title" className="songs-featured-zone">
       <div className="songs-section-heading">
         <div>
-          <p className="eyebrow">Handpicked for you</p>
           <h2 id="featured-recommended-title">Featured &amp; recommended</h2>
           <p>Stories, sounds and perspectives worth discovering.</p>
         </div>
@@ -93,7 +92,6 @@ function FeaturedSongsSection({ songs }) {
               <Link aria-label={`Explore recommended song: ${song.title}`} className="songs-recommendation-card" key={song.id} to={`/songs/${song.id}`}>
                 <span className="songs-recommendation-card__art"><SongArtwork song={song} /></span>
                 <span className="songs-recommendation-card__copy">
-                  <span className="eyebrow">Recommended</span>
                   <strong>{song.title}</strong>
                   <span>{song.artist || 'Artist unavailable'}</span>
                   {song.description ? <small>{song.description}</small> : null}
@@ -347,15 +345,8 @@ export default function SongsLibrary() {
   return (
     <div className="page-stack songs-library-page">
       <Reveal as="header" className="songs-library-intro">
-        <div aria-hidden="true" className="songs-header-art">
-          <div className="songs-header-art__notes"><Music2 size={26} /><Music2 size={18} /><Music2 size={22} /></div>
-          <svg className="songs-header-art__skyline" viewBox="0 0 620 110">
-            <path d="M4 98h66V78h20V55h18v43h45V70h31v28h38V46h12l8-27 8 27h12v52h38V66h20v32h52V52h12v46h36V73h50v25h48V60h22v38h78" />
-          </svg>
-        </div>
         <div className="songs-library-intro__content">
-          <p className="eyebrow">Explore Singapore&rsquo;s soundtrack</p>
-          <h1>Every song tells<br />a story of <span>Singapore</span></h1>
+          <h1>Every song tells<br />a story of Singapore</h1>
           <p className="songs-library-intro__subtitle">Discover original songs inspired by our people, culture and everyday moments.</p>
           <div className="songs-library-intro__utility">
             {availableSongs.length > 0 || (!loading && !error) ? (
@@ -374,7 +365,6 @@ export default function SongsLibrary() {
       <section aria-labelledby="browse-songs-title" className="songs-library-catalog" ref={catalogueRef}>
         <div className="songs-section-heading songs-section-heading--catalogue">
           <div>
-            <p className="eyebrow">The complete collection</p>
             <h2 id="browse-songs-title">Browse all songs</h2>
             <p>Explore stories, moods and moments from Singapore through music.</p>
           </div>

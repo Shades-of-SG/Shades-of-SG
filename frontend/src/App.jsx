@@ -61,6 +61,7 @@ import AccountAccessSuspended from './components/AccountAccessSuspended'
 import RhythmLeaderboard from './pages/RhythmLeaderboard'
 import { readPendingScoreClaim } from './services/pendingScoreClaim'
 import { isNewAccountScoreClaim, readRegistrationReturn, RHYTHM_SCORE_CLAIM_PATH } from './services/safeReturnPath'
+import './styles/holobox-9x16.css'
 function MainExperience() {
   const { user } = useAuth()
 

@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRef } from 'react'
 
 export default function Carousel({ items, renderItem, ariaLabel }) {
@@ -52,7 +53,7 @@ export default function Carousel({ items, renderItem, ariaLabel }) {
         onClick={handlePrev}
         type="button"
       >
-        ‹
+        <ChevronLeft aria-hidden="true" size={22} />
       </button>
       <div className="carousel-track" ref={trackRef}>
         {displayItems.map((item, itemIndex) => (
@@ -71,7 +72,7 @@ export default function Carousel({ items, renderItem, ariaLabel }) {
         onClick={handleNext}
         type="button"
       >
-        ›
+        <ChevronRight aria-hidden="true" size={22} />
       </button>
     </div>
   )

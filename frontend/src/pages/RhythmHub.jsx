@@ -168,7 +168,6 @@ export default function RhythmHub() {
   return <div className="page-stack rhythm-hub">
     <PageHeader
       description="Play Singapore’s stories through rhythm."
-      eyebrow="Rhythm Game"
       title="Rhythm Game"
     />
 
@@ -283,6 +282,6 @@ export default function RhythmHub() {
         </article>
       })}
     </section> : null}
-    {!loading && !error && pagination.hasNextPage ? <button aria-label="Load more rhythm games" className="rhythm-clear-filters" disabled={loadingMore} onClick={loadMoreSongs} type="button">{loadingMore ? 'Loading more gamesâ€¦' : 'Load more games'}</button> : null}
+    {!loading && !error && pagination.hasNextPage ? <button aria-label="Load more rhythm games" className="rhythm-clear-filters" disabled={loadingMore} onClick={loadMoreSongs} type="button">{loadingMore ? 'Loading more games…' : 'Load more games'}</button> : null}
   </div>
 }
