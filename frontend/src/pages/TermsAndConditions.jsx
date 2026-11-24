@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Music2 } from 'lucide-react'
 import Reveal from '../components/Reveal'
 
 const sections = [
@@ -41,9 +42,9 @@ export default function TermsAndConditions() {
           <h1>Terms &amp; Conditions</h1>
           <div className="terms-title-rule" aria-hidden="true" />
           <p className="terms-intro">Keeping Shades of SG a respectful, safe and inspiring community where music and memories can be shared by everyone.</p>
-          <p className="terms-updated"><span aria-hidden="true">●</span> Last updated: July 2026</p>
+          <p className="terms-updated"><span aria-hidden="true" className="terms-updated__dot" /> Last updated: July 2026</p>
         </div>
-        <span className="terms-hero-note" aria-hidden="true">♪</span>
+        <span className="terms-hero-note" aria-hidden="true"><Music2 size={96} /></span>
       </Reveal>
 
       <Reveal as="nav" aria-label="Quick navigation" className="terms-quick-nav legal-reveal-nav">
@@ -60,7 +61,7 @@ export default function TermsAndConditions() {
         ))}
       </div>
 
-      <Reveal as="aside" className="terms-acceptance-note legal-reveal-note"><span aria-hidden="true">♪</span><p>Continued use of the platform indicates acceptance of these Terms &amp; Conditions.</p></Reveal>
+      <Reveal as="aside" className="terms-acceptance-note legal-reveal-note"><span aria-hidden="true"><Music2 size={20} /></span><p>Continued use of the platform indicates acceptance of these Terms &amp; Conditions.</p></Reveal>
     </div>
   )
 }

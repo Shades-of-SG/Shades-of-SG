@@ -95,7 +95,7 @@ export function FilterBar({ children, onClear, showClear = false }) {
 
 export function DataTable({ caption, children, columns }) {
   return (
-    <div className="admin-table-wrap">
+    <div aria-label={caption} className="admin-table-wrap" role="region" tabIndex={0}>
       <table className="admin-table">
         <caption className="admin-sr-only">{caption}</caption>
         <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>

@@ -12,7 +12,7 @@ export default function AuthLayout() {
           <BrandLogo className="brand-logo--auth" />
         </Link>
         <div className="auth-visual__copy">
-          <h1>Where music<br />meets <span>culture.</span></h1>
+          <h1>Where music<br />meets culture.</h1>
           <p>A platform that celebrates Singapore&rsquo;s vibrant soundscape and connects creators, fans, and communities.</p>
         </div>
         <div aria-hidden="true" className="auth-visual__skyline" />

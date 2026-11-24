@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Lock, ShieldCheck } from 'lucide-react'
 import Reveal from '../components/Reveal'
 
 const sections = [
@@ -68,9 +69,9 @@ export default function PrivacyPolicy() {
           <h1>Privacy Policy</h1>
           <div className="terms-title-rule" aria-hidden="true" />
           <p className="terms-intro">Your privacy matters. Learn how Shades of SG collects, uses and protects your information while you explore Singapore's stories through music and community.</p>
-          <p className="terms-updated"><span aria-hidden="true">●</span> Last updated: July 2026</p>
+          <p className="terms-updated"><span aria-hidden="true" className="terms-updated__dot" /> Last updated: July 2026</p>
         </div>
-        <span className="privacy-hero-shield" aria-hidden="true"><i className="bi bi-shield-lock" /></span>
+        <span className="privacy-hero-shield" aria-hidden="true"><ShieldCheck aria-hidden="true" size={88} /></span>
       </Reveal>
 
       <Reveal as="nav" aria-label="Quick navigation" className="terms-quick-nav legal-reveal-nav">
@@ -82,7 +83,7 @@ export default function PrivacyPolicy() {
         {sections.map((section, index) => <Reveal as="section" className="terms-card legal-reveal-card" delay={(index % 2) * 80} id={section.id} key={section.id}><div className="terms-card-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div><div className="terms-card-copy"><h2>{section.title}</h2><div className="terms-heading-rule" aria-hidden="true" />{section.content}</div></Reveal>)}
       </div>
 
-      <Reveal as="aside" className="terms-acceptance-note privacy-footer-note legal-reveal-note"><span aria-hidden="true"><i className="bi bi-lock" /></span><p>We believe transparency builds trust. If you have any questions about how your information is handled, please contact us.</p></Reveal>
+      <Reveal as="aside" className="terms-acceptance-note privacy-footer-note legal-reveal-note"><span aria-hidden="true"><Lock aria-hidden="true" size={20} /></span><p>We believe transparency builds trust. If you have any questions about how your information is handled, please contact us.</p></Reveal>
     </div>
   )
 }
