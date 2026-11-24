@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { Cpu, LayoutDashboard, MessageSquareHeart, Music2, PenSquare } from 'lucide-react'
 
 const creatorLinks = [
   { icon: 'dashboard', label: 'Dashboard', to: '/creator/dashboard' },
@@ -8,66 +9,17 @@ const creatorLinks = [
   { icon: 'reflection', label: 'Reflections', to: '/creator/reflections' },
 ]
 
+const SIDEBAR_ICONS = {
+  dashboard: LayoutDashboard,
+  edit: PenSquare,
+  jobs: Cpu,
+  music: Music2,
+  reflection: MessageSquareHeart,
+}
+
 function SidebarIcon({ type }) {
-  switch (type) {
-    case 'dashboard':
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <rect x="3.5" y="3.5" width="5.5" height="5.5" rx="1.2" />
-          <rect x="11" y="3.5" width="5.5" height="3.4" rx="1.2" />
-          <rect x="11" y="8" width="5.5" height="8.5" rx="1.2" />
-          <rect x="3.5" y="11" width="5.5" height="5.5" rx="1.2" />
-        </svg>
-      )
-
-    case 'music':
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <path d="M12.5 4.5v7.5a2.5 2.5 0 1 1-1.6-2.34V5.9l6-1.2v5.1a2.5 2.5 0 1 1-1.6-2.34V4.05l-2.8.45Z" />
-        </svg>
-      )
-
-    case 'edit':
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <path d="M4.5 13.7V16h2.3l8.2-8.2-2.3-2.3-8.2 8.2Z" />
-          <path d="m12 5.2 2.8 2.8" />
-        </svg>
-      )
-
-    case 'jobs':
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <path d="M5 5.5h10M5 10h10M5 14.5h6" />
-          <circle cx="15.5" cy="5.5" r="1.1" />
-          <circle cx="12.8" cy="14.5" r="1.1" />
-        </svg>
-      )
-
-    case 'reflection':
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <path d="M4.5 4.8h11a1.2 1.2 0 0 1 1.2 1.2v5a1.2 1.2 0 0 1-1.2 1.2h-5.8L6.2 16v-3.8H4.5a1.2 1.2 0 0 1-1.2-1.2V6a1.2 1.2 0 0 1 1.2-1.2Z" />
-        </svg>
-      )
-
-    case 'profile':
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <path d="M10 10a3 3 0 1 0-3-3 3 3 0 0 0 3 3Z" />
-          <path d="M4.5 16.2a5.5 5.5 0 0 1 11 0" />
-        </svg>
-      )
-
-    case 'settings':
-    default:
-      return (
-        <svg aria-hidden="true" viewBox="0 0 20 20">
-          <path d="m10 3.5.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3L10 3.5Z" />
-          <circle cx="10" cy="10" r="2.6" />
-        </svg>
-      )
-  }
+  const Icon = SIDEBAR_ICONS[type] || LayoutDashboard
+  return <Icon aria-hidden="true" size={20} />
 }
 
 export default function Sidebar() {

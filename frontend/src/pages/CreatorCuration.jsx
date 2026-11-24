@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen } from 'lucide-react'
+import { Loader2, AlertCircle, Plus, Trash2, CheckCircle2, Music2, Sparkles, BookOpen, Volume2 } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
+import InstrumentIcon from '../components/shared/InstrumentIcon'
 import { useAuth } from '../context/AuthContext'
 import { getSongCuration, updateSongCuration, generateSongArticle, generateSongTrivia } from '../services/songService'
 import { API_URL } from '../services/apiConfig'
@@ -272,12 +273,13 @@ export default function CreatorCuration() {
     return (
       <CreatorPageShell
         breadcrumbs={['Songs', 'Curation']}
-        title="Curate Song Experience"
+        className="cc-page"
         description="Loading song details..."
+        title="Curate Song Experience"
       >
-        <div style={{ padding: '4rem', textAlign: 'center' }}>
-          <Loader2 className="w-10 h-10 animate-spin" style={{ margin: '0 auto', color: '#818cf8' }} />
-          <p style={{ marginTop: '1rem', color: '#94a3b8' }}>Fetching AI curation data...</p>
+        <div className="cc-loading-state">
+          <Loader2 aria-hidden="true" className="cc-spin cc-spinner" size={40} />
+          <p className="cc-loading-copy">Fetching AI curation data...</p>
         </div>
       </CreatorPageShell>
     )
@@ -287,17 +289,18 @@ export default function CreatorCuration() {
     return (
       <CreatorPageShell
         breadcrumbs={['Songs', 'Curation']}
-        title="Curate Song Experience"
+        className="cc-page"
         description="Error loading curation."
+        title="Curate Song Experience"
       >
-        <section className="studio-card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <AlertCircle className="w-12 h-12" style={{ margin: '0 auto', color: '#ef4444' }} />
-          <h2 style={{ color: '#ef4444', marginTop: '1rem' }}>Unable to Load Curation</h2>
-          <p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>{error}</p>
+        <section className="studio-card cc-error-card" role="alert">
+          <AlertCircle aria-hidden="true" className="cc-error-icon" size={48} />
+          <h2 className="cc-error-title">Unable to Load Curation</h2>
+          <p className="cc-error-copy">{error}</p>
           <button
+            className="studio-button studio-button--secondary cc-error-btn"
             onClick={() => navigate(backRoute)}
-            className="studio-button studio-button--secondary"
-            style={{ marginTop: '2rem' }}
+            type="button"
           >
             Back to Job
           </button>
@@ -367,78 +370,58 @@ export default function CreatorCuration() {
 
   return (
     <CreatorPageShell
-      breadcrumbs={['Songs', 'Curation']}
-      description="Review and edit AI-generated cultural summary, trivia questions, and featured heritage instruments."
-      title="Curate Song Experience"
       actions={
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="cc-header-actions">
           <button
             className="studio-button studio-button--secondary"
             onClick={() => navigate(backRoute)}
+            type="button"
           >
             Back to Job
           </button>
           <button
             className="studio-button studio-button--secondary"
             onClick={handleProceedToStudio}
+            type="button"
           >
             Proceed to Studio
           </button>
         </div>
       }
+      breadcrumbs={['Songs', 'Curation']}
+      className="cc-page"
+      description="Review and edit AI-generated cultural summary, trivia questions, and featured heritage instruments."
+      title="Curate Song Experience"
     >
       {/* Toast Notification */}
       {toast.message && (
-        <div style={{
-          position: 'fixed',
-          top: '2rem',
-          right: '2rem',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
-          padding: '1rem 1.5rem',
-          borderRadius: '12px',
-          backgroundColor: toast.type === 'success' ? '#065f46' : '#991b1b',
-          color: '#ffffff',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-          border: `1px solid ${toast.type === 'success' ? '#34d399' : '#f87171'}`
-        }}>
-          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-300" /> : <AlertCircle className="w-5 h-5 text-red-300" />}
-          <span style={{ fontWeight: 600 }}>{toast.message}</span>
+        <div className={`cc-toast ${toast.type === 'success' ? 'is-success' : 'is-error'}`} role={toast.type === 'error' ? 'alert' : 'status'}>
+          {toast.type === 'success' ? (
+            <CheckCircle2 aria-hidden="true" className="cc-toast__icon" size={20} />
+          ) : (
+            <AlertCircle aria-hidden="true" className="cc-toast__icon" size={20} />
+          )}
+          <span className="cc-toast__text">{toast.message}</span>
         </div>
       )}
 
       {/* Song Header Summary */}
-      <div style={{
-        marginBottom: '2rem',
-        padding: '1.5rem 2rem',
-        borderRadius: '16px',
-        background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9))',
-        border: '1px solid rgba(139, 92, 246, 0.25)',
-        display: 'flex',
-        justify: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
+      <div className="cc-summary-banner">
         <div>
-          <span style={{ fontSize: '0.75rem', color: '#a78bfa', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-            SONG CURATION CONTROL HUB
-          </span>
-          <h1 className="text-2xl font-bold text-white mt-1">{song?.title || 'Untitled Song'}</h1>
-          <p className="text-violet-300 text-sm mt-0.5">{song?.artist || 'Unknown Artist'} • <span className="text-slate-400">{song?.theme || 'Singaporean Heritage'}</span></p>
+          <h2 className="cc-summary-banner__title">{song?.title || 'Untitled Song'}</h2>
+          <p className="cc-summary-banner__meta">
+            {song?.artist || 'Unknown Artist'} · <span>{song?.theme || 'Singaporean Heritage'}</span>
+          </p>
         </div>
         <button
-          type="button"
-          onClick={handleSave}
+          className="studio-button studio-button--primary cc-save-btn"
           disabled={saving}
-          className="studio-button studio-button--primary"
-          style={{ padding: '0.875rem 2rem', fontSize: '1rem', fontWeight: 600 }}
+          onClick={handleSave}
+          type="button"
         >
           {saving ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" /> Saving...
+              <Loader2 aria-hidden="true" className="cc-spin" size={18} /> Saving...
             </>
           ) : (
             'Save Curation Changes'
@@ -446,35 +429,26 @@ export default function CreatorCuration() {
         </button>
       </div>
 
-      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <form className="cc-form" onSubmit={handleSave}>
         {/* Section 0: Public Song Description */}
         <section className="studio-card studio-form-card">
           <header className="studio-card__header">
             <div className="studio-card__title">
-              <BookOpen className="w-5 h-5 text-sky-400" />
+              <BookOpen aria-hidden="true" className="cc-icon-sky" size={20} />
               <h2>Public Song Description</h2>
             </div>
           </header>
-          <div style={{ padding: '1.5rem 2rem' }}>
-            <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+          <div className="cc-section-body">
+            <label className="cc-field-label" htmlFor="cc-public-description">
               Overview and description presented to listeners in the public catalog:
             </label>
             <textarea
-              className="studio-field"
-              rows={4}
-              value={description}
+              className="studio-field cc-textarea cc-textarea--sky"
+              id="cc-public-description"
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter a public description for this song..."
-              style={{
-                width: '100%',
-                backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                color: '#f8fafc',
-                borderRadius: '10px',
-                padding: '1rem',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                lineHeight: 1.6,
-                fontSize: '0.95rem'
-              }}
+              rows={4}
+              value={description}
             />
           </div>
         </section>
@@ -483,40 +457,34 @@ export default function CreatorCuration() {
         <section className="studio-card studio-form-card">
           <header className="studio-card__header studio-card__header--spread">
             <div className="studio-card__title">
-              <Sparkles className="w-5 h-5 text-amber-400" />
+              <Sparkles aria-hidden="true" className="cc-icon-heritage" size={20} />
               <h2>AI Cultural Mini-Article</h2>
             </div>
             <button
-              type="button"
-              onClick={handleRegenerateArticle}
+              className="studio-button studio-button--secondary cc-regen-btn"
               disabled={generatingArticle}
-              className="studio-button studio-button--secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
+              onClick={handleRegenerateArticle}
+              type="button"
             >
-              {generatingArticle ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-400" />}
+              {generatingArticle ? (
+                <Loader2 aria-hidden="true" className="cc-spin" size={16} />
+              ) : (
+                <Sparkles aria-hidden="true" className="cc-icon-heritage" size={16} />
+              )}
               {generatingArticle ? 'Regenerating...' : 'Regenerate Article'}
             </button>
           </header>
-          <div style={{ padding: '1.5rem 2rem' }}>
-            <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+          <div className="cc-section-body">
+            <label className="cc-field-label" htmlFor="cc-ai-summary">
               Educational mini-article (3-4 paragraphs) covering historical era, Singapore heritage context, and musical background:
             </label>
             <textarea
-              className="studio-field"
-              rows={8}
-              value={aiSummary}
+              className="studio-field cc-textarea"
+              id="cc-ai-summary"
               onChange={(e) => setAiSummary(e.target.value)}
               placeholder="DeepSeek generated educational mini-article..."
-              style={{
-                width: '100%',
-                backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                color: '#f8fafc',
-                borderRadius: '10px',
-                padding: '1rem',
-                border: '1px solid rgba(139, 92, 246, 0.3)',
-                lineHeight: 1.6,
-                fontSize: '0.95rem'
-              }}
+              rows={8}
+              value={aiSummary}
             />
           </div>
         </section>
@@ -525,140 +493,95 @@ export default function CreatorCuration() {
         <section className="studio-card studio-form-card">
           <header className="studio-card__header studio-card__header--spread">
             <div className="studio-card__title">
-              <BookOpen className="w-5 h-5 text-indigo-400" />
+              <BookOpen aria-hidden="true" className="cc-icon-violet" size={20} />
               <h2>Interactive Trivia Questions ({triviaQuestions.length})</h2>
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div className="cc-trivia-toolbar">
               <button
-                type="button"
-                onClick={handleRegenerateTrivia}
+                className="studio-button studio-button--secondary cc-regen-btn"
                 disabled={generatingTrivia}
-                className="studio-button studio-button--secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
+                onClick={handleRegenerateTrivia}
+                type="button"
               >
-                {generatingTrivia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-400" />}
+                {generatingTrivia ? (
+                  <Loader2 aria-hidden="true" className="cc-spin" size={16} />
+                ) : (
+                  <Sparkles aria-hidden="true" className="cc-icon-violet" size={16} />
+                )}
                 {generatingTrivia ? 'Regenerating...' : 'Regenerate Trivia'}
               </button>
               <button
-                type="button"
+                className="studio-button studio-button--secondary cc-regen-btn"
                 onClick={handleAddQuestion}
-                className="studio-button studio-button--secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem' }}
+                type="button"
               >
-                <Plus className="w-4 h-4" /> Add Question
+                <Plus aria-hidden="true" size={16} /> Add Question
               </button>
             </div>
           </header>
 
-          <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="cc-trivia-list">
             {triviaQuestions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                <p>No trivia questions created yet. Click "Add Question" to start!</p>
+              <div className="cc-trivia-empty">
+                <p>No trivia questions created yet. Tap &ldquo;Add Question&rdquo; to start.</p>
               </div>
             ) : (
               triviaQuestions.map((q, qIndex) => (
-                <div
-                  key={q.id || `q-${qIndex}`}
-                  style={{
-                    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                    border: '1px solid rgba(51, 65, 85, 0.6)',
-                    borderRadius: '12px',
-                    padding: '1.5rem',
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Question #{qIndex + 1}
-                    </span>
+                <div className="cc-question-card" key={q.id || `q-${qIndex}`}>
+                  <div className="cc-question-card__header">
+                    <span className="cc-question-card__number">Question #{qIndex + 1}</span>
                     <button
-                      type="button"
+                      className="cc-delete-question-btn"
                       onClick={() => handleDeleteQuestion(qIndex)}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: '#f87171',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        fontSize: '0.85rem'
-                      }}
+                      type="button"
                     >
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 aria-hidden="true" size={16} /> Delete
                     </button>
                   </div>
 
                   {/* Question Prompt */}
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.875rem', marginBottom: '0.35rem', fontWeight: 500 }}>
+                  <div className="cc-question-card__field">
+                    <label className="cc-field-label" htmlFor={`cc-question-prompt-${qIndex}`}>
                       Question Prompt:
                     </label>
                     <input
-                      type="text"
-                      className="studio-field"
-                      value={q.prompt}
+                      className="studio-field cc-question-input"
+                      id={`cc-question-prompt-${qIndex}`}
                       onChange={(e) => handleQuestionPromptChange(qIndex, e.target.value)}
                       placeholder="e.g. What cultural event does this song commemorate?"
-                      style={{
-                        width: '100%',
-                        backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                        color: '#f8fafc',
-                        borderRadius: '8px',
-                        padding: '0.75rem 1rem',
-                        border: '1px solid rgba(139, 92, 246, 0.25)'
-                      }}
+                      type="text"
+                      value={q.prompt}
                     />
                   </div>
 
                   {/* Options List */}
                   <div>
-                    <label style={{ display: 'block', color: '#cbd5e1', fontSize: '0.875rem', marginBottom: '0.5rem', fontWeight: 500 }}>
-                      Answer Options (Select radio for correct answer):
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem' }}>
+                    <span className="cc-field-label">Answer Options (Select radio for correct answer):</span>
+                    <div className="cc-options-grid">
                       {q.options.map((opt, optIndex) => {
                         const isCorrect = q.correctAnswer === opt && opt.trim() !== ''
                         return (
-                          <div
-                            key={`q-${qIndex}-opt-${optIndex}`}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.75rem',
-                              backgroundColor: isCorrect ? 'rgba(52, 211, 153, 0.1)' : 'rgba(15, 23, 42, 0.6)',
-                              border: `1px solid ${isCorrect ? 'rgba(52, 211, 153, 0.5)' : 'rgba(51, 65, 85, 0.4)'}`,
-                              borderRadius: '8px',
-                              padding: '0.5rem 0.75rem'
-                            }}
-                          >
+                          <label className={`cc-option-row ${isCorrect ? 'is-correct' : ''}`} key={`q-${qIndex}-opt-${optIndex}`}>
                             <input
-                              type="radio"
-                              name={`correct-ans-${qIndex}`}
                               checked={isCorrect}
+                              className="cc-radio"
+                              name={`correct-ans-${qIndex}`}
                               onChange={() => handleCorrectAnswerSelect(qIndex, opt)}
-                              style={{ accentColor: '#10b981', width: '18px', height: '18px', cursor: 'pointer' }}
                               title="Set as correct answer"
+                              type="radio"
                             />
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8' }}>
+                            <span className="cc-option-letter">
                               {String.fromCharCode(65 + optIndex)}.
                             </span>
                             <input
-                              type="text"
-                              value={opt}
+                              aria-label={`Question ${qIndex + 1} Option ${String.fromCharCode(65 + optIndex)}`}
+                              className="cc-option-input"
                               onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)}
                               placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
-                              style={{
-                                flex: 1,
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                color: isCorrect ? '#34d399' : '#f8fafc',
-                                outline: 'none',
-                                fontSize: '0.9rem',
-                                fontWeight: isCorrect ? 600 : 400
-                              }}
+                              type="text"
+                              value={opt}
                             />
-                          </div>
+                          </label>
                         )
                       })}
                     </div>
@@ -673,82 +596,59 @@ export default function CreatorCuration() {
         <section className="studio-card studio-form-card">
           <header className="studio-card__header">
             <div className="studio-card__title">
-              <Music2 className="w-5 h-5 text-violet-400" />
+              <Music2 aria-hidden="true" className="cc-icon-violet" size={20} />
               <h2>Featured Heritage Instruments ({curatedInstruments.filter((inst) => isInstSelected(inst, selectedInstrumentIds)).length} Selected)</h2>
             </div>
           </header>
 
-          <div style={{ padding: '1.5rem 2rem' }}>
-            <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
+          <div className="cc-section-body">
+            <p className="cc-instruments-hint">
               Select the Singaporean/Regional heritage instruments associated with this song:
             </p>
 
             {curatedInstruments.length === 0 ? (
-              <p style={{ color: '#64748b' }}>No instruments available in catalog.</p>
+              <p className="cc-instruments-empty">No instruments available in catalog.</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
+              <div className="cc-instruments-grid">
                 {curatedInstruments.map((inst) => {
                   const isSelected = isInstSelected(inst, selectedInstrumentIds)
 
                   return (
                     <div
+                      className={`cc-instrument-card ${isSelected ? 'is-selected' : ''}`}
                       key={inst.dbId || inst.id}
                       onClick={() => handleToggleInstrument(inst)}
-                      style={{
-                        backgroundColor: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'rgba(30, 41, 59, 0.4)',
-                        border: `1.5px solid ${isSelected ? '#8b5cf6' : 'rgba(51, 65, 85, 0.5)'}`,
-                        borderRadius: '12px',
-                        padding: '1rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '0.75rem',
-                      }}
                     >
                       <input
-                        type="checkbox"
+                        aria-label={`Select ${inst.name}`}
                         checked={isSelected}
-                        onChange={() => {}} // handled by parent onClick
-                        style={{ accentColor: '#8b5cf6', width: '18px', height: '18px', marginTop: '2px', cursor: 'pointer' }}
+                        className="cc-checkbox"
+                        onChange={() => handleToggleInstrument(inst)}
+                        onClick={(e) => e.stopPropagation()}
+                        type="checkbox"
                       />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.25rem' }}>{inst.icon || '🎵'}</span>
-                            <h4 style={{ color: isSelected ? '#a78bfa' : '#f8fafc', fontWeight: 600, fontSize: '0.95rem', margin: 0 }}>
-                              {inst.name}
-                            </h4>
+                      <div className="cc-instrument-card__body">
+                        <div className="cc-instrument-card__top">
+                          <div className="cc-instrument-card__identity">
+                            <span aria-hidden="true" className="cc-instrument-card__icon">
+                              <InstrumentIcon instrumentId={inst.id} instrumentName={inst.name} size={22} />
+                            </span>
+                            <h4 className="cc-instrument-card__name">{inst.name}</h4>
                           </div>
                           <button
+                            aria-label={`Preview ${inst.name}`}
+                            className="cc-preview-btn"
+                            onClick={(e) => handlePreviewInstrument(e, inst)}
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (inst.notes && inst.notes.length > 0) {
-                                playNote(inst, inst.notes[0])
-                              }
-                            }}
-                            style={{
-                              background: 'rgba(139, 92, 246, 0.2)',
-                              border: '1px solid rgba(139, 92, 246, 0.4)',
-                              color: '#a78bfa',
-                              borderRadius: '6px',
-                              padding: '0.2rem 0.5rem',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              cursor: 'pointer'
-                            }}
                           >
-                            🔊 Preview
+                            <Volume2 aria-hidden="true" size={18} /> Preview
                           </button>
                         </div>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                        <span className="cc-instrument-card__origin">
                           {inst.origin || 'Heritage Instrument'}
                         </span>
                         {inst.description && (
-                          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {inst.description}
-                          </p>
+                          <p className="cc-instrument-card__desc">{inst.description}</p>
                         )}
                       </div>
                     </div>
@@ -759,28 +659,34 @@ export default function CreatorCuration() {
           </div>
         </section>
 
-        {/* Form Footer Action */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', marginBottom: '3rem' }}>
+        {/* Pinned Bottom Form Footer Action */}
+        <div className="cc-sticky-actions">
           <button
-            type="button"
             className="studio-button studio-button--secondary"
             onClick={() => navigate(backRoute)}
+            type="button"
           >
             Back to Job
           </button>
           <button
-            type="submit"
+            className="studio-button studio-button--primary cc-save-btn"
             disabled={saving}
-            className="studio-button studio-button--primary"
-            style={{ padding: '0.875rem 2.5rem', fontSize: '1rem', fontWeight: 600 }}
+            type="submit"
           >
             {saving ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" /> Saving Changes...
+                <Loader2 aria-hidden="true" className="cc-spin" size={18} /> Saving Changes...
               </>
             ) : (
               'Save Curation Changes'
             )}
+          </button>
+          <button
+            className="studio-button studio-button--secondary"
+            onClick={handleProceedToStudio}
+            type="button"
+          >
+            Proceed to Studio
           </button>
         </div>
       </form>

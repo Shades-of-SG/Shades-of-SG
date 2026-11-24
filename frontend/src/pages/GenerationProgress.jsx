@@ -1,6 +1,30 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Loader2, ChevronDown, ChevronRight, AlertCircle, CheckCircle, RefreshCw, Sparkles, GripVertical, Pencil, Plus, Trash2, Check, X, Eye } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Clapperboard,
+  Eye,
+  FileText,
+  Film,
+  GripVertical,
+  Headphones,
+  Image as ImageIcon,
+  Loader2,
+  Music2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Repeat,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import GenerationStatusBadge from '../components/GenerationStatusBadge'
 import { useAuth } from '../context/AuthContext'
@@ -119,6 +143,27 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
     return syncChorusPrompts(updated)
   }, [syncChorusPrompts])
 
+  const movePill = useCallback((pillKey, fromSceneIdx, targetSceneIdx) => {
+    if (fromSceneIdx === targetSceneIdx) return
+    setEditingScenes(prev => {
+      if (targetSceneIdx < 0 || targetSceneIdx >= prev.length) return prev
+      const updated = prev.map((scene, idx) => {
+        if (idx === fromSceneIdx) {
+          return { ...scene, pills: scene.pills.filter(p => p._key !== pillKey) }
+        }
+        if (idx === targetSceneIdx) {
+          const pill = prev[fromSceneIdx].pills.find(p => p._key === pillKey)
+          if (!pill) return scene
+          // Insert in time order
+          const newPills = [...scene.pills, pill].sort((a, b) => a.start - b.start)
+          return { ...scene, pills: newPills }
+        }
+        return scene
+      })
+      return recalcTimes(updated)
+    })
+  }, [recalcTimes])
+
   // ─── Drag Handlers ───
   const handleDragStart = (e, pillKey, sceneIdx) => {
     setDragState({ pillKey, fromSceneIdx: sceneIdx })
@@ -141,24 +186,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
     setDropTarget(null)
     if (!dragState) return
     const { pillKey, fromSceneIdx } = dragState
-    if (fromSceneIdx === targetSceneIdx) { setDragState(null); return }
-
-    setEditingScenes(prev => {
-      const updated = prev.map((scene, idx) => {
-        if (idx === fromSceneIdx) {
-          return { ...scene, pills: scene.pills.filter(p => p._key !== pillKey) }
-        }
-        if (idx === targetSceneIdx) {
-          const pill = prev[fromSceneIdx].pills.find(p => p._key === pillKey)
-          if (!pill) return scene
-          // Insert in time order
-          const newPills = [...scene.pills, pill].sort((a, b) => a.start - b.start)
-          return { ...scene, pills: newPills }
-        }
-        return scene
-      })
-      return recalcTimes(updated)
-    })
+    movePill(pillKey, fromSceneIdx, targetSceneIdx)
     setDragState(null)
   }
 
@@ -255,7 +283,7 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
         _key: `scene-inst-${Date.now()}`,
         startTime: Number(gapStart.toFixed(2)),
         endTime: Number(gapEnd.toFixed(2)),
-        lyrics: '🎵 [Instrumental Breakdown]',
+        lyrics: '[Instrumental Breakdown]',
         visualPrompt: 'Cinematic wide shot of Singapore urban landscape with atmospheric lighting, camera slowly panning across architectural landmarks.',
         blocks: [],
         pills: [],
@@ -313,45 +341,29 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} onClick={e => e.stopPropagation()}>
+    <div className="gp-editor-stack" onClick={e => e.stopPropagation()}>
       {/* Header Bar */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '0.75rem 1rem',
-        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1))',
-        borderRadius: '10px', border: '1px solid rgba(139, 92, 246, 0.25)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Eye className="w-4 h-4" style={{ color: '#a78bfa' }} />
-          <span style={{ color: '#e2e8f0', fontSize: '0.875rem', fontWeight: 600 }}>
-            Review & Edit Scene Plan
-          </span>
-          <span style={{
-            fontSize: '0.7rem', padding: '2px 8px', borderRadius: '9999px',
-            backgroundColor: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24', fontWeight: 600,
-          }}>
-            {editingScenes.length} scenes
-          </span>
+      <div className="gp-editor-bar">
+        <div className="gp-editor-bar__meta">
+          <Eye aria-hidden="true" className="gp-icon-violet" size={18} />
+          <span className="gp-editor-bar__title">Review &amp; Edit Scene Plan</span>
+          <span className="gp-scene-count-badge">{editingScenes.length} scenes</span>
         </div>
         <button
-          onClick={handleConfirm}
+          className="gp-confirm-btn gp-confirm-btn--header"
           disabled={confirming || editingScenes.length === 0}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-            padding: '0.5rem 1.25rem', borderRadius: '8px', fontWeight: 600,
-            fontSize: '0.875rem', border: 'none', cursor: confirming ? 'wait' : 'pointer',
-            background: confirming
-              ? 'rgba(100, 116, 139, 0.3)'
-              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: '#fff',
-            boxShadow: confirming ? 'none' : '0 4px 14px rgba(99, 102, 241, 0.4)',
-            transition: 'all 0.2s ease',
-          }}
+          onClick={handleConfirm}
+          type="button"
         >
           {confirming ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> {isGeneratingMissing ? 'Generating missing descriptions & saving...' : 'Submitting scenes...'}</>
+            <>
+              <Loader2 aria-hidden="true" className="gp-spin" size={18} />
+              {isGeneratingMissing ? 'Generating missing descriptions & saving...' : 'Submitting scenes...'}
+            </>
           ) : (
-            <><Check className="w-4 h-4" /> Confirm & Generate Images</>
+            <>
+              <Check aria-hidden="true" size={18} /> Confirm &amp; Generate Images
+            </>
           )}
         </button>
       </div>
@@ -363,23 +375,13 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
       {editingScenes.map((scene, sceneIdx) => (
         <div key={scene._key}>
           <div
+            className={`gp-scene-card ${dropTarget === sceneIdx ? 'is-drop-target' : ''}`}
             onDragOver={(e) => handleDragOver(e, sceneIdx)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, sceneIdx)}
-            style={{
-              backgroundColor: dropTarget === sceneIdx
-                ? 'rgba(99, 102, 241, 0.15)'
-                : 'rgba(30, 41, 59, 0.5)',
-              border: dropTarget === sceneIdx
-                ? '2px dashed rgba(129, 140, 248, 0.6)'
-                : '1px solid rgba(51, 65, 85, 0.5)',
-              borderRadius: '12px',
-              padding: '1rem',
-              transition: 'all 0.2s ease',
-            }}
           >
             {/* Scene Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div className="gp-scene-card__header">
               {(() => {
                 const currentLyrics = (scene.pills.map(p => p.text).join(' ') || scene.lyrics || '').trim()
                 const currentKey = normalizeKey(currentLyrics)
@@ -390,148 +392,89 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
                 })
 
                 return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <strong style={{ color: '#818cf8', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Scene {sceneIdx + 1}
-                    </strong>
-                    <span style={{
-                      fontSize: '0.7rem', fontFamily: 'monospace',
-                      backgroundColor: 'rgba(15, 23, 42, 0.8)', color: '#94a3b8',
-                      padding: '2px 8px', borderRadius: '4px',
-                    }}>
+                  <div className="gp-scene-card__badges">
+                    <strong className="gp-scene-card__label">Scene {sceneIdx + 1}</strong>
+                    <span className="gp-time-pill">
                       {Number(scene?.startTime || 0).toFixed(2)}s – {Number(scene?.endTime || 0).toFixed(2)}s
                     </span>
                     {isChorusRepeat && (
-                      <span style={{
-                        fontSize: '0.6875rem',
-                        padding: '2px 8px',
-                        borderRadius: '6px',
-                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                        border: '1px solid rgba(16, 185, 129, 0.3)',
-                        color: '#34d399',
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}>
-                        🔁 Chorus Synced (Reuses Image)
+                      <span className="gp-chorus-badge">
+                        <Repeat aria-hidden="true" size={13} /> Chorus Synced (Reuses Image)
                       </span>
                     )}
                   </div>
                 )
               })()}
               <button
-                onClick={() => deleteScene(sceneIdx)}
+                className="gp-delete-scene-btn"
                 disabled={scene.pills.length > 0}
+                onClick={() => deleteScene(sceneIdx)}
                 title={scene.pills.length > 0 ? 'Move all lyric pills out before deleting' : 'Delete empty scene'}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                  padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem',
-                  fontWeight: 600, border: 'none', cursor: scene.pills.length > 0 ? 'not-allowed' : 'pointer',
-                  backgroundColor: scene.pills.length > 0
-                    ? 'rgba(100, 116, 139, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                  color: scene.pills.length > 0 ? '#475569' : '#f87171',
-                  transition: 'all 0.15s',
-                }}
+                type="button"
               >
-                <Trash2 className="w-3 h-3" /> Delete
+                <Trash2 aria-hidden="true" size={15} /> Delete
               </button>
             </div>
 
             {/* Lyric Pills Zone */}
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', gap: '6px',
-              minHeight: '40px', padding: '0.5rem',
-              backgroundColor: 'rgba(15, 23, 42, 0.4)', borderRadius: '8px',
-              border: '1px dashed rgba(99, 102, 241, 0.2)',
-              marginBottom: '0.75rem',
-            }}>
+            <div className="gp-pills-zone">
               {scene.pills.length === 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.25rem' }}>
-                  <span style={{
-                    fontSize: '0.75rem',
-                    color: '#c084fc',
-                    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                    border: '1px solid rgba(168, 85, 247, 0.3)',
-                    padding: '3px 10px',
-                    borderRadius: '6px',
-                    fontWeight: 600,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    🎵 Instrumental / Visual-Only Scene
+                <div className="gp-empty-pills">
+                  <span className="gp-instrumental-badge">
+                    <Music2 aria-hidden="true" size={15} /> Instrumental / Visual-Only Scene
                   </span>
-                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontStyle: 'italic' }}>
-                    (No lyrics assigned — drag lyric pills here if needed)
+                  <span className="gp-empty-pills__hint">
+                    No lyrics assigned — move lyric blocks here if needed
                   </span>
                 </div>
               )}
               {scene.pills.map(pill => (
                 <LyricPill
-                  key={pill._key}
-                  pill={pill}
-                  sceneIdx={sceneIdx}
-                  isEditing={editingPillKey === pill._key}
+                  canMoveNext={sceneIdx < editingScenes.length - 1}
+                  canMovePrev={sceneIdx > 0}
                   editText={editingPillText}
-                  onDragStart={handleDragStart}
-                  onStartEdit={startEditPill}
-                  onSaveEdit={saveEditPill}
+                  isEditing={editingPillKey === pill._key}
+                  key={pill._key}
                   onCancelEdit={cancelEditPill}
                   onChangeEditText={setEditingPillText}
+                  onDragStart={handleDragStart}
+                  onMoveNext={() => movePill(pill._key, sceneIdx, sceneIdx + 1)}
+                  onMovePrev={() => movePill(pill._key, sceneIdx, sceneIdx - 1)}
+                  onSaveEdit={saveEditPill}
+                  onStartEdit={startEditPill}
+                  pill={pill}
+                  sceneIdx={sceneIdx}
                 />
               ))}
             </div>
 
             {/* Visual Prompt Container */}
-            <div style={{
-              backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '0.75rem',
-              borderRadius: '8px', border: '1px solid rgba(51, 65, 85, 0.4)',
-              height: 'fit-content',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                <span style={{
-                  fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em',
-                  color: '#64748b', fontWeight: 700,
-                }}>
-                  Visual Prompt
-                </span>
+            <div className="gp-prompt-box">
+              <div className="gp-prompt-box__header">
+                <span className="gp-prompt-box__label">Visual Prompt</span>
                 <button
-                  onClick={() => handleRegeneratePrompt(sceneIdx)}
+                  className="gp-regen-btn"
                   disabled={regeneratingIdx === sceneIdx}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                    padding: '3px 10px', borderRadius: '6px', fontSize: '0.7rem',
-                    fontWeight: 600, border: 'none',
-                    cursor: regeneratingIdx === sceneIdx ? 'wait' : 'pointer',
-                    backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc',
-                    transition: 'all 0.15s',
-                  }}
+                  onClick={() => handleRegeneratePrompt(sceneIdx)}
+                  type="button"
                 >
                   {regeneratingIdx === sceneIdx ? (
-                    <><Loader2 className="w-3 h-3 animate-spin" /> Regenerating...</>
+                    <>
+                      <Loader2 aria-hidden="true" className="gp-spin" size={14} /> Regenerating...
+                    </>
                   ) : (
-                    <><Sparkles className="w-3 h-3" /> Regenerate</>
+                    <>
+                      <Sparkles aria-hidden="true" size={14} /> Regenerate
+                    </>
                   )}
                 </button>
               </div>
               <textarea
-                className="custom-scrollbar"
-                value={scene.visualPrompt}
+                className="custom-scrollbar gp-prompt-textarea"
                 onChange={(e) => updatePrompt(sceneIdx, e.target.value)}
-                rows={3}
-                style={{
-                  width: '100%', backgroundColor: 'rgba(15, 23, 42, 0.8)',
-                  color: '#f8fafc', fontSize: '0.8rem', lineHeight: 1.5,
-                  padding: '0.5rem', borderRadius: '6px',
-                  border: '1px solid rgba(99, 102, 241, 0.2)',
-                  resize: 'vertical', outline: 'none', fontFamily: 'inherit',
-                  minHeight: 'auto',
-                  maxHeight: '180px',
-                  overflowY: 'auto',
-                  boxSizing: 'border-box',
-                }}
                 placeholder="Describe the visual scene for image generation..."
+                rows={3}
+                value={scene.visualPrompt}
               />
             </div>
           </div>
@@ -545,37 +488,16 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
             return (
               <>
                 {hasGap && (
-                  <div style={{
-                    margin: '0.5rem 0',
-                    padding: '0.5rem 1rem',
-                    background: 'rgba(30, 41, 59, 0.6)',
-                    border: '1px dashed rgba(168, 85, 247, 0.4)',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                  }}>
-                    <span style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 600 }}>
-                      🎵 Instrumental Gap Detected: {formatTime(scene.endTime)} → {formatTime(nextScene.startTime)} ({gapDuration}s)
+                  <div className="gp-gap-banner">
+                    <span className="gp-gap-banner__label">
+                      <Music2 aria-hidden="true" size={16} /> Instrumental Gap Detected: {formatTime(scene.endTime)} → {formatTime(nextScene.startTime)} ({gapDuration}s)
                     </span>
                     <button
-                      type="button"
+                      className="gp-gap-banner__btn"
                       onClick={() => handleFillInstrumentalGap(sceneIdx, scene.endTime, nextScene.startTime)}
-                      style={{
-                        background: 'rgba(168, 85, 247, 0.2)',
-                        border: '1px solid rgba(168, 85, 247, 0.5)',
-                        color: '#e9d5ff',
-                        borderRadius: '6px',
-                        padding: '4px 10px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
+                      type="button"
                     >
-                      <Plus className="w-3 h-3" /> Fill Instrumental Gap
+                      <Plus aria-hidden="true" size={15} /> Fill Instrumental Gap
                     </button>
                   </div>
                 )}
@@ -586,44 +508,29 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
         </div>
       ))}
 
-      {/* ─── Bottom CTA Banner ─── */}
-      <div style={{
-        marginTop: '0.5rem', padding: '1.25rem',
-        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
-        border: '1px solid rgba(139, 92, 246, 0.3)',
-        borderRadius: '12px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem',
-        textAlign: 'center',
-      }}>
-        <div>
-          <p style={{ color: '#e2e8f0', fontSize: '0.95rem', fontWeight: 600, margin: 0 }}>
-            Ready to generate images?
-          </p>
-          <p style={{ color: '#94a3b8', fontSize: '0.8rem', margin: '4px 0 0 0' }}>
-            Once confirmed, AI will generate cinematic frames for each scene. This cannot be undone.
+      {/* ─── Sticky Bottom CTA Bar (AWAITING_REVIEW) ─── */}
+      <div className="gp-review-sticky-bar">
+        <div className="gp-review-sticky-bar__copy">
+          <p className="gp-review-sticky-bar__title">Ready to generate images?</p>
+          <p className="gp-review-sticky-bar__sub">
+            Once confirmed, AI will generate frames for each scene. This cannot be undone.
           </p>
         </div>
         <button
-          onClick={handleConfirm}
+          className="gp-confirm-btn gp-confirm-btn--sticky"
           disabled={confirming || editingScenes.length === 0}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-            padding: '0.75rem 2rem', borderRadius: '10px', fontWeight: 700,
-            fontSize: '0.95rem', border: 'none',
-            cursor: confirming ? 'wait' : 'pointer',
-            background: confirming
-              ? 'rgba(100, 116, 139, 0.3)'
-              : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: '#fff',
-            boxShadow: confirming ? 'none' : '0 6px 20px rgba(99, 102, 241, 0.45)',
-            transition: 'all 0.2s ease',
-            letterSpacing: '0.01em',
-          }}
+          onClick={handleConfirm}
+          type="button"
         >
           {confirming ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> {isGeneratingMissing ? 'Generating missing descriptions & saving...' : 'Submitting scenes...'}</>
+            <>
+              <Loader2 aria-hidden="true" className="gp-spin" size={18} />
+              {isGeneratingMissing ? 'Generating missing descriptions & saving...' : 'Submitting scenes...'}
+            </>
           ) : (
-            <><Sparkles className="w-4 h-4" /> Approve Scenes & Start Image Generation</>
+            <>
+              <Sparkles aria-hidden="true" size={18} /> Confirm &amp; Generate Images
+            </>
           )}
         </button>
       </div>
@@ -632,7 +539,21 @@ function SceneBlockEditor({ scenes: initialScenes, segments: initialSegments, so
 }
 
 // ─── Lyric Pill Atom ───
-function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEdit, onSaveEdit, onCancelEdit, onChangeEditText }) {
+function LyricPill({
+  canMoveNext,
+  canMovePrev,
+  editText,
+  isEditing,
+  onCancelEdit,
+  onChangeEditText,
+  onDragStart,
+  onMoveNext,
+  onMovePrev,
+  onSaveEdit,
+  onStartEdit,
+  pill,
+  sceneIdx,
+}) {
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -641,35 +562,23 @@ function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEd
 
   if (isEditing) {
     return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: '6px',
-        padding: '4px 8px', borderRadius: '6px',
-        backgroundColor: 'rgba(99, 102, 241, 0.25)',
-        border: '1px solid rgba(129, 140, 248, 0.5)',
-        maxWidth: '100%',
-        flexWrap: 'wrap',
-      }}>
+      <span className="gp-lyric-pill gp-lyric-pill--editing">
         <input
-          ref={inputRef}
-          value={editText}
+          className="gp-lyric-pill__input"
           onChange={(e) => onChangeEditText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') onSaveEdit()
             if (e.key === 'Escape') onCancelEdit()
           }}
-          style={{
-            backgroundColor: 'transparent', border: 'none', color: '#e2e8f0',
-            fontSize: '0.75rem', outline: 'none',
-            minWidth: '120px',
-            width: `${Math.max(editText.length * 8, 120)}px`,
-            maxWidth: '100%',
-          }}
+          ref={inputRef}
+          style={{ width: `${Math.max(editText.length * 8, 120)}px` }}
+          value={editText}
         />
-        <button onClick={onSaveEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-          <Check className="w-3.5 h-3.5" style={{ color: '#34d399' }} />
+        <button aria-label="Save lyric block" className="gp-pill-btn gp-pill-btn--save" onClick={onSaveEdit} type="button">
+          <Check aria-hidden="true" size={16} />
         </button>
-        <button onClick={onCancelEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-          <X className="w-3.5 h-3.5" style={{ color: '#f87171' }} />
+        <button aria-label="Cancel editing lyric block" className="gp-pill-btn gp-pill-btn--cancel" onClick={onCancelEdit} type="button">
+          <X aria-hidden="true" size={16} />
         </button>
       </span>
     )
@@ -677,32 +586,45 @@ function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEd
 
   return (
     <span
+      className="gp-lyric-pill"
       draggable
-      onDragStart={(e) => onDragStart(e, pill._key, sceneIdx)}
       onDoubleClick={() => onStartEdit(pill)}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: '6px',
-        padding: '4px 10px', borderRadius: '6px',
-        backgroundColor: 'rgba(99, 102, 241, 0.12)',
-        border: '1px solid rgba(99, 102, 241, 0.25)',
-        color: '#cbd5e1', fontSize: '0.75rem',
-        cursor: 'grab', userSelect: 'none',
-        transition: 'all 0.15s',
-        maxWidth: '100%',
-        lineHeight: 1.4,
-      }}
-      title="Drag to move • Double-click to edit"
+      onDragStart={(e) => onDragStart(e, pill._key, sceneIdx)}
+      title="Drag or tap arrows to move • Tap pencil to edit"
     >
-      <GripVertical className="w-3.5 h-3.5" style={{ color: '#475569', flexShrink: 0 }} />
-      <span style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
-        {pill.text}
+      <GripVertical aria-hidden="true" className="gp-lyric-pill__grip" size={16} />
+      <span className="gp-lyric-pill__text">{pill.text}</span>
+      <span className="gp-lyric-pill__actions">
+        <button
+          aria-label="Move lyric block to previous scene"
+          className="gp-pill-btn"
+          disabled={!canMovePrev}
+          onClick={(e) => { e.stopPropagation(); onMovePrev() }}
+          title="Move to previous scene"
+          type="button"
+        >
+          <ArrowUp aria-hidden="true" size={15} />
+        </button>
+        <button
+          aria-label="Move lyric block to next scene"
+          className="gp-pill-btn"
+          disabled={!canMoveNext}
+          onClick={(e) => { e.stopPropagation(); onMoveNext() }}
+          title="Move to next scene"
+          type="button"
+        >
+          <ArrowDown aria-hidden="true" size={15} />
+        </button>
+        <button
+          aria-label="Edit lyric block"
+          className="gp-pill-btn"
+          onClick={(e) => { e.stopPropagation(); onStartEdit(pill) }}
+          title="Edit lyric block"
+          type="button"
+        >
+          <Pencil aria-hidden="true" size={15} />
+        </button>
       </span>
-      <button
-        onClick={(e) => { e.stopPropagation(); onStartEdit(pill) }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}
-      >
-        <Pencil className="w-3 h-3" style={{ color: '#64748b' }} />
-      </button>
     </span>
   )
 }
@@ -710,28 +632,9 @@ function LyricPill({ pill, sceneIdx, isEditing, editText, onDragStart, onStartEd
 // ─── Add Scene Button ───
 function AddSceneButton({ onClick }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
-      <button
-        onClick={onClick}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: '4px',
-          padding: '4px 12px', borderRadius: '9999px', fontSize: '0.7rem',
-          fontWeight: 600, border: '1px dashed rgba(99, 102, 241, 0.3)',
-          backgroundColor: 'transparent', color: '#64748b',
-          cursor: 'pointer', transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.1)'
-          e.currentTarget.style.color = '#818cf8'
-          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.5)'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.backgroundColor = 'transparent'
-          e.currentTarget.style.color = '#64748b'
-          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)'
-        }}
-      >
-        <Plus className="w-3 h-3" /> Add Scene
+    <div className="gp-add-scene-row">
+      <button className="gp-add-scene-btn" onClick={onClick} type="button">
+        <Plus aria-hidden="true" size={16} /> Add Scene
       </button>
     </div>
   )
@@ -801,10 +704,10 @@ export default function GenerationProgress() {
 
   if (loading) {
     return (
-      <CreatorPageShell breadcrumbs={['Generation Progress']} title="Generation Progress" description="Loading...">
-        <div style={{ padding: '3rem', textAlign: 'center' }}>
-          <Loader2 className="w-8 h-8 animate-spin" style={{ margin: '0 auto', color: '#6366f1' }} />
-          <p style={{ marginTop: '1rem', color: '#94a3b8' }}>Fetching job details...</p>
+      <CreatorPageShell breadcrumbs={['Generation Progress']} className="gp-page" description="Loading..." title="Generation Progress">
+        <div className="gp-loading-state">
+          <Loader2 aria-hidden="true" className="gp-spin gp-spinner" size={32} />
+          <p className="gp-loading-copy">Fetching job details...</p>
         </div>
       </CreatorPageShell>
     )
@@ -812,15 +715,15 @@ export default function GenerationProgress() {
 
   if (error) {
     return (
-      <CreatorPageShell breadcrumbs={['Generation Progress']} title="Generation Progress" description="Error loading job.">
-        <section className="studio-card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <AlertCircle className="w-12 h-12" style={{ margin: '0 auto', color: '#ef4444' }} />
-          <h2 style={{ color: '#ef4444', marginTop: '1rem' }}>Unable to Load Job</h2>
-          <p style={{ color: '#94a3b8', marginTop: '0.5rem' }}>{error}</p>
+      <CreatorPageShell breadcrumbs={['Generation Progress']} className="gp-page" description="Error loading job." title="Generation Progress">
+        <section className="studio-card gp-error-card" role="alert">
+          <AlertCircle aria-hidden="true" className="gp-error-icon" size={48} />
+          <h2 className="gp-error-title">Unable to Load Job</h2>
+          <p className="gp-error-copy">{error}</p>
           <button
+            className="studio-button studio-button--secondary gp-error-btn"
             onClick={() => navigate('/creator/generation')}
-            className="studio-button studio-button--secondary"
-            style={{ marginTop: '2rem' }}
+            type="button"
           >
             Back to Generation Jobs
           </button>
@@ -834,65 +737,59 @@ export default function GenerationProgress() {
   const isAwaitingReview = status === 'AWAITING_REVIEW'
 
   const renderStatusTag = (label, type = 'waiting') => {
-    const styles = {
-      completed: { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981', icon: <CheckCircle className="w-3 h-3" /> },
-      processing: { bg: 'rgba(99, 102, 241, 0.1)', text: '#818cf8', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
-      review: { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24', icon: <Pencil className="w-3 h-3" /> },
-      waiting: { bg: 'rgba(100, 116, 139, 0.1)', text: '#94a3b8', icon: null },
-      failed: { bg: 'rgba(239, 68, 68, 0.1)', text: '#ef4444', icon: <AlertCircle className="w-3 h-3" /> },
+    const icons = {
+      completed: <CheckCircle aria-hidden="true" size={14} />,
+      failed: <AlertCircle aria-hidden="true" size={14} />,
+      processing: <Loader2 aria-hidden="true" className="gp-spin" size={14} />,
+      review: <Pencil aria-hidden="true" size={14} />,
+      waiting: null,
     }
-    const s = styles[type]
     return (
-      <span style={{ 
-        display: 'inline-flex', alignItems: 'center', gap: '4px',
-        fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', 
-        borderRadius: '9999px', backgroundColor: s.bg, color: s.text,
-        marginLeft: '12px'
-      }}>
-        {s.icon}
+      <span className={`gp-status-tag gp-status-tag--${type}`}>
+        {icons[type]}
         {label}
       </span>
     )
   }
 
   const getPhaseStatus = (phaseNum) => {
-    const hasScenes = sceneSegments && sceneSegments.length > 0;
-    const totalFrames = sceneSegments?.length || 0;
-    const generatedFrames = sceneSegments?.filter(s => (s.generatedFrames && s.generatedFrames.length > 0) || Boolean(s.imageUrl)).length || 0;
-    const framesDone = totalFrames > 0 && generatedFrames === totalFrames;
+    const hasScenes = sceneSegments && sceneSegments.length > 0
+    const totalFrames = sceneSegments?.length || 0
+    const generatedFrames = sceneSegments?.filter(s => (s.generatedFrames && s.generatedFrames.length > 0) || Boolean(s.imageUrl)).length || 0
+    const framesDone = totalFrames > 0 && generatedFrames === totalFrames
 
     if (phaseNum === 1) {
-      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
-      return renderStatusTag('Completed', 'completed');
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed')
+      return renderStatusTag('Completed', 'completed')
     }
     if (phaseNum === 2) {
-      if (isAwaitingReview) return renderStatusTag('Awaiting Review', 'review');
-      if (hasScenes) return renderStatusTag('Completed', 'completed');
-      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
-      return renderStatusTag('Processing...', 'processing');
+      if (isAwaitingReview) return renderStatusTag('Awaiting Review', 'review')
+      if (hasScenes) return renderStatusTag('Completed', 'completed')
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed')
+      return renderStatusTag('Processing...', 'processing')
     }
     if (phaseNum === 3) {
-      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting');
-      if (framesDone) return renderStatusTag('Completed', 'completed');
-      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
-      if (hasScenes) return renderStatusTag(`${generatedFrames}/${totalFrames} Frames`, 'processing');
-      return renderStatusTag('Waiting', 'waiting');
+      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting')
+      if (framesDone) return renderStatusTag('Completed', 'completed')
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed')
+      if (hasScenes) return renderStatusTag(`${generatedFrames}/${totalFrames} Frames`, 'processing')
+      return renderStatusTag('Waiting', 'waiting')
     }
     if (phaseNum === 4) {
-      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting');
-      if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed');
-      if (status === 'FAILED') return renderStatusTag('Failed', 'failed');
-      if (framesDone) return renderStatusTag('Stitching...', 'processing');
-      return renderStatusTag('Waiting', 'waiting');
+      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting')
+      if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed')
+      if (status === 'FAILED') return renderStatusTag('Failed', 'failed')
+      if (framesDone) return renderStatusTag('Stitching...', 'processing')
+      return renderStatusTag('Waiting', 'waiting')
     }
     if (phaseNum === 5) {
-      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting');
-      if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed');
-      if (status === 'FAILED') return renderStatusTag('Skipped', 'failed');
-      if (framesDone) return renderStatusTag('Generating...', 'processing');
-      return renderStatusTag('Waiting', 'waiting');
+      if (isAwaitingReview) return renderStatusTag('Waiting', 'waiting')
+      if (status === 'COMPLETED') return renderStatusTag('Completed', 'completed')
+      if (status === 'FAILED') return renderStatusTag('Skipped', 'failed')
+      if (framesDone) return renderStatusTag('Generating...', 'processing')
+      return renderStatusTag('Waiting', 'waiting')
     }
-    return null;
+    return null
   }
 
   const handleScenesConfirmed = () => {
@@ -903,87 +800,67 @@ export default function GenerationProgress() {
 
   return (
     <CreatorPageShell
-      breadcrumbs={['Generation Tasks', 'Progress']}
-      description="Monitor the real-time compilation of your AI video."
-      title="Generation Progress"
       actions={
         <button
           className="studio-button studio-button--secondary"
           onClick={() => navigate('/creator/generation')}
+          type="button"
         >
           Back to Jobs
         </button>
       }
+      breadcrumbs={['Generation Tasks', 'Progress']}
+      className="gp-page"
+      description="Monitor the real-time compilation of your AI video."
+      title="Generation Progress"
     >
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 className="text-3xl font-bold text-white mb-1">{jobData?.song?.title || 'Unknown Project'}</h1>
-        <p className="text-violet-400 font-medium text-lg">{jobData?.song?.artist || 'Unknown Artist'}</p>
+      <div className="gp-project-header">
+        <h2 className="gp-project-title">{jobData?.song?.title || 'Unknown Project'}</h2>
+        <p className="gp-project-artist">{jobData?.song?.artist || 'Unknown Artist'}</p>
       </div>
 
       {/* 1. Status Card */}
-      <section style={{ 
-        marginBottom: '1rem', 
-        background: 'linear-gradient(to right, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1))',
-        border: '1px solid rgba(139, 92, 246, 0.3)',
-        borderRadius: '16px',
-        overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
-      }}>
-        <header style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          padding: '1.5rem 2rem', 
-          borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
-          background: 'rgba(15, 23, 42, 0.4)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>🎬</span>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', margin: 0 }}>Compilation Status</h2>
+      <section className="gp-status-card">
+        <header className="gp-status-card__header">
+          <div className="gp-status-card__title">
+            <Clapperboard aria-hidden="true" className="gp-icon-violet" size={22} />
+            <h2>Compilation Status</h2>
           </div>
-          <GenerationStatusBadge status={status} errorMessage={jobData?.errorMessage} />
+          <GenerationStatusBadge errorMessage={jobData?.errorMessage} status={status} />
         </header>
 
-        <div style={{ padding: '20px 30px' }}>
+        <div className="gp-status-card__body">
           {status === 'FAILED' && (
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', marginBottom: '1rem' }}>
-               {jobData?.errorMessage && (
-                 <p style={{ color: '#f87171', fontSize: '0.875rem', fontFamily: 'monospace', marginBottom: '1rem' }}>{jobData.errorMessage}</p>
-               )}
-               <button
-                 className="studio-button studio-button--primary"
-                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.25rem', fontWeight: 600 }}
-                 onClick={async () => {
-                   try {
-                     await retryGenerationJob(jobData.id, token)
-                     setJobData(prev => prev ? { ...prev, status: 'PROCESSING', errorMessage: null } : prev)
-                     setPollTrigger(t => t + 1)
-                   } catch (err) {
-                     console.error('Retry failed:', err)
-                     alert('Failed to retry generation. Please try again.')
-                   }
-                 }}
-               >
-                 <RefreshCw className="w-4 h-4" />
-                 Retry / Resume Generation
-               </button>
+            <div className="gp-failed-box">
+              {jobData?.errorMessage && (
+                <p className="gp-failed-box__msg">{jobData.errorMessage}</p>
+              )}
+              <button
+                className="studio-button studio-button--primary gp-retry-btn"
+                onClick={async () => {
+                  try {
+                    await retryGenerationJob(jobData.id, token)
+                    setJobData(prev => prev ? { ...prev, status: 'PROCESSING', errorMessage: null } : prev)
+                    setPollTrigger(t => t + 1)
+                  } catch (err) {
+                    console.error('Retry failed:', err)
+                    alert('Failed to retry generation. Please try again.')
+                  }
+                }}
+                type="button"
+              >
+                <RefreshCw aria-hidden="true" size={16} />
+                Retry / Resume Generation
+              </button>
             </div>
           )}
 
           {isAwaitingReview && (
-            <div style={{
-              padding: '1rem',
-              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.05))',
-              border: '1px solid rgba(251, 191, 36, 0.25)',
-              borderRadius: '8px', marginBottom: '1rem',
-              display: 'flex', alignItems: 'center', gap: '0.75rem',
-            }}>
-              <Pencil className="w-5 h-5" style={{ color: '#fbbf24', flexShrink: 0 }} />
+            <div className="gp-review-banner">
+              <Pencil aria-hidden="true" className="gp-review-banner__icon" size={20} />
               <div>
-                <p style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>
-                  Scene plan is ready for your review
-                </p>
-                <p style={{ color: '#d4a017', fontSize: '0.8rem', margin: '4px 0 0 0' }}>
+                <p className="gp-review-banner__title">Scene plan is ready for your review</p>
+                <p className="gp-review-banner__copy">
                   Expand Phase 2 below to review, edit, and confirm your scenes before image generation begins.
                 </p>
               </div>
@@ -991,59 +868,62 @@ export default function GenerationProgress() {
           )}
 
           {status === 'COMPLETED' ? (
-            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-              <p style={{ color: '#34d399', fontWeight: 500, fontSize: '1.1rem', marginBottom: '1.5rem' }}>
-                ✨ Your cinematic video has been assembled successfully!
+            <div className="gp-completed-box">
+              <p className="gp-completed-box__title">
+                <Sparkles aria-hidden="true" size={18} />
+                Your cinematic video has been assembled successfully!
               </p>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <Link 
-                  to={`/creator/editor/${jobData.id}`} 
-                  className="studio-button studio-button--primary"
-                  style={{ flex: '1 1 200px', textAlign: 'center', textDecoration: 'none', padding: '0.875rem 1.5rem', fontWeight: 600 }}
+              <div className="gp-completed-box__actions">
+                <Link
+                  className="studio-button studio-button--primary gp-completed-cta"
+                  to={`/creator/editor/${jobData.id}`}
                 >
                   Proceed to Video Editor
                 </Link>
-                <Link 
-                  to={`/creator/curation/${jobData.songId}`} 
-                  className="studio-button studio-button--secondary"
-                  style={{ flex: '1 1 200px', textAlign: 'center', textDecoration: 'none', padding: '0.875rem 1.5rem', fontWeight: 600 }}
+                <Link
+                  className="studio-button studio-button--secondary gp-completed-cta"
+                  to={`/creator/curation/${jobData.songId}`}
                 >
-                  Curate Song Details & Trivia
+                  Curate Song Details &amp; Trivia
                 </Link>
               </div>
             </div>
           ) : !isAwaitingReview ? (
-            <p style={{ color: '#94a3b8' }}>Video is currently processing...</p>
+            <p className="gp-processing-copy">Video is currently processing...</p>
           ) : null}
         </div>
       </section>
 
-      {/* ─── Phases Group Container (12px gap) ─── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* ─── Phases Group Container ─── */}
+      <div className="gp-phases-stack">
         {/* Phase 1 Accordion */}
-        <section 
-          className="studio-card studio-form-card" 
-          style={{ cursor: 'pointer' }}
-        >
-          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase1Expanded(!isPhase1Expanded)}>
-            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
-              <span aria-hidden="true">🎧</span>
-              <h2>Phase 1: Audio & Lyric Extraction</h2>
-              {getPhaseStatus(1)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase1Expanded ? 'Collapse' : 'Expand'}</span>
-              {isPhase1Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-            </div>
+        <section className="studio-card studio-form-card gp-phase-card">
+          <header className="studio-card__header studio-card__header--spread gp-phase-card__header">
+            <button
+              aria-expanded={isPhase1Expanded}
+              className="gp-phase-header"
+              onClick={() => setIsPhase1Expanded(!isPhase1Expanded)}
+              type="button"
+            >
+              <span className="gp-phase-header__title">
+                <Headphones aria-hidden="true" className="gp-icon-violet" size={20} />
+                <span>Phase 1: Audio &amp; Lyric Extraction</span>
+                {getPhaseStatus(1)}
+              </span>
+              <span className="gp-phase-header__toggle">
+                <span>{isPhase1Expanded ? 'Collapse' : 'Expand'}</span>
+                {isPhase1Expanded ? <ChevronDown aria-hidden="true" size={20} /> : <ChevronRight aria-hidden="true" size={20} />}
+              </span>
+            </button>
           </header>
 
           {isPhase1Expanded && (
-            <div style={{ padding: '20px 30px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <CheckCircle className="w-8 h-8 text-emerald-500" />
+            <div className="gp-phase-body">
+              <div className="gp-phase-outcome">
+                <CheckCircle aria-hidden="true" className="gp-outcome-icon is-success" size={32} />
                 <div>
-                  <h3 className="text-white font-bold text-lg">Audio & Lyric Extraction Complete</h3>
-                  <p className="text-emerald-400 text-sm">Audio stream uploaded and timed lyric transcription segments successfully created.</p>
+                  <h3 className="gp-outcome-title">Audio &amp; Lyric Extraction Complete</h3>
+                  <p className="gp-outcome-copy is-success">Audio stream uploaded and timed lyric transcription segments successfully created.</p>
                 </div>
               </div>
             </div>
@@ -1051,86 +931,65 @@ export default function GenerationProgress() {
         </section>
 
         {/* Phase 2 Accordion */}
-        <section 
-          className="studio-card studio-form-card"
-          style={{
-            ...(isAwaitingReview ? {
-              border: '1px solid rgba(251, 191, 36, 0.3)',
-              boxShadow: '0 0 20px rgba(251, 191, 36, 0.08)',
-            } : {})
-          }}
-        >
-          <header className="studio-card__header studio-card__header--spread" style={{ cursor: 'pointer' }} onClick={() => setIsPhase2Expanded(!isPhase2Expanded)}>
-            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
-              <span aria-hidden="true">📝</span>
-              <h2>Phase 2: AI Scene Planning</h2>
-              {getPhaseStatus(2)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase2Expanded ? 'Collapse' : 'Expand'}</span>
-              {isPhase2Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-            </div>
+        <section className={`studio-card studio-form-card gp-phase-card ${isAwaitingReview ? 'is-awaiting-review' : ''}`}>
+          <header className="studio-card__header studio-card__header--spread gp-phase-card__header">
+            <button
+              aria-expanded={isPhase2Expanded}
+              className="gp-phase-header"
+              onClick={() => setIsPhase2Expanded(!isPhase2Expanded)}
+              type="button"
+            >
+              <span className="gp-phase-header__title">
+                <FileText aria-hidden="true" className="gp-icon-violet" size={20} />
+                <span>Phase 2: AI Scene Planning</span>
+                {getPhaseStatus(2)}
+              </span>
+              <span className="gp-phase-header__toggle">
+                <span>{isPhase2Expanded ? 'Collapse' : 'Expand'}</span>
+                {isPhase2Expanded ? <ChevronDown aria-hidden="true" size={20} /> : <ChevronRight aria-hidden="true" size={20} />}
+              </span>
+            </button>
           </header>
 
           {isPhase2Expanded && (
-            <div style={{ padding: '20px 30px' }}>
+            <div className="gp-phase-body">
               {/* ─── Scene Block Editor (AWAITING_REVIEW mode) ─── */}
               {isAwaitingReview && sceneSegments.length > 0 ? (
                 <SceneBlockEditor
+                  jobId={jobData?.id}
+                  onConfirmed={handleScenesConfirmed}
+                  onConfirming={() => { /* spinner state is managed internally */ }}
                   scenes={sceneSegments}
                   segments={jobData?.song?.transcriptionSegments}
                   songId={jobData?.songId || jobData?.song?.id}
-                  jobId={jobData?.id}
                   token={token}
-                  onConfirmed={handleScenesConfirmed}
-                  onConfirming={() => { /* spinner state is managed internally */ }}
                 />
               ) : sceneSegments && sceneSegments.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="gp-readonly-scenes">
                   {sceneSegments.map((segment, idx) => (
-                    <div key={segment.id} style={{ 
-                      backgroundColor: 'rgba(30, 41, 59, 0.5)', 
-                      border: '1px solid rgba(51, 65, 85, 0.5)', 
-                      borderRadius: '12px', 
-                      padding: '1rem' 
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                        <strong style={{ color: '#818cf8', fontSize: '0.875rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Scene {idx + 1}
-                        </strong>
-                        <span style={{ 
-                          fontSize: '0.75rem', 
-                          fontFamily: 'monospace', 
-                          backgroundColor: 'rgba(15, 23, 42, 0.8)', 
-                          color: '#94a3b8', 
-                          padding: '2px 8px', 
-                          borderRadius: '4px' 
-                        }}>
+                    <div className="gp-scene-card" key={segment.id}>
+                      <div className="gp-scene-card__header">
+                        <strong className="gp-scene-card__label">Scene {idx + 1}</strong>
+                        <span className="gp-time-pill">
                           {Number(segment?.startTime || 0).toFixed(2)}s - {Number(segment?.endTime || 0).toFixed(2)}s
                         </span>
                       </div>
 
                       {segment.lyrics && (
-                        <p style={{ color: '#cbd5e1', fontStyle: 'italic', fontSize: '0.875rem', marginBottom: '0.75rem', paddingLeft: '0.5rem', borderLeft: '2px solid rgba(99, 102, 241, 0.3)' }}>
-                          "{segment.lyrics}"
-                        </p>
+                        <p className="gp-scene-lyrics">&ldquo;{segment.lyrics}&rdquo;</p>
                       )}
 
-                      <div style={{ backgroundColor: 'rgba(15, 23, 42, 0.6)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(51, 65, 85, 0.4)' }}>
-                        <span style={{ display: 'block', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', marginBottom: '0.25rem', fontWeight: 700 }}>
-                          Visual Prompt
-                        </span>
-                        <p style={{ color: '#f8fafc', fontSize: '0.875rem', lineHeight: 1.5 }}>
-                          {segment.visualPrompt}
-                        </p>
+                      <div className="gp-prompt-box">
+                        <span className="gp-prompt-box__label gp-prompt-box__label--spaced">Visual Prompt</span>
+                        <p className="gp-prompt-readonly">{segment.visualPrompt}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
-                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for AI Scene Generation...</p>
+                <div className="gp-phase-waiting">
+                  <Loader2 aria-hidden="true" className="gp-spin gp-spinner" size={32} />
+                  <p>Waiting for AI Scene Generation...</p>
                 </div>
               )}
             </div>
@@ -1138,94 +997,67 @@ export default function GenerationProgress() {
         </section>
 
         {/* Phase 3 Accordion */}
-        <section 
-          className="studio-card studio-form-card"
-          style={{ cursor: 'pointer' }}
-        >
-          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase3Expanded(!isPhase3Expanded)}>
-            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
-              <span aria-hidden="true">🖼️</span>
-              <h2>Phase 3: Image Generation</h2>
-              {getPhaseStatus(3)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase3Expanded ? 'Collapse' : 'Expand'}</span>
-              {isPhase3Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-            </div>
+        <section className="studio-card studio-form-card gp-phase-card">
+          <header className="studio-card__header studio-card__header--spread gp-phase-card__header">
+            <button
+              aria-expanded={isPhase3Expanded}
+              className="gp-phase-header"
+              onClick={() => setIsPhase3Expanded(!isPhase3Expanded)}
+              type="button"
+            >
+              <span className="gp-phase-header__title">
+                <ImageIcon aria-hidden="true" className="gp-icon-violet" size={20} />
+                <span>Phase 3: Image Generation</span>
+                {getPhaseStatus(3)}
+              </span>
+              <span className="gp-phase-header__toggle">
+                <span>{isPhase3Expanded ? 'Collapse' : 'Expand'}</span>
+                {isPhase3Expanded ? <ChevronDown aria-hidden="true" size={20} /> : <ChevronRight aria-hidden="true" size={20} />}
+              </span>
+            </button>
           </header>
 
           {isPhase3Expanded && (
-            <div style={{ padding: '20px 30px' }}>
+            <div className="gp-phase-body">
               {sceneSegments && sceneSegments.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                <div className="gp-frames-grid">
                   {sceneSegments.map((segment, idx) => {
-                    const frames = segment.generatedFrames || [];
+                    const frames = segment.generatedFrames || []
                     return (
-                      <div key={`p3-${segment.id}`} style={{
-                        backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                        border: '1px solid rgba(51, 65, 85, 0.5)',
-                        borderRadius: '12px',
-                        padding: '1rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.75rem'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.75rem', color: '#818cf8', fontWeight: 700, letterSpacing: '0.05em' }}>
-                            SCENE {idx + 1}
-                          </span>
-                          <span style={{ fontSize: '0.7rem', color: '#64748b', backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: '2px 6px', borderRadius: '4px' }}>
-                            {frames.length} Frame(s)
-                          </span>
+                      <div className="gp-frame-card" key={`p3-${segment.id}`}>
+                        <div className="gp-frame-card__head">
+                          <span className="gp-scene-card__label">SCENE {idx + 1}</span>
+                          <span className="gp-frame-count-pill">{frames.length} Frame(s)</span>
                         </div>
-                        
+
                         {frames.length > 0 ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div className="gp-frame-card__thumbs">
                             {frames.map(frame => (
-                              <div key={frame.id} style={{
-                                width: '100%',
-                                aspectRatio: '16/9',
-                                borderRadius: '6px',
-                                overflow: 'hidden',
-                                backgroundColor: '#0f172a',
-                                position: 'relative',
-                                border: '1px solid rgba(139, 92, 246, 0.2)'
-                              }}>
-                                <img src={frame.imageUrl} alt={`Scene ${idx + 1} Frame`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <div className="gp-frame-thumb" key={frame.id}>
+                                <img alt={`Scene ${idx + 1} Frame`} src={frame.imageUrl} />
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div style={{
-                            width: '100%',
-                            aspectRatio: '16/9',
-                            borderRadius: '6px',
-                            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: '1px dashed rgba(99, 102, 241, 0.3)',
-                            gap: '0.5rem'
-                          }}>
+                          <div className="gp-frame-placeholder">
                             {status === 'COMPLETED' || status === 'FAILED' ? (
-                              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>No frames</span>
+                              <span>No frames</span>
                             ) : (
                               <>
-                                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-                                <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Generating...</span>
+                                <Loader2 aria-hidden="true" className="gp-spin gp-icon-violet" size={18} />
+                                <span>Generating...</span>
                               </>
                             )}
                           </div>
                         )}
                       </div>
-                    );
+                    )
                   })}
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
-                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for scenes before generating frames...</p>
+                <div className="gp-phase-waiting">
+                  <Loader2 aria-hidden="true" className="gp-spin gp-spinner" size={32} />
+                  <p>Waiting for scenes before generating frames...</p>
                 </div>
               )}
             </div>
@@ -1233,93 +1065,102 @@ export default function GenerationProgress() {
         </section>
 
         {/* Phase 4 Accordion */}
-        <section 
-          className="studio-card studio-form-card"
-          style={{ cursor: 'pointer' }}
-        >
-          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase4Expanded(!isPhase4Expanded)}>
-            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
-              <span aria-hidden="true">🎞️</span>
-              <h2>Phase 4: Video Assembly</h2>
-              {getPhaseStatus(4)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase4Expanded ? 'Collapse' : 'Expand'}</span>
-              {isPhase4Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-            </div>
+        <section className="studio-card studio-form-card gp-phase-card">
+          <header className="studio-card__header studio-card__header--spread gp-phase-card__header">
+            <button
+              aria-expanded={isPhase4Expanded}
+              className="gp-phase-header"
+              onClick={() => setIsPhase4Expanded(!isPhase4Expanded)}
+              type="button"
+            >
+              <span className="gp-phase-header__title">
+                <Film aria-hidden="true" className="gp-icon-violet" size={20} />
+                <span>Phase 4: Video Assembly</span>
+                {getPhaseStatus(4)}
+              </span>
+              <span className="gp-phase-header__toggle">
+                <span>{isPhase4Expanded ? 'Collapse' : 'Expand'}</span>
+                {isPhase4Expanded ? <ChevronDown aria-hidden="true" size={20} /> : <ChevronRight aria-hidden="true" size={20} />}
+              </span>
+            </button>
           </header>
 
           {isPhase4Expanded && (
-            <div style={{ padding: '20px 30px' }}>
+            <div className="gp-phase-body">
               {status === 'COMPLETED' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <CheckCircle className="w-8 h-8 text-emerald-500" />
+                <div className="gp-phase-outcome">
+                  <CheckCircle aria-hidden="true" className="gp-outcome-icon is-success" size={32} />
                   <div>
-                    <h3 className="text-white font-bold text-lg">FFmpeg Assembly Complete</h3>
-                    <p className="text-emerald-400 text-sm">Video has been successfully stitched and is ready.</p>
+                    <h3 className="gp-outcome-title">FFmpeg Assembly Complete</h3>
+                    <p className="gp-outcome-copy is-success">Video has been successfully stitched and is ready.</p>
                   </div>
                 </div>
               ) : status === 'FAILED' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <AlertCircle className="w-8 h-8 text-red-500" />
+                <div className="gp-phase-outcome">
+                  <AlertCircle aria-hidden="true" className="gp-outcome-icon is-error" size={32} />
                   <div>
-                    <h3 className="text-white font-bold text-lg">Assembly Failed</h3>
-                    <p className="text-red-400 text-sm">There was an error stitching the video.</p>
+                    <h3 className="gp-outcome-title">Assembly Failed</h3>
+                    <p className="gp-outcome-copy is-error">There was an error stitching the video.</p>
                   </div>
                 </div>
               ) : (sceneSegments.length > 0 && sceneSegments.every(seg => (seg.generatedFrames && seg.generatedFrames.length > 0) || Boolean(seg.imageUrl))) ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
-                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Stitching MP4 with FFmpeg...</p>
+                <div className="gp-phase-waiting">
+                  <Loader2 aria-hidden="true" className="gp-spin gp-spinner" size={32} />
+                  <p>Stitching MP4 with FFmpeg...</p>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
-                  <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Waiting for image generation to complete...</p>
+                <div className="gp-phase-waiting">
+                  <Loader2 aria-hidden="true" className="gp-spin gp-spinner-muted" size={32} />
+                  <p>Waiting for image generation to complete...</p>
                 </div>
               )}
             </div>
           )}
         </section>
 
-        {/* Phase 5 Section */}
-        <section 
-          className="studio-card studio-form-card"
-          style={{ cursor: 'pointer' }}
-        >
-          <header className="studio-card__header studio-card__header--spread" onClick={() => setIsPhase5Expanded(!isPhase5Expanded)}>
-            <div className="studio-card__title" style={{ display: 'flex', alignItems: 'center' }}>
-              <span aria-hidden="true"><Sparkles className="w-5 h-5" style={{ color: '#a78bfa', display: 'inline' }} /></span>
-              <h2>Phase 5: Cultural Curation & Trivia</h2>
-              {getPhaseStatus(5)}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{isPhase5Expanded ? 'Collapse' : 'Expand'}</span>
-              {isPhase5Expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-            </div>
+        {/* Phase 5 Accordion */}
+        <section className="studio-card studio-form-card gp-phase-card">
+          <header className="studio-card__header studio-card__header--spread gp-phase-card__header">
+            <button
+              aria-expanded={isPhase5Expanded}
+              className="gp-phase-header"
+              onClick={() => setIsPhase5Expanded(!isPhase5Expanded)}
+              type="button"
+            >
+              <span className="gp-phase-header__title">
+                <Sparkles aria-hidden="true" className="gp-icon-violet" size={20} />
+                <span>Phase 5: Cultural Curation &amp; Trivia</span>
+                {getPhaseStatus(5)}
+              </span>
+              <span className="gp-phase-header__toggle">
+                <span>{isPhase5Expanded ? 'Collapse' : 'Expand'}</span>
+                {isPhase5Expanded ? <ChevronDown aria-hidden="true" size={20} /> : <ChevronRight aria-hidden="true" size={20} />}
+              </span>
+            </button>
           </header>
+
           {isPhase5Expanded && (
-            <div style={{ padding: '20px 30px' }}>
+            <div className="gp-phase-body">
               {status === 'COMPLETED' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <CheckCircle className="w-8 h-8 text-emerald-500" />
+                <div className="gp-phase-outcome">
+                  <CheckCircle aria-hidden="true" className="gp-outcome-icon is-success" size={32} />
                   <div>
-                    <h3 className="text-white font-bold text-lg">Curation Complete</h3>
-                    <p className="text-emerald-400 text-sm">Cultural summary, trivia questions, and instrument matches have been generated.</p>
+                    <h3 className="gp-outcome-title">Curation Complete</h3>
+                    <p className="gp-outcome-copy is-success">Cultural summary, trivia questions, and instrument matches have been generated.</p>
                   </div>
                 </div>
               ) : status === 'FAILED' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <AlertCircle className="w-8 h-8 text-amber-500" />
+                <div className="gp-phase-outcome">
+                  <AlertCircle aria-hidden="true" className="gp-outcome-icon is-warning" size={32} />
                   <div>
-                    <h3 className="text-white font-bold text-lg">Curation Skipped</h3>
-                    <p className="text-amber-400 text-sm">Pipeline failed before curation could complete. Retry the generation to generate curation details.</p>
+                    <h3 className="gp-outcome-title">Curation Skipped</h3>
+                    <p className="gp-outcome-copy is-warning">Pipeline failed before curation could complete. Retry the generation to generate curation details.</p>
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 0', gap: '1rem' }}>
-                  <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
-                  <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Generating cultural summary, trivia, & instrument matches...</p>
+                <div className="gp-phase-waiting">
+                  <Loader2 aria-hidden="true" className="gp-spin gp-spinner" size={32} />
+                  <p>Generating cultural summary, trivia, &amp; instrument matches...</p>
                 </div>
               )}
             </div>

@@ -1,3 +1,4 @@
+import { Music2 } from 'lucide-react'
 import LanguageSelector from './LanguageSelector'
 import MoodTagSelector from './MoodTagSelector'
 import SongMediaUpload from './SongMediaUpload'
@@ -40,7 +41,7 @@ export default function SongInformationCard({
     <section className="studio-card studio-form-card">
       <header className="studio-card__header">
         <div className="studio-card__title">
-          <span aria-hidden="true">♫</span>
+          <Music2 aria-hidden="true" size={18} />
           <h2>Song Information</h2>
         </div>
       </header>

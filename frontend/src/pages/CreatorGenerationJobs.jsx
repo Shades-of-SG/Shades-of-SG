@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
+import { Music2, Trash2 } from 'lucide-react'
 import CreatorPageShell from '../components/CreatorPageShell'
 import SectionCard from '../components/SectionCard'
 import EmptyState from '../components/EmptyState'
@@ -216,84 +216,85 @@ export default function CreatorGenerationJobs() {
 
   return (
     <CreatorPageShell
-      breadcrumbs={['Generation Tasks']}
-      description="Monitor and manage your AI video compilation tasks."
-      title="Generation Tasks"
       actions={
         <button
           className={`studio-button ${isCreating ? 'studio-button--secondary' : 'studio-button--primary'}`}
           onClick={() => setIsCreating(!isCreating)}
+          type="button"
         >
           {isCreating ? 'Cancel' : 'Compile New Video'}
         </button>
       }
+      breadcrumbs={['Generation Tasks']}
+      className="cgj-page"
+      description="Monitor and manage your AI video compilation tasks."
+      title="Generation Tasks"
     >
-
-      {/* --- PREMIUM STUDIO-STYLED FORM --- */}
       {isCreating && (
-        <section className="studio-card studio-form-card" style={{ marginBottom: '2rem' }}>
+        <section className="studio-card studio-form-card cgj-form-card">
           <header className="studio-card__header studio-card__header--spread">
             <div className="studio-card__title">
-              <span aria-hidden="true">♫</span>
+              <Music2 aria-hidden="true" size={20} />
               <h2>Start New AI Generation</h2>
             </div>
-            <p style={{ margin: 0 }}>Configure your track details. Submitting initializes audio extraction & automatic Whisper lyric transcription.</p>
+            <p className="cgj-form-subtitle">
+              Configure your track details. Submitting initializes audio extraction &amp; automatic Whisper lyric transcription.
+            </p>
           </header>
 
           <div className="studio-form-column">
-
             {/* 1. Media Source Chips */}
-            <label className="studio-field">
+            <div className="studio-field">
               <span>Audio Source</span>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div className="cgj-source-row" role="radiogroup" aria-label="Audio Source">
                 <label className={`studio-option-chip ${mediaSource === 'youtube' ? 'is-selected' : ''}`}>
                   <input
-                    type="radio"
-                    name="source"
                     checked={mediaSource === 'youtube'}
+                    className="sr-only"
+                    name="source"
                     onChange={() => setMediaSource('youtube')}
-                    style={{ display: 'none' }}
+                    type="radio"
                   />
                   YouTube URL
                 </label>
                 <label className={`studio-option-chip ${mediaSource === 'upload' ? 'is-selected' : ''}`}>
                   <input
-                    type="radio"
-                    name="source"
                     checked={mediaSource === 'upload'}
+                    className="sr-only"
+                    name="source"
                     onChange={() => setMediaSource('upload')}
-                    style={{ display: 'none' }}
+                    type="radio"
                   />
                   Upload MP3/WAV
                 </label>
               </div>
-            </label>
+            </div>
 
             {/* 2. Media Inputs */}
             {mediaSource === 'youtube' ? (
               <label className="studio-field">
                 <span>YouTube Link <strong>*</strong></span>
                 <input
-                  type="url"
-                  value={youtubeLink}
                   onChange={(e) => setYoutubeLink(e.target.value)}
                   placeholder="Paste YouTube link here..."
+                  type="url"
+                  value={youtubeLink}
                 />
               </label>
             ) : (
               <label className="studio-field">
                 <span>Upload Audio File <strong>*</strong></span>
                 <input
-                  type="file"
                   accept="audio/*"
+                  className="cgj-file-input"
                   onChange={(e) => setAudioFile(e.target.files[0])}
-                  style={{ padding: '8px' }}
+                  type="file"
                 />
               </label>
             )}
 
             {/* 3. Title and Artist Grid */}
-            <div className="studio-form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '10px' }}>
+            <div className="studio-form-grid cgj-form-grid">
               <label className="studio-field">
                 <span>
                   Title <strong>*</strong>
@@ -301,7 +302,7 @@ export default function CreatorGenerationJobs() {
                 <div className="studio-input-shell">
                   <input
                     maxLength={MAX_TITLE_LENGTH}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="Song Title"
                     value={formData.title}
                   />
@@ -314,7 +315,7 @@ export default function CreatorGenerationJobs() {
                 <div className="studio-input-shell">
                   <input
                     maxLength={MAX_ARTIST_LENGTH}
-                    onChange={(e) => setFormData({...formData, artist: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
                     placeholder="Artist Name"
                     value={formData.artist}
                   />
@@ -325,20 +326,18 @@ export default function CreatorGenerationJobs() {
 
             {/* 4. Generation Trigger */}
             <button
-              onClick={handleStartGeneration}
+              className="studio-button studio-button--primary cgj-submit-btn"
               disabled={isStartingJob}
-              className="studio-button studio-button--primary"
-              style={{ width: '100%', minHeight: '48px', fontSize: '1rem', marginTop: '14px' }}
+              onClick={handleStartGeneration}
+              type="button"
             >
               {isStartingJob ? 'Initializing Track & Lyrics...' : 'Initialize Track & Extract Lyrics'}
             </button>
-
           </div>
         </section>
       )}
 
-
-      {/* --- DASHBOARD JOBS LIST (Unchanged) --- */}
+      {/* --- DASHBOARD JOBS LIST --- */}
       <section className="stats-grid stats-grid--two-col">
         <SectionCard title="Active Jobs">
           <strong>{loading ? '-' : activeJobsCount}</strong>
@@ -350,11 +349,11 @@ export default function CreatorGenerationJobs() {
         </SectionCard>
       </section>
 
-      <div className="dashboard-filter-bar" aria-label="Job filters">
+      <div aria-label="Job filters" className="dashboard-filter-bar">
         {jobFilters.map((filter) => (
           <button
-            key={filter}
             className={`dashboard-filter-pill ${filter === activeFilter ? 'is-selected' : ''}`}
+            key={filter}
             onClick={() => setActiveFilter(filter)}
             type="button"
           >
@@ -363,31 +362,33 @@ export default function CreatorGenerationJobs() {
         ))}
       </div>
 
-      {loading && <div className="p-8 text-center text-slate-500 font-medium">Loading generation tasks...</div>}
-      {error && <div className="p-4 bg-red-50 text-red-700 rounded-md border border-red-200">Error: {error}</div>}
+      {loading && <div className="cgj-loading" role="status">Loading generation tasks...</div>}
+      {error && <div className="cgj-error" role="alert">Error: {error}</div>}
 
       {!loading && !error && filteredJobs.length === 0 ? (
         <EmptyState description={`No ${activeFilter.toLowerCase()} tasks found.`} title="No tasks found" />
       ) : (
-        <div className="creator-song-browser">
+        <div className="creator-song-browser cgj-browser">
           <div className="creator-song-browser__list">
             {!loading && !error && filteredJobs.map((job) => (
-              <div key={job.id} className="dashboard-song-item creator-song-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div className="dashboard-song-art" aria-hidden="true">🎵</div>
+              <div className="dashboard-song-item creator-song-row cgj-job-row" key={job.id}>
+                <div className="cgj-job-info">
+                  <div aria-hidden="true" className="dashboard-song-art">
+                    <Music2 size={22} />
+                  </div>
                   <div className="dashboard-song-copy">
                     <h3>{job.song?.title || job.Song?.title || 'Unknown Song'}</h3>
-                    <p className="text-xs text-slate-500 mb-1">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
+                    <p className="cgj-artist">{job.song?.artist || job.Song?.artist || 'Unknown Artist'}</p>
                     <GenerationStatusBadge status={job.status} />
                     {job.status.toLowerCase() === 'processing' && (
-                      <div className="dashboard-song-progress" style={{ marginTop: '0.5rem' }}>
+                      <div className="dashboard-song-progress cgj-progress">
                         <div className="progress-track"><span style={{ width: `${job.progress || 0}%` }} /></div>
                         <small>{job.progress || 0}%</small>
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="creator-song-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="creator-song-actions cgj-job-actions">
                   <button
                     aria-label="Delete job"
                     className="creator-song-icon-button is-danger"
@@ -415,29 +416,35 @@ export default function CreatorGenerationJobs() {
       {/* --- DELETE CONFIRMATION DIALOG --- */}
       {deleteConfirmJob && (
         <div className="rw-modal-backdrop" onClick={() => { if (!isDeleting) setDeleteConfirmJob(null) }}>
-          <div className="rw-modal bg-neutral-900" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center', backgroundColor: '#171717' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.25rem' }}>🗑️</div>
-            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.4rem', color: '#f3f4f6' }}>Delete this job?</h2>
-            <p style={{ color: '#d1d5db', lineHeight: 1.6, margin: '0 0 1.5rem' }}>
+          <div
+            aria-labelledby="cgj-delete-title"
+            aria-modal="true"
+            className="rw-modal cgj-delete-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+          >
+            <div aria-hidden="true" className="cgj-delete-icon">
+              <Trash2 size={28} />
+            </div>
+            <h2 className="cgj-delete-title" id="cgj-delete-title">Delete this job?</h2>
+            <p className="cgj-delete-copy">
               Are you sure you want to permanently delete the generation job for{' '}
-              <strong className="text-gray-100">{deleteConfirmJob.song?.title || deleteConfirmJob.Song?.title || 'this song'}</strong>?
+              <strong>{deleteConfirmJob.song?.title || deleteConfirmJob.Song?.title || 'this song'}</strong>?
               This will remove all generated scenes and frames. This action cannot be undone.
             </p>
             <div className="rw-modal-actions">
               <button
-                className="rw-modal-cancel text-gray-300 hover:text-white"
+                className="rw-modal-cancel"
                 disabled={isDeleting}
                 onClick={() => setDeleteConfirmJob(null)}
                 type="button"
-                style={{ color: '#d1d5db' }}
               >
                 Cancel
               </button>
               <button
-                className="studio-button studio-button--primary text-white bg-red-600 hover:bg-red-700"
+                className="studio-button cgj-delete-confirm"
                 disabled={isDeleting}
                 onClick={handleDeleteJob}
-                style={{ background: '#dc2626', borderColor: '#dc2626', minWidth: '140px', color: '#ffffff' }}
                 type="button"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Job'}

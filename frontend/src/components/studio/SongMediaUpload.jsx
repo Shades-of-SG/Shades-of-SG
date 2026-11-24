@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { Music2 } from 'lucide-react'
 
 export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAudioFileClear, savedAudioFileName, savedAudioUrl, youtubeLink, onYoutubeLinkChange }) {
   const audioInputRef = useRef(null)
@@ -22,7 +23,7 @@ export default function SongMediaUpload({ audioFileName, onAudioFileChange, onAu
       <div className="studio-media-upload__panel">
         <div className="studio-media-upload__file-block">
           <div className="studio-media-upload__icon" aria-hidden="true">
-            ♫
+            <Music2 size={18} />
           </div>
           <div>
             <strong>Upload Media</strong>
